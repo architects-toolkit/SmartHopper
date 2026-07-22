@@ -113,19 +113,19 @@ namespace SmartHopper.Components.Output
             try
             {
                 var sizeTree = new GH_Structure<IGH_Goo>();
-                if (DA.GetDataTree(2, out sizeTree) && sizeTree != null && sizeTree.DataCount > 0)
+                if (DA.GetDataTree(1, out sizeTree) && sizeTree != null && sizeTree.DataCount > 0)
                 {
                     additionalInputs["Size"] = sizeTree;
                 }
 
                 var qualityTree = new GH_Structure<IGH_Goo>();
-                if (DA.GetDataTree(3, out qualityTree) && qualityTree != null && qualityTree.DataCount > 0)
+                if (DA.GetDataTree(2, out qualityTree) && qualityTree != null && qualityTree.DataCount > 0)
                 {
                     additionalInputs["Quality"] = qualityTree;
                 }
 
                 var styleTree = new GH_Structure<IGH_Goo>();
-                if (DA.GetDataTree(4, out styleTree) && styleTree != null && styleTree.DataCount > 0)
+                if (DA.GetDataTree(3, out styleTree) && styleTree != null && styleTree.DataCount > 0)
                 {
                     additionalInputs["Style"] = styleTree;
                 }

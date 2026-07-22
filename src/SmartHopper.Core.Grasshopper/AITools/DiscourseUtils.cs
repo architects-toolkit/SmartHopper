@@ -30,15 +30,41 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public static class DiscourseUtils
     {
         /// <summary>
-        /// Filters a post JSON to include only essential fields.
+        /// Filters a post JSON to include only essential fields, and enriches it with a
+        /// human-readable topic title and post URL when the base URL is provided.
         /// </summary>
         /// <param name="postJson">The raw post JSON string.</param>
+        /// <param name="baseUrl">Optional base URL of the Discourse forum, used to build the post URL.</param>
         /// <returns>A filtered JSON string with essential fields only.</returns>
-        public static string FilterPostJson(string postJson)
+        public static string FilterPostJson(string postJson, string? baseUrl = null)
         {
             try
             {
                 var post = JObject.Parse(postJson);
+
+                int topicId = post["topic_id"]?.Value<int?>() ?? 0;
+                int postNumber = post["post_number"]?.Value<int?>() ?? 0;
+                string topicSlug = post["topic_slug"]?.Value<string>() ?? string.Empty;
+                string topicTitle = post["topic_title"]?.Value<string>() ?? post["title"]?.Value<string>() ?? string.Empty;
+
+                string url = string.Empty;
+                if (!string.IsNullOrWhiteSpace(baseUrl) && topicId > 0)
+                {
+                    var normalizedBaseUrl = baseUrl.TrimEnd('/');
+                    if (postNumber > 0)
+                    {
+                        url = string.IsNullOrWhiteSpace(topicSlug)
+                            ? $"{normalizedBaseUrl}/t/{topicId}/{postNumber}"
+                            : $"{normalizedBaseUrl}/t/{topicSlug}/{topicId}/{postNumber}";
+                    }
+                    else
+                    {
+                        url = string.IsNullOrWhiteSpace(topicSlug)
+                            ? $"{normalizedBaseUrl}/t/{topicId}"
+                            : $"{normalizedBaseUrl}/t/{topicSlug}/{topicId}";
+                    }
+                }
+
                 var filtered = new JObject
                 {
                     ["id"] = post["id"],
@@ -52,6 +78,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["title"] = post["title"],
                     ["topic_id"] = post["topic_id"],
                     ["post_number"] = post["post_number"],
+                    ["topic_title"] = topicTitle,
+                    ["url"] = url,
                 };
                 return filtered.ToString(Newtonsoft.Json.Formatting.None);
             }

@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Grasshopper.Kernel;
 using SmartHopper.Core.Grasshopper.Contracts;
+using SmartHopper.Infrastructure.Mcp;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
@@ -51,6 +52,10 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 .Where(c => c.IsProtected)
                 .Cast<IGH_DocumentObject>()
                 .ToList();
+
+            // Add any components the user explicitly locked from the canvas context menu.
+            var userLockedGuids = McpCanvasLockState.GetLockedGuids();
+            protectedComponents.AddRange(objects.Where(o => userLockedGuids.Contains(o.InstanceGuid)));
 
             var protectedGuids = new HashSet<Guid>(protectedComponents.Select(o => o.InstanceGuid));
 

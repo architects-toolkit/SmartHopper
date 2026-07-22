@@ -152,6 +152,9 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <inheritdoc/>
         public abstract bool IsEnabled { get; }
 
+        /// <inheritdoc/>
+        public abstract bool IsConfigured { get; }
+
         /// <summary>
         /// Gets the default server URL for the provider.
         /// </summary>
@@ -371,6 +374,23 @@ namespace SmartHopper.Infrastructure.AIProviders
 
             // Execute PreCall
             request = this.PreCall(request);
+
+            // Ensure the provider is configured before attempting any API call.
+            // This is computed from the persisted settings, so it stays in sync with the current environment.
+            if (!this.IsConfigured)
+            {
+                stopwatch.Stop();
+                var configurationError = new AIReturn();
+                var configurationMetrics = new AIMetrics
+                {
+                    FinishReason = "error",
+                    CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                };
+
+                configurationError.CreateError($"{this.Name} provider is not configured. Please set the required provider settings in SmartHopper settings.", request, configurationMetrics);
+
+                return configurationError;
+            }
 
             // Validate request before calling the API (structured messages)
             (bool isValid, List<SHRuntimeMessage> messages) = request.IsValid();
@@ -614,6 +634,43 @@ namespace SmartHopper.Infrastructure.AIProviders
             {
                 Debug.WriteLine($"Error setting '{key}' for provider {this.Name}: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Checks whether the specified provider setting is present and non-empty in the persisted settings.
+        /// This reads directly from storage, not the in-memory cache, so it reflects the current configuration.
+        /// </summary>
+        /// <param name="settingName">The setting key to check.</param>
+        /// <returns>True if the setting has a non-empty value; otherwise, false.</returns>
+        protected bool IsSettingConfigured(string settingName)
+        {
+            var settings = SmartHopperSettings.Instance?.GetProviderSettings(this.Name);
+            if (settings == null || !settings.TryGetValue(settingName, out var value) || value == null)
+            {
+                return false;
+            }
+
+            return !string.IsNullOrWhiteSpace(value.ToString());
+        }
+
+        /// <summary>
+        /// Checks whether the specified provider setting is a valid absolute HTTP(S) URL in the persisted settings.
+        /// This reads directly from storage, not the in-memory cache, so it reflects the current configuration.
+        /// </summary>
+        /// <param name="settingName">The setting key to check.</param>
+        /// <returns>True if the setting is a valid HTTP(S) URL; otherwise, false.</returns>
+        protected bool IsUrlSettingConfigured(string settingName)
+        {
+            var settings = SmartHopperSettings.Instance?.GetProviderSettings(this.Name);
+            if (settings == null || !settings.TryGetValue(settingName, out var value) || value == null)
+            {
+                return false;
+            }
+
+            var url = value.ToString();
+            return !string.IsNullOrWhiteSpace(url)
+                && Uri.TryCreate(url, UriKind.Absolute, out var uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
         }
 
         /// <summary>

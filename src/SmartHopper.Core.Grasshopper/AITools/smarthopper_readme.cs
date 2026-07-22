@@ -38,7 +38,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: ToolName,
-                description: "Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, research, web. Use this to retrieve guidance instead of relying on a long system prompt.",
+                description: "Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, providers, mcneel-forum, research, web. Use this to retrieve guidance instead of relying on a long system prompt.",
                 category: "Instructions",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -46,11 +46,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""topic"": {
                             ""type"": ""string"",
                             ""description"": ""Which instruction bundle to return."",
-                            ""enum"": [""canvas"", ""discovery"", ""scripting"", ""knowledge"", ""ghjson"", ""selected"", ""errors"", ""locks"", ""visibility"", ""mcneel-forum"", ""ladybug-forum"", ""discourse-forum"", ""research"", ""web"", ""python"", ""csharp"", ""vb""]
+                            ""enum"": [""canvas"", ""discovery"", ""scripting"", ""knowledge"", ""ghjson"", ""selected"", ""errors"", ""locks"", ""visibility"", ""providers"", ""mcneel-forum"", ""ladybug-forum"", ""discourse-forum"", ""research"", ""web"", ""python"", ""csharp"", ""vb""]
                         }
                     },
                     ""required"": [""topic""]
                 }",
+
                 execute: this.ExecuteAsync,
                 mutatesCanvas: false,
                 tags: new[] { "instructions", "readme", "read-only" },
@@ -110,6 +111,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 case "visibility":
                     return """
 Canvas state reading:
+- gh_report: generate a comprehensive markdown status report of the canvas (object counts, topology, groups, scribbles, viewport, errors/warnings, metadata). Optionally include an AI summary. Read-only.
 - Use gh_get_selected when the user refers to "this/these/selected".
 - Use gh_get_errors to locate broken definitions.
 - Use gh_get_locked / gh_get_preview_off / gh_get_preview_on for quick attribute-based filters.
@@ -134,6 +136,9 @@ Quick actions on selected components (no GUIDs needed):
 Modifying canvas:
 - gh_group, gh_move, gh_tidy_up, gh_component_toggle_lock, gh_component_toggle_preview
 - gh_put: place components from GhJSON; when instanceGuid matches existing, it replaces it (prefer user confirmation).
+- gh_connect / gh_disconnect: wire or unwire existing components by GUID and parameter name.
+- gh_smart_connect: AI-suggested wiring — provide component GUIDs and a purpose description; the AI proposes and executes connections.
+- gh_clear: clear the canvas (optionally keep locked components); protected components are always preserved. Destructive — prefer user confirmation.
 """;
 
                 case "ghjson":
@@ -164,6 +169,20 @@ Discovering available components:
    - Always pass includeDetails=['name','description','inputs','outputs'] unless you truly need more.
    - Always pass maxResults to prevent token overload.
    - Use categoryFilter with +/- tokens to narrow scope.
+""";
+
+                case "providers":
+                    return """
+Provider and model configuration in SmartHopper:
+- SmartHopper reads the default provider and model from the environment settings (SmartHopper settings in Rhino/Grasshopper).
+- By default, all AI calls use the provider and model set in the environment. You do not need to set them on every component unless you want a per-component override.
+- To discover the available providers and whether they are properly configured in this environment, call `get_available_providers`.
+  The response includes a `configured` flag for each provider. Only those whose `configured` flag is `true` can be used to run AI calls.
+- To list the models available for a specific provider, call `get_available_models` with the provider name.
+- To override the provider and model on a component that supports provider selection (any `IProviderComponent`), use the `set_ai_provider_and_model` tool.
+- To configure a provider, open the SmartHopper settings from the Rhino/Grasshopper menu and set the required fields:
+  - Most providers require an API key.
+  - Some local or custom providers may also require a base endpoint URL (e.g., `http://localhost:11434`).
 """;
 
                 case "knowledge":
