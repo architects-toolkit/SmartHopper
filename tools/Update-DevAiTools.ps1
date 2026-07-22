@@ -556,8 +556,8 @@ try {
     $newSection.Add('')
     if ($after.Count -gt 0) { $newSection.AddRange([string[]]$after) }
 
-    $newContent = ($newSection -join "`n") + "`n"
-    $oldContent = [System.IO.File]::ReadAllText($DevFile, [System.Text.Encoding]::UTF8)
+    $newContent = ($newSection -join "`n").TrimEnd() + "`n"
+    $oldContent = ([System.IO.File]::ReadAllText($DevFile, [System.Text.Encoding]::UTF8)).TrimEnd() + "`n"
 
     if ($newContent -eq $oldContent) {
         Write-Host "No content changes."
