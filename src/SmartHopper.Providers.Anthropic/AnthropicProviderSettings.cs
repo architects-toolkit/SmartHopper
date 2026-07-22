@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Settings;
@@ -89,6 +90,24 @@ namespace SmartHopper.Providers.Anthropic
                     DefaultValue = "0.5",
                     DisplayName = "Temperature",
                     Description = "Controls randomness (0.0–2.0). Higher values make the output more random; lower values make it more deterministic.",
+                },
+                new SettingDescriptor
+                {
+                    Name = "ServiceTier",
+                    Type = typeof(string),
+                    DefaultValue = "standard_only",
+                    DisplayName = "Service Tier",
+                    Description = "Service tier for request processing. 'auto' uses Priority Tier when available, 'standard_only' uses only standard tier. Value can be overridden per-request via Extra Settings.",
+                    AllowedValues = new[] { "auto", "standard_only" },
+                },
+                new SettingDescriptor
+                {
+                    Name = "ReasoningEffort",
+                    Type = typeof(string),
+                    DefaultValue = "medium",
+                    DisplayName = "Reasoning Effort",
+                    Description = "The amount of effort to use in the output. 'low' is fastest, 'high' is most thorough. Value can be overridden per-request via Extra Settings.",
+                    AllowedValues = new[] { "low", "medium", "high", "xhigh", "max" },
                 },
             };
         }

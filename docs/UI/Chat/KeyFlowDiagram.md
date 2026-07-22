@@ -4,9 +4,60 @@ Visual representation of how keys are generated, transformed, and used throughou
 
 ---
 
-## Interaction Type → Key Generation
+## Metadata
+
+| Property | Value |
+| --- | --- |
+| **Source Code** | `src/SmartHopper.Core.Grasshopper/UI/Chat/KeyFlowDiagram.cs` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-06-14 |
+| **Documentation Maintainer** | Devin AI |
+
+_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
+
+---
+
+## Why Read This?
+
+Understanding how WebChat manages message identity is essential for debugging streaming UI issues, duplicated bubbles, or missing tool results. This document traces every key transformation from provider emission through to the final DOM element.
+
+**You should read this if you:**
+
+- Want to understand WebChat streaming and deduplication mechanics
+- Are debugging duplicated or missing message bubbles
+- Are modifying `WebChatObserver`, `WebChatDialog`, or interaction rendering
+
+---
+
+## End-User Guide
+
+WebChat uses two primary key concepts to manage messages:
+
+- **`GetStreamKey()`** — A stable key used to group streaming deltas into a single message bubble. It does not include a content hash.
+- **`GetDedupKey()`** — A unique key that includes a content hash, used for de-duplication and history replay.
+
+When viewing or replaying chat history, **dedup keys** are used rather than segmented keys. This is because segments are a runtime UI rendering concept and are not persisted in history. Multiple assistant texts in the same turn will have different dedup keys because their content hashes differ.
+
+### Which key should I use?
+
+Use this quick guide to choose the right key for your scenario:
+
+- **Streaming aggregation (`OnDelta`)** → Use `GetCurrentSegmentedKey(GetStreamKey())`
+- **Persisted text interaction (`OnInteractionCompleted`)** → Use `GetCurrentSegmentedKey(GetStreamKey())`
+- **Persisted non-text interaction (`OnInteractionCompleted`)** → Use `GetStreamKey()` directly
+- **Final rendering (`OnFinal`)** with a streaming aggregate → Use the segmented key from `_streams`
+- **Final rendering (`OnFinal`)** without a streaming aggregate → Use `GetDedupKey()` as a fallback
+- **History replay** → Use `GetDedupKey()`
+- **De-duplication check** → Use `GetDedupKey()`
+
+---
+
+## Developer Reference
+
+### Interaction Type → Key Generation
 
 ```
+
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                        IAIKeyedInteraction                               │
 │                                                                          │
@@ -60,13 +111,13 @@ Visual representation of how keys are generated, transformed, and used throughou
        │
        └─→ GetFollowKey()    → "turn:abc123:tool.call:call_xyz"
                                 (for insertion positioning)
-```
-
----
-
-## Segmentation System
 
 ```
+
+### Segmentation System
+
+```
+
 ┌────────────────────────────────────────────────────────────────────┐
 │                    WebChatObserver Segmentation                     │
 └────────────────────────────────────────────────────────────────────┘
@@ -78,10 +129,7 @@ Stream Key (base):  "turn:abc123:assistant"
          [Segment 1]              [Segment 2]
               │                         │
               ↓                         ↓
-"turn:abc123:assistant:seg1"  "turn:abc123:assistant:seg2"
-
-
-Segment Increment Triggers:
+"turn:abc123:assistant:seg1"  "turn:abc123:assistant:seg2"Segment Increment Triggers:
 ┌─────────────────────────────────────────────────────────────────┐
 │ 1. Agent Change                                                  │
 │    - Last text was "user" → new text is "assistant" → NEW SEG  │
@@ -94,10 +142,7 @@ Segment Increment Triggers:
 │ 3. Explicit Boundary Flag                                        │
 │    - OnInteractionCompleted sets _pendingNewTextSegmentTurns    │
 │    - Next text OnDelta/OnInteractionCompleted consumes flag     │
-└─────────────────────────────────────────────────────────────────┘
-
-
-State Tracking (per turn):
+└─────────────────────────────────────────────────────────────────┘State Tracking (per turn):
 ┌──────────────────────────────────────────────────────────────────┐
 │ Turn: "abc123"                                                    │
 ├──────────────────────────────────────────────────────────────────┤
@@ -106,13 +151,13 @@ State Tracking (per turn):
 │ _pendingNewTextSegmentTurns.Contains("turn:abc123") = true      │
 │ _textInteractionSegments["turn:abc123:assistant"] = 2           │
 └──────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Complete Streaming Flow
 
 ```
+
+### Complete Streaming Flow
+
+```
+
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                         STREAMING PATH                                   │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -241,13 +286,13 @@ Provider
          ├─→ Remove thinking bubble
          │
          └─→ Clear state: _streams, _textInteractionSegments, etc.
-```
-
----
-
-## Non-Streaming Flow
 
 ```
+
+### Non-Streaming Flow
+
+```
+
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                       NON-STREAMING PATH                                 │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -315,13 +360,13 @@ Provider
 └────────┬─────────────────────────┘
          │
          └─→ (same as streaming)
-```
-
----
-
-## History Replay Flow
 
 ```
+
+### History Replay Flow
+
+```
+
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                         HISTORY REPLAY                                   │
 │                    (WebView initialization)                              │
@@ -378,18 +423,19 @@ WebView Document Loaded
             │
             └─→ GetDedupKey() → "turn:abc123:assistant:m3n4o5p6"
                 (Different hash from interaction 2 due to different content)
+
 ```
 
 **Key Observation:** History replay uses **dedup keys**, not segmented keys. This is because:
+
 1. Segments are UI rendering state, not persisted in history
 2. Multiple assistant texts in the same turn will have different dedup keys (different content hashes)
 3. DOM idempotency still works via the `_lastDomHtmlByKey` cache
 
----
-
-## Key Transformation Pipeline
+### Key Transformation Pipeline
 
 ```
+
 ┌────────────────────────────────────────────────────────────────────┐
 │                     From Interaction to DOM                         │
 └────────────────────────────────────────────────────────────────────┘
@@ -444,13 +490,13 @@ WebView Document Loaded
     │   data-key="turn:..."       │
     │   <div class="message">     │
     └─────────────────────────────┘
-```
-
----
-
-## State Cleanup Timeline
 
 ```
+
+### State Cleanup Timeline
+
+```
+
 ┌────────────────────────────────────────────────────────────────────┐
 │                       State Lifecycle                               │
 └────────────────────────────────────────────────────────────────────┘
@@ -477,53 +523,78 @@ WebView Document Loaded
    ├─→ Clear _textInteractionSegments
    ├─→ Clear _lastInteractionTypeByTurn
    ├─→ Clear _lastTextAgentByTurn
-   └─→ (Keep _finalizedTextTurns until next OnStart)
-
-
-[WebView DocumentLoaded]
+   └─→ (Keep _finalizedTextTurns until next OnStart)[WebView DocumentLoaded]
    │
-   └─→ Clear _lastDomHtmlByKey (idempotency cache reset)
-
-
-[ClearChat]
+   └─→ Clear _lastDomHtmlByKey (idempotency cache reset)[ClearChat]
    │
    ├─→ Clear _lastDomHtmlByKey
    └─→ (Observer state cleared on next OnStart)
+
+```
+
+### Example: Key generation on IAIKeyedInteraction
+
+```csharp
+// Typical implementation of IAIKeyedInteraction for a text turn
+public interface IAIKeyedInteraction
+{
+    string GetStreamKey();
+    string GetDedupKey();
+}
+
+public class AIInteractionText : IAIKeyedInteraction
+{
+    public string TurnId { get; set; }
+    public AIAgent Agent { get; set; }
+    public string Content { get; set; }
+
+    // Stable key for streaming aggregation (no content hash)
+    public string GetStreamKey() => $"turn:{TurnId}:{Agent}";
+
+    // Unique key for deduplication and history replay (includes content hash)
+    public string GetDedupKey() => $"turn:{TurnId}:{Agent}:{Hash(Content)}";
+}
+
+```
+
+### Example: Resolving a segmented key in WebChatObserver
+
+```csharp
+public class WebChatObserver
+{
+    private readonly Dictionary<string, int> _textInteractionSegments = new();
+    private readonly HashSet<string> _pendingNewTextSegmentTurns = new();
+
+    public string GetCurrentSegmentedKey(IAIKeyedInteraction interaction)
+    {
+        var streamKey = interaction.GetStreamKey();
+        var turnId = interaction.TurnId;
+
+        // Check if a boundary flag is pending for this turn
+        if (_pendingNewTextSegmentTurns.Contains(turnId))
+        {
+            _pendingNewTextSegmentTurns.Remove(turnId);
+            _textInteractionSegments[streamKey] =
+                _textInteractionSegments.GetValueOrDefault(streamKey, 0) + 1;
+        }
+
+        var segment = _textInteractionSegments.GetValueOrDefault(streamKey, 1);
+        return $"{streamKey}:seg{segment}";
+    }
+}
+
 ```
 
 ---
 
-## Key Decision Tree
+## Architecture & Design
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│              Which key should I use?                              │
-└──────────────────────────────────────────────────────────────────┘
+The key flow system is designed to solve three distinct problems simultaneously:
 
-START: I need to identify an interaction for DOM rendering
-   │
-   ├─→ Is this for streaming aggregation (OnDelta)?
-   │   └─→ YES: Use GetCurrentSegmentedKey(GetStreamKey())
-   │
-   ├─→ Is this for persisted interaction (OnInteractionCompleted)?
-   │   ├─→ Is it text?
-   │   │   └─→ YES: Use GetCurrentSegmentedKey(GetStreamKey())
-   │   └─→ Is it non-text?
-   │       └─→ YES: Use GetStreamKey() directly
-   │
-   ├─→ Is this for final rendering (OnFinal)?
-   │   ├─→ Does a streaming aggregate exist?
-   │   │   └─→ YES: Use the segmented key from _streams
-   │   └─→ No aggregate?
-   │       └─→ Use GetDedupKey() (fallback for non-streamed)
-   │
-   ├─→ Is this for history replay (ReplayFullHistoryToWebView)?
-   │   └─→ YES: Use GetDedupKey()
-   │
-   └─→ Is this for de-duplication check?
-       └─→ YES: Use GetDedupKey()
-```
+1. **Streaming Aggregation**: Deltas arriving from the AI provider must be coalesced into a single DOM bubble. `GetStreamKey()` provides a stable identity that survives across multiple `OnDelta` callbacks.
 
----
+2. **De-duplication & Idempotency**: When the same interaction is emitted multiple times (e.g., replay, re-render), `GetDedupKey()` ensures the DOM is updated only if the content actually changed. The host and WebView both maintain caches keyed by these dedup keys.
 
-**End of Diagram**
+3. **Segmentation for Mixed Content**: A single turn may contain assistant text, tool calls, tool results, and more assistant text. Segments (`seg1`, `seg2`, etc.) guarantee that each logical block receives its own bubble, even when the base `GetStreamKey()` would otherwise map them to the same DOM element.
+
+State is intentionally ephemeral. Segments and streaming aggregates live only in the observer's memory and are discarded at `OnStart` and `OnFinal`. History replay reconstructs the transcript from dedup keys, which are deterministic and content-bound, ensuring that reloaded conversations match what was originally persisted.

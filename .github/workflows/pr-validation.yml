@@ -1,5 +1,14 @@
 name: 📦 Pull Request Validation
 
+# Related workflows (PR validation suite):
+#   - pr-validation.yml (version, code style, changelog, title checks)
+#   - pr-license-headers.yml (license header compliance)
+#   - pr-build-hash-validation.yml (build hash integrity)
+#   - pr-version-validation.yml (version consistency)
+#   - pr-documentation-validation.yml (documentation structure validation)
+#   (pr-manifest-validation.yml was removed — manifest text uses {{NOTE_TEXT}} placeholder resolved at build time)
+#   - ci-dotnet-tests.yml (.NET build and test)
+
 # Description: This workflow validates pull requests to ensure they meet project standards.
 # It checks for version conflicts, validates formatting, and performs other quality checks
 # to maintain code integrity before merging.
@@ -20,6 +29,22 @@ on:
       - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to validate.
+        required: false
+        type: string
+      base_ref:
+        description: Pull request base branch.
+        required: false
+        type: string
+      pr_title:
+        description: Pull request title.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -33,9 +58,10 @@ jobs:
   version-check:
     name: 📦 Version Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -61,6 +87,7 @@ jobs:
   code-style-check:
     name: 🖌️ Code Style Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -79,43 +106,82 @@ jobs:
   changelog-check:
     name: 📝 Changelog Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: read
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Check PR type
+        id: pr-type
+        run: |
+          PR_TITLE="${{ github.event.inputs.pr_title || github.event.pull_request.title || '' }}"
+          # Skip changelog check for non-user-facing PR types
+          if [[ "$PR_TITLE" =~ ^(chore|ci|style|build|revert|docs)(\(.*\))?:\ .+ ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::notice::Skipping changelog check for non-user-facing PR: $PR_TITLE"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.pr-type.outputs.skip != 'true'
+
+      - name: Determine base ref
+        id: base
+        if: steps.pr-type.outputs.skip != 'true'
+        shell: bash
+        env:
+          INPUT_BASE_REF: ${{ github.event.inputs.base_ref }}
+        run: |
+          # Determine the short base branch name. For merge_group, GITHUB_REF_NAME is
+          # gh-readonly-queue/{base}/{head}, so derive the base branch from it.
+          if [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+            base_ref_name="${GITHUB_REF_NAME#gh-readonly-queue/}"
+            base_ref_name="${base_ref_name%/*}"
+          elif [ -n "${INPUT_BASE_REF:-}" ]; then
+            base_ref_name="$INPUT_BASE_REF"
+          elif [ -n "${GITHUB_BASE_REF:-}" ]; then
+            base_ref_name="$GITHUB_BASE_REF"
+          else
+            base_ref_name="main"
+          fi
+          base_ref_name="${base_ref_name#refs/heads/}"
+          echo "base_ref=$base_ref_name" >> "$GITHUB_OUTPUT"
 
       - uses: dorny/paths-filter@v3
+        if: steps.pr-type.outputs.skip != 'true'
         id: filter
         with:
+          base: ${{ steps.base.outputs.base_ref }}
+          ref: ${{ github.ref }}
           filters: |
             src:
-              - 'src/**'
-
-      - name: Check CHANGELOG.md is Updated
-        if: steps.filter.outputs.src == 'true'
-        uses: tj-actions/changed-files@2f7c5bfce28377bc069a65ba478de0a74aa0ca32 # v46.0.1
-        id: changelog-check
-        with:
-          files: CHANGELOG.md
+              - 'src/SmartHopper.Components/**'
+              - 'src/SmartHopper.Core/**'
+              - 'src/SmartHopper.Core.Grasshopper/**'
+              - 'src/SmartHopper.Infrastructure/**'
+              - 'src/SmartHopper.Menu/**'
+              - 'src/SmartHopper.Providers.*/**'
+            changelog:
+              - 'CHANGELOG.md'
 
       - name: Validate Changelog Update
-        if: steps.filter.outputs.src == 'true' && steps.changelog-check.outputs.any_changed != 'true'
-        env:
-          CHANGED_FILES: ${{ steps.changelog-check.outputs.all_changed_files }}
+        if: steps.pr-type.outputs.skip != 'true' && steps.filter.outputs.src == 'true' && steps.filter.outputs.changelog != 'true'
         run: |
-          echo "::error file=CHANGELOG.md::CHANGELOG.md must be updated with pull request changes"
-          exit 1
+          echo "::warning file=CHANGELOG.md::CHANGELOG.md should be updated when user-facing source files change"
 
   title-check:
     name: 🏷️ PR Title Style Check
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       pull-requests: read
     steps:
       - name: Validate PR Title Style
+        env:
+          PR_TITLE: ${{ github.event.inputs.pr_title || github.event.pull_request.title }}
         run: |
-          PR_TITLE="${{ github.event.pull_request.title }}"
           echo "Checking PR title: $PR_TITLE"
           
           # Valid types based on conventional commits
@@ -155,3 +221,31 @@ jobs:
           else
             echo "PR title format is valid! ✅"
           fi
+
+  required-check:
+    name: 📦 Pull Request Validation
+    needs: [version-check, code-style-check, changelog-check, title-check]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify required workflow jobs
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" != "merge_group" ]]; then
+            if [[ "${{ needs.title-check.result }}" != "success" ]]; then
+              echo "::error::PR title check finished with ${{ needs.title-check.result }}"
+              exit 1
+            fi
+          fi
+
+          for result in \
+            "${{ needs.version-check.result }}" \
+            "${{ needs.code-style-check.result }}" \
+            "${{ needs.changelog-check.result }}"
+          do
+            if [[ "$result" != "success" ]]; then
+              echo "::error::A required PR validation job finished with $result"
+              exit 1
+            fi
+          done

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -884,6 +884,8 @@ namespace SmartHopper.Core.ComponentBase
                 {
                     this.UpdateProgress(current);
                 },
+                onUnitStart: (path, itemIndex) => this.OnProcessingUnitStart(path, itemIndex),
+                onUnitComplete: (path, targets) => this.OnProcessingUnitComplete(path, targets),
                 token).ConfigureAwait(false);
 
             // Surface any tree matching messages as persistent runtime messages
@@ -930,6 +932,8 @@ namespace SmartHopper.Core.ComponentBase
                 {
                     this.UpdateProgress(current);
                 },
+                onUnitStart: (path, itemIndex) => this.OnProcessingUnitStart(path, itemIndex),
+                onUnitComplete: (path, targets) => this.OnProcessingUnitComplete(path, targets),
                 token).ConfigureAwait(false);
 
             // Surface any tree matching messages as persistent runtime messages
@@ -991,6 +995,28 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Called at the start of each processing unit (item or branch) during
+        /// <see cref="RunProcessingAsync"/>. Override to track per-unit context
+        /// such as the current branch path.
+        /// </summary>
+        /// <param name="path">The input path of the current processing unit. Null for BranchFlatten.</param>
+        /// <param name="itemIndex">The item index within the current branch for item-level topologies; null otherwise.</param>
+        protected virtual void OnProcessingUnitStart(GH_Path path, int? itemIndex = null)
+        {
+        }
+
+        /// <summary>
+        /// Called after each processing unit (item or branch) finishes during
+        /// <see cref="RunProcessingAsync"/>. Override to perform per-unit cleanup
+        /// or to replicate results to grouped target paths.
+        /// </summary>
+        /// <param name="inputPath">The input path of the unit that was processed. Null for BranchFlatten.</param>
+        /// <param name="targetPaths">All paths that received the unit's output.</param>
+        protected virtual void OnProcessingUnitComplete(GH_Path inputPath, List<GH_Path> targetPaths)
+        {
         }
 
         #endregion

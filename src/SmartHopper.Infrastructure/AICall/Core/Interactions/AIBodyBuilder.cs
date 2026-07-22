@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -365,11 +365,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <param name="size">Optional size (provider-specific).</param>
         /// <param name="quality">Optional quality (provider-specific).</param>
         /// <param name="style">Optional style (provider-specific).</param>
+        /// <param name="aspectRatio">Optional aspect ratio (provider-specific, e.g., "1:1", "16:9").</param>
         /// <returns>The same builder instance.</returns>
-        public AIBodyBuilder AddImageRequest(string prompt, string size = null, string quality = null, string style = null)
+        public AIBodyBuilder AddImageRequest(string prompt, string size = null, string quality = null, string style = null, string aspectRatio = null)
         {
             var img = new AIInteractionImage { Agent = AIAgent.User };
-            img.CreateRequest(prompt, size, quality, style);
+            img.CreateRequest(prompt, size, quality, style, aspectRatio);
             return this.Add(img, this.defaultMarkAsNew);
         }
 
@@ -381,11 +382,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <param name="size">Optional size (provider-specific).</param>
         /// <param name="quality">Optional quality (provider-specific).</param>
         /// <param name="style">Optional style (provider-specific).</param>
+        /// <param name="aspectRatio">Optional aspect ratio (provider-specific, e.g., "1:1", "16:9").</param>
         /// <returns>The same builder instance for fluent chaining.</returns>
-        public AIBodyBuilder AddImageRequest(string prompt, bool markAsNew, string size = null, string quality = null, string style = null)
+        public AIBodyBuilder AddImageRequest(string prompt, bool markAsNew, string size = null, string quality = null, string style = null, string aspectRatio = null)
         {
             var img = new AIInteractionImage { Agent = AIAgent.User };
-            img.CreateRequest(prompt, size, quality, style);
+            img.CreateRequest(prompt, size, quality, style, aspectRatio);
             return this.Add(img, markAsNew);
         }
 

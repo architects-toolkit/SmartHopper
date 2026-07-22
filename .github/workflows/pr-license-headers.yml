@@ -1,5 +1,14 @@
 name: 📜 Update License Headers
 
+# Related workflows (PR validation suite):
+#   - pr-validation.yml (version, code style, changelog, title checks)
+#   - pr-license-headers.yml (license header compliance)
+#   - pr-build-hash-validation.yml (build hash integrity)
+#   - pr-version-validation.yml (version consistency)
+#   - pr-documentation-validation.yml (documentation structure validation)
+#   (pr-manifest-validation.yml was removed — manifest text uses {{NOTE_TEXT}} placeholder resolved at build time)
+#   - ci-dotnet-tests.yml (.NET build and test)
+
 # Description: Automatically applies LGPL license headers via tools/Update-LicenseHeaders.ps1
 # and commits any changes back to the pull request branch.
 #
@@ -19,8 +28,23 @@ on:
   pull_request:
     branches:
       - '**'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to validate.
+        required: false
+        type: string
+      base_ref:
+        description: Pull request base branch.
+        required: false
+        type: string
+      pr_title:
+        description: Pull request title.
+        required: false
+        type: string
 
 permissions:
+  actions: write
   contents: write
 
 concurrency:
@@ -31,20 +55,24 @@ jobs:
   update-license-headers:
     name: 📜 Update License Headers
     runs-on: windows-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          ref: ${{ github.head_ref || github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Check if auto-commit is possible
         id: check-auto-commit
         shell: pwsh
+        env:
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          PR_HEAD_REF: ${{ github.head_ref }}
         run: |
-          $isFork = "${{ github.event.pull_request.head.repo.full_name }}" -ne "${{ github.repository }}"
-          $isProtected = "${{ github.head_ref }}" -match '^(main|dev)(?:$|-)'
+          $isFork = "$env:PR_HEAD_REPO" -ne "${{ github.repository }}"
+          $isProtected = "$env:PR_HEAD_REF" -match '^(main|dev)(?:$|-)'
           $canAutoCommit = (-not $isFork) -and (-not $isProtected)
           "can_auto_commit=$canAutoCommit" >> $env:GITHUB_OUTPUT
           "is_fork=$isFork" >> $env:GITHUB_OUTPUT
@@ -55,12 +83,12 @@ jobs:
       - name: Configure Git
         shell: pwsh
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
 
       - name: Apply LGPL license headers
         shell: pwsh
-        run: pwsh -ExecutionPolicy Bypass -File .\tools\Update-LicenseHeaders.ps1
+        run: '& .\tools\Update-LicenseHeaders.ps1'
 
       - name: Check for changes
         id: check-changes
@@ -82,13 +110,15 @@ jobs:
       - name: Commit and push changes
         if: steps.check-changes.outputs.has_changes == 'true' && steps.check-auto-commit.outputs.can_auto_commit == 'true'
         shell: pwsh
+        env:
+          PR_HEAD_REF: ${{ github.head_ref }}
         run: |
           Write-Host "Committing license header updates..."
           git commit -m "chore(ci): update license headers"
           # Belt-and-braces against concurrent pushes to the PR branch (the
           # contributor may push a new commit between checkout and push).
           # Retry pull --rebase + push up to 3 times before giving up.
-          $ref = "${{ github.head_ref }}"
+          $ref = "$env:PR_HEAD_REF"
           $pushed = $false
           foreach ($attempt in 1..3) {
             git pull --rebase --autostash origin $ref
@@ -103,6 +133,16 @@ jobs:
             Write-Error "::error::Failed to push license header updates after 3 attempts. Please run 'tools/Update-LicenseHeaders.ps1' locally and commit the changes."
             exit 1
           }
+
+      - name: Dispatch required PR checks
+        if: steps.check-changes.outputs.has_changes == 'true' && steps.check-auto-commit.outputs.can_auto_commit == 'true' && github.event_name == 'pull_request'
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref }}
+          pr-number: ${{ github.event.pull_request.number }}
+          base-ref: ${{ github.event.pull_request.base.ref }}
+          pr-title: ${{ github.event.pull_request.title }}
 
       - name: Fail if changes cannot be committed
         if: steps.check-changes.outputs.has_changes == 'true' && steps.check-auto-commit.outputs.can_auto_commit != 'true'

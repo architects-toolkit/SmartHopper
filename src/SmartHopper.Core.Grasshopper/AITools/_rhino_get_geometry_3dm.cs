@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -78,7 +78,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: this.RhinoGetGeometryToolAsync);
+                execute: this.RhinoGetGeometryToolAsync,
+                mutatesCanvas: false,
+                enabled: false,
+                tags: new[] { "not-tested", "rhino", "geometry", "read-only" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""objects"": { ""type"": ""array"", ""description"": ""Extracted geometry objects."" }, ""count"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         /// <summary>
@@ -94,7 +99,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var filter = args["filter"]?.ToString() ?? "selected";
                 var layerName = args["layerName"]?.ToString();
                 var objectTypeStr = args["objectType"]?.ToString();

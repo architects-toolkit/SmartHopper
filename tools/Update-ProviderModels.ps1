@@ -25,7 +25,7 @@
     Provider name matching the folder under src/SmartHopper.Providers.<Provider>,
     e.g. OpenAI, MistralAI, Anthropic, OpenRouter, DeepSeek, Gemini.
 
-.PARAMETER ApiKey
+.PARAMETER OpenRouterApiKey
     OpenRouter API key. The same key is used for every provider because
     OpenRouter is the primary source of truth.
 
@@ -47,6 +47,12 @@
                    separate model entries; no reverse link is exposed).
       OpenAI     - no alias field in the model object.
       DeepSeek   - no alias field in the model object.
+
+.PARAMETER PromptKeys
+    Switch. When present, the script interactively prompts for the
+    OpenRouter API key and (optionally) the provider API key via
+    Read-Host. This is useful when running the script locally and you
+    prefer not to pass keys on the command line.
 
 .PARAMETER TargetFile
     Optional. Absolute or repo-relative path to the *ProviderModels.cs file.
@@ -72,20 +78,171 @@
     }
 
 .EXAMPLE
-    .\tools\Update-ProviderModels.ps1 -Provider OpenAI -ApiKey $env.OPENROUTER_API_KEY
+    .\tools\Update-ProviderModels.ps1 -Provider OpenAI -OpenRouterApiKey $env.OPENROUTER_API_KEY
 
-    .\tools\Update-ProviderModels.ps1 -Provider Anthropic -ApiKey $env.OPENROUTER_API_KEY -UpdateFile
+    .\tools\Update-ProviderModels.ps1 -Provider Anthropic -OpenRouterApiKey $env.OPENROUTER_API_KEY -UpdateFile
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)][string] $Provider,
-    [Parameter(Mandatory = $true)][string] $ApiKey,
+    [Parameter(Mandatory = $false)][string] $Provider,
+    [Parameter(Mandatory = $false)][string] $OpenRouterApiKey = "",
     [Parameter(Mandatory = $false)][string] $ProviderApiKey = "",
     [Parameter(Mandatory = $false)][string] $TargetFile = "",
-    [Parameter(Mandatory = $false)][switch] $UpdateFile
+    [Parameter(Mandatory = $false)][switch] $UpdateFile,
+    [Parameter(Mandatory = $false)][switch] $FailOnValidationErrors,
+    [Parameter(Mandatory = $false)][switch] $ValidateOnly,
+    [Parameter(Mandatory = $false)][switch] $Help,
+    [Parameter(Mandatory = $false)][switch] $PromptKeys
 )
 
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
+# ---------------------------------------------------------------------------
+# Help
+# ---------------------------------------------------------------------------
+if ($Help) {
+    $helpText = @"
+Update-ProviderModels.ps1
+=========================
+Queries OpenRouter (and optionally the provider's own API) for model metadata,
+then updates or validates the corresponding *ProviderModels.cs file.
+
+SYNTAX
+------
+    .\Update-ProviderModels.ps1 -Provider <String> [-OpenRouterApiKey <String>]
+        [-ProviderApiKey <String>] [-TargetFile <String>] [-UpdateFile]
+        [-FailOnValidationErrors] [-ValidateOnly] [-PromptKeys]
+
+    .\Update-ProviderModels.ps1 -Help
+
+PARAMETERS
+----------
+    -Provider <String>
+        Required (unless -Help is used).
+        Provider name matching the folder under src/SmartHopper.Providers.<Provider>.
+        Supported values: OpenAI, MistralAI, Anthropic, OpenRouter, DeepSeek, Gemini.
+
+    -OpenRouterApiKey <String>
+        Optional. OpenRouter API key.
+        OpenRouter is queried as the primary source of truth for all providers.
+        If omitted, the script falls back to checking the environment variable
+        OPENROUTER_API_KEY.
+
+    -ProviderApiKey <String>
+        Optional. The provider's own API key.
+        When supplied, the provider's official /models endpoint is also queried
+        so that models exposed by the provider but not yet listed on OpenRouter
+        are still added (with conservative default capabilities).
+        Alias information is merged when available (MistralAI supports this).
+
+    -TargetFile <String>
+        Optional. Absolute or repo-relative path to the *ProviderModels.cs file.
+        Defaults to:
+          src/SmartHopper.Providers.<Provider>/<Provider>ProviderModels.cs
+
+    -UpdateFile
+        Switch. When present, the source file is rewritten with:
+          - New models inserted
+          - Existing models updated (Capabilities, ContextLimit, Deprecated)
+          - Missing models marked as Deprecated = true
+        Without this switch, the script runs in report-only mode.
+
+    -FailOnValidationErrors
+        Switch. Causes the script to exit with a non-zero code when validation
+        errors are found (e.g. deprecated models still marked Default = true).
+
+    -ValidateOnly
+        Switch. Skips fetching live data and only performs static validation
+        of the existing *ProviderModels.cs file.
+
+    -PromptKeys
+        Switch. Interactively prompts for the OpenRouter API key and
+        (optionally) the provider API key via secure Read-Host input.
+        Useful when running the script locally to avoid exposing keys
+        in shell history.
+
+    -Help
+        Switch. Displays this help message and exits.
+
+BEHAVIOUR
+---------
+  OpenRouter source of truth
+    Every provider except OpenRouter itself is filtered by a provider-specific
+    prefix (e.g. "openai/" for OpenAI). OpenRouter models are kept verbatim.
+
+  Deprecation rules
+    A model is marked Deprecated = true when:
+      - It is absent from OpenRouter (and from the provider API if queried).
+      - Its expiration_date on OpenRouter is closer than one year from now.
+
+  Validation rules
+    - A model that is Deprecated must NOT be marked Default = true.
+    - A Default model must have a Rank value.
+    - Aliases must resolve to a known model entry.
+    - Every model id must be unique.
+    - Only one Default model per provider.
+
+EXAMPLES
+--------
+  # Report-only run for OpenAI (no file changes)
+  .\Update-ProviderModels.ps1 -Provider OpenAI -OpenRouterApiKey `$env:OPENROUTER_API_KEY
+
+  # Update the Anthropic model file
+  .\Update-ProviderModels.ps1 -Provider Anthropic -OpenRouterApiKey `$env:OPENROUTER_API_KEY -UpdateFile
+
+  # Enrich with MistralAI's own API to catch unreleased aliases
+  .\Update-ProviderModels.ps1 -Provider MistralAI -OpenRouterApiKey `$env:OPENROUTER_API_KEY `
+      -ProviderApiKey `$env:MISTRAL_API_KEY -UpdateFile
+
+  # Validate existing file without network calls
+  .\Update-ProviderModels.ps1 -Provider OpenAI -ValidateOnly -FailOnValidationErrors
+
+  # Run interactively (prompts for keys so they don't appear in shell history)
+  .\Update-ProviderModels.ps1 -Provider OpenAI -PromptKeys -UpdateFile
+
+OUTPUT
+------
+    A JSON summary is written to stdout with the following shape:
+    {
+      "provider": "OpenAI",
+      "apiUrl": "https://openrouter.ai/api/v1/models",
+      "apiModels": [ "gpt-4o", "gpt-4o-mini" ],
+      "openrouterModels": [ "gpt-4o", "gpt-4o-mini" ],
+      "providerApiModels": [ "gpt-4o", "gpt-4o-mini" ],
+      "sourceModels": [ "gpt-4", "gpt-4o" ],
+      "newModels": [ "gpt-4o-mini" ],
+      "deprecatedModels": [ "gpt-4" ],
+      "unchangedModels": [ "gpt-4o" ],
+      "fileUpdated": true
+    }
+"@
+    Write-Host $helpText
+    exit 0
+}
+
+if ([string]::IsNullOrWhiteSpace($Provider)) {
+    $Provider = Read-Host -Prompt "Enter provider name (e.g. OpenAI, Anthropic, MistralAI, OpenRouter, DeepSeek, Gemini)"
+    if ([string]::IsNullOrWhiteSpace($Provider)) {
+        Write-Error "Parameter -Provider is required. Run with -Help for usage information."
+        exit 1
+    }
+}
+
 $ErrorActionPreference = 'Stop'
+
+# ---------------------------------------------------------------------------
+# Interactive key prompting
+# ---------------------------------------------------------------------------
+if ($PromptKeys) {
+    $secureOpenRouter = Read-Host -Prompt "Enter OpenRouter API Key" -AsSecureString
+    $OpenRouterApiKey = [System.Net.NetworkCredential]::new('', $secureOpenRouter).Password
+
+    $secureProvider = Read-Host -Prompt "Enter Provider API Key (optional, press Enter to skip)" -AsSecureString
+    $providerPlain = [System.Net.NetworkCredential]::new('', $secureProvider).Password
+    if (-not [string]::IsNullOrWhiteSpace($providerPlain)) {
+        $ProviderApiKey = $providerPlain
+    }
+}
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -118,6 +275,19 @@ $ProviderAliasSuffix = @{
     'DeepSeek'   = $null
     'Gemini'     = $null
     'OpenRouter' = $null
+}
+
+$CompositeDefaultCapabilities = [ordered]@{
+    Text2Text          = @('TextInput', 'TextOutput')
+    ToolChat          = @('TextInput', 'TextOutput', 'FunctionCalling')
+    ReasoningChat     = @('TextInput', 'TextOutput', 'Reasoning')
+    ToolReasoningChat = @('TextInput', 'TextOutput', 'Reasoning', 'FunctionCalling')
+    Text2Json         = @('TextInput', 'JsonOutput')
+    Text2Image        = @('TextInput', 'ImageOutput')
+    Text2Speech       = @('TextInput', 'AudioOutput')
+    Speech2Text       = @('AudioInput', 'TextOutput')
+    Image2Text        = @('ImageInput', 'TextOutput')
+    Image2Image       = @('ImageInput', 'ImageOutput')
 }
 
 # Provider-native /models endpoints. Used only when -ProviderApiKey is supplied.
@@ -362,6 +532,86 @@ function ConvertTo-CapabilityFlags($openRouterModel) {
     return ($caps -join ' | ')
 }
 
+function Test-CapabilityExpressionContains($expression, $capabilityName) {
+    return -not [string]::IsNullOrWhiteSpace($expression) -and $expression -match "(^|[^A-Za-z0-9_])AICapability\.$([regex]::Escape($capabilityName))([^A-Za-z0-9_]|$)"
+}
+
+function Test-CapabilityExpressionHasAll($expression, $capabilityNames) {
+    foreach ($capabilityName in $capabilityNames) {
+        if (-not (Test-CapabilityExpressionContains $expression $capabilityName)) {
+            return $false
+        }
+    }
+    return $true
+}
+
+function Test-RealtimeModelName($modelName) {
+    return -not [string]::IsNullOrWhiteSpace($modelName) -and $modelName -match '(?i)realtime'
+}
+
+function Test-ProviderModelValidation($models) {
+    $validationErrors = [System.Collections.Generic.List[string]]::new()
+    $validationWarnings = [System.Collections.Generic.List[string]]::new()
+    $missingDefaultCapabilities = [System.Collections.Generic.List[string]]::new()
+    $pendingCapabilityModels = [System.Collections.Generic.List[string]]::new()
+    $realtimeModels = [System.Collections.Generic.List[string]]::new()
+
+    $nonDeprecatedModelsForValidation = @($models | Where-Object { $_.Deprecated -ne 'true' })
+
+    # Helper: Check if a model is discouraged for all tools
+    function Test-ModelDiscouragedForAllTools($model) {
+        if ($model.DiscouragedForTools -and $model.DiscouragedForTools.Count -gt 0) {
+            return $model.DiscouragedForTools -contains '*'
+        }
+        return $false
+    }
+
+    foreach ($composite in $CompositeDefaultCapabilities.GetEnumerator()) {
+        $capableModels = @($nonDeprecatedModelsForValidation | Where-Object {
+            Test-CapabilityExpressionHasAll $_.Capabilities $composite.Value -and
+            -not (Test-ModelDiscouragedForAllTools $_)
+        })
+
+        if ($capableModels.Count -eq 0) { continue }
+
+        $defaultModels = @($nonDeprecatedModelsForValidation | Where-Object {
+            Test-CapabilityExpressionContains $_.Default $composite.Key -and
+            -not (Test-ModelDiscouragedForAllTools $_)
+        })
+
+        if ($defaultModels.Count -eq 0) {
+            [void]$missingDefaultCapabilities.Add($composite.Key)
+            # Missing defaults are warnings, not errors. Some providers may only
+            # serve a subset of capability categories (e.g. image-generation only).
+            [void]$validationWarnings.Add("Missing default for AICapability.$($composite.Key) while $($capableModels.Count) non-deprecated model(s) support $($composite.Value -join ', ').")
+        }
+    }
+
+    foreach ($m in $models) {
+        if ($m.Deprecated -ne 'true' -and (
+            [string]::IsNullOrWhiteSpace($m.Capabilities) -or
+            $m.Capabilities -eq 'AICapability.None' -or
+            $m.RawBlock -match '//\s*TODO:\s*retrieve capabilities')) {
+            [void]$pendingCapabilityModels.Add($m.Model)
+            [void]$validationErrors.Add("Model '$($m.Model)' is non-deprecated but has pending capability definition.")
+        }
+
+        if (Test-RealtimeModelName $m.Model) {
+            [void]$realtimeModels.Add($m.Model)
+            [void]$validationErrors.Add("Realtime model '$($m.Model)' is present in the provider model list.")
+        }
+    }
+
+    return [ordered]@{
+        success                    = ($validationErrors.Count -eq 0)
+        errors                     = @($validationErrors)
+        warnings                   = @($validationWarnings)
+        missingDefaultCapabilities = @($missingDefaultCapabilities)
+        pendingCapabilityModels    = @($pendingCapabilityModels)
+        realtimeModels             = @($realtimeModels)
+    }
+}
+
 # ---------------------------------------------------------------------------
 # 1. Read and parse the existing C# file
 # ---------------------------------------------------------------------------
@@ -444,10 +694,57 @@ foreach ($bm in $blockMatches) {
 
 Write-Host "[$Provider] Parsed $($existingModels.Count) existing model block(s)."
 
+if ($ValidateOnly) {
+    $validation = Test-ProviderModelValidation @($existingModels.Values)
+    $report = [ordered]@{
+        provider           = $Provider
+        apiUrl             = $null
+        providerApiQueried = $false
+        providerApiUrl     = $null
+        apiModels          = @()
+        openrouterModels   = @()
+        providerApiModels  = $null
+        sourceModels       = @($existingModels.Keys | Sort-Object)
+        newModels          = @()
+        deprecatedModels   = @()
+        unchangedModels    = @()
+        fileUpdated        = $false
+        validation          = $validation
+    }
+
+    Write-Output ($report | ConvertTo-Json -Depth 10)
+
+    if ($validation.warnings.Count -gt 0) {
+        foreach ($validationWarning in $validation.warnings) {
+            Write-Host "::warning title=$Provider provider model validation::$validationWarning"
+        }
+    }
+
+    if (-not $validation.success) {
+        # Surface each validation issue as a GitHub Actions error annotation so
+        # the message is visible in the run log. We deliberately use Write-Host
+        # (not Write-Error) here: Write-Error under $ErrorActionPreference =
+        # 'Stop' throws a terminating exception which propagates out of the
+        # script as an opaque [System.Management.Automation.RuntimeException],
+        # making downstream catch blocks (e.g. the fetch-models action wrapper)
+        # surface a generic "script failed" message instead of the actual
+        # validation details.
+        foreach ($validationError in $validation.errors) {
+            Write-Host "::error title=$Provider provider model validation::$validationError"
+        }
+    }
+
+    if ($FailOnValidationErrors -and -not $validation.success) {
+        exit 9
+    }
+
+    exit 0
+}
+
 # ---------------------------------------------------------------------------
 # 2. Query OpenRouter
 # ---------------------------------------------------------------------------
-$headers = @{ Authorization = "Bearer $ApiKey" }
+$headers = @{ Authorization = "Bearer $OpenRouterApiKey" }
 
 try {
     $response = Invoke-RestMethod -Uri $OpenRouterUrl -Headers $headers -Method GET -TimeoutSec 60
@@ -482,6 +779,7 @@ foreach ($item in $response.data) {
     if ([string]::IsNullOrWhiteSpace($fullId)) { continue }
 
     if ($fullId.StartsWith('ft:')) { continue }
+    if (Test-RealtimeModelName $fullId) { continue }
 
     if ($isOpenRouterProvider) {
         # OpenRouter provider: keep every model verbatim (full "vendor/model" id).
@@ -643,8 +941,6 @@ if (-not [string]::IsNullOrWhiteSpace($ProviderApiKey) -and $ProviderApis.Contai
                 }
             }
         }
-
-        Write-Host "[$Provider] Provider API returned $($providerApiModelNames.Count) model(s)."
     }
     catch {
         Write-Warning "[$Provider] Provider API request failed: $($_.Exception.Message). Falling back to OpenRouter only."
@@ -722,7 +1018,7 @@ if ($providerApiQueried) {
 
         $groups = @{}
         foreach ($pmId in $providerApiModelNames) {
-            $baseKey = $suffixRx.Replace($pmId, '')
+            $baseKey = Get-LogicalModelKey ($suffixRx.Replace($pmId, ''))
             if (-not $groups.ContainsKey($baseKey)) {
                 $groups[$baseKey] = [System.Collections.Generic.List[string]]::new()
             }
@@ -794,6 +1090,28 @@ if ($providerApiQueried) {
         }
     }
 
+    foreach ($srcKey in @($existingModels.Keys)) {
+        $logicalSourceKey = Get-LogicalModelKey $srcKey
+        $canonicalVersionPeer = $providerApiModelNames | Where-Object {
+            -not [string]::Equals($_, $srcKey, 'OrdinalIgnoreCase') -and
+            [string]::Equals((Get-LogicalModelKey $_), $logicalSourceKey, 'OrdinalIgnoreCase')
+        } | Select-Object -First 1
+
+        if (-not $canonicalVersionPeer) { continue }
+
+        $apiCanonicalByAlias[$srcKey] = $canonicalVersionPeer
+        if (-not $apiAliasesByCanonical.ContainsKey($canonicalVersionPeer)) {
+            $apiAliasesByCanonical[$canonicalVersionPeer] = @()
+        }
+
+        $versionAliases = [System.Collections.Generic.List[string]]::new()
+        foreach ($a in @($apiAliasesByCanonical[$canonicalVersionPeer])) { [void]$versionAliases.Add($a) }
+        if (-not ($versionAliases | Where-Object { [string]::Equals($_, $srcKey, 'OrdinalIgnoreCase') })) {
+            [void]$versionAliases.Add($srcKey)
+        }
+        $apiAliasesByCanonical[$canonicalVersionPeer] = $versionAliases.ToArray()
+    }
+
     # Reverse map: alias -> canonical.
     foreach ($kvp in $apiAliasesByCanonical.GetEnumerator()) {
         foreach ($a in $kvp.Value) {
@@ -818,11 +1136,12 @@ if ($providerApiQueried) {
             if ($apiCanonicalByAlias.ContainsKey($srcKey)) { continue }
 
             $baseKey = $suffixRxSupplement.Replace($srcKey, '')
+            $logicalBaseKey = Get-LogicalModelKey $baseKey
 
             # Find all dated members of the same family in the provider API
             $datedSiblings = @($providerApiModelNames | Where-Object {
                 $dateRxSupplement.IsMatch($_) -and
-                [string]::Equals($suffixRxSupplement.Replace($_, ''), $baseKey, 'OrdinalIgnoreCase')
+                [string]::Equals((Get-LogicalModelKey ($suffixRxSupplement.Replace($_, ''))), $logicalBaseKey, 'OrdinalIgnoreCase')
             })
 
             if ($datedSiblings.Count -eq 0) { continue }
@@ -1233,6 +1552,12 @@ foreach ($kvp in $mergedModels.GetEnumerator()) {
     }
 }
 
+foreach ($key in @($mergedModels.Keys)) {
+    if (Test-RealtimeModelName $key) {
+        [void]$mergedModels.Remove($key)
+    }
+}
+
 # ---------------------------------------------------------------------------
 # Reassign generic alias (bare baseKey) to latest non-deprecated family member
 # ---------------------------------------------------------------------------
@@ -1357,9 +1682,34 @@ $allModelNames = $mergedModels.Keys | Sort-Object
 $apiModelNamesList = $apiModelNames | Sort-Object
 $sourceModelNamesList = $existingModels.Keys | Sort-Object
 
-$newModels        = $apiModelNamesList | Where-Object { $_ -notin $sourceModelNamesList }
+# A model is considered already known when its canonical id OR any of its
+# aliases was present in the source file before this run. Comparing against
+# the raw provider-API id list would mis-flag alias ids (e.g. the rolling
+# "gpt-5-pro" alias of "gpt-5-pro-2025-10-06") as brand-new models, because
+# aliases are folded into a canonical entry's Aliases list rather than added
+# as standalone entries. Diffing on canonical entries keeps the report in
+# sync with what is actually written to the source file.
+$sourceModelSet = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]$sourceModelNamesList,
+    [System.StringComparer]::OrdinalIgnoreCase)
+
+function Test-KnownInSource($model) {
+    if ($sourceModelSet.Contains([string]$model.Model)) { return $true }
+    if ($model.Aliases) {
+        foreach ($alias in @($model.Aliases)) {
+            if (-not [string]::IsNullOrWhiteSpace($alias) -and $sourceModelSet.Contains([string]$alias)) {
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
+$newModels        = @($mergedModels.Values | Where-Object { -not (Test-KnownInSource $_) } | ForEach-Object { $_.Model } | Sort-Object)
 $deprecatedModels = $allModelNames     | Where-Object { $mergedModels[$_].Deprecated -eq 'true' -and ($_ -in $sourceModelNamesList) }
-$unchangedModels  = $apiModelNamesList | Where-Object { $_ -in $sourceModelNamesList -and $mergedModels[$_].Deprecated -ne 'true' }
+$unchangedModels  = @($mergedModels.Values | Where-Object { (Test-KnownInSource $_) -and $_.Deprecated -ne 'true' } | ForEach-Object { $_.Model } | Sort-Object)
+
+$validation = Test-ProviderModelValidation @($mergedModels.Values)
 
 # ---------------------------------------------------------------------------
 # 5. Optional file update
@@ -1382,13 +1732,13 @@ if ($UpdateFile) {
         $m | Add-Member -NotePropertyName 'TermIndex' -NotePropertyValue (Get-TermIndex $m.Created) -Force
     }
 
-    # Sort: non-deprecated first, then term (most recent first),
-    # then verified first, then output price (cheapest first), then name
+    # Sort by: deprecated first, then term (most recent first), then verified first, then output price (cheapest first), then created date (newest first), then name
     $sorted = $mergedModels.Values | Sort-Object -Property @(
         @{ Expression = { if ($_.Deprecated -eq 'true') { 1 } else { 0 } }; Ascending = $true }
         @{ Expression = { $_.TermIndex }; Ascending = $true }
         @{ Expression = { if ($_.Verified -eq 'true') { 0 } else { 1 } }; Ascending = $true }
         @{ Expression = { $_.OutputPrice }; Ascending = $true }
+        @{ Expression = { $_.Created }; Descending = $true }
         @{ Expression = { $_.Model }; Ascending = $true }
     )
 
@@ -1446,7 +1796,7 @@ if ($UpdateFile) {
     $newListContent = ($newBlocks -join "`r`n`r`n")
     $newFileContent = $beforeList + $newListContent + "`r`n            };" + $afterList
 
-    [System.IO.File]::WriteAllText($TargetFile, $newFileContent, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($TargetFile, $newFileContent, $utf8NoBom)
     $fileUpdated = $true
     Write-Host "[$Provider] Wrote $($sorted.Count) model(s) to $TargetFile."
 }
@@ -1470,7 +1820,29 @@ $report = [ordered]@{
     deprecatedModels   = @($deprecatedModels)
     unchangedModels    = @($unchangedModels)
     fileUpdated        = $fileUpdated
+    validation          = $validation
 }
 
 Write-Output ($report | ConvertTo-Json -Depth 10)
 
+if ($validation.warnings.Count -gt 0) {
+    foreach ($validationWarning in $validation.warnings) {
+        Write-Host "::warning title=$Provider provider model validation::$validationWarning"
+    }
+}
+
+if (-not $validation.success) {
+    # Surface each validation issue as a GitHub Actions error annotation so the
+    # message is visible in the run log. See the matching block in the
+    # -ValidateOnly path above for the rationale (Write-Error + EAP=Stop would
+    # throw and obscure the cause).
+    foreach ($validationError in $validation.errors) {
+        Write-Host "::error title=$Provider provider model validation::$validationError"
+    }
+}
+
+if ($FailOnValidationErrors -and -not $validation.success) {
+    exit 9
+}
+
+exit 0

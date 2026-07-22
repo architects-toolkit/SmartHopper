@@ -4,7 +4,7 @@
 
 Async base that adds a state machine, input-change detection, debounce, persistent outputs and persistent runtime messages on top of [AsyncComponentBase](./AsyncComponentBase.md). Delegates state to a [ComponentStateManager](./ComponentStateManager.md) and persistence to `GHPersistenceService`.
 
-## Purpose
+---
 
 Make long-running components behave predictably across button/toggle Run inputs, bursty input changes and document save/load. Outputs survive a save/load cycle without re-running.
 
@@ -66,7 +66,7 @@ A *Debug* submenu exposes "Force Completed", "Force NeedsRun" and "Reset StateMa
 - You need predictable Run/Toggle semantics, debounce, or persistent outputs across save/load.
 - You do not need AI provider integration. For AI workflows derive from [AIStatefulAsyncComponentBase](./AIStatefulAsyncComponentBase.md) instead.
 
-## Related
+## End-User Guide
 
 - [AsyncComponentBase](./AsyncComponentBase.md), [AsyncWorkerBase](./AsyncWorkerBase.md)
 - [ComponentStateManager](./ComponentStateManager.md), [ComponentState](./StateManager.md), [ProgressInfo](./ProgressInfo.md)

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -98,8 +98,9 @@ namespace SmartHopper.Core.UI.Chat
         /// Generates HTML for a chat message.
         /// </summary>
         /// <param name="interaction">The AIInteraction containing metrics data.</param>
+        /// <param name="cacheKey">Stable identity for block-level Markdown render caching (e.g. the message's DOM key), or null to disable caching.</param>
         /// <returns>HTML representation of the message.</returns>
-        public string RenderInteraction(IAIInteraction interaction)
+        public string RenderInteraction(IAIInteraction interaction, string cacheKey = null)
         {
             Debug.WriteLine($"[HtmlChatRenderer] Generating message HTML for agent: {interaction.Agent.ToString()}");
 
@@ -113,7 +114,8 @@ namespace SmartHopper.Core.UI.Chat
                     // Use the resource manager to create the message HTML
                     string messageHtml = this._resourceManager.CreateMessageHtml(
                         timestamp,
-                        interaction);
+                        interaction,
+                        cacheKey);
 
                     return messageHtml;
                 }
@@ -133,6 +135,14 @@ namespace SmartHopper.Core.UI.Chat
                 // Create a simple message HTML as fallback
                 return "error";
             }
+        }
+
+        /// <summary>
+        /// Clears all cached Markdown block render state (e.g. when regenerating the entire chat view).
+        /// </summary>
+        public void ClearBlockCaches()
+        {
+            this._resourceManager.ClearBlockCaches();
         }
     }
 }

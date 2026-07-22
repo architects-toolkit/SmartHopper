@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -110,7 +110,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Generates a list of items based on a prompt, count and type",
+                description: "Generates a list of items based on a prompt, count and type. Example: text2textlist({ prompt: 'Common structural materials', count: 5, type: 'text' }).",
                 category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -122,7 +122,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt"", ""count"", ""type""]
                 }",
                 execute: this.GenerateList,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: false,
+                tags: new[] { "text", "list", "data-processing", "read-only" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""array"", ""description"": ""Generated list of items."" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         /// <summary>
@@ -232,7 +236,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string modelName = toolCall.Model;
                 string endpoint = this.toolName;
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 string? prompt = args["prompt"]?.ToString();
                 int count = args["count"]?.ToObject<int>() ?? 0;
                 string? type = args["type"]?.ToString();

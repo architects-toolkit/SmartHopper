@@ -1,5 +1,12 @@
 name: Stabilization 0 - 🌿 Init Path
 
+# Related workflows (stabilization & hotfix paths):
+#   - stabilization-0-init.yml (creates dev-X.Y.Z and main-X.Y.Z branches)
+#   - stabilization-1-cancel.yml (cancels stabilization path)
+#   - stabilization-2-complete.yml (completes stabilization)
+#   - hotfix-0-new-branch.yml (creates hotfix branch from main)
+#   - hotfix-1-release-hotfix.yml (builds and releases hotfix)
+
 # Description: Initializes a stabilization path when a no-suffix milestone (e.g. "1.4.2") is created.
 # Creates dedicated dev-X.Y.Z and main-X.Y.Z branches from the latest matching prerelease tag.
 #
@@ -16,6 +23,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: stabilization-init-${{ github.event.milestone.number }}
@@ -24,6 +32,7 @@ concurrency:
 jobs:
   init-stabilization-path:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: ${{ github.event_name == 'milestone' && !contains(github.event.milestone.title, '-') && github.event.milestone.title != '' }}
     steps:
       - name: Validate milestone title format
@@ -51,8 +60,8 @@ jobs:
       - name: Set up Git user
         if: steps.validate.outputs.is-stabilization == 'true'
         run: |
-          git config user.name "github-actions"
-          git config user.email "action@github.com"
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
 
       - name: Find latest prerelease tag for this version
         if: steps.validate.outputs.is-stabilization == 'true'
@@ -191,6 +200,13 @@ jobs:
                 throw error;
               }
             }
+
+      - name: Create version label
+        if: steps.validate.outputs.is-stabilization == 'true'
+        uses: ./.github/actions/versioning/create-version-label
+        with:
+          version: ${{ github.event.milestone.title }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Summary
         if: steps.validate.outputs.is-stabilization == 'true'

@@ -1,0 +1,89 @@
+name: 🧹 Cleanup stale chore branches
+
+# Description: Scheduled weekly cleanup that removes chore/* branches with no
+# open pull requests.  A branch is deleted only when ALL of these are true:
+#   1. Its name starts with "chore/".
+#   2. It has zero open PRs (merged/closed PRs are fine).
+#   3. It is not a base (protected) branch.
+#
+# Triggers:
+#   - schedule: every Monday 4:00 UTC
+#   - workflow_dispatch: manual run
+#
+# Permissions:
+#   - contents: write  - Required to delete branches
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    name: Delete orphaned chore branches
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Find and delete stale chore branches
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prefix = 'chore/';
+            let deleted = 0;
+            let skipped = 0;
+
+            // Paginate through all branches
+            const branches = await github.paginate(
+              github.rest.repos.listBranches,
+              { owner, repo, per_page: 100 },
+            );
+
+            const choreBranches = branches.filter(b => b.name.startsWith(prefix));
+            core.info(`Found ${choreBranches.length} chore/* branch(es).`);
+
+            for (const branch of choreBranches) {
+              // Check for open PRs from this branch
+              const { data: openPrs } = await github.rest.pulls.list({
+                owner,
+                repo,
+                head: `${owner}:${branch.name}`,
+                state: 'open',
+                per_page: 1,
+              });
+
+              if (openPrs.length > 0) {
+                core.info(`⏭️  ${branch.name} — has open PR(s), skipping.`);
+                skipped++;
+                continue;
+              }
+
+              // No open PRs — safe to delete
+              try {
+                await github.rest.git.deleteRef({
+                  owner,
+                  repo,
+                  ref: `heads/${branch.name}`,
+                });
+                core.info(`🗑️  ${branch.name} — deleted.`);
+                deleted++;
+              } catch (err) {
+                core.warning(`Failed to delete ${branch.name}: ${err.message}`);
+              }
+            }
+
+            core.summary
+              .addHeading('Stale chore branch cleanup', 3)
+              .addTable([
+                [{ data: 'Metric', header: true }, { data: 'Count', header: true }],
+                ['Chore branches found', `${choreBranches.length}`],
+                ['Deleted', `${deleted}`],
+                ['Skipped (open PRs)', `${skipped}`],
+              ])
+              .write();
+
+            core.info(`Done. Deleted ${deleted}, skipped ${skipped}.`);

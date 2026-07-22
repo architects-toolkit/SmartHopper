@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -24,6 +24,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -44,7 +45,7 @@ namespace SmartHopper.Providers.OpenRouter
     /// <summary>
     /// OpenRouter provider implementation using the Chat Completions API (OpenAI-compatible).
     /// Provides access to multiple AI models through a unified interface.
-    /// Text-only; image generation is not supported.
+    /// Supports text and vision input; image generation is handled via the img_generate tool.
     /// </summary>
     public sealed class OpenRouterProvider : AIProvider<OpenRouterProvider>
     {
@@ -246,7 +247,26 @@ namespace SmartHopper.Providers.OpenRouter
                 if (p.Extras.TryGetValue("top_logprobs", out var topLogprobsToken) && topLogprobsToken != null)
                     body["top_logprobs"] = topLogprobsToken.Value<int?>();
                 if (p.Extras.TryGetValue("enable_caching", out var enableCachingToken) && enableCachingToken?.Value<bool>() == true)
-                    body["cache_control"] = new JObject { ["type"] = "ephemeral" };
+                {
+                    // Top-level cache_control is Anthropic-specific (automatic caching).
+                    // Sending it for other models is undocumented and restricts OpenRouter routing,
+                    // so only emit it for Anthropic models. Other providers (OpenAI, DeepSeek,
+                    // Grok, Groq, Gemini 2.5) cache automatically without any request changes.
+                    if (request.Model?.StartsWith("anthropic/", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        body["cache_control"] = new JObject { ["type"] = "ephemeral" };
+                    }
+
+                    // Stable session_id enables OpenRouter provider sticky routing from the first
+                    // request, keeping subsequent requests on the same provider endpoint so prompt
+                    // caches stay warm. Derived from model + first system text so all requests
+                    // sharing the same stable prefix land on the same endpoint.
+                    var sessionId = ComputeSessionId(request.Model, mergedInteractions);
+                    if (!string.IsNullOrEmpty(sessionId))
+                    {
+                        body["session_id"] = sessionId;
+                    }
+                }
             }
 
             // Add tools if requested
@@ -356,6 +376,38 @@ namespace SmartHopper.Providers.OpenRouter
         }
 
         /// <summary>
+        /// Computes a stable session identifier for OpenRouter provider sticky routing.
+        /// Derived from the model name and the first system/context text so that all
+        /// requests sharing the same stable prompt prefix are routed to the same
+        /// provider endpoint, keeping prompt caches warm across requests.
+        /// </summary>
+        /// <param name="model">The requested model name.</param>
+        /// <param name="interactions">The merged interactions of the request body.</param>
+        /// <returns>A stable hash-based session id, or an empty string when no seed content is available.</returns>
+        private static string ComputeSessionId(string? model, IEnumerable<IAIInteraction> interactions)
+        {
+            try
+            {
+                var firstSystem = interactions?
+                    .OfType<AIInteractionText>()
+                    .FirstOrDefault(i => i.Agent == AIAgent.System || i.Agent == AIAgent.Context);
+                var seed = (model ?? string.Empty) + "\n" + (firstSystem?.Content ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(seed))
+                {
+                    return string.Empty;
+                }
+
+                using var sha = SHA256.Create();
+                var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(seed));
+                return "sh-" + Convert.ToHexString(hash).ToLowerInvariant();
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
         /// Converts a single interaction to an OpenRouter message object (JToken).
         /// Returns null for interactions that should not be sent (e.g., UI-only errors).
         /// </summary>
@@ -405,13 +457,8 @@ namespace SmartHopper.Providers.OpenRouter
             }
             else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
-                // Format for tool results
+                // Format for tool results (OpenRouter docs only document role, tool_call_id and content).
                 obj["tool_call_id"] = toolResultInteraction.Id;
-                if (!string.IsNullOrWhiteSpace(toolResultInteraction.Name))
-                {
-                    obj["name"] = toolResultInteraction.Name;
-                }
-
                 obj["content"] = toolResultInteraction.Result?.ToString() ?? string.Empty;
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
@@ -431,28 +478,48 @@ namespace SmartHopper.Providers.OpenRouter
                 };
                 obj["tool_calls"] = new JArray { toolCallObj };
 
-                // For reasoning-enabled models (o-series via OpenRouter), include reasoning in content array
+                // For reasoning-enabled models, emit reasoning in the official OpenRouter field
                 if (!string.IsNullOrWhiteSpace(toolCallInteraction.Reasoning))
+                {
+                    obj["reasoning"] = toolCallInteraction.Reasoning;
+                }
+
+                obj["content"] = string.Empty;
+            }
+            else if (interaction is AIInteractionImage imageInteraction)
+            {
+                // OpenRouter supports vision via OpenAI-compatible image_url format
+                string imageUrlValue = null;
+
+                if (imageInteraction.ImageUrl != null)
+                {
+                    imageUrlValue = imageInteraction.ImageUrl.ToString();
+                }
+                else if (!string.IsNullOrWhiteSpace(imageInteraction.ImageData))
+                {
+                    var mimeType = imageInteraction.MimeType ?? "image/png";
+                    imageUrlValue = $"data:{mimeType};base64,{imageInteraction.ImageData}";
+                }
+
+                if (imageUrlValue != null)
                 {
                     var contentArray = new JArray
                     {
                         new JObject
                         {
-                            ["type"] = "reasoning",
-                            ["text"] = toolCallInteraction.Reasoning,
+                            ["type"] = "image_url",
+                            ["image_url"] = new JObject
+                            {
+                                ["url"] = imageUrlValue,
+                            },
                         },
                     };
                     obj["content"] = contentArray;
                 }
                 else
                 {
-                    obj["content"] = string.Empty;
+                    obj["content"] = imageInteraction.OriginalPrompt ?? string.Empty;
                 }
-            }
-            else if (interaction is AIInteractionImage)
-            {
-                // OpenRouter text-only: ignore images but keep placeholder note
-                obj["content"] = "[image content omitted: provider supports text only]";
             }
             else
             {
@@ -529,6 +596,38 @@ namespace SmartHopper.Providers.OpenRouter
                 else if (contentToken != null)
                 {
                     content = contentToken.ToString() ?? string.Empty;
+                }
+
+                // Extract reasoning from official OpenRouter fields (preferred over legacy content-array)
+                var reasoningToken = message["reasoning"];
+                if (reasoningToken != null && !string.IsNullOrEmpty(reasoningToken.ToString()))
+                {
+                    reasoning = reasoningToken.ToString();
+                }
+
+                var reasoningDetails = message["reasoning_details"] as JArray;
+                if (reasoningDetails != null && reasoningDetails.Count > 0)
+                {
+                    var reasoningParts = new List<string>();
+                    foreach (var detail in reasoningDetails.OfType<JObject>())
+                    {
+                        var detailType = detail["type"]?.ToString();
+                        if (string.Equals(detailType, "reasoning.text", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var text = detail["text"]?.ToString();
+                            if (!string.IsNullOrEmpty(text)) reasoningParts.Add(text);
+                        }
+                        else if (string.Equals(detailType, "reasoning.summary", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var summary = detail["summary"]?.ToString();
+                            if (!string.IsNullOrEmpty(summary)) reasoningParts.Add(summary);
+                        }
+                    }
+
+                    if (reasoningParts.Count > 0)
+                    {
+                        reasoning = string.Join("\n\n", reasoningParts);
+                    }
                 }
 
                 var result = new AIInteractionText();
@@ -1116,6 +1215,12 @@ namespace SmartHopper.Providers.OpenRouter
                     typeof(string),
                     "deny",
                     new[] { "allow", "deny" }),
+                new AIExtraDescriptor(
+                    "allow_fallback",
+                    "Allow Fallback",
+                    "Whether to allow OpenRouter to fall back to other providers if the primary is unavailable.",
+                    typeof(bool),
+                    null),
 
                 // OpenRouter prompt caching parameters
                 new AIExtraDescriptor(

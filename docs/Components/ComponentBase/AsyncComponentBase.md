@@ -4,7 +4,7 @@
 
 Base class for Grasshopper components that run long-running work on a background `Task`. Inherits from `GH_Component`. Adapted from Speckle's `GrasshopperAsyncComponent`.
 
-## Purpose
+---
 
 Run compute-heavy or I/O-bound work off the UI thread while staying inside Grasshopper's solve lifecycle. Provides cancellation, exception propagation and a strict pre-/post-solve handshake so outputs are written exactly once per run.
 
@@ -39,7 +39,7 @@ Run compute-heavy or I/O-bound work off the UI thread while staying inside Grass
 - You need async work but **do not** need a state machine, debounce or `Run` button semantics. For all of those use [StatefulComponentBase](./StatefulComponentBase.md).
 - Keep mutable state out of the worker; pass an immutable input snapshot in `GatherInput`.
 
-## Related
+## End-User Guide
 
 - [AsyncWorkerBase](./AsyncWorkerBase.md)
 - [StatefulComponentBase](./StatefulComponentBase.md)

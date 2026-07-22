@@ -1,4 +1,4 @@
-﻿<!--
+<!--
   SmartHopper - AI-powered Grasshopper Plugin
   Copyright (C) 2024-2026 Marc Roca Musach
 
@@ -23,10 +23,6 @@
     <IsTestProject>true</IsTestProject>
     <NoWarn>NU1701;NETSDK1086</NoWarn>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <OutputPath>$(SolutionDir)bin/$(SolutionVersion)/$(Configuration)/Tests</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>

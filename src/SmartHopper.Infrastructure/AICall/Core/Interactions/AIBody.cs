@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.Diagnostics;
@@ -81,6 +82,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                     {
                         m.Combine(i.Metrics);
                     }
+                }
+
+                // If interactions carried metrics but none declared an explicit iteration count,
+                // default to one iteration per body (one provider call).
+                if (m.IterationsCount == null && this.Interactions.Any(i => i?.Metrics != null))
+                {
+                    m.IterationsCount = 1;
                 }
 
                 return m;

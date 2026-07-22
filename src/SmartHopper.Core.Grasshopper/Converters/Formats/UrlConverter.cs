@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -34,13 +34,17 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using HtmlAgilityPack;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.AITools;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.Converters.Formats
 {
@@ -52,10 +56,29 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
     public sealed class UrlConverter : IFileConverter
     {
         private readonly HtmlConverter htmlConverter;
+        private readonly Func<HttpClient> httpClientFactory;
 
         public UrlConverter()
+            : this(CreateDefaultHttpClient)
+        {
+        }
+
+        /// <summary>
+        /// Creates a converter with a custom <see cref="HttpClient"/> factory. Intended for unit testing
+        /// with a mocked <see cref="HttpMessageHandler"/>; production code should use the parameterless constructor.
+        /// </summary>
+        internal UrlConverter(Func<HttpClient> httpClientFactory)
         {
             this.htmlConverter = new HtmlConverter();
+            this.httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+        }
+
+        private static HttpClient CreateDefaultHttpClient()
+        {
+            var client = new HttpClient();
+            string version = VersionHelper.GetDisplayVersion();
+            client.DefaultRequestHeaders.UserAgent.ParseAdd($"SmartHopper/{version} (+https://github.com/architects-toolkit/SmartHopper)");
+            return client;
         }
 
         public IEnumerable<string> SupportedExtensions => new[] { ".url" }; // Pseudo-extension for URL handling
@@ -65,15 +88,19 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             // For UrlConverter, filePath is actually a URL
             var url = filePath;
 
-            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
+            if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out Uri uri) ||
+                (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
             {
-                return FileConversionResult.Failure("url", $"Invalid URL: {url}");
+                return FileConversionResult.Failure("url", $"Invalid URL: {url}", FileConversionFailureReason.InvalidInput);
             }
+
+            var effectiveOptions = options ?? new FileConversionOptions();
+            var maxDownloadBytes = effectiveOptions.MaxDownloadBytes > 0 ? effectiveOptions.MaxDownloadBytes : FileConversionOptions.DefaultMaxDownloadBytes;
+            var minContentLength = effectiveOptions.MinContentLength > 0 ? effectiveOptions.MinContentLength : FileConversionOptions.DefaultMinContentLength;
 
             try
             {
-                using var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("SmartHopper/1.5 (+https://github.com/architects-toolkit/SmartHopper)");
+                using var httpClient = this.httpClientFactory();
 
                 // Check robots.txt
                 Uri robotsUri = new (uri.GetLeftPart(UriPartial.Authority) + "/robots.txt");
@@ -86,7 +113,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         var robots = new WebUtilities(robotsContent);
                         if (!robots.IsPathAllowed(uri.PathAndQuery))
                         {
-                            return FileConversionResult.Failure("url", $"Access to '{uri}' is disallowed by robots.txt.");
+                            return FileConversionResult.Failure("url", $"Access to '{uri}' is disallowed by robots.txt.", FileConversionFailureReason.Other);
                         }
                     }
                 }
@@ -97,16 +124,13 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
                 string? textContent = null;
                 string contentFormat = "markdown";
+                bool sawPasswordField = false;
                 var result = new FileConversionResult { DetectedFormat = "url" };
 
                 // Try specialized fetchers first
                 if (IsWikimediaHost(uri))
                 {
-                    textContent = await TryFetchWikimediaPlainTextAsync(uri, httpClient).ConfigureAwait(false);
-                    if (!string.IsNullOrWhiteSpace(textContent))
-                    {
-                        contentFormat = "plain_text";
-                    }
+                    textContent = await this.TryFetchWikimediaMarkdownAsync(uri, httpClient, effectiveOptions).ConfigureAwait(false);
                 }
 
                 if (string.IsNullOrWhiteSpace(textContent))
@@ -142,7 +166,38 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 // Fallback to generic HTML conversion using HtmlConverter
                 if (string.IsNullOrWhiteSpace(textContent))
                 {
-                    var html = await httpClient.GetStringAsync(uri).ConfigureAwait(false);
+                    using var response = await httpClient.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+
+                    if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+                    {
+                        return FileConversionResult.Failure(
+                            "url",
+                            $"Access to '{uri}' requires authentication (HTTP {(int)response.StatusCode} {response.StatusCode}).",
+                            FileConversionFailureReason.LoginRequired);
+                    }
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        return FileConversionResult.Failure(
+                            "url",
+                            $"Failed to fetch '{uri}': HTTP {(int)response.StatusCode} {response.StatusCode}.",
+                            FileConversionFailureReason.NetworkError);
+                    }
+
+                    var (html, tooLarge) = await ReadBoundedContentAsync(response, maxDownloadBytes).ConfigureAwait(false);
+                    if (tooLarge)
+                    {
+                        return FileConversionResult.Failure(
+                            "url",
+                            $"Page content at '{uri}' exceeds the maximum allowed size ({maxDownloadBytes / 1_000_000}MB).",
+                            FileConversionFailureReason.ContentTooLarge);
+                    }
+
+                    if (html == null)
+                    {
+                        return FileConversionResult.Failure("url", $"Failed to read content from '{uri}'.", FileConversionFailureReason.NetworkError);
+                    }
+
                     Debug.WriteLine($"[UrlConverter] Fetched HTML from {url}. Length: {html.Length}");
 
                     // Pass the fetched URL as base URL so relative links/images become absolute.
@@ -169,35 +224,208 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                     }
                 }
 
-                if (string.IsNullOrWhiteSpace(textContent))
+                var trimmedLength = textContent?.Trim().Length ?? 0;
+                if (trimmedLength < minContentLength)
                 {
-                    return FileConversionResult.Failure("url", "The requested page did not return any readable content.");
+                    var reason = sawPasswordField ? FileConversionFailureReason.LoginRequired : FileConversionFailureReason.EmptyContent;
+                    var message = sawPasswordField
+                        ? $"The page at '{uri}' appears to require authentication and returned too little content ({trimmedLength} characters). This is not considered a successful conversion."
+                        : $"The page at '{uri}' returned too little content ({trimmedLength} characters). This is not considered a successful conversion.";
+                    return FileConversionResult.Failure("url", message, reason);
                 }
 
-                result.MarkdownContent = textContent;
+                if (LooksLikeClientSideRenderingPlaceholder(textContent!))
+                {
+                    return FileConversionResult.Failure(
+                        "url",
+                        $"The page at '{uri}' returned a JavaScript SPA loading placeholder instead of real content. The page requires a JavaScript runtime to render. Try fetching via a dedicated API or use a different URL.",
+                        FileConversionFailureReason.BotChallenge);
+                }
+
+                // Apply the same Markdown post-processing that FileConverterRegistry uses for files,
+                // so web URLs also get clean ordered-list numbering and heading/list spacing.
+                result.MarkdownContent = MarkdownListRenumberer.Renumber(textContent!);
+                result.MarkdownContent = MarkdownStyleCleanup.Cleanup(result.MarkdownContent);
                 result.Metadata["source"] = url;
                 result.Metadata["format"] = contentFormat;
                 result.IsSuccess = true;
 
                 return result;
             }
+            catch (HttpRequestException ex)
+            {
+                Debug.WriteLine($"[UrlConverter] Network error: {ex.Message}");
+                return FileConversionResult.Failure("url", $"Network error fetching URL: {ex.Message}", FileConversionFailureReason.NetworkError);
+            }
+            catch (TaskCanceledException ex)
+            {
+                Debug.WriteLine($"[UrlConverter] Timeout: {ex.Message}");
+                return FileConversionResult.Failure("url", $"Timed out fetching URL: {url}", FileConversionFailureReason.NetworkError);
+            }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[UrlConverter] Error: {ex.Message}");
-                return FileConversionResult.Failure("url", $"Error fetching URL: {ex.Message}");
+                return FileConversionResult.Failure("url", $"Error fetching URL: {ex.Message}", FileConversionFailureReason.Other);
             }
         }
 
+        /// <summary>
+        /// Reads the response body up to <paramref name="maxBytes"/>. Returns (null, true) if the declared
+        /// or actual content length exceeds the limit, so oversized pages fail fast without buffering
+        /// unbounded content in memory.
+        /// </summary>
+        private static async Task<(string? Content, bool TooLarge)> ReadBoundedContentAsync(HttpResponseMessage response, long maxBytes)
+        {
+            var declaredLength = response.Content.Headers.ContentLength;
+            if (declaredLength.HasValue && declaredLength.Value > maxBytes)
+            {
+                return (null, true);
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            using var memoryStream = new MemoryStream();
+            var buffer = new byte[81920];
+            long totalRead = 0;
+            int bytesRead;
+            while ((bytesRead = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length)).ConfigureAwait(false)) > 0)
+            {
+                totalRead += bytesRead;
+                if (totalRead > maxBytes)
+                {
+                    return (null, true);
+                }
+
+                memoryStream.Write(buffer, 0, bytesRead);
+            }
+
+            memoryStream.Position = 0;
+            using var reader = new StreamReader(memoryStream, Encoding.UTF8);
+            var content = await reader.ReadToEndAsync().ConfigureAwait(false);
+            return (content, false);
+        }
+
+        /// <summary>
+        /// Detects common bot/human-verification challenge signatures (CAPTCHA providers and
+        /// anti-bot vendor interstitials) in raw HTML, so challenge markup is never mistaken for content.
+        /// </summary>
+        private static bool LooksLikeBotChallenge(string html)
+        {
+            foreach (var signature in BotChallengeSignatures)
+            {
+                if (html.Contains(signature, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Detects whether the extracted Markdown content is a client-side rendering placeholder
+        /// (e.g. a React/Vue/Angular SPA loading state) rather than real page content.
+        /// These pages require JavaScript execution and return only a skeleton when fetched without a browser.
+        /// </summary>
+        private static bool LooksLikeClientSideRenderingPlaceholder(string markdown)
+        {
+            if (string.IsNullOrWhiteSpace(markdown))
+            {
+                return false;
+            }
+
+            foreach (var signature in ClientSideRenderingSignatures)
+            {
+                if (markdown.Contains(signature, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasPasswordField(string html)
+        {
+            return PasswordFieldRegex.IsMatch(html);
+        }
+
+        private static bool HasLoginPhrase(string html)
+        {
+            foreach (var phrase in LoginPhraseSignatures)
+            {
+                if (html.Contains(phrase, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static readonly Regex PasswordFieldRegex = new (@"type\s*=\s*[""']?password[""']?", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private static readonly string[] BotChallengeSignatures =
+        {
+            "g-recaptcha",
+            "recaptcha/api.js",
+            "www.google.com/recaptcha",
+            "hcaptcha.com",
+            "h-captcha",
+            "cf-turnstile",
+            "challenges.cloudflare.com/turnstile",
+            "just a moment...",
+            "attention required! | cloudflare",
+            "checking your browser before accessing",
+            "cf-chl-",
+            "captcha-delivery.com",
+            "_datadome",
+            "px-captcha",
+            "perimeterx",
+            "geetest",
+        };
+
+        private static readonly string[] LoginPhraseSignatures =
+        {
+            "please log in",
+            "please sign in",
+            "you must be logged in",
+            "you must log in",
+            "log in to continue",
+            "sign in to continue",
+            "login required",
+            "members only",
+            "subscribers only",
+            "this content is only available to subscribers",
+            "you need to sign in",
+            "create an account to continue",
+        };
+
+        /// <summary>
+        /// Patterns that indicate the extracted Markdown is a JavaScript SPA loading skeleton
+        /// rather than real page content. Pages matching these signals require a headless browser.
+        /// Only include highly specific strings that do not appear in normal page content.
+        /// </summary>
+        private static readonly string[] ClientSideRenderingSignatures =
+        {
+            // GitHub SPA placeholder — unique enough to be unambiguous
+            "there was an error while loading. please reload this page.",
+            // Standard noscript / CSR fallback messages
+            "you need to enable javascript to run this app",
+            "please enable javascript to continue",
+            "this page requires javascript to function",
+            "javascript is required to view this page",
+        };
+
         #region Specialized Fetchers
 
-        private static async Task<string?> TryFetchWikimediaPlainTextAsync(Uri pageUri, HttpClient httpClient)
+        private async Task<string?> TryFetchWikimediaMarkdownAsync(Uri pageUri, HttpClient httpClient, FileConversionOptions options)
         {
             if (!TryExtractWikimediaTitle(pageUri, out string? title))
             {
                 return null;
             }
 
-            var apiUri = new Uri($"{pageUri.Scheme}://{pageUri.Host}/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles={Uri.EscapeDataString(title)}");
+            var apiUri = new Uri($"{pageUri.Scheme}://{pageUri.Host}/w/api.php?action=parse&page={Uri.EscapeDataString(title)}&prop=text&format=json");
             try
             {
                 var response = await httpClient.GetAsync(apiUri).ConfigureAwait(false);
@@ -208,28 +436,44 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
                 var payload = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 var json = JObject.Parse(payload);
-                var pagesToken = json.SelectToken("query.pages");
-                if (pagesToken == null)
+                var html = json.SelectToken("parse.text.*")?.ToString();
+                if (string.IsNullOrWhiteSpace(html))
                 {
                     return null;
                 }
 
-                foreach (var page in pagesToken.Children<JProperty>())
-                {
-                    var extract = page.Value?["extract"]?.ToString();
-                    if (!string.IsNullOrWhiteSpace(extract))
-                    {
-                        var titleValue = page.Value?["title"]?.ToString();
-                        var builder = new StringBuilder();
-                        if (!string.IsNullOrWhiteSpace(titleValue))
-                        {
-                            builder.Append('#').Append(' ').Append(titleValue.Trim()).AppendLine().AppendLine();
-                        }
+                var titleValue = json.SelectToken("parse.title")?.ToString();
 
-                        builder.Append(extract.Trim());
-                        return builder.ToString();
-                    }
+                html = CleanupWikimediaHtml(html, pageUri);
+
+                // Wrap the parsed content in a minimal HTML document so the converter can process it.
+                var encodedTitle = System.Net.WebUtility.HtmlEncode(titleValue ?? title);
+                var wrappedHtml = $"<html><head><title>{encodedTitle}</title></head><body>{html}</body></html>";
+
+                var htmlOptions = new FileConversionOptions
+                {
+                    PreserveTableStructure = options.PreserveTableStructure,
+                    IncludeLinks = options.IncludeLinks,
+                    IncludeImages = options.IncludeImages,
+                    HtmlReadabilityMode = ReadabilityMode.Off,
+                    MaxContentLength = options.MaxContentLength,
+                    MinContentLength = options.MinContentLength,
+                    MaxDownloadBytes = options.MaxDownloadBytes,
+                };
+
+                var htmlResult = await this.htmlConverter.ConvertHtmlStringAsync(wrappedHtml, htmlOptions).ConfigureAwait(false);
+                var markdown = htmlResult.MarkdownContent?.Trim();
+                if (string.IsNullOrWhiteSpace(markdown))
+                {
+                    return null;
                 }
+
+                if (!string.IsNullOrWhiteSpace(titleValue))
+                {
+                    markdown = $"# {titleValue.Trim()}\n\n{markdown}";
+                }
+
+                return markdown;
             }
             catch (HttpRequestException)
             {
@@ -243,85 +487,31 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             {
                 return null;
             }
-
-            return null;
         }
 
         private static async Task<string?> TryFetchDiscourseRawContentAsync(Uri uri, HttpClient httpClient)
         {
-            if (!LooksLikeDiscourse(uri))
+            if (!DiscourseForumService.IsDiscourseUrl(uri))
             {
                 return null;
             }
 
-            Uri? jsonUri = null;
-            if (TryGetDiscoursePostId(uri, out int postId))
-            {
-                jsonUri = new Uri($"{uri.Scheme}://{uri.Host}/posts/{postId}.json");
-            }
-            else
-            {
-                jsonUri = BuildDiscourseJsonUri(uri);
-            }
-
-            if (jsonUri == null)
-            {
-                return null;
-            }
+            string baseUrl = $"{uri.Scheme}://{uri.Host}";
 
             try
             {
-                var jsonResponse = await httpClient.GetAsync(jsonUri).ConfigureAwait(false);
-                if (!jsonResponse.IsSuccessStatusCode)
+                if (DiscourseForumService.TryParsePostUrl(uri, out int postId))
                 {
-                    return null;
+                    var postJson = await DiscourseForumService.FetchPostAsync(httpClient, baseUrl, postId).ConfigureAwait(false);
+                    var markdown = DiscourseForumService.FormatPostAsMarkdown(postJson, baseUrl);
+                    return string.IsNullOrWhiteSpace(markdown) ? null : markdown;
                 }
 
-                var contentText = await jsonResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-                var jsonObj = JObject.Parse(contentText);
-
-                if (jsonObj["raw"] != null)
+                if (DiscourseForumService.TryParseTopicUrl(uri, out int topicId, out int? _))
                 {
-                    return jsonObj["raw"]?.ToString();
-                }
-
-                var posts = jsonObj.SelectToken("post_stream.posts") as JArray;
-                if (posts != null && posts.Count > 0)
-                {
-                    var builder = new StringBuilder();
-                    foreach (var post in posts)
-                    {
-                        var username = post?["username"]?.ToString();
-                        var created = post?["created_at"]?.ToString();
-                        var raw = post?["raw"]?.ToString();
-                        if (string.IsNullOrWhiteSpace(raw))
-                        {
-                            continue;
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(username) || !string.IsNullOrWhiteSpace(created))
-                        {
-                            builder.Append("## ");
-                            if (!string.IsNullOrWhiteSpace(username))
-                            {
-                                builder.Append(username);
-                            }
-
-                            if (!string.IsNullOrWhiteSpace(created))
-                            {
-                                builder.Append(" – ").Append(created);
-                            }
-
-                            builder.AppendLine();
-                        }
-
-                        builder.AppendLine();
-                        builder.AppendLine(raw.Trim());
-                        builder.AppendLine();
-                    }
-
-                    var combined = builder.ToString().Trim();
-                    return string.IsNullOrWhiteSpace(combined) ? null : combined;
+                    var topicJson = await DiscourseForumService.FetchTopicAsync(httpClient, baseUrl, topicId, includeRaw: true).ConfigureAwait(false);
+                    var markdown = DiscourseForumService.FormatTopicAsMarkdown(topicJson, baseUrl);
+                    return string.IsNullOrWhiteSpace(markdown) ? null : markdown;
                 }
 
                 return null;
@@ -448,54 +638,86 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             }
         }
 
+        /// <summary>
+        /// Removes Wikipedia chrome from the parsed HTML before Markdown conversion:
+        /// section edit links, navigation templates, metadata/authority boxes, and hatnotes.
+        /// Also converts relative wiki links and image sources to absolute URLs.
+        /// </summary>
+        private static string CleanupWikimediaHtml(string html, Uri pageUri)
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+
+            var selectors = new[]
+            {
+                "//span[contains(@class,'mw-editsection')]",
+                "//table[contains(@class,'navbox')]",
+                "//table[contains(@class,'metadata')]",
+                "//div[contains(@class,'hatnote')]",
+                "//span[contains(@class,'mw-empty-elt')]",
+                "//sup[contains(@class,'reference')]",
+            };
+
+            foreach (var xpath in selectors)
+            {
+                var nodes = doc.DocumentNode.SelectNodes(xpath);
+                if (nodes != null)
+                {
+                    foreach (var node in nodes.ToList())
+                    {
+                        node.Remove();
+                    }
+                }
+            }
+
+            // Convert relative wiki links and image sources to absolute URLs.
+            var baseUri = new Uri($"{pageUri.Scheme}://{pageUri.Host}");
+            foreach (var node in doc.DocumentNode.SelectNodes("//a[@href] | //img[@src]")?.ToList() ?? Enumerable.Empty<HtmlNode>())
+            {
+                var attribute = node.Name == "img" ? "src" : "href";
+                var value = node.GetAttributeValue(attribute, null);
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    continue;
+                }
+
+                // Avoid touching already-absolute URLs, mailto/tel, and javascript links.
+                if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                    value.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+                    value.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase) ||
+                    value.StartsWith("tel:", StringComparison.OrdinalIgnoreCase) ||
+                    value.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var absoluteUri = new Uri(baseUri, value);
+                    node.SetAttributeValue(attribute, absoluteUri.ToString());
+                }
+                catch (UriFormatException)
+                {
+                    // Leave malformed URIs untouched.
+                }
+            }
+
+            // Remove empty paragraphs that are left behind after removing the elements above.
+            var emptyParagraphs = doc.DocumentNode.SelectNodes("//p[not(node()) or normalize-space(.)='']");
+            if (emptyParagraphs != null)
+            {
+                foreach (var p in emptyParagraphs.ToList())
+                {
+                    p.Remove();
+                }
+            }
+
+            return doc.DocumentNode.InnerHtml;
+        }
+
         #endregion
 
         #region Helper Methods
-
-        private static bool LooksLikeDiscourse(Uri uri)
-        {
-            return uri.Host.Contains("discourse", StringComparison.OrdinalIgnoreCase)
-                   || uri.Host.Contains("mcneel", StringComparison.OrdinalIgnoreCase)
-                   || uri.AbsolutePath.StartsWith("/t/", StringComparison.OrdinalIgnoreCase)
-                   || uri.AbsolutePath.StartsWith("/p/", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool TryGetDiscoursePostId(Uri uri, out int postId)
-        {
-            postId = 0;
-            var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            if (segments.Length >= 2)
-            {
-                if (segments[0].Equals("p", StringComparison.OrdinalIgnoreCase) || segments[0].Equals("posts", StringComparison.OrdinalIgnoreCase))
-                {
-                    return int.TryParse(segments[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out postId);
-                }
-            }
-
-            if (segments.Length >= 3 && segments[0].Equals("t", StringComparison.OrdinalIgnoreCase))
-            {
-                if (int.TryParse(segments[^1], NumberStyles.Integer, CultureInfo.InvariantCulture, out postId))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static Uri? BuildDiscourseJsonUri(Uri uri)
-        {
-            if (uri.AbsolutePath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
-            {
-                return uri;
-            }
-
-            var builder = new UriBuilder(uri)
-            {
-                Path = uri.AbsolutePath.TrimEnd('/') + ".json",
-            };
-            return builder.Uri;
-        }
 
         private static bool LooksLikeGitHost(Uri uri)
         {

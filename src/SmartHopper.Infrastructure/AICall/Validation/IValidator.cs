@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -87,6 +87,22 @@ namespace SmartHopper.Infrastructure.AICall.Validation
         /// Gets a value indicating whether messages have been sanitized to avoid PII leakage.
         /// </summary>
         public bool MessagesSanitized { get; set; }
+
+        /// <summary>
+        /// Gets or sets the fallback description when a modality fallback chain was resolved.
+        /// Null when no fallback applies.
+        /// </summary>
+        public string FallbackDescription { get; set; }
+
+        /// <summary>
+        /// Gets or sets the resolved fallback chain. Non-null when IsValid and a fallback applies.
+        /// </summary>
+        public Fallback.FallbackChain FallbackChain { get; set; }
+
+        /// <summary>
+        /// Gets a value indicating whether there are any warning messages.
+        /// </summary>
+        public bool HasWarnings => this.WarningCount > 0;
     }
 
     /// <summary>

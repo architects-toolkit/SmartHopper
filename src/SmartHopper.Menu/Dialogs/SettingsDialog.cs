@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -45,6 +45,7 @@ namespace SmartHopper.Menu.Dialogs
         private readonly GeneralSettingsPage _generalPage;
         private readonly ProvidersSettingsPage _providersPage;
         private readonly AssistantSettingsPage _assistantPage;
+        private readonly FallbackSettingsPage _fallbackPage;
         private readonly List<GenericProviderSettingsPage> _providerPages;
 
         // Settings models
@@ -111,6 +112,7 @@ namespace SmartHopper.Menu.Dialogs
             this._generalPage = new GeneralSettingsPage(this._providers);
             this._assistantPage = new AssistantSettingsPage(this._providers);
             this._providersPage = new ProvidersSettingsPage(this._providers);
+            this._fallbackPage = new FallbackSettingsPage(this._providers);
             this._providerPages = new List<GenericProviderSettingsPage>();
 
             // Create provider-specific tabs
@@ -124,6 +126,7 @@ namespace SmartHopper.Menu.Dialogs
             this._generalPage.LoadSettings(this._generalSettings);
             this._providersPage.LoadSettings(this._trustedProvidersSettings, this._providerIntegrityCheckMode);
             this._assistantPage.LoadSettings(this._assistantSettings);
+            this._fallbackPage.LoadSettings(this._settings.ModalityFallback, this._settings.FallbackProviderPins);
 
             this.CreateTabLayout();
         }
@@ -154,6 +157,13 @@ namespace SmartHopper.Menu.Dialogs
             {
                 Text = "Canvas Assistant",
                 Content = this._assistantPage,
+            });
+
+            // Add Fallback tab
+            tabControl.Pages.Add(new TabPage
+            {
+                Text = "Fallback",
+                Content = this._fallbackPage,
             });
 
             // Add provider-specific tabs
@@ -225,6 +235,11 @@ namespace SmartHopper.Menu.Dialogs
                 this._settings.SmartHopperAssistant.AssistantModel = this._assistantSettings.AssistantModel;
                 this._settings.TrustedProviders = new Dictionary<string, bool>(this._trustedProvidersSettings);
                 this._settings.ProviderIntegrityCheckMode = providerIntegrityCheckMode;
+
+                // Save fallback settings
+                this._fallbackPage.SaveSettings(out var fallbackMode, out var fallbackPins);
+                this._settings.ModalityFallback = fallbackMode;
+                this._settings.FallbackProviderPins = fallbackPins;
 
                 // Persist global settings
                 this._settings.Save();

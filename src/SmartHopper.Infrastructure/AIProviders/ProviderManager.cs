@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -444,7 +444,9 @@ namespace SmartHopper.Infrastructure.AIProviders
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[ProviderManager] Error initializing provider {provider.Name}: {ex.Message}");
+                    var msg = $"[SmartHopper] Error initializing provider {provider.Name}: {ex.Message}";
+                    Debug.WriteLine(msg);
+                    Rhino.RhinoApp.WriteLine(msg);
                 }
             });
         }

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -198,7 +198,7 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     lock (this._htmlRenderLock)
                     {
-                        html = this._htmlRenderer.RenderInteraction(interaction);
+                        html = this._htmlRenderer.RenderInteraction(interaction, domKey);
                     }
                 }
                 catch (Exception ex)
@@ -650,7 +650,7 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     lock (this._htmlRenderLock)
                     {
-                        html = this._htmlRenderer.RenderInteraction(interaction);
+                        html = this._htmlRenderer.RenderInteraction(interaction, domKey);
                     }
                 }
                 catch (Exception ex)
@@ -904,7 +904,7 @@ namespace SmartHopper.Core.UI.Chat
                         {
                             lock (this._htmlRenderLock)
                             {
-                                html = this._htmlRenderer.RenderInteraction(interaction);
+                                html = this._htmlRenderer.RenderInteraction(interaction, key);
                             }
                         }
                         catch (Exception ex)
@@ -1393,6 +1393,7 @@ namespace SmartHopper.Core.UI.Chat
                             this._maxKeyLengthSeen = 0;
                             this._totalEqualityChecks = 0;
                             this._totalEqualityCheckMs = 0;
+                            this._htmlRenderer.ClearBlockCaches();
                         }
                         catch
                         {
@@ -1532,7 +1533,7 @@ namespace SmartHopper.Core.UI.Chat
                             {
                                 lock (this._htmlRenderLock)
                                 {
-                                    html = this._htmlRenderer.RenderInteraction(interaction);
+                                    html = this._htmlRenderer.RenderInteraction(interaction, domKey);
                                 }
                             }
                             catch (Exception ex)

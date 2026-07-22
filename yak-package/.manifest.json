@@ -1,0 +1,9 @@
+{
+  "notes": {
+    "dev": "NOTE: This is a development version with untested features :/ If you find bugs, please report them at <https://github.com/architects-toolkit/SmartHopper/issues>",
+    "alpha": "NOTE: This is an alpha release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>",
+    "beta": "NOTE: This is a beta release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>",
+    "rc": "NOTE: This is a release candidate. Please test thoroughly and report any issues at <https://github.com/architects-toolkit/SmartHopper/issues>",
+    "stable": "Please report any issues at <https://github.com/architects-toolkit/SmartHopper/issues>"
+  }
+}

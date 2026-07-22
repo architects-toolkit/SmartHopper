@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -60,7 +60,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Describes or analyzes an image using a vision AI model. Provide either an image URL or base64-encoded image data. Returns a text description of the image content.",
+                description: "Describes or analyzes an image using a vision AI model. Provide either an image URL or base64-encoded image data. Returns a text description of the image content. Example: img2text({ imageUrl: 'https://example.com/facade.jpg', prompt: 'List architectural materials' }).",
                 category: "Img",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -170,7 +170,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine($"[{this.toolName}] Running DescribeImageAsync tool");
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
 
                 string imageUrl = args["imageUrl"]?.ToString();
                 string imageBase64 = args["imageBase64"]?.ToString();

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -678,6 +678,12 @@ namespace SmartHopper.Infrastructure.AIProviders
                 var toolFilterObj = Filtering.Parse(toolFilter);
                 foreach (var tool in tools)
                 {
+                    if (!tool.Value.Enabled)
+                    {
+                        // Skip tools that are disabled (e.g., experimental or unsupported)
+                        continue;
+                    }
+
                     if (!toolFilterObj.ShouldInclude(tool.Value.Category))
                     {
                         // Skip tools that don't match the filter
@@ -690,7 +696,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                         ["function"] = new JObject
                         {
                             ["name"] = tool.Value.Name,
-                            ["description"] = tool.Value.Description,
+                            ["description"] = tool.Value.RichDescription,
                             ["parameters"] = JObject.Parse(tool.Value.ParametersSchema),
                         },
                     };

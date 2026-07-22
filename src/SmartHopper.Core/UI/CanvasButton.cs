@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -74,13 +74,13 @@ namespace SmartHopper.Core.UI
             4. If you modify the canvas, do it safely and summarize what changed.
 
             Tool guidance is provided via instruction tools (to keep this prompt short).
-            When the user's request involves a domain below, ALWAYS call `instruction_get` function first with a `topic` parameter:
+            When the user's request involves a domain below, ALWAYS call `smarthopper_readme` function first with a `topic` parameter:
             - canvas: Including ghjson operations, component retrieval (use gh_get_start/gh_get_end for wide views), error handling, visibility/locks, properties, connections, and parameters
             - discovery: Retrieve available components in user's installation of Grasshopper
             - scripting: C#, python, iron-python and VB tools to generate, edit and review scripts
             - knowledge: To search for information on McNeel forum and webpages
 
-            Use the returned instructions as the authoritative workflow for that domain. The instruction_get tool provides recommended flows and specialized tools you should use.
+            Use the returned instructions as the authoritative workflow for that domain. The smarthopper_readme tool provides recommended flows and specialized tools you should use.
             """;
 
         // Private fields

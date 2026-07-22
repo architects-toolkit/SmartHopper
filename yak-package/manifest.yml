@@ -7,11 +7,11 @@ description: >
 
   ----
 
-  NOTE: This is an alpha release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>
+  {{NOTE_TEXT}}
 
   ----
 
-  REQUIREMENTS: (1) Internet connection (2) Valid API key from a supported AI provider (3) Rhino 8.24 or later
+  REQUIREMENTS: (1) Internet connection (2) Valid API key from a supported AI provider (3) Rhino 8.0 or later
 
 authors:
   - Marc Roca Musach
@@ -22,6 +22,7 @@ keywords:
   - artificial
   - intelligence
   - forum
+  - discourse
   - chat
   - gpt
   - assistant
@@ -35,8 +36,15 @@ keywords:
   - vb
   - csharp
   - ironpython
+  - ghjson
+  - json
+  - markdown
+  - pdf
+  - word
+  - excel
+  - csv
   - open-ai
-  - mistral
+  - mistral-ai
   - deepseek
   - anthropic
   - open-router

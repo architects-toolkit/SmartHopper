@@ -7,7 +7,7 @@ Traverses the target path (file or directory) and removes any trailing spaces or
 from the end of each line in matching files. The script:
 - Removes only trailing whitespace (spaces/tabs) at end of each line
 - Preserves original EOL style (CRLF/LF) and final-EOL presence
-- Preserves UTF-8 BOM if present
+- Writes UTF-8 without BOM
 - Honors -WhatIf / -Confirm via SupportsShouldProcess
 - Touches files only when a change is necessary
 
@@ -96,25 +96,16 @@ function Get-EolStyle {
     else { return "`r`n" }
 }
 
-function Write-ContentPreserveBom {
+function Write-ContentNoBom {
     <#
     .SYNOPSIS
-    Writes text preserving whether the original file had a UTF-8 BOM.
+    Writes text as UTF-8 without BOM.
     #>
     param(
         [Parameter(Mandatory)] [string]$Path,
         [Parameter(Mandatory)] [string]$Content
     )
-    $hasBom = $false
-    try {
-        $bytes = [System.IO.File]::ReadAllBytes($Path)
-        if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
-            $hasBom = $true
-        }
-    } catch {
-        $hasBom = $false
-    }
-    $encoding = New-Object System.Text.UTF8Encoding($hasBom)
+    $encoding = [System.Text.UTF8Encoding]::new($false)
     [System.IO.File]::WriteAllText($Path, $Content, $encoding)
 }
 
@@ -152,7 +143,7 @@ function Invoke-SA1028Fix {
 
     if ($PSCmdlet.ShouldProcess($FilePath, "Remove trailing whitespace per SA1028")) {
         try {
-            Write-ContentPreserveBom -Path $FilePath -Content $newText
+            Write-ContentNoBom -Path $FilePath -Content $newText
             Write-Host "Modified: $FilePath"
             return $true
         } catch {

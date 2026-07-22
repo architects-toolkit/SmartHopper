@@ -43,6 +43,7 @@ permissions:
 jobs:
   determine-versions-to-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       versions: ${{ steps.get-versions.outputs.versions }}
       has-versions: ${{ steps.get-versions.outputs.has_versions }}
@@ -137,6 +138,7 @@ jobs:
     needs: determine-versions-to-check
     if: needs.determine-versions-to-check.outputs.has-versions == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     concurrency:
       group: "promotion-${{ matrix.version }}"
       cancel-in-progress: false
@@ -277,7 +279,11 @@ jobs:
               });
               console.log(`✅ Created milestone: ${nextVersion}`);
             } catch (e) {
-              if (e.message.includes('already exists')) {
+              // GitHub returns 422 with error code "already_exists" when a milestone
+              // with the same title already exists. Older Octokit versions surfaced
+              // this as "already exists" in the message — handle both forms.
+              const msg = e.message || '';
+              if (e.status === 422 && /already[_ ]exists/.test(msg)) {
                 console.log(`ℹ️ Milestone ${nextVersion} already exists`);
               } else {
                 throw e;
@@ -374,7 +380,8 @@ jobs:
       - name: Create or update promotion-blocked issue
         if: |
           steps.should-promote.outputs.should-promote == 'false' &&
-          steps.check-issues.outputs.release-old-enough == 'true'
+          steps.check-issues.outputs.release-old-enough == 'true' &&
+          steps.check-issues.outputs.has-issues == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -382,12 +389,12 @@ jobs:
             const version = '${{ matrix.version }}';
             const reason = '${{ steps.should-promote.outputs.reason }}';
             const title = `\u26d4 Promotion blocked: ${version}`;
-            
+
             // Check if issue already exists
             const existing = await github.rest.search.issuesAndPullRequests({
               q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open "${title}" in:title`
             });
-            
+
             if (existing.data.total_count === 0) {
               await github.rest.issues.create({
                 owner: context.repo.owner,

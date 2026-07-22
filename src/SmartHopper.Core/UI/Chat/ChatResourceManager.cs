@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -22,14 +22,18 @@
  */
 
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Text;
 using System.Text.RegularExpressions;
 using Markdig;
+using Markdig.Parsers;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 
@@ -55,6 +59,35 @@ namespace SmartHopper.Core.UI.Chat
         private string _cachedCssContent;
         private string _cachedJsContent;
         private readonly MarkdownPipeline _markdownPipeline;
+
+        /// <summary>
+        /// Per-render-identity cache of completed (closed) Markdown blocks and their rendered HTML.
+        /// Used by <see cref="RenderMarkdownWithBlockCache"/> to avoid re-parsing and re-rendering
+        /// the entire accumulated text on every streaming delta; only the trailing (still-growing)
+        /// block is re-rendered on each call. Keyed by a caller-supplied stable identity (e.g. the
+        /// DOM key of the message bubble plus a suffix identifying content vs. reasoning).
+        /// </summary>
+        private readonly ConcurrentDictionary<string, BlockCacheEntry[]> _blockCachesByKey = new (StringComparer.Ordinal);
+
+        private readonly Queue<string> _blockCacheKeyOrder = new ();
+        private readonly object _blockCacheLock = new ();
+        private const int MaxBlockCacheKeys = 100;
+
+        /// <summary>
+        /// A single cached Markdown block: its exact source text and the HTML it was rendered to.
+        /// </summary>
+        private readonly struct BlockCacheEntry
+        {
+            public BlockCacheEntry(string source, string html)
+            {
+                this.Source = source;
+                this.Html = html;
+            }
+
+            public string Source { get; }
+
+            public string Html { get; }
+        }
 
         // Resource names
         private const string CSS_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.css.chat-styles.css";
@@ -247,8 +280,9 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         /// <param name="reasoning">Reasoning text. May already be plain text (no <think>) or include <think>...</think> wrapper.</param>
         /// <param name="expand">If true, the panel will be rendered expanded (open attribute).</param>
+        /// <param name="cacheKey">Stable identity for block-level render caching, or null to disable caching.</param>
         /// <returns>HTML for reasoning panel or empty string.</returns>
-        private string RenderReasoning(string reasoning, bool expand)
+        private string RenderReasoning(string reasoning, bool expand, string cacheKey)
         {
             if (string.IsNullOrWhiteSpace(reasoning)) return string.Empty;
 
@@ -264,9 +298,234 @@ namespace SmartHopper.Core.UI.Chat
                 reasoningMd = reasoning;
             }
 
-            var reasoningHtml = Markdown.ToHtml(reasoningMd, this._markdownPipeline);
+            var reasoningHtml = this.RenderMarkdownWithBlockCache(reasoningMd, AppendCacheSuffix(cacheKey, "reasoning"));
             var openAttr = expand ? " open" : string.Empty;
             return $"<details class=\"think\"{openAttr}><summary>Reasoning</summary>{reasoningHtml}</details>";
+        }
+
+        /// <summary>
+        /// Renders Markdown to HTML, reusing cached HTML for completed (closed) blocks so that only
+        /// the trailing, still-growing block is re-parsed and re-rendered on each streaming delta.
+        /// Falls back to a plain full-document render when no stable <paramref name="cacheKey"/> is
+        /// supplied, or when block parsing fails for any reason.
+        /// </summary>
+        /// <param name="rawText">The raw Markdown source to render.</param>
+        /// <param name="cacheKey">Stable identity for this piece of content across renders (e.g. a DOM key), or null to disable caching.</param>
+        /// <returns>The rendered HTML.</returns>
+        private string RenderMarkdownWithBlockCache(string rawText, string cacheKey)
+        {
+            if (string.IsNullOrEmpty(rawText))
+            {
+                return string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(cacheKey))
+            {
+                // No stable identity to cache against (e.g. one-shot renders); render directly.
+                return Markdown.ToHtml(rawText, this._markdownPipeline);
+            }
+
+            List<(int Start, int Length)> blockSpans;
+            try
+            {
+                blockSpans = GetTopLevelBlockSpans(rawText, this._markdownPipeline);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ChatResourceManager] Block parsing failed for cacheKey='{cacheKey}', falling back to full render: {ex.Message}");
+                return Markdown.ToHtml(rawText, this._markdownPipeline);
+            }
+
+            if (blockSpans.Count == 0)
+            {
+                return Markdown.ToHtml(rawText, this._markdownPipeline);
+            }
+
+            var previousBlocks = this._blockCachesByKey.TryGetValue(cacheKey, out var cached) ? cached : Array.Empty<BlockCacheEntry>();
+
+            // All blocks except the last are "closed": the parser only emits a following block once
+            // the previous one can no longer change, so their rendered HTML can be safely reused.
+            int completedCount = blockSpans.Count - 1;
+            var newCompletedBlocks = new BlockCacheEntry[completedCount];
+            var htmlBuilder = new StringBuilder();
+
+            for (int i = 0; i < completedCount; i++)
+            {
+                var (start, length) = blockSpans[i];
+                var source = rawText.Substring(start, length);
+
+                string html = (i < previousBlocks.Length && string.Equals(previousBlocks[i].Source, source, StringComparison.Ordinal))
+                    ? previousBlocks[i].Html
+                    : Markdown.ToHtml(source, this._markdownPipeline);
+
+                newCompletedBlocks[i] = new BlockCacheEntry(source, html);
+                htmlBuilder.Append(html);
+            }
+
+            // Always re-render the trailing block: it may still be growing mid-stream.
+            // Repair dangling inline syntax first so a partial token (e.g. "**bold") does not
+            // flash as literal text for the moment before its closing marker arrives.
+            var (lastStart, lastLength) = blockSpans[^1];
+            var lastSource = rawText.Substring(lastStart, lastLength);
+            htmlBuilder.Append(Markdown.ToHtml(RepairIncompleteMarkdownTail(lastSource), this._markdownPipeline));
+
+            this.StoreBlockCache(cacheKey, newCompletedBlocks);
+
+            return htmlBuilder.ToString();
+        }
+
+        /// <summary>
+        /// Parses <paramref name="rawText"/> and returns the character span (start, length) of each
+        /// top-level Markdown block (paragraph, heading, list, fenced code block, table, etc.).
+        /// </summary>
+        private static List<(int Start, int Length)> GetTopLevelBlockSpans(string rawText, MarkdownPipeline pipeline)
+        {
+            var document = MarkdownParser.Parse(rawText, pipeline);
+            var spans = new List<(int Start, int Length)>(document.Count);
+
+            foreach (var block in document)
+            {
+                var span = block.Span;
+                if (span.Start < 0 || span.End < span.Start)
+                {
+                    continue;
+                }
+
+                int start = span.Start;
+                int end = Math.Min(span.End, rawText.Length - 1);
+                int length = end - start + 1;
+                if (length <= 0)
+                {
+                    continue;
+                }
+
+                spans.Add((start, length));
+            }
+
+            return spans;
+        }
+
+        /// <summary>
+        /// Temporarily closes dangling inline Markdown syntax (unterminated fenced code blocks,
+        /// bold markers, and inline code spans) so a still-streaming block never renders as raw,
+        /// unformatted text for the brief moment before its closing marker arrives.
+        /// The original source is never mutated; this only affects what gets rendered to HTML.
+        /// </summary>
+        /// <param name="text">The trailing (still-growing) block's Markdown source.</param>
+        /// <returns>The text with any dangling syntax closed for rendering purposes.</returns>
+        private static string RepairIncompleteMarkdownTail(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return text;
+            }
+
+            // Unterminated fenced code block: close it so the block renders as code instead of
+            // leaking the fence marker and any code syntax (e.g. "**", "`") as literal text.
+            if (CountOccurrences(text, "```") % 2 != 0)
+            {
+                bool needsNewline = !text.EndsWith("\n", StringComparison.Ordinal);
+                return text + (needsNewline ? "\n" : string.Empty) + "```";
+            }
+
+            // Not inside an open fence: guard against dangling inline markers.
+            string repaired = text;
+
+            if (CountOccurrences(repaired, "**") % 2 != 0)
+            {
+                repaired += "**";
+            }
+
+            if (CountChar(repaired, '`') % 2 != 0)
+            {
+                repaired += "`";
+            }
+
+            return repaired;
+        }
+
+        /// <summary>
+        /// Counts non-overlapping occurrences of <paramref name="token"/> in <paramref name="text"/>.
+        /// </summary>
+        private static int CountOccurrences(string text, string token)
+        {
+            int count = 0;
+            int index = 0;
+            while ((index = text.IndexOf(token, index, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                index += token.Length;
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// Counts occurrences of a single character in <paramref name="text"/>.
+        /// </summary>
+        private static int CountChar(string text, char c)
+        {
+            int count = 0;
+            foreach (var ch in text)
+            {
+                if (ch == c)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// Stores the completed-block cache for a given identity, with simple LRU eviction to bound
+        /// memory usage across long-running chat sessions.
+        /// </summary>
+        private void StoreBlockCache(string cacheKey, BlockCacheEntry[] completedBlocks)
+        {
+            try
+            {
+                lock (this._blockCacheLock)
+                {
+                    bool isExisting = this._blockCachesByKey.ContainsKey(cacheKey);
+                    this._blockCachesByKey[cacheKey] = completedBlocks;
+
+                    if (!isExisting)
+                    {
+                        this._blockCacheKeyOrder.Enqueue(cacheKey);
+                        while (this._blockCacheKeyOrder.Count > MaxBlockCacheKeys)
+                        {
+                            var oldest = this._blockCacheKeyOrder.Dequeue();
+                            this._blockCachesByKey.TryRemove(oldest, out _);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ChatResourceManager] StoreBlockCache error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Clears all cached Markdown blocks (e.g. when regenerating the entire chat view).
+        /// </summary>
+        public void ClearBlockCaches()
+        {
+            lock (this._blockCacheLock)
+            {
+                this._blockCachesByKey.Clear();
+                this._blockCacheKeyOrder.Clear();
+            }
+        }
+
+        /// <summary>
+        /// Appends a fixed suffix to a cache key so content and reasoning caches for the same
+        /// message do not collide with each other.
+        /// </summary>
+        private static string AppendCacheSuffix(string cacheKey, string suffix)
+        {
+            return string.IsNullOrWhiteSpace(cacheKey) ? null : $"{cacheKey}:{suffix}";
         }
 
         /// <summary>
@@ -281,8 +540,9 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="provider">AI provider name (for AI responses)</param>
         /// <param name="model">AI model name (for AI responses)</param>
         /// <param name="finishReason">AI response finish reason (for AI responses)</param>
+        /// <param name="cacheKey">Stable identity for block-level render caching (e.g. the message's DOM key), or null to disable caching.</param>
         /// <returns>The HTML for the message.</returns>
-        public string CreateMessageHtml(string timestamp, IAIInteraction interaction)
+        public string CreateMessageHtml(string timestamp, IAIInteraction interaction, string cacheKey = null)
         {
             // Get content and reasoning from interaction via IAIRenderInteraction when available
             string rawContent = string.Empty;
@@ -342,9 +602,9 @@ namespace SmartHopper.Core.UI.Chat
             Debug.WriteLine("[ChatResourceManager] Converting markdown to HTML");
 
             // Render reasoning panel. Auto-expand when there is no visible answer content.
-            var reasoningPanel = this.RenderReasoning(rawReasoning, string.IsNullOrWhiteSpace(rawContent));
+            var reasoningPanel = this.RenderReasoning(rawReasoning, string.IsNullOrWhiteSpace(rawContent), cacheKey);
             Debug.WriteLine("[ChatResourceManager] Converting answer markdown to HTML");
-            string answerHtml = Markdown.ToHtml(rawContent, this._markdownPipeline);
+            string answerHtml = this.RenderMarkdownWithBlockCache(rawContent, AppendCacheSuffix(cacheKey, "content"));
             Debug.WriteLine($"[ChatResourceManager] Answer HTML length: {answerHtml?.Length ?? 0}");
 
             // Escape answer markdown for safe use in an HTML attribute

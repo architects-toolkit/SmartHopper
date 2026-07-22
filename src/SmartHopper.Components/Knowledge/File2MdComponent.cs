@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -25,7 +25,6 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
-using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
@@ -104,6 +103,7 @@ namespace SmartHopper.Components.Knowledge
             private readonly File2MdComponent parent;
             private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_String> filePathTree;
+            private GH_Structure<GH_String> removeHeadersTree;
             private bool hasWork;
             private string htmlReadabilityMode;
 
@@ -156,6 +156,7 @@ namespace SmartHopper.Components.Knowledge
                     var inputTrees = new Dictionary<string, GH_Structure<GH_String>>
                     {
                         { "File Path", this.filePathTree },
+                        { "RemoveHeaders", this.removeHeadersTree },
                     };
 
                     var resultTrees = await this.parent.RunProcessingAsync<GH_String>(
@@ -174,9 +175,18 @@ namespace SmartHopper.Components.Knowledge
                                 return outputs;
                             }
 
-                            foreach (var ghPath in pathBranch)
+                            var removeBranch = branchInputs.TryGetValue("RemoveHeaders", out var rh) ? rh : new List<GH_String>();
+
+                            var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { pathBranch, removeBranch });
+                            pathBranch = normalizedLists[0];
+                            removeBranch = normalizedLists[1];
+
+                            for (int i = 0; i < pathBranch.Count; i++)
                             {
                                 token.ThrowIfCancellationRequested();
+
+                                var ghPath = pathBranch[i];
+                                bool removeHeaders = bool.TryParse(removeBranch[i]?.Value, out var rhValue) ? rhValue : true;
 
                                 if (ghPath == null || string.IsNullOrWhiteSpace(ghPath.Value))
                                 {
@@ -187,15 +197,15 @@ namespace SmartHopper.Components.Knowledge
 
                                 var (markdown, format, images, warnings) = await ConvertFileAsync(ghPath.Value, this.htmlReadabilityMode).ConfigureAwait(false);
 
-                                outputs["Markdown"].Add(new GH_String(markdown));
-                                outputs["Format"].Add(new GH_String(format));
-
-                                foreach (var img in images)
+                                if (converted == null)
                                 {
                                     outputs["Images"].Add(new GH_VersatileImage(img));
                                 }
 
-                                foreach (var w in warnings)
+                                outputs["Markdown"].Add(new GH_String(converted.Markdown));
+                                outputs["Format"].Add(new GH_String(converted.Format));
+
+                                foreach (var img in converted.Images)
                                 {
                                     this.CollectMessage(SHRuntimeMessageSeverity.Warning, w, SHRuntimeMessageOrigin.Tool);
                                 }

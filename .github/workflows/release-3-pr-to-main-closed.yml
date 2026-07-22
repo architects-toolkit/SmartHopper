@@ -1,5 +1,13 @@
 name: 🏁 3 Create Release on Release PR Close
 
+# Related workflows (release pipeline — execute in numbered order):
+#   - release-1-milestone.yml (creates milestone and branches)
+#   - release-2-pr-to-dev-closed.yml (creates PR from dev→main on release merge)
+#   - release-3-pr-to-main-closed.yml (creates GitHub Release on main merge)
+#   - release-4-build.yml (builds platform artifacts on release publish)
+#   - release-5-deploy-pages.yml (deploys documentation pages)
+#   - release-6-upload-yak.yml (uploads to Yak package manager)
+
 # Description: This workflow automatically creates a GitHub Release when a release PR is closed.
 # It extracts the milestone title as the version number and compiles release notes from
 # all issues and pull requests associated with the milestone.
@@ -11,7 +19,8 @@ name: 🏁 3 Create Release on Release PR Close
 # Permissions:
 # - contents:write - Required to create GitHub releases
 # - issues:read - Required to read issue information for release notes
-# - pull-requests:read - Required to read PR information for release notes
+# - pull-requests:write - Required to read PR information for release notes and
+#                         create template update PRs via peter-evans/create-pull-request
 
 on:
   pull_request:
@@ -27,12 +36,22 @@ concurrency:
 
 jobs:
   create-release:
-    if: ${{ github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch' }}
+    # Only run for release/hotfix/dev source branches (not chore/docs/feature PRs)
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event.pull_request.merged == true && (
+        startsWith(github.event.pull_request.head.ref, 'release/') ||
+        startsWith(github.event.pull_request.head.ref, 'hotfix/') ||
+        startsWith(github.event.pull_request.head.ref, 'dev-') ||
+        github.event.pull_request.head.ref == 'dev'
+      ))
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
+      actions: write
       contents: write
       issues: read
-      pull-requests: read
+      pull-requests: write
 
     steps:
       - name: Determine target branch
@@ -53,7 +72,15 @@ jobs:
         with:
           branch: ${{ steps.target-branch.outputs.branch }}
 
+      - name: Abort if dev version
+        id: dev_check
+        if: steps.release_info.outputs.stage == 'dev'
+        run: |
+          echo "::notice::Version ${{ steps.release_info.outputs.version }} is a dev build. Skipping release creation."
+          echo "skip=true" >> $GITHUB_OUTPUT
+
       - name: Generate Release Notes
+        if: steps.dev_check.outputs.skip != 'true'
         id: issues
         uses: actions/github-script@v7
         env:
@@ -72,6 +99,7 @@ jobs:
             await core.setOutput('changelog', releaseNotes.data.body);
 
       - name: Check Prerelease Status
+        if: steps.dev_check.outputs.skip != 'true'
         id: prerelease
         run: |
           title="${{ steps.release_info.outputs.version }}"
@@ -82,6 +110,7 @@ jobs:
           fi
 
       - name: Check if Release Exists and is Not Prerelease
+        if: steps.dev_check.outputs.skip != 'true'
         id: check_release
         uses: actions/github-script@v7
         env:
@@ -111,6 +140,7 @@ jobs:
             }
 
       - name: Generate AI Release Notes
+        if: steps.dev_check.outputs.skip != 'true'
         id: ai_release_notes
         uses: ./.github/actions/documentation/generate-release-notes
         with:
@@ -122,6 +152,7 @@ jobs:
           mistral-api-key: ${{ secrets.MISTRAL_API_KEY }}
 
       - name: Create Release
+        if: steps.dev_check.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -143,13 +174,14 @@ jobs:
           target_commitish: ${{ steps.target-branch.outputs.branch }}
 
       - name: Update Issue Template Version Dropdown
+        if: steps.dev_check.outputs.skip != 'true'
         id: update_template
         shell: pwsh
         run: |
           # The softprops action above doesn't fetch tags immediately into the local workspace,
           # but the new tag exists remotely. We fetch it first.
           git fetch --tags
-          pwsh -ExecutionPolicy Bypass -File .\tools\Update-VersionVerificationTemplate.ps1 -MinMajor 1
+          & .\tools\Update-VersionVerificationTemplate.ps1 -MinMajor 1
           $code = $LASTEXITCODE
           if ($code -eq 0) {
             "changed=true" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
@@ -160,11 +192,12 @@ jobs:
           }
 
       - name: Create Pull Request for Template Update
-        if: steps.update_template.outputs.changed == 'true'
+        if: steps.dev_check.outputs.skip != 'true' && steps.update_template.outputs.changed == 'true'
+        id: create-pr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore(templates): add ${{ steps.release_info.outputs.version }} to model-verification template [ci skip]"
+          commit-message: "chore(templates): add ${{ steps.release_info.outputs.version }} to model-verification template"
           title: "chore(templates): add ${{ steps.release_info.outputs.version }} to model-verification dropdown"
           body: |
             Auto-generated PR from `.github/workflows/release-3-pr-to-main-closed.yml`.
@@ -175,3 +208,43 @@ jobs:
           delete-branch: true
           labels: |
             automated
+
+      - name: Dispatch required PR checks
+        if: steps.dev_check.outputs.skip != 'true' && steps.update_template.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: chore/update-version-dropdown-${{ steps.release_info.outputs.version }}
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          base-ref: ${{ steps.target-branch.outputs.branch }}
+          pr-title: "chore(templates): add ${{ steps.release_info.outputs.version }} to model-verification dropdown"
+
+  notify-on-failure:
+    needs: [create-release]
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Create failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🔴 release-3 (Create Release) failed (run #${context.runNumber})`;
+            const body = [
+              `The **Create Release on Release PR Close** workflow failed.`,
+              ``,
+              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              `**Ref:** \`${context.ref}\``,
+              `**Triggered by:** ${context.actor}`,
+              ``,
+              `This is a critical release pipeline failure. Please investigate immediately.`,
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['automated', 'status: needs attention'],
+            });

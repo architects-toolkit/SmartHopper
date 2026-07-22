@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -19,10 +19,16 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Converters.Formats;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
+using SmartHopper.Core.Types;
+using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -56,7 +62,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Convert a web page (URL) to Markdown text. Supports Wikipedia/Wikimedia, Discourse forums, GitHub/GitLab files, Stack Exchange questions, and generic webpages. Respects robots.txt. Use this when you need to read the contents of a web page.",
+                description: "Convert a web page (URL) to Markdown text. Supports Wikipedia/Wikimedia, Discourse forums, GitHub/GitLab files, Stack Exchange questions, and generic webpages. Respects robots.txt. Use this when you know the URL and need to retrieve knowledge from the web or read the contents of a web page. Example: web2md({ url: 'https://en.wikipedia.org/wiki/Tensile_structure' }).",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -102,13 +108,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
 
                 string url = args["url"]?.ToString();
                 if (string.IsNullOrWhiteSpace(url))
                 {
-                    output.CreateError("Missing 'url' parameter.");
+                    output.CreateError($"[{FileConversionFailureReason.InvalidInput}] Missing 'url' parameter.");
                     return output;
+                }
+
+                string imageMode = args["imageMode"]?.ToString()?.ToLowerInvariant() ?? "link";
+                if (imageMode != "link" && imageMode != "embed" && imageMode != "describe" && imageMode != "caption")
+                {
+                    imageMode = "link";
                 }
 
                 // Get conversion options
@@ -132,15 +144,36 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var errorMessage = result.Warnings.Count > 0
                         ? string.Join("; ", result.Warnings)
                         : "Conversion failed.";
-                    output.CreateError(errorMessage);
+
+                    // Prefix with the classified failure reason so callers/agents can distinguish
+                    // failure shapes (invalid URL, login wall, bot challenge, oversized page, empty
+                    // content, etc.) without having to parse free-text messages.
+                    output.CreateError($"[{result.FailureReason}] {errorMessage}");
                     return output;
+                }
+
+                string markdownContent = result.MarkdownContent;
+
+                // Process images according to the requested mode (link is the default / no-op).
+                if (imageMode != "link" && options.IncludeImages)
+                {
+                    string providerName = toolCall.Provider?.ToString();
+                    if (string.IsNullOrWhiteSpace(providerName))
+                    {
+                        result.Warnings.Add("Image processing skipped: no AI provider configured. Configure a provider or set imageMode='link'.");
+                    }
+                    else
+                    {
+                        markdownContent = await ProcessWebImagesAsync(markdownContent, imageMode, toolCall).ConfigureAwait(false);
+                    }
                 }
 
                 // Build result
                 var toolResult = new JObject
                 {
-                    ["content"] = result.MarkdownContent,
+                    ["content"] = markdownContent,
                     ["source"] = url,
+                    ["retrievedAt"] = DateTime.UtcNow.ToString("O"),
                 };
 
                 // Add metadata if present

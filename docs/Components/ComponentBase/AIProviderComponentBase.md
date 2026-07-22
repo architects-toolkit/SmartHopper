@@ -4,7 +4,7 @@
 
 Async + stateful base that adds an AI provider selection menu to [StatefulComponentBase](./StatefulComponentBase.md). Implements [`IProviderComponent`](./index.md). Delegates the menu and serialization to [ProviderComponentHelper](./ProviderComponentHelper.md).
 
-## Purpose
+---
 
 Let the user pick an AI provider per component (or fall back to the system default), persist the choice across save/load, and expose the resolved provider to derived classes.
 
@@ -31,7 +31,7 @@ Provider name is written through `ProviderComponentHelper.WriteProvider/ReadProv
 - You need provider selection but **not** the AI request orchestration (Settings input, Metrics output, badges, batch). For those use [AIStatefulAsyncComponentBase](./AIStatefulAsyncComponentBase.md).
 - For non-async provider components (e.g. `AIModels` listing) use [ProviderComponentBase](./ProviderComponentBase.md).
 
-## Related
+This base class is the foundation for any component that needs an AI provider selection menu, persisted across save/load, without the full AI request orchestration stack. If you are building a custom component that needs provider selection, this documentation explains the contract and persistence model.
 
 - [ProviderComponentBase](./ProviderComponentBase.md)
 - [AIStatefulAsyncComponentBase](./AIStatefulAsyncComponentBase.md)

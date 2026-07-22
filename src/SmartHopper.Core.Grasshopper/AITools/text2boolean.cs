@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -143,7 +143,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine("[TextTools] Running Text2Boolean tool");
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 string? text = args["text"]?.ToString();
                 string? question = args["question"]?.ToString();
 

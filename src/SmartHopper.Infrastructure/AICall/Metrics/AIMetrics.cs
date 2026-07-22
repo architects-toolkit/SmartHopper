@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -16,8 +16,11 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using Newtonsoft.Json;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.Diagnostics;
@@ -26,6 +29,26 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
 {
     public class AIMetrics
     {
+        /// <summary>
+        /// Optional human-readable label for this metrics entry, e.g.
+        /// "main", "fallback:ImageToText", "tool:img2text".
+        /// Null for the primary call (serialized as absent, not null).
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public string Role { get; set; }
+
+        /// <summary>
+        /// Per-role data item count set by the caller. Null when not applicable.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public int? DataCount { get; set; }
+
+        /// <summary>
+        /// Per-role iteration count set by the caller. Null when not applicable.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public int? IterationsCount { get; set; }
+
         /// <summary>
         /// Gets or sets the reason for the finish of the AI call.
         /// </summary>
@@ -242,6 +265,50 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
             this.EstimatedOutputTokens += other.EstimatedOutputTokens;
             this.CompletionTime += other.CompletionTime;
             this.LastEffectiveTotalTokens = otherLast;
+
+            if (this.DataCount.HasValue || other.DataCount.HasValue)
+            {
+                this.DataCount = (this.DataCount ?? 0) + (other.DataCount ?? 0);
+            }
+
+            if (this.IterationsCount.HasValue || other.IterationsCount.HasValue)
+            {
+                this.IterationsCount = (this.IterationsCount ?? 0) + (other.IterationsCount ?? 0);
+            }
+        }
+
+        /// <summary>
+        /// Combines two string values into a comma-separated list of unique values.
+        /// If <paramref name="current"/> is null/empty or matches the default marker,
+        /// returns <paramref name="other"/> directly. If <paramref name="other"/> is
+        /// null/empty or matches the default marker, returns <paramref name="current"/>
+        /// unchanged. If both differ, appends <paramref name="other"/> to the list
+        /// only if it is not already present (case-insensitive).
+        /// </summary>
+        private static string CombineCommaSeparated(string current, string other, string defaultValue = null)
+        {
+            if (string.IsNullOrEmpty(other))
+            {
+                return current;
+            }
+
+            if (string.Equals(other, defaultValue, System.StringComparison.OrdinalIgnoreCase))
+            {
+                return current;
+            }
+
+            if (string.IsNullOrEmpty(current) || string.Equals(current, defaultValue, System.StringComparison.OrdinalIgnoreCase))
+            {
+                return other;
+            }
+
+            var parts = current.Split(',').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)).ToList();
+            if (!parts.Contains(other, StringComparer.OrdinalIgnoreCase))
+            {
+                parts.Add(other);
+            }
+
+            return string.Join(", ", parts);
         }
 
         private static bool IsDefault(AIMetrics metrics)

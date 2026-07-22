@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -33,6 +33,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using SmartHopper.Core.Grasshopper.Converters.Formats;
 
 namespace SmartHopper.Core.Grasshopper.Converters
 {
@@ -137,6 +138,16 @@ namespace SmartHopper.Core.Grasshopper.Converters
             var normalizedExtension = NormalizeExtension(extension);
             if (!this.convertersByExtension.TryGetValue(normalizedExtension, out var converter))
             {
+                // Fallback: when no specialised converter exists, attempt to read the file as
+                // raw text. This lets users preview files such as .scn, .odt, or legacy formats
+                // without needing a full converter, while still warning that the result may be
+                // partial or unreadable for binary files.
+                var rawResult = await TryReadRawTextAsync(filePath, normalizedExtension).ConfigureAwait(false);
+                if (rawResult != null)
+                {
+                    return rawResult;
+                }
+
                 var supportedList = string.Join(", ", this.SupportedExtensions.OrderBy(e => e));
                 return FileConversionResult.Failure(
                     normalizedExtension.TrimStart('.'),
@@ -148,6 +159,17 @@ namespace SmartHopper.Core.Grasshopper.Converters
             try
             {
                 var result = await converter.ConvertAsync(filePath, conversionOptions).ConfigureAwait(false);
+
+                // Final Markdown post-processing, applied to all file formats:
+                // 1. Normalize ordered-list numbering (e.g. converters emitting repeated "1." markers
+                //    for non-CommonMark list styles like lettered/Roman markers) so the raw Markdown
+                //    reads correctly even without a renderer.
+                // 2. General style cleanup: trailing whitespace, heading spacing, excess blank lines.
+                if (result.IsSuccess)
+                {
+                    result.MarkdownContent = MarkdownListRenumberer.Renumber(result.MarkdownContent);
+                    result.MarkdownContent = MarkdownStyleCleanup.Cleanup(result.MarkdownContent);
+                }
 
                 // Apply max content length if specified
                 if (conversionOptions.MaxContentLength > 0 && result.MarkdownContent.Length > conversionOptions.MaxContentLength)
@@ -163,6 +185,34 @@ namespace SmartHopper.Core.Grasshopper.Converters
                 return FileConversionResult.Failure(
                     normalizedExtension.TrimStart('.'),
                     $"Conversion failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Attempts to read an unrecognised file as raw text using the same encoding detection
+        /// as <see cref="TxtConverter"/>. Returns <c>null</c> if the file cannot be read as text
+        /// or produces only whitespace.
+        /// </summary>
+        private static async Task<FileConversionResult?> TryReadRawTextAsync(string filePath, string normalizedExtension)
+        {
+            try
+            {
+                var bytes = await File.ReadAllBytesAsync(filePath).ConfigureAwait(false);
+                var content = TxtConverter.DecodeTextBytes(bytes);
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    return null;
+                }
+
+                content = content.Replace("\r\n", "\n").Replace("\r", "\n");
+
+                var result = FileConversionResult.Success(content, normalizedExtension.TrimStart('.'));
+                result.Warnings.Add($"No specific converter for '{normalizedExtension}'; returning raw text. Binary files may produce unreadable output.");
+                return result;
+            }
+            catch
+            {
+                return null;
             }
         }
 

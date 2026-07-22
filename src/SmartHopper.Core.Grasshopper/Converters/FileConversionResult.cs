@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -32,6 +32,37 @@ using SmartHopper.Core.Types;
 
 namespace SmartHopper.Core.Grasshopper.Converters
 {
+    /// <summary>
+    /// Classifies why a conversion failed, so callers (tools, components, agents) can
+    /// distinguish failure shapes instead of inferring meaning from free-text messages alone.
+    /// </summary>
+    public enum FileConversionFailureReason
+    {
+        /// <summary>No failure; conversion succeeded.</summary>
+        None = 0,
+
+        /// <summary>The provided URL or file path is malformed or otherwise invalid.</summary>
+        InvalidInput,
+
+        /// <summary>A network/transport error occurred (timeout, DNS, non-success HTTP status, etc.).</summary>
+        NetworkError,
+
+        /// <summary>The resource requires authentication (login wall / paywall) and did not return readable content.</summary>
+        LoginRequired,
+
+        /// <summary>The resource returned a bot/human-verification challenge (CAPTCHA, Cloudflare/DataDome/PerimeterX interstitial, etc.) instead of content.</summary>
+        BotChallenge,
+
+        /// <summary>The resource exceeded the configured size limit before or during download.</summary>
+        ContentTooLarge,
+
+        /// <summary>The resource was reachable but produced no content, or content below the minimum considered meaningful.</summary>
+        EmptyContent,
+
+        /// <summary>Any other conversion failure not covered by a more specific reason.</summary>
+        Other,
+    }
+
     /// <summary>
     /// Result of a file-to-markdown conversion.
     /// </summary>
@@ -91,7 +122,10 @@ namespace SmartHopper.Core.Grasshopper.Converters
         /// <summary>
         /// Creates a failed conversion result with a warning.
         /// </summary>
-        public static FileConversionResult Failure(string detectedFormat, string warningMessage)
+        /// <param name="detectedFormat">The detected or attempted format (e.g., "url", "pdf").</param>
+        /// <param name="warningMessage">A human-readable explanation of the failure.</param>
+        /// <param name="reason">The classified failure reason. Defaults to <see cref="FileConversionFailureReason.Other"/>.</param>
+        public static FileConversionResult Failure(string detectedFormat, string warningMessage, FileConversionFailureReason reason = FileConversionFailureReason.Other)
         {
             return new FileConversionResult
             {

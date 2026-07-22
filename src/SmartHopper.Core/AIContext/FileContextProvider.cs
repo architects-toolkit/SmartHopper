@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -141,7 +141,7 @@ namespace SmartHopper.Core.AIContext
                     uiThreadComplete.Wait(TimeSpan.FromSeconds(5));
                 }
 
-                return new Dictionary<string, string>
+                var result = new Dictionary<string, string>
                 {
                     { "file-name", fileName },
                     { "selected-count", selectedCount.ToString(CultureInfo.InvariantCulture) },
@@ -154,11 +154,30 @@ namespace SmartHopper.Core.AIContext
                     { "scribble-count", scribbleCount.ToString(CultureInfo.InvariantCulture) },
                     { "group-count", groupCount.ToString(CultureInfo.InvariantCulture) },
                 };
+
+                // Merge user-defined metadata from the file metadata context provider
+                var metadataProvider = AIContextManager.GetProvider("file-metadata");
+                if (metadataProvider != null)
+                {
+                    try
+                    {
+                        foreach (var kvp in metadataProvider.GetContext())
+                        {
+                            result[$"metadata-{kvp.Key}"] = kvp.Value;
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore errors merging metadata
+                    }
+                }
+
+                return result;
             }
             catch
             {
                 // Be resilient: return zeros if anything goes wrong
-                return new Dictionary<string, string>
+                var fallback = new Dictionary<string, string>
                 {
                     { "file-name", "Untitled" },
                     { "selected-count", "0" },
@@ -171,6 +190,25 @@ namespace SmartHopper.Core.AIContext
                     { "scribble-count", "0" },
                     { "group-count", "0" },
                 };
+
+                // Still try to include metadata if available
+                var metadataProvider = AIContextManager.GetProvider("file-metadata");
+                if (metadataProvider != null)
+                {
+                    try
+                    {
+                        foreach (var kvp in metadataProvider.GetContext())
+                        {
+                            fallback[$"metadata-{kvp.Key}"] = kvp.Value;
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore
+                    }
+                }
+
+                return fallback;
             }
         }
     }

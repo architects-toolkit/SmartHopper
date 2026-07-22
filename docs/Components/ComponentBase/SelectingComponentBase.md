@@ -44,7 +44,9 @@ All canvas/UI work is marshalled to Rhino's UI thread via `RhinoApp.InvokeOnUiTh
 
 Both classes share a 5 s auto-hide timer for the dashed highlight when hovering the Select button.
 
-## Selection pipeline
+- Are building a component that needs to read or react to other canvas objects (components, params, groups, scribbles, panels).
+- Want to understand how selection persistence works across copy/paste and file re-open.
+- Need to choose between the three selection-enabled base classes.
 
 1. User clicks Select → attributes call `ISelectingComponent.EnableSelectionMode()`.
 2. Core enters selection mode, clears the list, refreshes canvas.

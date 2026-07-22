@@ -1,0 +1,93 @@
+name: 📚 Documentation Validation
+
+# Related workflows (PR validation suite):
+#   - pr-validation.yml (version, code style, changelog, title checks)
+#   - pr-license-headers.yml (license header compliance)
+#   - pr-build-hash-validation.yml (build hash integrity)
+#   - pr-version-validation.yml (version consistency)
+#   - pr-documentation-validation.yml (documentation structure validation)
+#   (pr-manifest-validation.yml was removed — manifest text uses {{NOTE_TEXT}} placeholder resolved at build time)
+#   - ci-dotnet-tests.yml (.NET build and test)
+
+# Description: Validates documentation structure and consistency against the SmartHopper
+# template conventions. Checks for required sections, metadata fields, broken links,
+# code examples, and incomplete placeholders.
+#
+# Triggers:
+# - Pull requests targeting main, dev, and release branches
+# - Manual workflow dispatch
+#
+# Permissions:
+# - contents: read - Required to read repository content
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+      - 'main-*'
+      - 'dev-*'
+      - 'hotfix/**'
+      - 'release/**'
+    paths:
+      - 'docs/**'
+      - 'tools/Validate-Documentation.ps1'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to validate.
+        required: false
+        type: string
+      base_ref:
+        description: Pull request base branch.
+        required: false
+        type: string
+      pr_title:
+        description: Pull request title.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-docs:
+    name: 📚 Validate Documentation
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate Documentation Structure
+        id: validate
+        shell: pwsh
+        run: |
+          Write-Host "Running documentation validation..."
+          Write-Host ""
+
+          # Run the validation script and capture output
+          $output = & .\tools\Validate-Documentation.ps1 2>&1
+          $exitCode = $LASTEXITCODE
+
+          # Write output to console
+          $output | Write-Host
+
+          # Check for failures in the output
+          # Coerce $null exit code to 0 so null -ne 0 doesn't accidentally trigger failure
+          $safeExitCode = if ($null -eq $exitCode) { 0 } else { $exitCode }
+          if ($output -match "\[FAIL\]" -or $safeExitCode -ne 0) {
+            Write-Host ""
+            Write-Error "::error::Documentation validation failed. Please fix the issues above."
+            exit 1
+          }
+
+          Write-Host ""
+          Write-Host "Documentation validation completed successfully!"

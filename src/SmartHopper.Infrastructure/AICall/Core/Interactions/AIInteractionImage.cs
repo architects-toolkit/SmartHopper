@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -64,6 +64,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// Gets or sets the style setting used for image generation (e.g., "vivid", "natural").
         /// </summary>
         public string ImageStyle { get; set; } = "vivid";
+
+        /// <summary>
+        /// Gets or sets the aspect ratio of the generated image (e.g., "1:1", "16:9").
+        /// Provider-specific; used by Gemini image generation.
+        /// </summary>
+        public string AspectRatio { get; set; }
 
         /// <summary>
         /// Gets or sets the MIME type of the image (e.g., "image/png", "image/jpeg").
@@ -150,12 +156,14 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <param name="size">The size of the image to generate (e.g., "1024x1024").</param>
         /// <param name="quality">The quality setting used for image generation (e.g., "standard", "hd").</param>
         /// <param name="style">The style setting used for image generation (e.g., "vivid", "natural").</param>
-        public void CreateRequest(string prompt, string size = null, string quality = null, string style = null)
+        /// <param name="aspectRatio">The aspect ratio of the image to generate (e.g., "1:1", "16:9").</param>
+        public void CreateRequest(string prompt, string size = null, string quality = null, string style = null, string aspectRatio = null)
         {
             this.OriginalPrompt = prompt;
             this.ImageSize = size ?? this.ImageSize;
             this.ImageQuality = quality ?? this.ImageQuality;
             this.ImageStyle = style ?? this.ImageStyle;
+            this.AspectRatio = aspectRatio ?? this.AspectRatio;
         }
 
         /// <summary>

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -19,8 +19,13 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Threading;
+using System.Threading.Tasks;
+using GhJSON.Grasshopper;
 using Grasshopper;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Special;
+using Rhino;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
@@ -140,6 +145,80 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         }
 
         /// <summary>
+        /// Simulates a momentary button press on a Grasshopper Button component by setting its
+        /// <c>ButtonDown</c> state to true, expiring the solution, waiting 100 ms, then setting it
+        /// back to false. Records a single undo event for the operation.
+        /// </summary>
+        /// <param name="guid">GUID of the Button component to press.</param>
+        /// <returns>True if the Button was found and pressed; otherwise false.</returns>
+        public static bool ButtonClick(Guid guid)
+        {
+            bool found = false;
+            bool clicked = false;
+
+            InvokeOnUiThreadAndWait(() =>
+            {
+                var obj = CanvasAccess.FindInstance(guid);
+                if (obj == null)
+                {
+                    Debug.WriteLine($"[ComponentManipulation] ButtonClick: object not found {guid}");
+                    return;
+                }
+
+                found = true;
+
+                // Grasshopper Button components expose a ButtonDown property.
+                if (obj is GH_ButtonObject button)
+                {
+                    clicked = PressAndRelease(
+                        guid,
+                        button,
+                        press: () => button.ButtonDown = true,
+                        release: () => button.ButtonDown = false);
+                }
+                else
+                {
+                    Debug.WriteLine($"[ComponentManipulation] ButtonClick: object {guid} is not a Grasshopper Button");
+                }
+            });
+
+            return found && clicked;
+        }
+
+        private static bool PressAndRelease(Guid guid, IGH_ActiveObject obj, Action press, Action release)
+        {
+            obj.RecordUndoEvent("[SH] Button Click");
+
+            try
+            {
+                var doc = GhJsonGrasshopper.GetActiveDocument();
+
+                press();
+                obj.ExpireSolution(true);
+                doc?.NewSolution(false);
+
+                Task.Run(async () =>
+                {
+                    await Task.Delay(100).ConfigureAwait(false);
+
+                    global::Rhino.RhinoApp.InvokeOnUiThread(() =>
+                    {
+                        release();
+                        obj.ExpireSolution(true);
+                        doc?.NewSolution(false);
+                    });
+                });
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ComponentManipulation] ButtonClick failed for {guid}: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Gets the bounding rectangle of a Grasshopper component or parameter on the canvas.
         /// </summary>
         /// <param name="guid">GUID of the component or parameter.</param>
@@ -153,6 +232,50 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             }
 
             return RectangleF.Empty;
+        }
+
+        /// <summary>
+        /// Queues <paramref name="action"/> on the Rhino UI thread and blocks until it
+        /// returns (or 30 seconds elapse). If we are already on the UI thread the action runs inline.
+        /// </summary>
+        private static void InvokeOnUiThreadAndWait(Action action)
+        {
+            if (global::Rhino.RhinoApp.InvokeRequired == false)
+            {
+                action();
+                return;
+            }
+
+            Exception? captured = null;
+            using var done = new ManualResetEventSlim(false);
+
+            global::Rhino.RhinoApp.InvokeOnUiThread(new Action(() =>
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception ex)
+                {
+                    captured = ex;
+                }
+                finally
+                {
+                    done.Set();
+                }
+            }));
+
+            if (!done.Wait(TimeSpan.FromSeconds(30)))
+            {
+                throw new TimeoutException(
+                    "Grasshopper UI thread did not process the button click within 30 s.");
+            }
+
+            if (captured != null)
+            {
+                throw new InvalidOperationException(
+                    "Button click on the Grasshopper UI thread failed.", captured);
+            }
         }
     }
 }

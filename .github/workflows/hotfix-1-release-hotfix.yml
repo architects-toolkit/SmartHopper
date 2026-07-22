@@ -1,5 +1,12 @@
 name: 🔥 1 Prepare Hotfix Release
 
+# Related workflows (stabilization & hotfix paths):
+#   - stabilization-0-init.yml (creates dev-X.Y.Z and main-X.Y.Z branches)
+#   - stabilization-1-cancel.yml (cancels stabilization path)
+#   - stabilization-2-complete.yml (completes stabilization)
+#   - hotfix-0-new-branch.yml (creates hotfix branch from main)
+#   - hotfix-1-release-hotfix.yml (builds and releases hotfix)
+
 # Description: This workflow prepares a hotfix release by updating version, changelog, and badges.
 # It creates a release/X.X.X-hotfix-description branch with a PR to main.
 #
@@ -15,6 +22,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   issues: read
   pull-requests: write
@@ -22,6 +30,7 @@ permissions:
 jobs:
   prepare-hotfix-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Validate branch name
         run: |
@@ -81,9 +90,10 @@ jobs:
       - name: Create release branch
         run: git checkout -b ${{ steps.set-branch.outputs.release_branch }}
 
-      - name: Update version in Solution.props
-        uses: ./.github/actions/versioning/update-version
+      - name: Update version
+        uses: ./.github/actions/versioning/version-manager
         with:
+          mode: set-version
           new-version: ${{ steps.extract-version.outputs.version }}
 
       - name: Include missing issues in changelog
@@ -97,10 +107,6 @@ jobs:
         with:
           action: create-release
           version: ${{ steps.extract-version.outputs.version }}
-          
-      - name: Update README badges
-        uses: ./.github/actions/documentation/update-badges
-        id: update-badges
 
       - name: Update Ready badge to YES (brightgreen)
         uses: ./.github/actions/documentation/update-ready-badge
@@ -317,9 +323,9 @@ jobs:
           
           This is an automated PR created by the hotfix workflow."
           
-          gh pr create --base dev --head $DEV_UPDATE_BRANCH --title "$PR_TITLE" --body "$PR_BODY"
+          gh pr create --base dev --head $DEV_UPDATE_BRANCH --title "$PR_TITLE" --body "$PR_BODY" 2>&1 || true
           
-          # Capture PR number
+          # Capture PR number (works whether PR was just created or already existed)
           DEV_PR_NUMBER=$(gh pr list --base dev --head $DEV_UPDATE_BRANCH --json number --jq '.[0].number')
           echo "dev_pr_number=$DEV_PR_NUMBER" >> $GITHUB_OUTPUT
           
@@ -335,6 +341,16 @@ jobs:
           pr-number: ${{ steps.create-dev-pr.outputs.dev_pr_number }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Dispatch required PR checks for dev collision PR
+        if: steps.check-dev.outputs.DEV_COLLISION == 'true' && steps.create-dev-pr.outputs.dev_pr_number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: chore/bump-dev-version-for-hotfix-${{ steps.extract-version.outputs.version }}
+          pr-number: ${{ steps.create-dev-pr.outputs.dev_pr_number }}
+          base-ref: dev
+          pr-title: "chore: bump dev version to ${{ steps.check-dev.outputs.DEV_NEW_VERSION }} (hotfix collision)"
+
       - name: Create Pull Request to main
         id: create-pr
         run: |
@@ -342,10 +358,14 @@ jobs:
             --base main \
             --head ${{ steps.set-branch.outputs.release_branch }} \
             --title "chore: hotfix release ${{ steps.extract-version.outputs.version }}" \
-            --body $'## 🔥 Hotfix Release ${{ steps.extract-version.outputs.version }}\n\n**Description:** ${{ steps.extract-description.outputs.description }}\n\nThis PR contains a hotfix release that addresses critical issues in production.\n\n### Changes\n\n- Updated version to ${{ steps.extract-version.outputs.version }}\n- Updated CHANGELOG.md with release notes\n- Updated README badges\n\n### Release Process\n\nOnce this PR is merged to main:\n1. A GitHub Release will be created automatically (workflow: release-3-pr-to-main-closed.yml)\n2. The project will be built (workflow: release-4-build.yml)\n3. Artifacts will be uploaded to Yak (workflow: release-5-upload-yak.yml)\n\n⚠️ **Note:** After merging to main, you may want to cherry-pick or merge these changes back to dev to keep it in sync.'
+            --body $'## 🔥 Hotfix Release ${{ steps.extract-version.outputs.version }}\n\n**Description:** ${{ steps.extract-description.outputs.description }}\n\nThis PR contains a hotfix release that addresses critical issues in production.\n\n### Changes\n\n- Updated version to ${{ steps.extract-version.outputs.version }}\n- Updated CHANGELOG.md with release notes\n- Updated README badges\n\n### Release Process\n\nOnce this PR is merged to main:\n1. A GitHub Release will be created automatically (workflow: release-3-pr-to-main-closed.yml)\n2. The project will be built (workflow: release-4-build.yml)\n3. Artifacts will be uploaded to Yak (workflow: release-5-upload-yak.yml)\n\n⚠️ **Note:** After merging to main, you may want to cherry-pick or merge these changes back to dev to keep it in sync.' 2>&1 || true
           
-          # Capture PR number
+          # Capture PR number (works whether PR was just created or already existed)
           PR_NUMBER=$(gh pr list --base main --head ${{ steps.set-branch.outputs.release_branch }} --json number --jq '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::error::Failed to create or find hotfix PR"
+            exit 1
+          fi
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -356,6 +376,16 @@ jobs:
         with:
           pr-number: ${{ steps.create-pr.outputs.pr_number }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks for hotfix PR
+        if: steps.create-pr.outputs.pr_number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ steps.set-branch.outputs.release_branch }}
+          pr-number: ${{ steps.create-pr.outputs.pr_number }}
+          base-ref: main
+          pr-title: "chore: hotfix release ${{ steps.extract-version.outputs.version }}"
 
       - name: Update PR description with collision info
         if: steps.check-milestones.outputs.result != '' || steps.check-dev.outputs.DEV_COLLISION == 'true'

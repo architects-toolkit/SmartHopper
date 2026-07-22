@@ -70,7 +70,12 @@ try {
 
     Write-Host "Replacing key (length $($existingKey.Length)) with placeholder (length $($PlaceholderKey.Length))."
     $keyElement.InnerText = $PlaceholderKey
-    $xml.Save($CsprojPath)
+    $settings = New-Object System.Xml.XmlWriterSettings
+    $settings.Encoding = [System.Text.UTF8Encoding]::new($false)
+    $settings.Indent = $true
+    $writer = [System.Xml.XmlWriter]::Create($CsprojPath, $settings)
+    $xml.Save($writer)
+    $writer.Close()
     Write-Host "Successfully anonymized SmartHopperPublicKey."
 } catch {
     Write-Error "Failed to update .csproj: $_"

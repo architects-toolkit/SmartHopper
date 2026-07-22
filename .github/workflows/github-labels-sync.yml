@@ -1,5 +1,12 @@
 name: 🏷️ Synchronize Repository Labels
 
+# Related workflows (issue label management):
+#   - github-issue-labels-close.yml (closes issue when close: label added)
+#   - github-issue-labels-on-close.yml (converts status→close labels on issue close)
+#   - github-labels-sync.yml (syncs label definitions from labels.yml)
+#   - github-issue-label-version-from-template.yml (labels issues with version from bug report template)
+#   - github-issue-label-by-content.yml (labels issues based on title/body content)
+
 # Description: This workflow ensures that repository labels are synchronized with
 # the definitions in .github/labels.yml. It maintains consistent labeling across
 # the repository by adding, updating, or removing labels as needed.
@@ -30,6 +37,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       

@@ -1,4 +1,4 @@
-﻿<!--
+<!--
   SmartHopper - AI-powered Grasshopper Plugin
   Copyright (C) 2024-2026 Marc Roca Musach
 
@@ -47,10 +47,10 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="Grasshopper" Version="8.24.25281.15001" ExcludeAssets="runtime">
+    <PackageReference Include="Grasshopper" Version="8.0.23304.9001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
-    <PackageReference Include="RhinoCommon" Version="8.24.25281.15001" ExcludeAssets="runtime">
+    <PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="System.Resources.Extensions" Version="7.0.0" />
@@ -60,7 +60,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj" />
-    <PackageReference Include="GhJSON.Core" Version="1.0.0" />
+    <ProjectReference Include="..\..\..\ghjson-dotnet\src\GhJSON.Core\GhJSON.Core.csproj" Condition="Exists('..\..\..\ghjson-dotnet\src\GhJSON.Core\GhJSON.Core.csproj')" />
+    <PackageReference Include="GhJSON.Core" Version="1.1.1" Condition="!Exists('..\..\..\ghjson-dotnet\src\GhJSON.Core\GhJSON.Core.csproj')" />
   </ItemGroup>
 
   <!-- For Windows only builds -->

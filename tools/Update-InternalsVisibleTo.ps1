@@ -24,6 +24,8 @@ param(
     [switch]$Help
 )
 
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
 function Show-Help {
     Write-Host "Usage: .\Update-InternalsVisibleTo.ps1 [options]"
     Write-Host ""
@@ -59,7 +61,7 @@ if (-not (Test-Path $CsprojPath)) {
     exit 1
 }
 
-Write-Host "Extracting public key from: $SnkPath"
+Write-Host "Extracting public key from: $SnkPath" -ForegroundColor Cyan
 
 # Find sn.exe to extract public key
 function Find-SnExe {
@@ -118,14 +120,14 @@ if (-not $snExe) {
     # On non-Windows, this is expected - skip gracefully
     if (-not ($IsWindows -or $env:OS -eq "Windows_NT")) {
         Write-Warning "Skipping InternalsVisibleTo update on non-Windows platform."
-        Write-Host "The public key is already committed in the repository (not sensitive)."
+        Write-Host "The public key is already committed in the repository (not sensitive)." -ForegroundColor DarkGray
         exit 0
     }
     Write-Error "sn.exe not found. Please install the Windows SDK or run in a Developer PowerShell."
     exit 1
 }
 
-Write-Host "Using sn.exe at: $snExe"
+Write-Host "Using sn.exe at: $snExe" -ForegroundColor Cyan
 
 # Extract public key to temp file, then get the hex string
 $tempPubKey = [System.IO.Path]::GetTempFileName()
@@ -166,7 +168,7 @@ try {
         exit 1
     }
     
-    Write-Host "Extracted public key: $($publicKeyHex.Substring(0, 40))..."
+    Write-Host "Extracted public key: $($publicKeyHex.Substring(0, 40))..." -ForegroundColor Cyan
     
 } finally {
     if (Test-Path $tempPubKey) {
@@ -175,7 +177,7 @@ try {
 }
 
 # Update the .csproj file
-Write-Host "Updating: $CsprojPath"
+Write-Host "Updating: $CsprojPath" -ForegroundColor Cyan
 
 $content = Get-Content $CsprojPath -Raw
 
@@ -186,8 +188,8 @@ try {
     $pattern = '(<SmartHopperPublicKey>)[^<]*(</SmartHopperPublicKey>)'
     if ($content -match $pattern) {
         $content = $content -replace $pattern, "`${1}$publicKeyHex`${2}"
-        [System.IO.File]::WriteAllText($CsprojPath, $content, [System.Text.Encoding]::UTF8)
-        Write-Host "Successfully updated SmartHopperPublicKey in $CsprojPath"
+        [System.IO.File]::WriteAllText($CsprojPath, $content, $utf8NoBom)
+        Write-Host "Successfully updated SmartHopperPublicKey in $CsprojPath" -ForegroundColor Green
     } else {
         Write-Error "Could not find SmartHopperPublicKey element in $CsprojPath"
         exit 1
@@ -197,4 +199,4 @@ try {
     exit 1
 }
 
-Write-Host "Done."
+Write-Host "Done." -ForegroundColor Green

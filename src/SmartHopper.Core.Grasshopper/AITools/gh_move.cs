@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -76,7 +76,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [ ""targets"" ]
                 }",
-                execute: this.GhMoveObjAsync);
+                execute: this.GhMoveObjAsync,
+                mutatesCanvas: true,
+                tags: new[] { "canvas", "components", "mutating", "layout" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
         private async Task<AIReturn> GhMoveObjAsync(AIToolCall toolCall)
@@ -91,7 +95,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var targetsObj = args["targets"] as JObject;
                 if (targetsObj == null)
                 {

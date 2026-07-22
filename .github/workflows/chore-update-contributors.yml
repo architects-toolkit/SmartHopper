@@ -26,6 +26,7 @@ on:
       - 'hotfix/**'
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -36,6 +37,7 @@ concurrency:
 jobs:
   update-contributors:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -232,7 +234,7 @@ jobs:
           CONTRIBUTORS_SECTION="${CONTRIBUTORS_SECTION}\n----\n"
           
           echo "Contributors section to add:"
-          echo -e "$CONTRIBUTORS_SECTION"
+          printf '%b\n' "$CONTRIBUTORS_SECTION"
           
           # Read current CHANGELOG
           CHANGELOG_CONTENT=$(cat CHANGELOG.md)
@@ -247,7 +249,7 @@ jobs:
           # We need to find the position between [Unreleased] and the next ## or ###
           
           # Extract the Unreleased section (from ## [Unreleased] to the next ## [ or end of file)
-          UNRELEASED_SECTION=$(echo "$CHANGELOG_CONTENT" | sed -n '/^## \[Unreleased\]/,/^## \[/p' | head -n -1)
+          UNRELEASED_SECTION=$(echo "$CHANGELOG_CONTENT" | sed -n '/^## \[Unreleased\]/,/^## \[/p' | sed '$d')
           
           # Check if contributors already exists in this section
           if echo "$UNRELEASED_SECTION" | grep -q "Many thanks to the following contributors"; then
@@ -284,7 +286,7 @@ jobs:
           # Create the new content
           # Convert \n to actual newlines for sed
           TEMP_FILE=$(mktemp)
-          echo -e "$CONTRIBUTORS_SECTION" > "$TEMP_FILE"
+          printf '%b\n' "$CONTRIBUTORS_SECTION" > "$TEMP_FILE"
           
           # Insert the contributors section
           head -n $((INSERT_LINE - 1)) CHANGELOG.md > /tmp/changelog_new.md
@@ -323,10 +325,14 @@ jobs:
             "This PR updates the contributors section in CHANGELOG.md under [Unreleased] to acknowledge new contributors since the last release." \
             "This is an automated PR created by the Update Contributors workflow.")
           
-          gh pr create --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --title "$PR_TITLE" --body "$PR_BODY"
+          gh pr create --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --title "$PR_TITLE" --body "$PR_BODY" 2>&1 || true
           
-          # Capture PR number
+          # Capture PR number (works whether pr was just created or already existed)
           PR_NUMBER=$(gh pr list --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --json number --jq '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::error::Failed to create or find PR"
+            exit 1
+          fi
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -337,3 +343,13 @@ jobs:
         with:
           pr-number: ${{ steps.create-pr.outputs.pr_number }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks
+        if: steps.identify-contributors.outputs.has_contributors == 'true' && steps.update-changelog.outputs.changelog_updated == 'true' && env.CHANGES_PUSHED == 'true' && steps.create-pr.outputs.pr_number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ env.CONTRIB_BRANCH }}
+          pr-number: ${{ steps.create-pr.outputs.pr_number }}
+          base-ref: ${{ env.TARGET_BRANCH }}
+          pr-title: "docs: update contributors section for ${{ env.TARGET_BRANCH }}"

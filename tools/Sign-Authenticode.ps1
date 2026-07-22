@@ -94,10 +94,10 @@ if ($Generate) {
             exit 1
         }
     }
-    Write-Host "Generating self-signed PFX certificate at $pfxPath"
+    Write-Host "Generating self-signed PFX certificate at $pfxPath" -ForegroundColor Cyan
     $cert = New-SelfSignedCertificate -Subject "CN=SmartHopperDev" -CertStoreLocation Cert:\CurrentUser\My -KeyExportPolicy Exportable -KeySpec Signature -Type CodeSigningCert
     Export-PfxCertificate -Cert "Cert:\CurrentUser\My\$($cert.Thumbprint)" -FilePath $pfxPath -Password $securePassword
-    Write-Host "PFX certificate created at $pfxPath"
+    Write-Host "PFX certificate created at $pfxPath" -ForegroundColor Green
 } elseif ($Base64) {
     if (-not $Password) {
         $securePassword = Read-Host "Enter password for Base64 PFX import" -AsSecureString
@@ -106,7 +106,7 @@ if ($Generate) {
             exit 1
         }
     }
-    Write-Host "Decoding Base64 PFX into $pfxPath"
+    Write-Host "Decoding Base64 PFX into $pfxPath" -ForegroundColor Cyan
     [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($Base64))
 } elseif ($Export) {
     if (-not (Test-Path $pfxPath)) {
@@ -124,7 +124,7 @@ if ($Generate) {
             exit 1
         }
     }
-    Write-Host "Exporting PFX as Base64:"
+    Write-Host "Exporting PFX as Base64:" -ForegroundColor Cyan
     $bytes = [IO.File]::ReadAllBytes($pfxPath)
     $b64 = [Convert]::ToBase64String($bytes)
     Write-Host $b64
@@ -169,9 +169,9 @@ if ($Generate) {
         $debugPath = Join-Path $solutionRoot ("bin/$solutionVersion/Debug")
         $targetPaths += $debugPath
         if ($explicitSignProvided -and [string]::IsNullOrWhiteSpace($Sign)) {
-            Write-Host "No -Sign target path specified. Using default: $debugPath"
+            Write-Host "No -Sign target path specified. Using default: $debugPath" -ForegroundColor Cyan
         } else {
-            Write-Host "Using inferred target path for -SignDebug: $debugPath"
+            Write-Host "Using inferred target path for -SignDebug: $debugPath" -ForegroundColor Cyan
         }
     }
 
@@ -179,7 +179,7 @@ if ($Generate) {
     if ($SignRelease) {
         $releasePath = Join-Path $solutionRoot ("bin/$solutionVersion/Release")
         $targetPaths += $releasePath
-        Write-Host "Using inferred target path for -SignRelease: $releasePath"
+        Write-Host "Using inferred target path for -SignRelease: $releasePath" -ForegroundColor Cyan
     }
 
     # Deduplicate targets in case the same path was added multiple times
@@ -192,14 +192,14 @@ if ($Generate) {
 
     # Decode Base64 into PFX if provided
     if ($Base64) {
-        Write-Host "Decoding Base64 PFX into $pfxPath"
+        Write-Host "Decoding Base64 PFX into $pfxPath" -ForegroundColor Cyan
         [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($Base64))
     }
     # Ensure PFX file exists, with fallback to local signing.pfx when using defaults
     if (-not (Test-Path $pfxPath)) {
         if (-not $PfxPath -and (Test-Path $defaultLocalPfx)) {
             $pfxPath = $defaultLocalPfx
-            Write-Host "Using local PFX certificate file: $pfxPath"
+            Write-Host "Using local PFX certificate file: $pfxPath" -ForegroundColor Cyan
         } else {
             Write-Error "PFX file '$pfxPath' not found. Please use -Base64, or ensure a signing.pfx exists in the solution root or next to this script."
             exit 1
@@ -222,12 +222,12 @@ if ($Generate) {
     $signtoolCmd = Get-Command signtool.exe -ErrorAction SilentlyContinue
     if ($signtoolCmd) {
         $signtoolPath = $signtoolCmd.Source
-        Write-Host "Found signtool.exe on PATH: $signtoolPath"
+        Write-Host "Found signtool.exe on PATH: $signtoolPath" -ForegroundColor Cyan
     }
 
     # If not found on PATH, search in Windows SDK directories
     if (-not $signtoolPath) {
-        Write-Host "Searching for signtool.exe in Windows SDK directories..."
+        Write-Host "Searching for signtool.exe in Windows SDK directories..." -ForegroundColor Cyan
         $programFiles = @(
             ${env:ProgramFiles(x86)},
             $env:ProgramFiles
@@ -242,7 +242,7 @@ if ($Generate) {
                     $candidatePath = Join-Path $ver.FullName "x64\signtool.exe"
                     if (Test-Path $candidatePath) {
                         $signtoolPath = $candidatePath
-                        Write-Host "Found signtool.exe in Windows SDK: $signtoolPath"
+                        Write-Host "Found signtool.exe in Windows SDK: $signtoolPath" -ForegroundColor Cyan
                         break
                     }
                 }
@@ -281,7 +281,7 @@ if ($Generate) {
     }
 
     foreach ($targetPath in $targetPaths) {
-        Write-Host "Signing provider assemblies under path '$targetPath' with Authenticode certificate"
+        Write-Host "Signing provider assemblies under path '$targetPath' with Authenticode certificate" -ForegroundColor Cyan
 
         # Determine items to sign: explicit DLL or specific SmartHopper assemblies in directory
         if ((Test-Path $targetPath -PathType Leaf) -and ([IO.Path]::GetExtension($targetPath) -ieq ".dll")) {
@@ -291,14 +291,14 @@ if ($Generate) {
                     Write-Error "File '$fileName' is not a SmartHopper assembly"
                     exit 1
                 } else {
-                    Write-Host "Warning: signing non-SmartHopper assembly '$fileName' because SMARTHOPPER_ALLOW_TEST_ASSEMBLY_SIGNING is set."
+                    Write-Host "Warning: signing non-SmartHopper assembly '$fileName' because SMARTHOPPER_ALLOW_TEST_ASSEMBLY_SIGNING is set." -ForegroundColor Yellow
                 }
             }
-            Write-Host "Signing explicit DLL: $targetPath"
+            Write-Host "Signing explicit DLL: $targetPath" -ForegroundColor Cyan
             $items = @(Get-Item $targetPath)
         } elseif (Test-Path $targetPath -PathType Container) {
-            Write-Host "Signing SmartHopper assemblies under directory: $targetPath"
-            Write-Host "Allowed assemblies: $($allowedAssemblies -join ', ')"
+            Write-Host "Signing SmartHopper assemblies under directory: $targetPath" -ForegroundColor Cyan
+            Write-Host "Allowed assemblies: $($allowedAssemblies -join ', ')" -ForegroundColor DarkGray
             $items = Get-ChildItem -Path $targetPath -Recurse -Filter "SmartHopper*.dll" |
                 Where-Object { $allowedAssemblies -contains $_.Name }
             if ($items.Count -eq 0) {
@@ -311,18 +311,18 @@ if ($Generate) {
         }
 
         foreach ($dll in $items) {
-            Write-Host "Signing $($dll.FullName) with PFX file (file-based signing)..."
+            Write-Host "Signing $($dll.FullName) with PFX file (file-based signing)..." -ForegroundColor Cyan
             # Use file-based sign without /a to embed the certificate
             & $signtoolPath sign /fd SHA256 /f "$pfxPath" /p "$plainPassword" $dll.FullName
             if ($LASTEXITCODE -ne 0) {
-                Write-Host "File-based signing failed (exit code $LASTEXITCODE), falling back to store-based signing..."
+                Write-Host "File-based signing failed (exit code $LASTEXITCODE), falling back to store-based signing..." -ForegroundColor Yellow
                 $imported = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword
                 if (-not $imported) {
                     Write-Error "Failed to import PFX certificate. Please verify the PFX password and that the runner has permission to import certificates."
                     exit 1
                 }
                 $thumb = $imported.Thumbprint
-                Write-Host "Signing $($dll.FullName) with certificate thumbprint $thumb..."
+                Write-Host "Signing $($dll.FullName) with certificate thumbprint $thumb..." -ForegroundColor Cyan
                 & $signtoolPath sign /fd SHA256 /sha1 $thumb $dll.FullName
                 if ($LASTEXITCODE -ne 0) {
                     Write-Error "Fallback signing failed for $($dll.FullName)."

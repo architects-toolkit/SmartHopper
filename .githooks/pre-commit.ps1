@@ -9,15 +9,89 @@ $readmePath = Join-Path $repoRoot "README.md"
 $changelogPath = Join-Path $repoRoot "CHANGELOG.md"
 $expectedPlaceholder = "This value is automatically replaced by the build tooling before official builds."
 
-# ===== Step 1: Update version date =====
-Write-Host "Step 1: Updating version date..." -ForegroundColor Cyan
-if (Test-Path $versionScript) {
+# ===== Step 1: Regenerate labels.yml and labeler.yml =====
+Write-Host "Step 1: Regenerating labels.yml and labeler.yml..." -ForegroundColor Cyan
+$labelScript = Join-Path $repoRoot "tools\Update-GitHubLabels.ps1"
+$labelsPath = Join-Path $repoRoot ".github\labels.yml"
+$labelerPath = Join-Path $repoRoot ".github\labeler.yml"
+if (Test-Path $labelScript) {
+    $labelsBefore = if (Test-Path $labelsPath) { Get-Content $labelsPath -Raw -Encoding utf8 } else { $null }
+    $labelerBefore = if (Test-Path $labelerPath) { Get-Content $labelerPath -Raw -Encoding utf8 } else { $null }
+    & $labelScript -Apply
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Label update script failed (exit $LASTEXITCODE)."
+        exit $LASTEXITCODE
+    }
+    $labelsAfter = if (Test-Path $labelsPath) { Get-Content $labelsPath -Raw -Encoding utf8 } else { $null }
+    $labelerAfter = if (Test-Path $labelerPath) { Get-Content $labelerPath -Raw -Encoding utf8 } else { $null }
+    $anyStaged = $false
+    if ($labelsBefore -ne $labelsAfter) {
+        git add $labelsPath 2>$null
+        Write-Host "Staged updated labels.yml." -ForegroundColor Green
+        $anyStaged = $true
+    }
+    if ($labelerBefore -ne $labelerAfter) {
+        git add $labelerPath 2>$null
+        Write-Host "Staged updated labeler.yml." -ForegroundColor Green
+        $anyStaged = $true
+    }
+    if (-not $anyStaged) {
+        Write-Host "No label file changes to stage." -ForegroundColor Yellow
+    }
+}
+else {
+    Write-Warning "Label script not found at $labelScript, skipping label regeneration."
+}
+
+# ===== Step 2: Update license headers =====
+Write-Host "`nStep 2: Updating license headers..." -ForegroundColor Cyan
+$licenseScript = Join-Path $repoRoot "tools\Update-LicenseHeaders.ps1"
+if (Test-Path $licenseScript) {
+    & $licenseScript
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "License header update script failed (exit $LASTEXITCODE)."
+        exit $LASTEXITCODE
+    }
+
+    # Stage any modified .cs or .csproj files under src/ that were already staged
+    $modifiedSrcFiles = git diff --cached --name-only | Where-Object { $_ -match '^src\/.*\.(cs|csproj)$' }
+    if ($modifiedSrcFiles) {
+        foreach ($file in $modifiedSrcFiles) {
+            git add $file 2>$null
+            Write-Host "Staged updated license header: $file" -ForegroundColor Green
+        }
+    }
+    else {
+        Write-Host "No license header changes to stage." -ForegroundColor Yellow
+    }
+}
+else {
+    Write-Warning "License header script not found at $licenseScript, skipping license header update."
+}
+
+# ===== Step 3: Update version date =====
+Write-Host "`nStep 3: Updating version date..." -ForegroundColor Cyan
+
+# Determine whether to skip version update based on staged files
+$stagedFiles = git diff --cached --name-only
+$hasSrcChanges = $false
+foreach ($file in $stagedFiles) {
+    if ($file -match '^src\/') {
+        $hasSrcChanges = $true
+        break
+    }
+}
+
+if (-not $hasSrcChanges) {
+    Write-Host "Skipping version update: no staged files under src/." -ForegroundColor Yellow
+}
+elseif (Test-Path $versionScript) {
     # Capture pre-script state of all files that might be modified
     $solutionPropsBefore = if (Test-Path $solutionPropsPath) { Get-Content $solutionPropsPath -Raw -Encoding utf8 } else { $null }
     $readmeBefore = if (Test-Path $readmePath) { Get-Content $readmePath -Raw -Encoding utf8 } else { $null }
     $changelogBefore = if (Test-Path $changelogPath) { Get-Content $changelogPath -Raw -Encoding utf8 } else { $null }
 
-    & $versionScript -UpdateDateOnly
+    & $versionScript -DateOnly
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Version update script failed (exit $LASTEXITCODE)."
         exit $LASTEXITCODE
@@ -73,8 +147,8 @@ else {
     Write-Warning "Version script not found at $versionScript, skipping version update."
 }
 
-# ===== Step 2: Anonymize SmartHopperPublicKey =====
-Write-Host "`nStep 2: Anonymizing SmartHopperPublicKey..." -ForegroundColor Cyan
+# ===== Step 4: Anonymize SmartHopperPublicKey =====
+Write-Host "`nStep 4: Anonymizing SmartHopperPublicKey..." -ForegroundColor Cyan
 
 # Check if SmartHopper.Infrastructure.csproj is staged for commit
 $stagedFiles = git diff --cached --name-only

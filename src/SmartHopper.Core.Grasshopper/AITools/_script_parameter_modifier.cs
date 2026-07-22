@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -24,7 +24,6 @@ using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using Rhino;
-using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Components;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -64,7 +63,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""scriptGuid"", ""name""]
                 }",
                 execute: this.AddInputParameterAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "scripting", "script", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""scriptGuid"": { ""type"": ""string"" }, ""index"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             yield return new AITool(
                 name: "script_parameter_add_output",
@@ -81,7 +85,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""scriptGuid"", ""name""]
                 }",
                 execute: this.AddOutputParameterAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "scripting", "script", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""scriptGuid"": { ""type"": ""string"" }, ""index"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             yield return new AITool(
                 name: "script_parameter_remove_input",
@@ -96,7 +105,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""scriptGuid"", ""index""]
                 }",
                 execute: this.RemoveInputParameterAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "scripting", "script", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""scriptGuid"": { ""type"": ""string"" }, ""index"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             yield return new AITool(
                 name: "script_parameter_remove_output",
@@ -111,7 +125,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""scriptGuid"", ""index""]
                 }",
                 execute: this.RemoveOutputParameterAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "scripting", "script", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""scriptGuid"": { ""type"": ""string"" }, ""index"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             yield return new AITool(
                 name: "script_parameter_set_type_input",
@@ -127,7 +146,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""scriptGuid"", ""index"", ""typeHint""]
                 }",
                 execute: this.SetInputTypeHintAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "scripting", "script", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""scriptGuid"": { ""type"": ""string"" }, ""index"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             yield return new AITool(
                 name: "script_parameter_set_type_output",
@@ -143,7 +167,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""scriptGuid"", ""index"", ""typeHint""]
                 }",
                 execute: this.SetOutputTypeHintAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "scripting", "script", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""scriptGuid"": { ""type"": ""string"" }, ""index"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             yield return new AITool(
                 name: "script_parameter_set_access",
@@ -159,7 +188,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""scriptGuid"", ""index"", ""access""]
                 }",
                 execute: this.SetInputAccessAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "scripting", "script", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""scriptGuid"": { ""type"": ""string"" }, ""index"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             yield return new AITool(
                 name: "script_toggle_std_output",
@@ -174,7 +208,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""scriptGuid"", ""show""]
                 }",
                 execute: this.ToggleStandardOutputAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "scripting", "script", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""scriptGuid"": { ""type"": ""string"" }, ""index"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             yield return new AITool(
                 name: "script_set_principal_input",
@@ -189,7 +228,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""scriptGuid"", ""index""]
                 }",
                 execute: this.SetPrincipalInputAsync,
-                requiredCapabilities: this.toolCapabilityRequirements); // TODO: move to component modifiers
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "scripting", "script", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""scriptGuid"": { ""type"": ""string"" }, ""index"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false)); // TODO: move to component modifiers
 
             yield return new AITool(
                 name: "script_parameter_set_optional",
@@ -205,7 +249,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""scriptGuid"", ""index"", ""optional""]
                 }",
                 execute: this.SetInputOptionalAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "scripting", "script", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""scriptGuid"": { ""type"": ""string"" }, ""index"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
         private async Task<AIReturn> AddInputParameterAsync(AIToolCall toolCall) => await this.ExecuteScriptModification(toolCall, "script_parameter_add_input", args => this.ExecuteScriptOp(args, (scriptComp, comp) =>
@@ -309,12 +358,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return $"Set input '{paramName}' to {(optional ? "optional" : "required")}";
         }));
 
-        private string ExecuteScriptOp(JObject args, Func<IScriptComponent, IGH_Component, string> operation)
+        private string ExecuteScriptOp(JObject args, Func<object, IGH_Component, string> operation)
         {
             var scriptGuid = Guid.Parse(args["scriptGuid"]?.ToString() ?? throw new ArgumentException("Missing scriptGuid"));
+            if (CanvasProtection.IsProtected(scriptGuid))
+            {
+                throw new InvalidOperationException("Cannot modify this component because it is protected.");
+            }
+
             var obj = CanvasAccess.FindInstance(scriptGuid);
             if (obj == null) throw new ArgumentException("Script component not found");
-            if (!(obj is IScriptComponent scriptComp)) throw new ArgumentException("Object is not a script component");
+            if (!ScriptComponentReflection.IsScriptComponent(obj)) throw new ArgumentException("Object is not a script component");
+            var scriptComp = obj;
             var comp = scriptComp as IGH_Component;
             comp?.RecordUndoEvent("[SH] Modify Script Parameter");
             var result = operation(scriptComp, comp);
@@ -329,7 +384,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 var toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var tcs = new TaskCompletionSource<AIReturn>();
                 RhinoApp.InvokeOnUiThread(() =>
                 {

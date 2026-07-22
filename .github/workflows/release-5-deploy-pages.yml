@@ -1,5 +1,13 @@
 name: 🏁 5 Deploy GitHub Pages on Hash PR Merge
 
+# Related workflows (release pipeline — execute in numbered order):
+#   - release-1-milestone.yml (creates milestone and branches)
+#   - release-2-pr-to-dev-closed.yml (creates PR from dev→main on release merge)
+#   - release-3-pr-to-main-closed.yml (creates GitHub Release on main merge)
+#   - release-4-build.yml (builds platform artifacts on release publish)
+#   - release-5-deploy-pages.yml (deploys documentation pages)
+#   - release-6-upload-yak.yml (uploads to Yak package manager)
+
 # Description: This workflow deploys GitHub Pages after changes are pushed to main.
 # It reads all hash files from the /hashes folder in the repository and generates
 # a complete versions manifest for the GitHub Pages site.
@@ -40,6 +48,7 @@ jobs:
     # Run on push to main or manual trigger
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
+    timeout-minutes: 45
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

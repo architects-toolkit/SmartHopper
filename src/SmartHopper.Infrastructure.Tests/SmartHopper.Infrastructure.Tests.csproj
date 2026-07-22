@@ -1,4 +1,4 @@
-﻿<!--
+<!--
   SmartHopper - AI-powered Grasshopper Plugin
   Copyright (C) 2024-2026 Marc Roca Musach
 
@@ -35,6 +35,15 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!-- Provider project references are Windows-only: providers depend on System.Drawing.Common 8.x
+       which requires the Windows GDI+ runtime, unavailable in the net7.0 (non-Windows) TFM. -->
+  <ItemGroup Condition="$(TargetFramework.Contains('-windows'))">
+    <ProjectReference Include="..\SmartHopper.Providers.OpenAI\SmartHopper.Providers.OpenAI.csproj" />
+    <ProjectReference Include="..\SmartHopper.Providers.Anthropic\SmartHopper.Providers.Anthropic.csproj" />
+    <ProjectReference Include="..\SmartHopper.Providers.MistralAI\SmartHopper.Providers.MistralAI.csproj" />
+    <ProjectReference Include="..\SmartHopper.Providers.Gemini\SmartHopper.Providers.Gemini.csproj" />
   </ItemGroup>
 
   <!-- For Windows only builds -->

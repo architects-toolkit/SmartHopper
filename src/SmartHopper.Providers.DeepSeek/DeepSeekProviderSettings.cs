@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Settings;
@@ -75,6 +76,15 @@ namespace SmartHopper.Providers.DeepSeek
                 },
                 new SettingDescriptor
                 {
+                    Name = "ReasoningEffort",
+                    Type = typeof(string),
+                    DefaultValue = "high",
+                    DisplayName = "Reasoning Effort",
+                    Description = "Controls DeepSeek thinking mode and reasoning depth. Use 'none' to disable thinking, or 'high'/'max' to enable it. Only applies to deepseek-v4 models and deepseek-reasoner.",
+                    AllowedValues = new[] { "none", "high", "max" },
+                },
+                new SettingDescriptor
+                {
                     Name = "MaxTokens",
                     DisplayName = "Max Tokens",
                     Description = "Maximum number of tokens to generate",
@@ -84,7 +94,7 @@ namespace SmartHopper.Providers.DeepSeek
                     {
                         UseSlider = false, // keep the NumericStepper
                         Min = 1,
-                        Max = 8192,
+                        Max = 400000,
                         Step = 1,
                     },
                 },
@@ -94,7 +104,15 @@ namespace SmartHopper.Providers.DeepSeek
                     Type = typeof(string),
                     DefaultValue = "0.5",
                     DisplayName = "Temperature",
-                    Description = "Controls randomness (0.0–2.0). Higher values like 1.5 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. Check https://api-docs.deepseek.com/quick_start/parameter_settings/ for more information.",
+                    Description = "Controls randomness (0.0–2.0). Higher values like 1.5 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. Has no effect in thinking mode. Check https://api-docs.deepseek.com/quick_start/parameter_settings/ for more information.",
+                },
+                new SettingDescriptor
+                {
+                    Name = "TopP",
+                    Type = typeof(string),
+                    DefaultValue = "1",
+                    DisplayName = "Top P",
+                    Description = "Controls nucleus sampling (0.0–1.0). Only adjust this or Temperature, not both. Has no effect in thinking mode.",
                 },
             };
         }
@@ -119,8 +137,10 @@ namespace SmartHopper.Providers.DeepSeek
             // Extract values from settings dictionary
             string? apiKey = null;
             string? model = null;
+            string? reasoningEffort = null;
             int? maxTokens = null;
             double? temperature = null;
+            double? topP = null;
 
             // Get API key if present
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
@@ -175,6 +195,42 @@ namespace SmartHopper.Providers.DeepSeek
                     if (showErrorDialogs)
                     {
                         StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
+                    }
+
+                    return false;
+                }
+            }
+
+            if (settings.TryGetValue("TopP", out var topPObj) && topPObj != null)
+            {
+                // Try to parse as double
+                if (double.TryParse(topPObj.ToString(), out double parsedTopP))
+                {
+                    topP = parsedTopP;
+                }
+
+                // Ensure top_p is between 0.0 and 1.0 (both included)
+                if (topP < 0.0 || topP > 1.0)
+                {
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Top P must be between 0.0 and 1.0.", "Validation Error");
+                    }
+
+                    return false;
+                }
+            }
+
+            if (settings.TryGetValue("ReasoningEffort", out var reasoningEffortObj) && reasoningEffortObj != null)
+            {
+                reasoningEffort = reasoningEffortObj.ToString();
+
+                // Ensure reasoning effort is one of the supported values
+                if (string.IsNullOrWhiteSpace(reasoningEffort) || !new[] { "none", "high", "max" }.Contains(reasoningEffort, StringComparer.OrdinalIgnoreCase))
+                {
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Reasoning Effort must be 'none', 'high', or 'max'.", "Validation Error");
                     }
 
                     return false;

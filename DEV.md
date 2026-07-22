@@ -14,7 +14,7 @@ This document aggregates development-facing information.
 ### Components
 
 | Component | Category | Planned | In Progress | Testing | Released 🎉 |
-|-----------|----------|:-------:|:-----------:|:-------:|:------------------------:|
+| --------- | -------- | :-------: | :-----------: | :-------: | :------------------------: |
 | Get GhJSON (GhGet)<br><sub>Read the current Grasshopper file and convert it to GhJSON format. Filter by runtime messages, component state, preview, type, category, and more.</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
 | Place GhJSON (GhPut)<br><sub>Place components on the canvas from a GhJSON format</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
 | Merge GhJSON (GhMerge)<br><sub>Merge two GhJSON documents into one, with the target document taking priority on conflicts.</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -70,11 +70,15 @@ This document aggregates development-facing information.
 
 ### AI Tools
 
-AI Tools are the interface between AI and Grasshopper, allowing to, for example, read your selected components, get the available Grasshopper components, or write a new script. All these tools are available to the provider to use while chatting in the AI Chat component.
+AI Tools are the interface between AI and Grasshopper, allowing to, for example,
+read your selected components, get the available Grasshopper components, or write
+a new script. All these tools are available to the provider to use while chatting
+in the AI Chat component.
 
 | Tool Name | Category | Description | Planned | In Progress | Testing | Released 🎉 |
-|-----------|----------|-------------|:-------:|:-----------:|:-------:|:-----------:|
-| `text2boolean` | DataProcessing | Evaluates text against a true/false question | ⚪ | 🟡 | 🟠 | 🟢 |
+| Tool Name | Category | Description | Planned | In Progress | Testing | Released |
+|-----------|----------|-------------|:-------:|:-----------:|:-------:|:--------:|
+| `text2boolean` | DataProcessing | Evaluates a text against a true/false question with optional fallback value | ⚪ | 🟡 | 🟠 | 🟢 |
 | `text2text` | DataProcessing | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
 | `text2img` | DataProcessing | Generates an image based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
 | `textlist2boolean` | DataProcessing | Evaluates a list based on natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -147,17 +151,23 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `script_parameter_add_output` | NotTested | Add a new output parameter to a script component | ⚪ | 🟡 | - | - |
 | `script_parameter_remove_input` | NotTested | Remove an input parameter from a script component | ⚪ | 🟡 | - | - |
 | `script_parameter_remove_output` | NotTested | Remove an output parameter from a script component | ⚪ | 🟡 | - | - |
-| `script_parameter_set_type_input` | NotTested | Set the type hint for a script input parameter | ⚪ | 🟡 | - | - |
-| `script_parameter_set_type_output` | NotTested | Set the type hint for a script output parameter | ⚪ | 🟡 | - | - |
-| `script_parameter_set_access` | NotTested | Set how a script input parameter receives data (item/list/tree) | ⚪ | 🟡 | - | - |
+| `script_parameter_set_type_input` | NotTested | Set the type hint for a script component input parameter | ⚪ | 🟡 | - | - |
+| `script_parameter_set_type_output` | NotTested | Set the type hint for a script component output parameter | ⚪ | 🟡 | - | - |
+| `script_parameter_set_access` | NotTested | Set how an input parameter receives data (item/list/tree) | ⚪ | 🟡 | - | - |
 | `script_toggle_std_output` | NotTested | Show or hide the standard output parameter ('out') in a script component | ⚪ | 🟡 | - | - |
 | `script_set_principal_input` | NotTested | Set which input parameter drives the component's iteration | ⚪ | 🟡 | - | - |
 | `script_parameter_set_optional` | NotTested | Set whether a script input parameter is required or optional | ⚪ | 🟡 | - | - |
+| `speech_generate` | Speech | Generates speech audio from text input | - | - | - | - |
+| `button_click` | Components | Simulate a momentary click on Grasshopper Buttons (not Boolean Toggles). The button is pressed for 100 ms, then released. Provide the instance GUIDs of the buttons. | - | - | - | - |
+| `gh_document_save` | Document | Save the current Grasshopper document. If no filePath is provided, the document is saved to its existing location. Provide a full file path to save a copy or unnamed document. | - | - | - | - |
+| `gh_remove` | Components | Remove components from the Grasshopper canvas by their instance GUIDs. The operation records an undo event so the user can reverse it with Ctrl+Z. Use GUIDs from gh_get or similar tools. | - | - | - | - |
+| `gh_generate_and_place_on_canvas` | Components | Generate a GhJSON document from instructions and immediately place it on the canvas. This wraps gh_generate followed by gh_put with editMode=false. Example: gh_generate_and_place_on_canvas({ instructions: 'Create a number slider connected to a panel' }). | - | - | - | - |
+| `smarthopper_ghjson_reference` | Instructions | Returns GhJSON and GhPatch format reference documentation. Pass `topic` to retrieve the full specification or a focused section. Use this whenever you need to generate, edit, or validate GhJSON/GhPatch documents instead of relying on internalized format knowledge. | - | - | - | - |
 
 Notes:
 
 - **`web2md`** supports dedicated flows for Wikipedia/Wikimedia APIs, Discourse raw markdown (`/posts/{id}.json`), GitHub/GitLab raw files, and Stack Exchange questions via the public API. Use it for AI-friendly text without extra HTML cleanup.
-- **`instruction_get`** is an internal tool that provides operational instructions to the AI agent by topic. It is always available.
+- **`smarthopper_readme`** is an internal tool that provides operational instructions to the AI agent by topic. It is always available.
 
 Is there something missing? Do you have a suggestion? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
 
@@ -181,7 +191,7 @@ SmartHopper currently supports the following AI providers and features:
 Notes:
 - “Temperature config” indicates whether the provider/model family supports a temperature parameter in SmartHopper. For OpenAI o‑series and gpt‑5, temperature is omitted by design; other OpenAI models support it.
 - “Live reasoning streaming in UI” depends on the provider exposing a distinct reasoning/thinking channel and SmartHopper adapter support.
-- OpenRouter capabilities vary by the routed underlying model; current SmartHopper adapter does not enable streaming/reasoning there.
+- OpenRouter capabilities vary by the routed underlying model; the SmartHopper adapter enables streaming, but reasoning support depends on the routed model.
 
 Do you want more providers? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
 
@@ -249,6 +259,15 @@ Some models are still supported but **not recommended** for script-oriented tool
 ## 🔢 Supported Data Types
 
 Data type serialization is handled by the [ghjson-dotnet](https://github.com/architects-toolkit/ghjson-dotnet) library. See its documentation for the full list of supported data types, serialization formats, and extensibility patterns.
+
+### SmartHopper-specific types
+
+The following custom goo types are persisted via `SafeGooCodec` when components save to `.gh` files:
+
+- `GH_VersatileImage` — Wraps `Bitmap`, file paths, URLs, base64, data-URIs, and document-extracted images with metadata. Persisted as a compact JSON payload with base64 PNG encoding for in-memory bitmaps.
+- `GH_VersatileAudio` — Wraps file paths, URLs, base64, data-URIs, and document-extracted audio with metadata. Persisted as a compact JSON payload.
+
+See [`docs/Components/IO/Persistence.md`](./docs/Components/IO/Persistence.md) for the full persistence format.
 
 —
 

@@ -1,0 +1,127 @@
+name: Safe Commit
+description: |
+  Commits staged changes and pushes. If the push fails (e.g. protected branch),
+  automatically creates a PR instead. This removes the need to hardcode protected
+  branch patterns in workflows.
+
+inputs:
+  commit-message:
+    description: 'Commit message for the changes'
+    required: true
+  pr-title:
+    description: 'PR title if a PR needs to be created (defaults to commit message)'
+    required: false
+    default: ''
+  pr-body:
+    description: 'PR body if a PR needs to be created'
+    required: false
+    default: 'Automated changes that could not be pushed directly to the branch.'
+  pr-labels:
+    description: 'Comma-separated labels to add to the PR'
+    required: false
+    default: ''
+  token:
+    description: 'GitHub token for creating PRs'
+    required: true
+
+outputs:
+  method:
+    description: 'How the changes were applied: "direct" (pushed) or "pr" (pull request created)'
+    value: ${{ steps.result.outputs.method }}
+  pr-number:
+    description: 'PR number if a PR was created (empty for direct push)'
+    value: ${{ steps.result.outputs.pr_number }}
+  pr-url:
+    description: 'PR URL if a PR was created (empty for direct push)'
+    value: ${{ steps.result.outputs.pr_url }}
+  changed:
+    description: 'Whether any changes were committed: "true" or "false"'
+    value: ${{ steps.commit.outputs.changed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check for changes and commit
+      id: commit
+      shell: bash
+      run: |
+        if git diff --cached --quiet; then
+          echo "No staged changes to commit"
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+        else
+          git commit -m "${{ inputs.commit-message }}"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Try direct push
+      id: push
+      if: steps.commit.outputs.changed == 'true'
+      shell: bash
+      run: |
+        if git push 2>&1; then
+          echo "push_ok=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "Direct push failed (branch may be protected), will create PR"
+          echo "push_ok=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Create PR if push failed
+      id: create-pr
+      if: steps.commit.outputs.changed == 'true' && steps.push.outputs.push_ok == 'false'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        TEMP_BRANCH="chore/auto-$(date +%s)-$(echo "${{ inputs.commit-message }}" | tr ' ' '-' | tr -cd '[:alnum:]-' | head -c 40)"
+
+        # Create temp branch and push
+        git checkout -b "$TEMP_BRANCH"
+        git push origin "$TEMP_BRANCH"
+
+        # Create PR
+        PR_TITLE="${{ inputs.pr-title }}"
+        if [ -z "$PR_TITLE" ]; then
+          PR_TITLE="${{ inputs.commit-message }}"
+        fi
+
+        PR_URL=$(gh pr create \
+          --base "$CURRENT_BRANCH" \
+          --head "$TEMP_BRANCH" \
+          --title "$PR_TITLE" \
+          --body "${{ inputs.pr-body }}")
+
+        PR_NUMBER=$(echo "$PR_URL" | grep -oP '\d+$')
+
+        # Add labels if specified
+        if [ -n "${{ inputs.pr-labels }}" ]; then
+          IFS=',' read -ra LABELS <<< "${{ inputs.pr-labels }}"
+          for label in "${LABELS[@]}"; do
+            label=$(echo "$label" | xargs)
+            gh pr edit "$PR_NUMBER" --add-label "$label" 2>/dev/null || true
+          done
+        fi
+
+        echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+        echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+
+        # Switch back to original branch
+        git checkout "$CURRENT_BRANCH"
+
+    - name: Set result
+      id: result
+      shell: bash
+      run: |
+        if [ "${{ steps.commit.outputs.changed }}" != "true" ]; then
+          echo "method=none" >> "$GITHUB_OUTPUT"
+          echo "pr_number=" >> "$GITHUB_OUTPUT"
+          echo "pr_url=" >> "$GITHUB_OUTPUT"
+        elif [ "${{ steps.push.outputs.push_ok }}" == "true" ]; then
+          echo "method=direct" >> "$GITHUB_OUTPUT"
+          echo "pr_number=" >> "$GITHUB_OUTPUT"
+          echo "pr_url=" >> "$GITHUB_OUTPUT"
+        else
+          echo "method=pr" >> "$GITHUB_OUTPUT"
+          echo "pr_number=${{ steps.create-pr.outputs.pr_number }}" >> "$GITHUB_OUTPUT"
+          echo "pr_url=${{ steps.create-pr.outputs.pr_url }}" >> "$GITHUB_OUTPUT"
+        fi

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -47,20 +47,33 @@ namespace SmartHopper.Components.Img
     /// </summary>
     public class AIImg2TextComponent : AIStatefulAsyncComponentBase
     {
-        /// <summary>
-        /// Gets the unique ID for this component. Do not change this ID after release.
-        /// </summary>
+        /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("6498B5BA-D781-42B6-8D74-25DA73E32004");
 
-        /// <summary>
-        /// Gets the icon for this component.
-        /// </summary>
-        // protected override Bitmap Icon => Resources.smarthopper;
+        /// <inheritdoc/>
+        protected override Bitmap Icon => Resources.imgtotext;
 
-        /// <summary>
-        /// Gets the exposure level of this component in the ribbon.
-        /// </summary>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AIImg2Txt",
+            "AIImgToText",
+            "Image to Text",
+            "img2text",
+            "Vision AI",
+            "Image Analysis",
+            "Image Description",
+            "Describe Image",
+            "Analyze Image",
+            "Image Caption",
+            "Caption Image",
+            "Image Reader",
+            "AI Vision",
+            "Computer Vision",
+            "Image Understanding",
+            "OCR AI",
+            "Image to Words",
+            "Picture Description",
+        };
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
@@ -108,10 +121,7 @@ namespace SmartHopper.Components.Img
         {
         }
 
-        /// <summary>
-        /// Registers additional input parameters for this component.
-        /// </summary>
-        /// <param name="pManager">The parameter manager to register inputs with.</param>
+        /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("Image", "I", "Image to describe. Accepts: (1) VersatileImage format from file extraction components, (2) absolute file path to an image file (.png, .jpg, .gif, .bmp, .webp, .tiff), (3) public HTTP/HTTPS URL, or (4) raw base64-encoded image data.", GH_ParamAccess.tree);
@@ -119,10 +129,7 @@ namespace SmartHopper.Components.Img
             pManager[pManager.ParamCount - 1].Optional = true;
         }
 
-        /// <summary>
-        /// Registers additional output parameters for this component.
-        /// </summary>
-        /// <param name="pManager">The parameter manager to register outputs with.</param>
+        /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Description", "D", "AI-generated text description of the image.", GH_ParamAccess.tree);

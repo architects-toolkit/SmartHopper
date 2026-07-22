@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -18,9 +18,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
+using GhJSON.Grasshopper;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Rhino;
@@ -41,7 +43,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             GH_Document doc = null;
             try
             {
-                doc = Instances.ActiveCanvas?.Document;
+                doc = GhJsonGrasshopper.GetActiveDocument();
             }
             catch
             {
@@ -73,46 +75,35 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         }
 
         /// <summary>
-        /// Adds an object to the active Grasshopper canvas at the specified position.
-        /// </summary>
-        /// <param name="obj">The Grasshopper document object to add.</param>
-        /// <param name="position">The pivot position where the object should be placed.</param>
-        /// <param name="redraw">True to redraw the canvas after adding the object.</param>
-        public static void AddObjectToCanvas(IGH_DocumentObject obj, PointF position = default, bool redraw = true)
-        {
-            GH_Document doc = GetCurrentCanvas();
-
-            obj.Attributes.Pivot = position;
-
-            doc.AddObject(obj, false);
-
-            if (redraw)
-            {
-                obj.Attributes.ExpireLayout();
-                Instances.RedrawCanvas();
-            }
-        }
-
-        /// <summary>
         /// Finds a document object instance by its GUID.
         /// </summary>
         /// <param name="guid">The instance GUID.</param>
         /// <returns>The matching document object or null if not found.</returns>
         public static IGH_DocumentObject FindInstance(Guid guid)
         {
-            IGH_DocumentObject obj = GetCurrentObjects().FirstOrDefault(o => o.InstanceGuid == guid);
-
-            if (obj is IGH_Component)
+            var doc = GetCurrentCanvas();
+            if (doc == null)
             {
-                IGH_Component component = obj as IGH_Component;
+                return null;
+            }
 
+            IGH_DocumentObject obj;
+            try
+            {
+                obj = GhJsonGrasshopper.FindObject(doc, guid);
+            }
+            catch
+            {
+                return null;
+            }
+
+            if (obj is IGH_Component component)
+            {
                 // Debug.WriteLine("The object is an IGH_Component.");
                 return component;
             }
-            else if (obj is IGH_Param)
+            else if (obj is IGH_Param param)
             {
-                IGH_Param param = obj as IGH_Param;
-
                 // Debug.WriteLine("The object is an IGH_Param.");
                 return param;
             }
@@ -267,25 +258,59 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         }
 
         /// <summary>
-        /// Computes the bounding box of all objects in the current document.
+        /// Removes the document objects with the specified instance GUIDs and records
+        /// a single undo event so the operation can be reversed with Ctrl+Z.
         /// </summary>
-        public static RectangleF BoundingBox()
+        /// <param name="guids">The GUIDs of the objects to remove.</param>
+        /// <returns>The list of GUIDs that were successfully removed.</returns>
+        public static List<Guid> RemoveInstances(IEnumerable<Guid> guids)
         {
-            GH_Document doc = GetCurrentCanvas();
-            return doc.BoundingBox(false);
+            var result = GhJsonGrasshopper.Delete(guids);
+            return result.Deleted;
         }
 
         /// <summary>
-        /// Determines a starting point to place new objects below the current canvas content.
+        /// Saves the current Grasshopper document to the specified file path.
+        /// If no file path is provided, the document is saved to its current location.
+        /// Returns the path to which the document was saved, or null if saving failed.
         /// </summary>
-        /// <param name="span">Vertical spacing from the bottom of the bounding box.</param>
-        /// <returns>A point suitable for placing new objects.</returns>
-        public static PointF StartPoint(int span = 100)
+        /// <param name="filePath">Optional destination file path. If null, the document's current file path is used.</param>
+        /// <returns>The file path where the document was saved, or null.</returns>
+        public static string SaveDocument(string filePath = null)
         {
-            RectangleF bounds = BoundingBox();
+            var doc = GetCurrentCanvas();
+            if (doc == null)
+            {
+                return null;
+            }
 
-            // return new PointF(bounds.X, bounds.Bottom+span);
-            return new PointF(50, bounds.Bottom + span);
+            var targetPath = filePath;
+            if (string.IsNullOrWhiteSpace(targetPath))
+            {
+                targetPath = doc.FilePath;
+            }
+
+            if (string.IsNullOrWhiteSpace(targetPath))
+            {
+                return null;
+            }
+
+            try
+            {
+                var writer = new GH_DocumentIO(doc);
+                if (writer.SaveQuiet(targetPath))
+                {
+                    return targetPath;
+                }
+
+                Debug.WriteLine("[CanvasAccess] SaveDocument returned false.");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[CanvasAccess] SaveDocument failed: {ex.Message}");
+                return null;
+            }
         }
 
         /// <summary>

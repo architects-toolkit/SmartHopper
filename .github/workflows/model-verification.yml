@@ -1,5 +1,11 @@
 name: ✅ Model Verification
 
+# Related workflows (provider model management):
+#   - check-provider-models.yml (validates model definitions in PRs)
+#   - chore-update-provider-models.yml (fetches and updates model lists)
+#   - chore-update-model-verification-template.yml (updates issue template)
+#   - model-verification.yml (community model verification process)
+
 # Description: Tracks community certifications of AI models in `*ProviderModels.cs`.
 #
 # An issue created from the "Model Verification Report" template represents the FIRST
@@ -35,6 +41,7 @@ on:
         required: true
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
   issues: write
@@ -53,6 +60,7 @@ jobs:
         (startsWith(github.event.comment.body, '/verify-confirm') ||
          startsWith(github.event.comment.body, '/verify-force')))
     runs-on: windows-latest
+    timeout-minutes: 45
     outputs:
       should_promote: ${{ steps.tally.outputs.should_promote }}
       provider: ${{ steps.tally.outputs.provider }}
@@ -195,7 +203,7 @@ jobs:
         if: steps.tally.outputs.should_promote == 'true'
         shell: pwsh
         run: |
-          pwsh -ExecutionPolicy Bypass -File .\tools\Update-ModelVerified.ps1 `
+          & .\tools\Update-ModelVerified.ps1 `
             -Provider '${{ steps.tally.outputs.provider }}' `
             -Model '${{ steps.tally.outputs.model }}'
           $code = $LASTEXITCODE
@@ -230,7 +238,23 @@ jobs:
           delete-branch: true
           labels: |
             automated
-            model-verification
+
+      - name: Assign PR to Milestone
+        if: steps.tally.outputs.should_promote == 'true' && steps.promote.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks
+        if: steps.tally.outputs.should_promote == 'true' && steps.promote.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: chore/verify-${{ steps.tally.outputs.provider }}-${{ steps.tally.outputs.model }}
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          base-ref: dev
+          pr-title: "chore(models): verify ${{ steps.tally.outputs.provider }}/${{ steps.tally.outputs.model }}"
 
       - name: Comment outcome on issue
         if: steps.tally.outputs.should_promote == 'true'
