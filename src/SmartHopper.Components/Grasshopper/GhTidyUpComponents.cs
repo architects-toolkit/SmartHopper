@@ -47,15 +47,13 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                 "Tidy Up",
                 "GhTidyUp",
-                "Organize selected components into a tidy grid layout\n\n!!! THIS IS STILL EXPERIMENTAL, IT MIGHT MESS UP YOUR DOCUMENT !!!",
+                "Organize selected components into a tidy grid layout",
                 "SmartHopper",
                 "Grasshopper")
         {
         }
 
-        /// <summary>
-        /// Gets the unique identifier for this component.
-        /// </summary>
+        /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("8B6F904F-8B96-45F5-B4DE-80B53C4FBA10");
 
         /// <inheritdoc/>

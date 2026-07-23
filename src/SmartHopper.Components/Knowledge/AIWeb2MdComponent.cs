@@ -34,10 +34,10 @@ using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.AITools;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
+using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Metrics;
-using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
@@ -329,7 +329,7 @@ namespace SmartHopper.Components.Knowledge
                     var path = kvp.Key;
                     foreach (var m in kvp.Value)
                     {
-                        this.CombineIntoPersistedMetricsAtPath(m, path, "tool:img2text");
+                        this.CombineIntoPersistedMetrics(m);
                     }
                 }
 
@@ -524,7 +524,7 @@ namespace SmartHopper.Components.Knowledge
                         string markdown = toolResult.Result["content"]?.ToString() ?? string.Empty;
                         string format = (toolResult.Result["metadata"] as JObject)?["format"]?.ToString() ?? "url";
 
-                        var messages = RuntimeMessageUtility.ExtractMessages(toolResult);
+                        var messages = toolResult.ExtractMessages();
                         foreach (var m in messages) this.CollectMessage(m);
 
                         bool isBatch = this.parent.IsBatchRequest();

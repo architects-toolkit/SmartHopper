@@ -140,11 +140,7 @@ namespace SmartHopper.Components.Img
                 messages);
         }
 
-        /// <summary>
-        /// Creates the async worker for this component.
-        /// </summary>
-        /// <param name="progressReporter">Progress reporter callback.</param>
-        /// <returns>The async worker instance.</returns>
+        /// <inheritdoc/>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new AIImg2TextWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);

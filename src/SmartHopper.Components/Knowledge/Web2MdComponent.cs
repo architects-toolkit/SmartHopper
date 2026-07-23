@@ -30,10 +30,10 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
-using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
@@ -232,7 +232,7 @@ namespace SmartHopper.Components.Knowledge
                         string markdown = toolResult.Result["content"]?.ToString() ?? string.Empty;
                         string format = (toolResult.Result["metadata"] as JObject)?["format"]?.ToString() ?? "url";
 
-                        var messages = RuntimeMessageUtility.ExtractMessages(toolResult);
+                        var messages = toolResult.ExtractMessages();
                         foreach (var m in messages) this.CollectMessage(m);
 
                         outputs["Markdown"].Add(new GH_String(markdown));

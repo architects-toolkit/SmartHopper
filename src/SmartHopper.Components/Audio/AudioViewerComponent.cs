@@ -22,6 +22,7 @@ using System.Drawing;
 using System.IO;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
+using SmartHopper.Components.Properties;
 using SmartHopper.Core.Types;
 
 namespace SmartHopper.Components.Audio
@@ -49,7 +50,7 @@ namespace SmartHopper.Components.Audio
         /// <summary>
         /// Gets the icon for this component.
         /// </summary>
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Resources.audio;
 
         /// <summary>
         /// Gets the exposure level of this component in the ribbon.
@@ -65,7 +66,7 @@ namespace SmartHopper.Components.Audio
                 "AudioView",
                 "Display audio files on the canvas, play them, and save them to disk.",
                 "SmartHopper",
-                "Audio")
+                "Data Visualization")
         {
         }
 

@@ -31,7 +31,7 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AICall.Tools;
-using SmartHopper.ProviderSdk.AICall.Utilities;
+using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Components.Script
@@ -246,7 +246,7 @@ namespace SmartHopper.Components.Script
                 }
 
                 // Extract and collect messages from tool result (errors, warnings, etc.)
-                var toolMessages = ToolCallResultRuntimeMessageExtensions.ExtractMessages(toolResult);
+                var toolMessages = toolResult.ExtractMessages();
                 foreach (var m in toolMessages) this.CollectMessage(m);
 
                 var hasErrors = toolMessages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error);

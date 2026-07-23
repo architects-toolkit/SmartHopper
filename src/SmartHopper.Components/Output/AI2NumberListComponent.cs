@@ -23,6 +23,7 @@ using System.Linq;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Types;
+using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
@@ -45,7 +46,7 @@ namespace SmartHopper.Components.Output
 
         public override Guid ComponentGuid => new Guid("7E6E5490-6A77-47D1-8BED-879E7CA5033F");
 
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Resources.aitonumericlist;
 
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2text" };
 
@@ -68,22 +69,45 @@ namespace SmartHopper.Components.Output
             this._fallback = DA.GetDataList("Fallback", items) && items.Count > 0 ? items : null;
         }
 
-        private (List<double> Items, bool UsedFallback) ResolveList(AIReturn aiReturn)
+        private (List<double> Items, List<bool> UsedFallback) ResolveList(AIReturn aiReturn)
         {
             var text = aiReturn?.Body?.GetLastAssistantText();
             var (strings, _) = StringListResultResolver.Resolve(text);
-            var parsed = strings
-                .Select(s => NumberResultResolver.Resolve(s, null).Value)
-                .Where(v => v.HasValue)
-                .Select(v => v.Value)
-                .ToList();
 
-            if (parsed.Count > 0)
+            if (strings == null || strings.Count == 0)
             {
-                return (parsed, false);
+                var fallbackItems = this._fallback?.ToList() ?? new List<double>();
+                return (fallbackItems, Enumerable.Repeat(true, fallbackItems.Count).ToList());
             }
 
-            return (this._fallback?.ToList() ?? new List<double>(), true);
+            var items = new List<double>();
+            var usedFallback = new List<bool>();
+            var hasAnyParsed = false;
+
+            for (int i = 0; i < strings.Count; i++)
+            {
+                var (value, itemUsedFallback) = NumberResultResolver.Resolve(strings[i], null);
+                if (value.HasValue)
+                {
+                    items.Add(value.Value);
+                    usedFallback.Add(itemUsedFallback);
+                    hasAnyParsed = true;
+                }
+                else
+                {
+                    var fallbackValue = i < (this._fallback?.Count ?? 0) ? this._fallback[i] : default(double);
+                    items.Add(fallbackValue);
+                    usedFallback.Add(true);
+                }
+            }
+
+            if (!hasAnyParsed)
+            {
+                var fallbackItems = this._fallback?.ToList() ?? new List<double>();
+                return (fallbackItems, Enumerable.Repeat(true, fallbackItems.Count).ToList());
+            }
+
+            return (items, usedFallback);
         }
 
         protected override IReadOnlyList<OutputMapping> GetOutputMappings()
@@ -96,7 +120,7 @@ namespace SmartHopper.Components.Output
                     NickName = "N",
                     Description = "Parsed list of numbers (one branch entry per JSON array element). Items that fail to parse are skipped. Falls back to the Fallback input when no items are parseable.",
                     ParamType = typeof(Param_Number),
-                    Access = GH_ParamAccess.list,
+                    Access = GH_ParamAccess.tree,
                     Extractor = aiReturn =>
                     {
                         var (items, _) = this.ResolveList(aiReturn);
@@ -107,14 +131,14 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Used Fallback",
                     NickName = "UF",
-                    Description = "True when the AI response could not be parsed as a list and the Fallback value was used (or an empty list was emitted because no fallback was provided).",
+                    Description = "True for items where the AI response could not be parsed and the fallback value was used.",
                     ParamType = typeof(Param_Boolean),
                     Access = GH_ParamAccess.tree,
-                    Extractor = OutputMapping.Single(aiReturn =>
+                    Extractor = aiReturn =>
                     {
                         var (_, usedFallback) = this.ResolveList(aiReturn);
-                        return new GH_Boolean(usedFallback);
-                    }),
+                        return usedFallback.Select(b => (IGH_Goo)new GH_Boolean(b));
+                    },
                 },
             };
         }

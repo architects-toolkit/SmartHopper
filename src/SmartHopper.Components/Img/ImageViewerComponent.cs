@@ -57,7 +57,7 @@ namespace SmartHopper.Components.Img
                 "ImgView",
                 "Display bitmap images on the canvas and save them to disk.",
                 "SmartHopper",
-                "Img")
+                "Data Visualization")
         {
         }
 

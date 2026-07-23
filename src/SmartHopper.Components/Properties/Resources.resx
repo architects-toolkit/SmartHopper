@@ -307,4 +307,121 @@
   <data name="mcneeltopic2ai" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\mcneeltopicsummarize.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="aitotext" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\aitotext.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="aitotextlist" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\aitotextlist.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="aitonumeric" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\aitonumeric.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="aitointeger" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\aitointeger.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="aitonumericlist" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\aitonumericlist.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="aitointlist" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\aitointlist.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="aitojson" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\aitojson.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="aitomd" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\aitomd.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="aitoscript" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\aitoscript.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="aitospeech" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\aitospeech.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="aitobool" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\aitobool.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="aitoboollist" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\aitoboollist.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="aitoimg" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\aitoimg.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="aitogh" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\aitogh.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toaitext" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toai-text.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toailist" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toai-list.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toaibool" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toai-bool.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toainumeric" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toai-numeric.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toaiinteger" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toai-integer.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toaiprompt" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toai-prompt.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toaicontext" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toai-context.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toaiaudio" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toai-audio.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toaifile" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toai-file.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toaiimg" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toai-img.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toaighjson" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toai-ghjson.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toaijson" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toai-json.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toaiweb" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toai-web.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toaidiscoursepost" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toai-discoursepost.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="toaidiscoursetopic" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\toai-discoursetopic.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="texttoimg" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\texttoimg.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="jsonitem" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\jsonitem.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="jsonclean" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\jsonclean.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="jsonarraytolist" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\jsonarraytolist.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="imgtotext" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\imgtotext.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="ghjsonpatch" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\ghjson-patch.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="ghdiff" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\ghdiff.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="contextproviders" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\contextproviders.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="jsontotext" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\jsontotext.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="audio" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\audio.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
 </root>

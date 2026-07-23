@@ -22,6 +22,7 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.Parameters;
 using SmartHopper.Core.Types;
@@ -50,7 +51,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the component icon.
         /// </summary>
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Resources.aitospeech;
 
         /// <summary>
         /// Gets the AI tools used by this component.

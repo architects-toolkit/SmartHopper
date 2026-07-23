@@ -22,6 +22,7 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Types;
+using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
@@ -48,7 +49,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the component icon.
         /// </summary>
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Resources.aitotext;
 
         /// <summary>
         /// Gets the AI tools used by this component.

@@ -50,7 +50,7 @@ namespace SmartHopper.Components.Input
 
         public override Guid ComponentGuid => new Guid("97F392F2-B116-42E1-A937-D6143BECEC80");
 
-        protected override Bitmap Icon => Resources.mcneelpost2ai;
+        protected override Bitmap Icon => null;
 
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 
@@ -60,7 +60,7 @@ namespace SmartHopper.Components.Input
                 "McNeelPost2AI",
                 "Retrieves a McNeel forum post by ID from discourse.mcneel.com and wraps it into an AIInputPayload.",
                 "SmartHopper",
-                "Input")
+                "B. Input")
         {
         }
 

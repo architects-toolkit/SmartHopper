@@ -77,7 +77,7 @@ namespace SmartHopper.Components.AI
                 "Settings",
                 "Assembles AI request settings (model, temperature, tokens, extras) to pass to any AI component.",
                 "SmartHopper",
-                "AI")
+                "A. AI")
         {
             this._retryStopwatch.Start();
         }
