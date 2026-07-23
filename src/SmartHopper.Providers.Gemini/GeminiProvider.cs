@@ -28,7 +28,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.Providers.Gemini.Properties;
 using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;

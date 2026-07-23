@@ -18,7 +18,7 @@
 
 using Eto.Drawing;
 using Eto.Forms;
-using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.Menu.Dialogs.SettingsTabs.Models;
 using SmartHopper.ProviderSdk.AIProviders;
 

@@ -18,7 +18,6 @@
 
 using System;
 using System.Diagnostics;
-using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Providers.Gemini

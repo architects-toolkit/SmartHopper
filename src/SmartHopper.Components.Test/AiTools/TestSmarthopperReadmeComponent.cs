@@ -31,8 +31,8 @@ using System;
 using System.Drawing;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Tools;
 
 namespace SmartHopper.Components.Test.AiTools

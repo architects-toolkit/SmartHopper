@@ -29,7 +29,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.Infrastructure.Utils;
 using SmartHopper.ProviderSdk.AICall.Batch;
 using SmartHopper.ProviderSdk.AICall.Core;

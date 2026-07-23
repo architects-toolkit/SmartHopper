@@ -21,8 +21,8 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
     using System.Collections.Generic;
     using System.Threading.Tasks;
     using Newtonsoft.Json.Linq;
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
-    using SmartHopper.Infrastructure.AICall.Core.Returns;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+    using SmartHopper.ProviderSdk.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AICall.Tools;
     using SmartHopper.Infrastructure.AITools;
     using SmartHopper.Infrastructure.Mcp;

@@ -18,6 +18,7 @@
 
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Infrastructure.AIProviders
 {

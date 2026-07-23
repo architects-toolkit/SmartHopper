@@ -22,8 +22,8 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Providers
 {
     using System.Collections.Generic;
     using System.Linq;
-    using SmartHopper.Infrastructure.AICall.Batch;
-    using SmartHopper.Infrastructure.Diagnostics;
+    using SmartHopper.ProviderSdk.AICall.Batch;
+    using SmartHopper.ProviderSdk.Diagnostics;
     using SmartHopper.Providers.Anthropic;
     using SmartHopper.Providers.Gemini;
     using SmartHopper.Providers.MistralAI;

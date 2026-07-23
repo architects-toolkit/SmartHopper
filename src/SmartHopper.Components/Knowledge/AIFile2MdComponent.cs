@@ -33,7 +33,7 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Types;
-using SmartHopper.Infrastructure.AICall.Utilities;
+using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;

@@ -26,6 +26,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.Utils;
+using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Infrastructure.AIProviders
 {
