@@ -49,8 +49,8 @@ using SmartHopper.Core.ComponentBase.State;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Diagnostics;
 using SmartHopper.Core.IO;
-using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Core.ComponentBase
@@ -978,7 +978,9 @@ namespace SmartHopper.Core.ComponentBase
                 {
                     this.UpdateProgress(current);
                 },
-                token).ConfigureAwait(false);
+                onUnitStart: null,
+                onUnitComplete: null,
+                token: token).ConfigureAwait(false);
 
             // Surface any tree matching messages as persistent runtime messages
             foreach (var message in result.Messages)

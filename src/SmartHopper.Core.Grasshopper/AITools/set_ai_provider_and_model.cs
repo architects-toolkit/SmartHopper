@@ -29,12 +29,12 @@ using Rhino;
 using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
-using SmartHopper.ProviderSdk.AICall.Core.Interactions;
-using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
-using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Core.Grasshopper.AITools

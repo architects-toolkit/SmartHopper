@@ -1147,7 +1147,7 @@ namespace SmartHopper.Core.DataTree
             CancellationToken token = default)
             where T : IGH_Goo
         {
-            var result = await RunAsync<T, IGH_Goo>(inputTrees, function, options, progressCallback, token).ConfigureAwait(false);
+            var result = await RunAsync<T, IGH_Goo>(inputTrees, function, options, progressCallback, onUnitStart, onUnitComplete, token).ConfigureAwait(false);
             return new ProcessingResult<T>(result.Outputs, result.Messages);
         }
 

@@ -198,6 +198,41 @@ namespace SmartHopper.Core.Types
         }
 
         /// <summary>
+        /// Reconstructs a <see cref="VersatileImage"/> from a previously serialized representation.
+        /// </summary>
+        /// <param name="kind">The source kind.</param>
+        /// <param name="rawValue">The raw value (path, URL, base64, or data-URI).</param>
+        /// <param name="bitmap">The decoded bitmap, or <c>null</c> for non-bitmap sources.</param>
+        /// <param name="id">Unique identifier within a document.</param>
+        /// <param name="context">Contextual description of where the image was found.</param>
+        /// <param name="pageOrSlide">Page or slide number, or 0 if unknown.</param>
+        /// <param name="sourceDocument">Source document path or identifier.</param>
+        /// <param name="mimeType">MIME type of the image.</param>
+        /// <returns>A new <see cref="VersatileImage"/>.</returns>
+        public static VersatileImage FromDeserialized(
+            VersatileImageKind kind,
+            string rawValue,
+            Bitmap bitmap,
+            string id,
+            string context,
+            int pageOrSlide,
+            string sourceDocument,
+            string mimeType)
+        {
+            return new VersatileImage
+            {
+                Kind = kind,
+                RawValue = rawValue,
+                Bitmap = bitmap,
+                Id = id ?? "img",
+                Context = context ?? string.Empty,
+                PageOrSlide = pageOrSlide,
+                SourceDocument = sourceDocument ?? string.Empty,
+                MimeType = mimeType ?? "image/png",
+            };
+        }
+
+        /// <summary>
         /// Converts this image source to a Bitmap.
         /// For URLs and base64, downloads/decodes lazily.
         /// For local files, loads from disk.

@@ -28,7 +28,6 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.AICall.Batch;
 using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -38,6 +37,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AICall.JsonSchemas;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Streaming;
 using SmartHopper.ProviderSdk.Utilities;
@@ -1272,7 +1272,6 @@ namespace SmartHopper.Providers.OpenAI
                     }
 
                     content = string.Join(string.Empty, contentParts).Trim();
-                    reasoning = string.Join("\n\n", reasoningParts).Trim();
                 }
                 else if (contentToken != null)
                 {

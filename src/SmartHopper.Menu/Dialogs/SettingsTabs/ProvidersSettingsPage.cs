@@ -22,10 +22,10 @@ using System.IO;
 using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
-using SmartHopper.ProviderSdk.AICall.Core;
-using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Menu.Dialogs.SettingsTabs.Models;
+using SmartHopper.ProviderSdk.AICall.Core;
+using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Hosting;
 using SmartHopper.ProviderSdk.Settings;
 

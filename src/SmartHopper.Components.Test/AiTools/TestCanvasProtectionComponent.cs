@@ -24,10 +24,10 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Contracts;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Tools;
 
 namespace SmartHopper.Components.Test.AiTools
 {

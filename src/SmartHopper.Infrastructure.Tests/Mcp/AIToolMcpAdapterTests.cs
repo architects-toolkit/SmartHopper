@@ -22,11 +22,11 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
     using System.Linq;
     using System.Threading.Tasks;
     using Newtonsoft.Json.Linq;
-    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
-    using SmartHopper.ProviderSdk.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AICall.Tools;
     using SmartHopper.Infrastructure.AITools;
     using SmartHopper.Infrastructure.Mcp;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+    using SmartHopper.ProviderSdk.AICall.Core.Returns;
     using Xunit;
 
     /// <summary>

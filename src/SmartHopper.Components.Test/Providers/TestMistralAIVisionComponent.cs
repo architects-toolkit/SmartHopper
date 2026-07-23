@@ -25,11 +25,11 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Providers.MistralAI;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AIProviders;
-using SmartHopper.Providers.MistralAI;
 
 namespace SmartHopper.Components.Test.Providers
 {

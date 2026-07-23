@@ -379,7 +379,7 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         private static List<(int Start, int Length)> GetTopLevelBlockSpans(string rawText, MarkdownPipeline pipeline)
         {
-            var document = MarkdownParser.Parse(rawText, pipeline);
+            var document = Markdown.Parse(rawText, pipeline);
             var spans = new List<(int Start, int Length)>(document.Count);
 
             foreach (var block in document)

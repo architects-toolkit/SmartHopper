@@ -20,12 +20,12 @@ namespace SmartHopper.Infrastructure.Tests
 {
     using System.Threading.Tasks;
     using Newtonsoft.Json.Linq;
+    using SmartHopper.Infrastructure.AICall.Tools;
+    using SmartHopper.Infrastructure.AITools;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Requests;
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
-    using SmartHopper.Infrastructure.AICall.Tools;
-    using SmartHopper.Infrastructure.AITools;
     using Xunit;
 
     /// <summary>

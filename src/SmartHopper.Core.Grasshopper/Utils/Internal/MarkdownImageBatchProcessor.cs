@@ -24,10 +24,10 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase.Batch;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Metrics;
-using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Internal

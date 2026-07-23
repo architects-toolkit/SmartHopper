@@ -23,12 +23,12 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AICall.Batch;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
