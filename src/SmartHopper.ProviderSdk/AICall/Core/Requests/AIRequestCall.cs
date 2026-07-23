@@ -320,7 +320,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
         /// <param name="stream">If true, uses streaming mode via provider's streaming adapter.</param>
         /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
         /// <returns>The result of the provider call in <see cref="AIReturn"/> format.</returns>
-        public async Task<AIReturn> Exec(bool stream = false, System.Threading.CancellationToken cancellationToken = default)
+        public virtual async Task<AIReturn> Exec(bool stream = false, System.Threading.CancellationToken cancellationToken = default)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
