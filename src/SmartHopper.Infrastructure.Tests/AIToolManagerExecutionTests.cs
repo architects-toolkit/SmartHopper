@@ -26,6 +26,7 @@ namespace SmartHopper.Infrastructure.Tests
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Requests;
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
+    using SmartHopper.ProviderSdk.Diagnostics;
     using Xunit;
 
     /// <summary>
@@ -64,7 +65,7 @@ namespace SmartHopper.Infrastructure.Tests
             var result = await AIToolManager.ExecuteTool(toolCall).ConfigureAwait(false);
 
             Assert.NotNull(result);
-            Assert.True(result.Messages.Exists(m => m.Severity == Diagnostics.SHRuntimeMessageSeverity.Error));
+            Assert.True(result.Messages.Exists(m => m.Severity == SHRuntimeMessageSeverity.Error));
         }
 
         #endregion
@@ -145,7 +146,7 @@ namespace SmartHopper.Infrastructure.Tests
             var result = await AIToolManager.ExecuteTool(toolCall).ConfigureAwait(false);
 
             Assert.NotNull(result);
-            Assert.True(result.Messages.Exists(m => m.Severity == Diagnostics.SHRuntimeMessageSeverity.Error));
+            Assert.True(result.Messages.Exists(m => m.Severity == SHRuntimeMessageSeverity.Error));
         }
 
         #endregion

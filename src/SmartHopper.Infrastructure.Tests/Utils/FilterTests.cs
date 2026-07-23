@@ -18,7 +18,7 @@
 
 namespace SmartHopper.Infrastructure.Tests.Utils
 {
-    using SmartHopper.Infrastructure.Utils;
+    using SmartHopper.ProviderSdk.Utils;
     using Xunit;
 
     /// <summary>

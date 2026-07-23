@@ -22,10 +22,11 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using A = DocumentFormat.OpenXml.Drawing;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
 using SmartHopper.Core.Types;
+using A = DocumentFormat.OpenXml.Drawing;
 
 namespace SmartHopper.Core.Grasshopper.Converters.Formats
 {
