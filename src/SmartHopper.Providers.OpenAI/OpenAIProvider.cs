@@ -2823,10 +2823,23 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     results[lineCustomId] = resultBody;
 
-                    // Extract finish_reason and surface as warning for non-stop reasons
+                    // Extract finish/status warnings for both Chat Completions and Responses API
+                    string finishReason = null;
+
+                    // Chat Completions format: choices[0].finish_reason
                     var choices = resultBody["choices"] as JArray;
                     var firstChoice = choices?.FirstOrDefault() as JObject;
-                    var finishReason = firstChoice?["finish_reason"]?.ToString();
+                    finishReason = firstChoice?["finish_reason"]?.ToString();
+
+                    // Responses API format: status field (e.g. "completed", "incomplete", "failed")
+                    if (string.IsNullOrEmpty(finishReason))
+                    {
+                        var status = resultBody["status"]?.ToString();
+                        if (!string.IsNullOrEmpty(status) && status != "completed")
+                        {
+                            finishReason = status;
+                        }
+                    }
 
                     if (!string.IsNullOrEmpty(finishReason) && finishReason != "stop")
                     {
