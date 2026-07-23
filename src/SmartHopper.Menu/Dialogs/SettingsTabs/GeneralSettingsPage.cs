@@ -20,7 +20,6 @@ using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.Menu.Dialogs.SettingsTabs.Models;
-using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Menu.Dialogs.SettingsTabs
 {

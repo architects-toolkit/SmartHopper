@@ -36,7 +36,6 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
-using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Providers.Gemini
 {

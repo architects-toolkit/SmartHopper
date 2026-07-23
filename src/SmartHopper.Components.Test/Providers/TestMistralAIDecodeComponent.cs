@@ -28,7 +28,6 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.Providers.MistralAI;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
-using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
 {

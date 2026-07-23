@@ -25,7 +25,7 @@ using Eto.Forms;
 using Rhino.UI;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.Infrastructure.Properties;
-using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Infrastructure.Dialogs
 {

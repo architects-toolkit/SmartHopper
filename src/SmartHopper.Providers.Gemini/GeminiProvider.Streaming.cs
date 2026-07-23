@@ -30,7 +30,6 @@ using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
-using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Streaming;
 
 namespace SmartHopper.Providers.Gemini

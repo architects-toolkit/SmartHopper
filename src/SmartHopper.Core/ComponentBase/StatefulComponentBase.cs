@@ -51,7 +51,6 @@ using SmartHopper.Core.Diagnostics;
 using SmartHopper.Core.IO;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.Infrastructure.Settings;
-using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Core.ComponentBase

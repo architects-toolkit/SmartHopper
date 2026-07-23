@@ -21,7 +21,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.AIModels;
-using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Providers.DeepSeek
 {

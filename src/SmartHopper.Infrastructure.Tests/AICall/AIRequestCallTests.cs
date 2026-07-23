@@ -16,6 +16,7 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using SmartHopper.Infrastructure.AIProviders;
 namespace SmartHopper.Infrastructure.Tests.AICall
 {
     using System;
