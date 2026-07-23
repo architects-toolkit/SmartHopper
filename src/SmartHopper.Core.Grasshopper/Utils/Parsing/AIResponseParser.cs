@@ -24,7 +24,7 @@ using System.Text.RegularExpressions;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.Utilities;
+using SmartHopper.ProviderSdk.Utilities;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Parsing
 {

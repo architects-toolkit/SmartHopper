@@ -20,8 +20,8 @@ namespace SmartHopper.Infrastructure.Tests.AICall
 {
     using System;
     using System.Collections.Generic;
-    using SmartHopper.Infrastructure.AICall.Batch;
-    using SmartHopper.Infrastructure.Diagnostics;
+    using SmartHopper.ProviderSdk.AICall.Batch;
+    using SmartHopper.ProviderSdk.Diagnostics;
     using Xunit;
 
     public class AIBatchSubmissionTests

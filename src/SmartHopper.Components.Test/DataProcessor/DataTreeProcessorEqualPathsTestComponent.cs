@@ -46,7 +46,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test DataTreeProcessor (Equal Paths)",
                 "TEST-DTP-EQ",
                 "Tests DataTreeProcessor with two input trees that share equal branch paths (one item each).",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Data")
         {
             // We want the component to run when Run? toggles on, even if inputs did not change (they are internal)

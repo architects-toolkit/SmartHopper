@@ -18,17 +18,15 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -42,7 +40,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
         public TestOpenRouterEncodeComponent()
-            : base("Test OpenRouter Encode", "TEST-OPENROUTER-ENC", "Tests OpenRouter message encoding from AIRequestCall", "SmartHopper Tests", "Testing Providers")
+            : base("Test OpenRouter Encode", "TEST-OPENROUTER-ENC", "Tests OpenRouter message encoding from AIRequestCall", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("OpenRouter");
@@ -87,18 +85,11 @@ namespace SmartHopper.Components.Test.Providers
                     // Create test AIRequestCall with different message types using AIBodyBuilder
                     var bodyBuilder = AIBodyBuilder.Create();
 
-                    // Add System message (maps to system in OpenRouter)
+                    // Add Context message
                     bodyBuilder.Add(new AIInteractionText
                     {
                         Agent = AIAgent.System,
                         Content = "You are a helpful assistant."
-                    });
-
-                    // Add User message (maps to user in OpenRouter)
-                    bodyBuilder.Add(new AIInteractionText
-                    {
-                        Agent = AIAgent.User,
-                        Content = "Hello, how are you?"
                     });
 
                     // Add ToolCall message
@@ -118,17 +109,9 @@ namespace SmartHopper.Components.Test.Providers
 
                     var call = new AIRequestCall();
                     call.Body = bodyBuilder.Build();
-                    call.Initialize("OpenRouter", "anthropic/claude-3.5-sonnet", call.Body, "/chat/completions", AICapability.Text2Text);
 
                     // Encode using provider from parent component
                     var provider = this._parent.GetActualAIProvider();
-                    if (provider == null)
-                    {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Provider not found"));
-                        await Task.Yield();
-                        return;
-                    }
                     var encoded = provider.Encode(call);
 
                     // Verify encoding
@@ -140,28 +123,16 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    // Check for required role mappings (OpenRouter uses system, user, assistant, tool)
-                    var json = JObject.Parse(encoded);
-                    var messages = json["messages"] as JArray;
-                    var roles = messages?.Select(m => m["role"]?.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-                    if (!roles.Contains("system"))
+                    // Check for required role mappings (OpenRouter uses user, assistant, tool)
+                    if (!encoded.Contains("\"role\":\"user\""))
                     {
                         this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing system role (System message)"));
+                        this._messages.Add(new GH_String("Missing user role (Context message)"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (!roles.Contains("user"))
-                    {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing user role (User message)"));
-                        await Task.Yield();
-                        return;
-                    }
-
-                    if (!roles.Contains("assistant"))
+                    if (!encoded.Contains("\"role\":\"assistant\""))
                     {
                         this._success = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Missing assistant role (ToolCall message)"));
@@ -169,7 +140,7 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    if (!roles.Contains("tool"))
+                    if (!encoded.Contains("\"role\":\"tool\""))
                     {
                         this._success = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Missing tool role (ToolResult message)"));

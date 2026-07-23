@@ -24,8 +24,8 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
 namespace SmartHopper.Core.Types
 {
@@ -198,9 +198,17 @@ namespace SmartHopper.Core.Types
         }
 
         /// <summary>
-        /// Reconstructs a VersatileImage from deserialized persistence data.
-        /// Used by SafeGooCodec to restore saved outputs.
+        /// Reconstructs a <see cref="VersatileImage"/> from a previously serialized representation.
         /// </summary>
+        /// <param name="kind">The source kind.</param>
+        /// <param name="rawValue">The raw value (path, URL, base64, or data-URI).</param>
+        /// <param name="bitmap">The decoded bitmap, or <c>null</c> for non-bitmap sources.</param>
+        /// <param name="id">Unique identifier within a document.</param>
+        /// <param name="context">Contextual description of where the image was found.</param>
+        /// <param name="pageOrSlide">Page or slide number, or 0 if unknown.</param>
+        /// <param name="sourceDocument">Source document path or identifier.</param>
+        /// <param name="mimeType">MIME type of the image.</param>
+        /// <returns>A new <see cref="VersatileImage"/>.</returns>
         public static VersatileImage FromDeserialized(
             VersatileImageKind kind,
             string rawValue,
@@ -216,11 +224,11 @@ namespace SmartHopper.Core.Types
                 Kind = kind,
                 RawValue = rawValue,
                 Bitmap = bitmap,
-                Id = id,
-                Context = context,
+                Id = id ?? "img",
+                Context = context ?? string.Empty,
                 PageOrSlide = pageOrSlide,
-                SourceDocument = sourceDocument,
-                MimeType = mimeType,
+                SourceDocument = sourceDocument ?? string.Empty,
+                MimeType = mimeType ?? "image/png",
             };
         }
 

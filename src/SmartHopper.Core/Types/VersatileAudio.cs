@@ -159,9 +159,16 @@ namespace SmartHopper.Core.Types
         }
 
         /// <summary>
-        /// Reconstructs a VersatileAudio from deserialized persistence data.
-        /// Used by SafeGooCodec to restore saved outputs.
+        /// Reconstructs a <see cref="VersatileAudio"/> from a previously serialized representation.
         /// </summary>
+        /// <param name="kind">The source kind.</param>
+        /// <param name="rawValue">The raw value (path, URL, base64, or data-URI).</param>
+        /// <param name="mimeType">MIME type of the audio.</param>
+        /// <param name="id">Unique identifier within a document.</param>
+        /// <param name="context">Contextual description of where the audio was found.</param>
+        /// <param name="pageOrSlide">Page or slide number, or 0 if unknown.</param>
+        /// <param name="sourceDocument">Source document path or identifier.</param>
+        /// <returns>A new <see cref="VersatileAudio"/>.</returns>
         public static VersatileAudio FromDeserialized(
             VersatileAudioKind kind,
             string rawValue,
@@ -175,11 +182,11 @@ namespace SmartHopper.Core.Types
             {
                 Kind = kind,
                 RawValue = rawValue,
-                MimeType = mimeType,
-                Id = id,
-                Context = context,
+                MimeType = mimeType ?? "audio/mpeg",
+                Id = id ?? "audio",
+                Context = context ?? string.Empty,
                 PageOrSlide = pageOrSlide,
-                SourceDocument = sourceDocument,
+                SourceDocument = sourceDocument ?? string.Empty,
             };
         }
 

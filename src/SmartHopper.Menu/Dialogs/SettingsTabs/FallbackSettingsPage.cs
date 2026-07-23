@@ -23,7 +23,8 @@ using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.Infrastructure.AICall.Fallback;
 using SmartHopper.Infrastructure.AIModels;
-using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Menu.Dialogs.SettingsTabs
 {

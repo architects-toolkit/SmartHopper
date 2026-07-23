@@ -20,11 +20,12 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Utilities;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Utilities;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Validation
 {
@@ -59,7 +60,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
         /// </summary>
         /// <param name="capability">The capability to validate.</param>
         /// <returns>Validation result with IsValid and optional fallback description.</returns>
-        public ValidationResult ValidateSync(AICapability capability, Fallback.ModalityFallbackMode? mode = null)
+        public ValidationResult ValidateSync(AICapability capability)
         {
             var messages = new List<SHRuntimeMessage>();
 
@@ -101,7 +102,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
             }
 
             // Step 3: Check capability support
-            var modelManager = ModelManager.Instance;
+            var modelManager = AIModelCapabilityRegistry.Instance;
             var supportsCapability = modelManager.ValidateCapabilities(this._providerName, effectiveModel, capability);
 
             if (supportsCapability)
@@ -114,66 +115,17 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 };
             }
 
-            // Capability not supported — attempt fallback if mode allows
-            var fallbackMode = mode ?? Fallback.ModalityFallbackMode.Disabled;
-
-            if (fallbackMode == Fallback.ModalityFallbackMode.Disabled)
-            {
-                messages.Add(new SHRuntimeMessage(
-                    SHRuntimeMessageSeverity.Error,
-                    SHRuntimeMessageOrigin.Validation,
-                    SHMessageCode.CapabilityMismatch,
-                    $"Provider '{this._providerName}' / model '{effectiveModel}' does not support {capability}."));
-
-                return new ValidationResult
-                {
-                    IsValid = false,
-                    Messages = messages,
-                };
-            }
-
-            // Fallback enabled — try to resolve a chain
-            var resolver = new Fallback.ModalityFallbackResolver();
-            var chain = resolver.Resolve(this._providerName, effectiveModel, capability, fallbackMode);
-
-            if (chain == null)
-            {
-                messages.Add(new SHRuntimeMessage(
-                    SHRuntimeMessageSeverity.Error,
-                    SHRuntimeMessageOrigin.Validation,
-                    SHMessageCode.CapabilityMismatch,
-                    $"Provider '{this._providerName}' / model '{effectiveModel}' does not support {capability}. " +
-                    $"Modality fallback is enabled but no conversion chain could be resolved."));
-
-                return new ValidationResult
-                {
-                    IsValid = false,
-                    Messages = messages,
-                };
-            }
-
-            // Chain resolved — allow execution with a warning
+            // Capability not supported - return error
             messages.Add(new SHRuntimeMessage(
-                SHRuntimeMessageSeverity.Warning,
+                SHRuntimeMessageSeverity.Error,
                 SHRuntimeMessageOrigin.Validation,
-                SHMessageCode.Unknown,
-                $"[Fallback] {chain.Description}. Extra tokens will be consumed."));
-
-            if (chain.UsesAltProvider)
-            {
-                messages.Add(new SHRuntimeMessage(
-                    SHRuntimeMessageSeverity.Info,
-                    SHRuntimeMessageOrigin.Validation,
-                    SHMessageCode.Unknown,
-                    $"[Fallback] Using alternate provider '{chain.ActualProvider}' / model '{chain.ActualModel}' for modality conversion."));
-            }
+                SHMessageCode.CapabilityMismatch,
+                $"Provider '{this._providerName}' / model '{effectiveModel}' does not support {capability}."));
 
             return new ValidationResult
             {
-                IsValid = true,
+                IsValid = false,
                 Messages = messages,
-                FallbackDescription = chain.Description,
-                FallbackChain = chain,
             };
         }
 

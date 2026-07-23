@@ -20,9 +20,9 @@ using System;
 
 namespace SmartHopper.Infrastructure.AICall.Sessions
 {
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
-    using SmartHopper.Infrastructure.AICall.Core.Requests;
-    using SmartHopper.Infrastructure.AICall.Core.Returns;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+    using SmartHopper.ProviderSdk.AICall.Core.Requests;
+    using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
     /// <summary>
     /// Observer of conversation session lifecycle and streaming deltas.

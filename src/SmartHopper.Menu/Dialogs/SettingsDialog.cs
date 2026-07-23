@@ -28,6 +28,9 @@ using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Menu.Dialogs.SettingsTabs;
 using SmartHopper.Menu.Dialogs.SettingsTabs.Models;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Menu.Dialogs
 {

@@ -28,14 +28,14 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall.Core;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AIModels;
-using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Providers.Gemini.Properties;
+using SmartHopper.ProviderSdk.AICall.Core;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Providers.Gemini
 {
@@ -82,9 +82,27 @@ namespace SmartHopper.Providers.Gemini
                     type: typeof(string),
                     defaultValue: string.Empty),
                 new AIExtraDescriptor(
-                    key: "seed",
-                    displayName: "Random Seed",
-                    description: "Random seed for determinism",
+                    key: "batch_priority",
+                    displayName: "Batch Priority",
+                    description: "Batch job priority (0=default, higher=higher priority)",
+                    type: typeof(int),
+                    defaultValue: 0),
+                new AIExtraDescriptor(
+                    key: "image_aspect_ratio",
+                    displayName: "Image Aspect Ratio",
+                    description: "Image generation aspect ratio (e.g., 16:9, 1:1)",
+                    type: typeof(string),
+                    defaultValue: string.Empty),
+                new AIExtraDescriptor(
+                    key: "image_size",
+                    displayName: "Image Size",
+                    description: "Image generation size (e.g., 1K, 2K, 4K)",
+                    type: typeof(string),
+                    defaultValue: string.Empty),
+                new AIExtraDescriptor(
+                    key: "top_k",
+                    displayName: "Top-K Sampling",
+                    description: "Top-K sampling parameter",
                     type: typeof(int),
                     defaultValue: 0),
                 new AIExtraDescriptor(
@@ -94,21 +112,9 @@ namespace SmartHopper.Providers.Gemini
                     type: typeof(double),
                     defaultValue: 0.0),
                 new AIExtraDescriptor(
-                    key: "top_k",
-                    displayName: "Top-K Sampling",
-                    description: "Top-K sampling parameter",
-                    type: typeof(int),
-                    defaultValue: 0),
-                new AIExtraDescriptor(
-                    key: "service_tier",
-                    displayName: "Service Tier",
-                    description: "Inference tier override: standard (default), flex (50% discount), priority (premium, lower latency). Overrides global provider setting.",
-                    type: typeof(string),
-                    defaultValue: string.Empty),
-                new AIExtraDescriptor(
-                    key: "batch_priority",
-                    displayName: "Batch Priority",
-                    description: "Batch job priority (0=default, higher=higher priority)",
+                    key: "seed",
+                    displayName: "Random Seed",
+                    description: "Random seed for determinism",
                     type: typeof(int),
                     defaultValue: 0),
                 new AIExtraDescriptor(
@@ -117,6 +123,12 @@ namespace SmartHopper.Providers.Gemini
                     description: "Safety filter level",
                     type: typeof(string),
                     defaultValue: "BLOCK_MEDIUM_AND_ABOVE"),
+                new AIExtraDescriptor(
+                    key: "service_tier",
+                    displayName: "Service Tier",
+                    description: "Inference tier override: standard (default), flex (50% discount), priority (premium, lower latency). Overrides global provider setting.",
+                    type: typeof(string),
+                    defaultValue: string.Empty),
             };
         }
 
@@ -443,25 +455,22 @@ namespace SmartHopper.Providers.Gemini
 
                 generationConfig["responseModalities"] = modalities;
 
-                // Extract image configuration from the image generation request interaction
-                var imageInteraction = request.Body.Interactions.FirstOrDefault(i => i is AIInteractionImage) as AIInteractionImage;
-                if (imageInteraction != null)
+                if (request.Parameters?.Extras != null)
                 {
                     var imageConfig = new JObject();
-                    if (!string.IsNullOrWhiteSpace(imageInteraction.AspectRatio))
+                    if (request.Parameters.Extras.TryGetValue("image_aspect_ratio", out var aspectRatio) && aspectRatio != null)
                     {
-                        imageConfig["aspectRatio"] = imageInteraction.AspectRatio;
+                        imageConfig["aspectRatio"] = aspectRatio.ToString();
                     }
 
-                    if (!string.IsNullOrWhiteSpace(imageInteraction.ImageSize))
+                    if (request.Parameters.Extras.TryGetValue("image_size", out var imageSize) && imageSize != null)
                     {
-                        imageConfig["imageSize"] = imageInteraction.ImageSize;
+                        imageConfig["imageSize"] = imageSize.ToString();
                     }
 
                     if (imageConfig.Count > 0)
                     {
                         generationConfig["imageConfig"] = imageConfig;
-                        Debug.WriteLine($"[GeminiProvider] Image config: aspectRatio={imageInteraction.AspectRatio}, imageSize={imageInteraction.ImageSize}");
                     }
                 }
             }

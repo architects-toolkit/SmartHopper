@@ -29,20 +29,21 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall.Batch;
-using SmartHopper.Infrastructure.AICall.Core;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.JsonSchemas;
-using SmartHopper.Infrastructure.AICall.Metrics;
-using SmartHopper.Infrastructure.AIModels;
-using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Diagnostics;
-using SmartHopper.Infrastructure.Streaming;
-using SmartHopper.Infrastructure.Utilities;
 using SmartHopper.Infrastructure.Utils;
+using SmartHopper.ProviderSdk.AICall.Batch;
+using SmartHopper.ProviderSdk.AICall.Core;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AICall.JsonSchemas;
+using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Streaming;
+using SmartHopper.ProviderSdk.Utilities;
+using SmartHopper.ProviderSdk.Utils;
 
 namespace SmartHopper.Providers.Anthropic
 {
@@ -596,40 +597,23 @@ namespace SmartHopper.Providers.Anthropic
                     requestBody["top_k"] = topKToken.Value<int?>();
                 }
 
+                if (p.Extras.TryGetValue("service_tier", out var stToken) && stToken != null)
+                {
+                    requestBody["service_tier"] = stToken;
+                }
+
                 // container is a top-level parameter (not inside output_config)
                 if (p.Extras.TryGetValue("container", out var containerToken) && containerToken != null)
                 {
                     requestBody["container"] = containerToken;
                 }
-            }
 
-            // Priority: 1) Extra settings per-request, 2) Global provider setting
-            var effort = p?.Extras != null &&
-                         p.Extras.TryGetValue("effort", out var effortToken) &&
-                         effortToken != null
-                         ? effortToken.ToString()
-                         : this.GetSetting<string>("ReasoningEffort");
-
-            effort = this.NormalizeAnthropicEffort(effort, request.Model);
-
-            if (!string.IsNullOrWhiteSpace(effort))
-            {
-                outputConfig ??= new JObject();
-                Debug.WriteLine($"[AnthropicProvider] Using reasoning effort: {effort}");
-                outputConfig["effort"] = effort;
-            }
-
-            // Priority: 1) Extra settings per-request, 2) Global provider setting
-            var serviceTier = p?.Extras != null &&
-                              p.Extras.TryGetValue("service_tier", out var stToken) &&
-                              stToken != null
-                              ? stToken.ToString()
-                              : this.GetSetting<string>("ServiceTier");
-
-            if (!string.IsNullOrWhiteSpace(serviceTier))
-            {
-                requestBody["service_tier"] = serviceTier;
-                Debug.WriteLine($"[AnthropicProvider] Using service tier: {serviceTier}");
+                // effort goes inside output_config
+                if (p.Extras.TryGetValue("effort", out var effortToken) && effortToken != null)
+                {
+                    outputConfig ??= new JObject();
+                    outputConfig["effort"] = effortToken;
+                }
             }
 
             // Add JSON schema if provided (centralized wrapping)
@@ -780,11 +764,8 @@ namespace SmartHopper.Providers.Anthropic
                             }
                             else
                             {
-                                // Anthropic requires tool_choice to be an object, even for "auto".
-                                requestBody["tool_choice"] = new JObject
-                                {
-                                    ["type"] = "auto",
-                                };
+                                // Use string value for auto (not wrapped in JObject) per Anthropic docs
+                                requestBody["tool_choice"] = "auto";
                             }
                         }
                     }
@@ -856,18 +837,6 @@ namespace SmartHopper.Providers.Anthropic
                             {
                                 textParts.Add(t);
                             }
-                        }
-                        else if (string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var t = block["thinking"]?.ToString();
-                            if (!string.IsNullOrEmpty(t))
-                            {
-                                thinkingParts.Add(t);
-                            }
-                        }
-                        else if (string.Equals(type, "redacted_thinking", StringComparison.OrdinalIgnoreCase))
-                        {
-                            thinkingParts.Add("[redacted thinking]");
                         }
                         else if (string.Equals(type, "tool_use", StringComparison.OrdinalIgnoreCase))
                         {
@@ -1312,7 +1281,7 @@ namespace SmartHopper.Providers.Anthropic
                 return false;
             }
 
-            var caps = ModelManager.Instance.GetCapabilities("Anthropic", model);
+            var caps = AIModelCapabilityRegistry.Instance.GetCapabilities("Anthropic", model);
             return caps?.HasCapability(AICapability.Text2Json) == true;
         }
 
@@ -1347,49 +1316,6 @@ namespace SmartHopper.Providers.Anthropic
                     InjectAdditionalPropertiesFalse(item);
                 }
             }
-        }
-
-        /// <summary>
-        /// Normalizes the effort value for the given Anthropic model.
-        /// Automatically downgrades <c>xhigh</c> or <c>max</c> to <c>high</c>
-        /// for models that do not officially support those levels, preventing 400 errors.
-        /// </summary>
-        /// <param name="effort">The requested effort level.</param>
-        /// <param name="model">The model identifier.</param>
-        /// <returns>The normalized effort level.</returns>
-        private string NormalizeAnthropicEffort(string effort, string model)
-        {
-            if (string.IsNullOrWhiteSpace(effort) || string.IsNullOrWhiteSpace(model))
-            {
-                return effort;
-            }
-
-            var modelLower = model.ToLowerInvariant();
-
-            // Models that support xhigh: fable-5, mythos-5, opus-4-8, opus-4-7
-            bool supportsXhigh = modelLower.Contains("fable-5")
-                || modelLower.Contains("mythos-5")
-                || modelLower.Contains("opus-4-8")
-                || modelLower.Contains("opus-4-7");
-
-            // Models that support max: xhigh models + opus-4-6 + sonnet-4-6
-            bool supportsMax = supportsXhigh
-                || modelLower.Contains("opus-4-6")
-                || modelLower.Contains("sonnet-4-6");
-
-            if (!supportsXhigh && string.Equals(effort, "xhigh", StringComparison.OrdinalIgnoreCase))
-            {
-                Debug.WriteLine($"[AnthropicProvider] Model '{model}' does not support effort='xhigh'; falling back to 'high'.");
-                return "high";
-            }
-
-            if (!supportsMax && string.Equals(effort, "max", StringComparison.OrdinalIgnoreCase))
-            {
-                Debug.WriteLine($"[AnthropicProvider] Model '{model}' does not support effort='max'; falling back to 'high'.");
-                return "high";
-            }
-
-            return effort;
         }
 
         #region IAIBatchProvider
@@ -1717,27 +1643,34 @@ namespace SmartHopper.Providers.Anthropic
                     "Only sample from the top K options for each token. Lower values make output more focused.",
                     typeof(int),
                     null),
-                new AIExtraDescriptor(
-                    "service_tier",
-                    "Service Tier",
-                    "Service tier for request processing. 'auto' uses Priority Tier when available, 'standard_only' uses only standard tier. Overrides global provider setting.",
-                    typeof(string),
-                    "standard_only",
-                    new[] { "auto", "standard_only" }),
 
                 // Anthropic-specific parameters
+                new AIExtraDescriptor(
+                    "effort",
+                    "Effort",
+                    "The amount of effort to use in the output. 'low' is fastest, 'high' is most thorough.",
+                    typeof(string),
+                    "medium",
+                    new[] { "low", "medium", "high" }),
                 new AIExtraDescriptor(
                     "container",
                     "Container",
                     "Container type for the response format. Anthropic-specific.",
                     typeof(string),
                     null),
+                new AIExtraDescriptor(
+                    "service_tier",
+                    "Service Tier",
+                    "Service tier for request processing. 'auto' uses Priority Tier when available, 'standard_only' uses only standard tier.",
+                    typeof(string),
+                    "auto",
+                    new[] { "auto", "standard_only" }),
 
                 // Anthropic prompt caching parameters
                 new AIExtraDescriptor(
                     "enable_caching",
                     "Enable Prompt Caching",
-                    "Caches the stable prompt prefix (tools + system prompt) with an explicit breakpoint, plus automatic caching of growing conversation history. Requires the prefix to be identical across requests, above the model's minimum (1024-4096 tokens), and reused within 5 minutes. Cache writes cost 1.25x input price; reads cost 0.1x.",
+                    "Automatically caches the longest stable prompt prefix (>1024 tokens for Sonnet, >4096 tokens for Opus and Haiku). Reduces latency and cost on repeated calls sharing the same context. Highly recommended for batch processing.",
                     typeof(bool),
                     null),
             };

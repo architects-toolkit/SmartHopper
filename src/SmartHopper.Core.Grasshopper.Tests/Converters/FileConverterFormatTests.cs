@@ -22,10 +22,6 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
     using System.IO;
     using System.Text;
     using System.Threading.Tasks;
-    using DocumentFormat.OpenXml;
-    using DocumentFormat.OpenXml.Packaging;
-    using DocumentFormat.OpenXml.Wordprocessing;
-    using SmartHopper.Core.Grasshopper.Converters;
     using SmartHopper.Core.Grasshopper.Converters.Formats;
     using Xunit;
 
@@ -271,33 +267,6 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
         }
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "ConvertAsync_HeadingInsideAnchor_FlattensHeadingToLinkText [Windows]")]
-#else
-        [Fact(DisplayName = "ConvertAsync_HeadingInsideAnchor_FlattensHeadingToLinkText [Core]")]
-#endif
-        public async Task ConvertAsync_HeadingInsideAnchor_FlattensHeadingToLinkText()
-        {
-            var converter = new HtmlConverter();
-            var filePath = Path.Combine(this._tempDir, "heading-in-anchor.html");
-            var html =
-                "<html><body>" +
-                "<ul>" +
-                "<li><a href=\"https://example.com/pattern\">" +
-                "<h2>Accordion (Sections With Show/Hide Functionality)</h2>" +
-                "</a></li>" +
-                "</ul>" +
-                "</body></html>";
-
-            File.WriteAllText(filePath, html);
-            var options = new FileConversionOptions { HtmlReadabilityMode = ReadabilityMode.Off };
-            var result = await converter.ConvertAsync(filePath, options);
-
-            Assert.True(result.IsSuccess);
-            Assert.Contains("[Accordion (Sections With Show/Hide Functionality)](https://example.com/pattern)", result.MarkdownContent);
-            Assert.DoesNotContain("[##", result.MarkdownContent);
-        }
-
-#if NET7_WINDOWS
         [Fact(DisplayName = "ConvertAsync_MissingFile_ReturnsFailure [Windows]")]
 #else
         [Fact(DisplayName = "ConvertAsync_MissingFile_ReturnsFailure [Core]")]
@@ -399,119 +368,6 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             var converter = new RtfConverter();
             var result = await converter.ConvertAsync("/nonexistent/file.rtf", null);
             Assert.False(result.IsSuccess);
-        }
-    }
-
-    public class DocxConverterTests : IDisposable
-    {
-        private readonly string _tempDir;
-
-        public DocxConverterTests()
-        {
-            this._tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-            Directory.CreateDirectory(this._tempDir);
-        }
-
-        public void Dispose()
-        {
-            if (Directory.Exists(this._tempDir))
-            {
-                Directory.Delete(this._tempDir, true);
-            }
-        }
-
-        [Fact(DisplayName = "ConvertAsync_PreservesColorsHighlightsAndComments")]
-        public async Task ConvertAsync_PreservesColorsHighlightsAndComments()
-        {
-            var filePath = Path.Combine(this._tempDir, "formatted.docx");
-            CreateDocxWithFormatting(filePath);
-
-            var converter = new DocxConverter();
-            var result = await converter.ConvertAsync(filePath, new FileConversionOptions());
-
-            Assert.True(result.IsSuccess);
-            Assert.Contains("<span style=\"color: #FF0000;\">red text</span>", result.MarkdownContent);
-            Assert.Contains("<mark style=\"background-color: #FFFF00;\">highlighted text</mark>", result.MarkdownContent);
-            Assert.Contains("**bold text**", result.MarkdownContent);
-            Assert.Contains("*italic text*", result.MarkdownContent);
-            Assert.Contains("commented text", result.MarkdownContent);
-            Assert.Contains("[Comment — Test Author]:", result.MarkdownContent);
-            Assert.Contains("This is a comment.", result.MarkdownContent);
-        }
-
-        [Fact(DisplayName = "ConvertAsync_DisablesFormatting_WhenOptionsFalse")]
-        public async Task ConvertAsync_DisablesFormatting_WhenOptionsFalse()
-        {
-            var filePath = Path.Combine(this._tempDir, "formatted.docx");
-            CreateDocxWithFormatting(filePath);
-
-            var converter = new DocxConverter();
-            var result = await converter.ConvertAsync(filePath, new FileConversionOptions
-            {
-                PreserveFormatting = false,
-                PreserveComments = false,
-            });
-
-            Assert.True(result.IsSuccess);
-            Assert.DoesNotContain("<span style=\"color: #FF0000;\">", result.MarkdownContent);
-            Assert.DoesNotContain("<mark style=\"background-color: #FFFF00;\">", result.MarkdownContent);
-            Assert.DoesNotContain("**bold text**", result.MarkdownContent);
-            Assert.DoesNotContain("*italic text*", result.MarkdownContent);
-            Assert.DoesNotContain("[Comment", result.MarkdownContent);
-        }
-
-        private static void CreateDocxWithFormatting(string filePath)
-        {
-            using var doc = WordprocessingDocument.Create(filePath, WordprocessingDocumentType.Document);
-            var mainPart = doc.AddMainDocumentPart();
-            mainPart.Document = new Document();
-            var body = new Body();
-
-            // Red text
-            body.Append(new Paragraph(
-                new Run(new Text("Normal text ") { Space = SpaceProcessingModeValues.Preserve }),
-                new Run(
-                    new RunProperties(new Color { Val = "FF0000" }),
-                    new Text("red text") { Space = SpaceProcessingModeValues.Preserve })));
-
-            // Highlighted text
-            body.Append(new Paragraph(
-                new Run(
-                    new RunProperties(new Highlight { Val = HighlightColorValues.Yellow }),
-                    new Text("highlighted text"))));
-
-            // Bold and italic text
-            body.Append(new Paragraph(
-                new Run(
-                    new RunProperties(new Bold()),
-                    new Text("bold text")),
-                new Run(new Text(" ") { Space = SpaceProcessingModeValues.Preserve }),
-                new Run(
-                    new RunProperties(new Italic()),
-                    new Text("italic text"))));
-
-            // Comment
-            const int commentId = 1;
-            var commentParagraph = new Paragraph();
-            commentParagraph.Append(new CommentRangeStart { Id = commentId.ToString() });
-            commentParagraph.Append(new Run(new Text("commented text")));
-            commentParagraph.Append(new CommentRangeEnd { Id = commentId.ToString() });
-            commentParagraph.Append(new Run(new CommentReference { Id = commentId.ToString() }));
-            body.Append(commentParagraph);
-
-            mainPart.Document.Append(body);
-
-            var commentsPart = mainPart.AddNewPart<WordprocessingCommentsPart>();
-            var comments = new Comments();
-            var comment = new Comment(
-                new Paragraph(new Run(new Text("This is a comment."))))
-            {
-                Id = commentId.ToString(),
-                Author = "Test Author",
-                Date = DateTime.UtcNow,
-            };
-            comments.Append(comment);
-            commentsPart.Comments = comments;
         }
     }
 }

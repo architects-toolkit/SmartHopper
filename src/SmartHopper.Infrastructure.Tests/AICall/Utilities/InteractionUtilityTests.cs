@@ -20,9 +20,9 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Utilities
 {
     using System.Collections.Generic;
     using System.Linq;
-    using SmartHopper.Infrastructure.AICall.Core.Base;
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
-    using SmartHopper.Infrastructure.AICall.Utilities;
+    using SmartHopper.ProviderSdk.AICall.Core.Base;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+    using SmartHopper.ProviderSdk.AICall.Utilities;
     using Xunit;
 
     /// <summary>

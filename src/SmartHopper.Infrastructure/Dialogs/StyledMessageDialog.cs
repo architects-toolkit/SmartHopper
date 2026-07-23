@@ -36,7 +36,7 @@ namespace SmartHopper.Infrastructure.Dialogs
     /// Provides styled Eto.Forms dialogs for displaying info, warning, error messages, and confirmations with the SmartHopper logo.
     /// Uses DynamicLayout for responsive content that properly wraps and adapts to dialog size.
     /// </summary>
-    internal class StyledMessageDialog : Dialog
+    public class StyledMessageDialog : Dialog
     {
         private bool _result;
         private readonly Guid _linkedInstanceGuid = Guid.Empty;

@@ -25,11 +25,11 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase.Contracts;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AICall.Metrics;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -66,68 +66,22 @@ namespace SmartHopper.Core.ComponentBase
         protected AIReturn CurrentAIReturnSnapshot => this.AIReturnSnapshot;
 
         /// <summary>
-        /// Sets the metrics output tree. Each branch contains the metric JSON string(s)
-        /// for the corresponding processing unit, preserving input topology.
+        /// Sets the metrics output parameters (input tokens, output tokens, finish reason).
         /// </summary>
         /// <param name="dA">The data access object.</param>
         protected void SetMetricsOutput(IGH_DataAccess dA)
         {
             Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - Start");
 
-            if (this._metricsTree != null && this._metricsTree.DataCount > 0)
-            {
-                this.SetPersistentOutput(WellKnownInputs.Metrics, this._metricsTree, dA);
-                Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics tree. Paths: {string.Join(", ", this._metricsTree.Paths.Select(p => p.ToString()))}");
-                return;
-            }
-
-            // Fallback for components that do not populate _metricsTree (legacy / sync paths)
-            var metricsList = this._batchState.PersistedMetricsList;
-            var fallbackMetrics = metricsList == null ? this.AIReturnSnapshot?.Metrics : null;
-
-            if (metricsList == null && fallbackMetrics == null)
+            var metrics = this._batchState.PersistedMetrics ?? this.AIReturnSnapshot?.Metrics;
+            if (metrics == null)
             {
                 Debug.WriteLine("[AIStatefulComponentBase] Empty metrics, skipping");
                 return;
             }
 
-            JToken metricsToken;
-
-            if (metricsList != null && metricsList.Entries.Count > 0)
-            {
-                if (metricsList.Entries.Count == 1)
-                {
-                    // Single entry → plain JObject (no breaking change)
-                    metricsToken = this.SerializeMetricsEntry(metricsList.Entries[0]);
-                }
-                else
-                {
-                    // Multiple entries (multi-branch or multi-provider) → JArray
-                    var array = new JArray();
-                    foreach (var entry in metricsList.Entries)
-                    {
-                        array.Add(this.SerializeMetricsEntry(entry));
-                    }
-
-                    metricsToken = array;
-                }
-            }
-            else
-            {
-                // Fallback to single AIMetrics from AIReturn snapshot
-                metricsToken = this.SerializeMetricsEntry(fallbackMetrics);
-            }
-
-            var metricsJsonString = metricsToken.ToString();
-            var ghString = new GH_String(metricsJsonString);
-            this.SetPersistentOutput(WellKnownInputs.Metrics, ghString, dA);
-
-            Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsToken}");
-        }
-
-        private JObject SerializeMetricsEntry(AIMetrics metrics)
-        {
-            var obj = new JObject(
+            // Create JSON object with metrics
+            var metricsJson = new JObject(
                 new JProperty("ai_provider", metrics.Provider),
                 new JProperty("ai_model", metrics.Model),
                 new JProperty("tokens_input", metrics.InputTokens),
@@ -139,25 +93,18 @@ namespace SmartHopper.Core.ComponentBase
                 new JProperty("tokens_output_generation", metrics.OutputTokensGeneration),
                 new JProperty("finish_reason", metrics.FinishReason),
                 new JProperty("completion_time", metrics.CompletionTime),
-                new JProperty("context_usage_percent", metrics.ContextUsagePercent));
+                new JProperty("context_usage_percent", metrics.ContextUsagePercent),
+                new JProperty("data_count", this.DataCount),
+                new JProperty("iterations_count", this.ProgressInfo.Total));
 
-            if (metrics.Role != null)
-            {
-                obj.Add("role", metrics.Role);
-            }
+            // Convert metricsJson to GH_String
+            var metricsJsonString = metricsJson.ToString();
+            var ghString = new GH_String(metricsJsonString);
 
-            if (metrics.DataCount.HasValue)
-            {
-                obj.Add("data_count", metrics.DataCount.Value);
-            }
-            else
-            {
-                obj.Add("data_count", this.DataCount);
-            }
+            // Set the metrics output
+            this.SetPersistentOutput(WellKnownInputs.Metrics, ghString, dA);
 
-            obj.Add("iterations_count", metrics.IterationsCount ?? 0);
-
-            return obj;
+            Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsJson}");
         }
 
         /// <summary>
@@ -203,32 +150,19 @@ namespace SmartHopper.Core.ComponentBase
         /// After calling this, invoke <see cref="SetMetricsOutput"/> to re-emit.
         /// </summary>
         /// <param name="metrics">The metrics to merge in.</param>
-        /// <param name="role">Optional role label for the metrics entry (e.g. "main", "fallback:ImageToText").</param>
-        protected void CombineIntoPersistedMetrics(AIMetrics metrics, string role = null)
+        protected void CombineIntoPersistedMetrics(AIMetrics metrics)
         {
             if (metrics == null) return;
-            this._batchState.PersistedMetricsList ??= new Infrastructure.AICall.Metrics.AIMetricsList();
-            this._batchState.PersistedMetricsList.Add(metrics, role);
-            this.AppendMetricToTree(metrics);
-        }
+            if (this._batchState.PersistedMetrics == null)
+            {
+                this._batchState.PersistedMetrics = new AIMetrics
+                {
+                    Provider = this.GetActualAIProviderName(),
+                    Model = this.GetModel(),
+                };
+            }
 
-        /// <summary>
-        /// Combines additional metrics into the persisted metrics list and appends them to
-        /// <see cref="_metricsTree"/> at the specified output branch path. Use this from
-        /// derived components that need to merge per-slot or per-item metrics that were
-        /// not captured by <see cref="ProcessBatchResults{T}"/> and whose natural output
-        /// branch is known (e.g. image slots that belong to the same Markdown document).
-        /// After calling this, invoke <see cref="SetMetricsOutput"/> to re-emit.
-        /// </summary>
-        /// <param name="metrics">The metrics to merge in.</param>
-        /// <param name="path">The output branch path the metrics belong to.</param>
-        /// <param name="role">Optional role label for the metrics entry.</param>
-        protected void CombineIntoPersistedMetricsAtPath(AIMetrics metrics, GH_Path path, string role = null)
-        {
-            if (metrics == null || path == null) return;
-            this._batchState.PersistedMetricsList ??= new Infrastructure.AICall.Metrics.AIMetricsList();
-            this._batchState.PersistedMetricsList.Add(metrics, role);
-            this.AppendMetricToTree(metrics, path);
+            this._batchState.PersistedMetrics.Combine(metrics);
         }
 
         /// <summary>
@@ -262,26 +196,14 @@ namespace SmartHopper.Core.ComponentBase
                 }
             }
 
-            // Stamp CompletionTime into every metrics entry (all branches share
-            // the same batch completion time; non-batch leaves it null).
+            // Stamp CompletionTime into _persistedMetrics (the single authoritative metrics instance).
             // AIReturn.Metrics is computed fresh on every access — writing to it is a no-op.
             if (this._batchState.CompletionTime.HasValue)
             {
-                var entries = this._batchState.PersistedMetricsList?.Entries;
-                if (entries != null && entries.Count > 0)
+                if (this._batchState.PersistedMetrics != null)
                 {
-                    foreach (var entry in entries)
-                    {
-                        entry.CompletionTime = this._batchState.CompletionTime.Value;
-                    }
-
-                    Debug.WriteLine($"[AIStatefulAsync] FinishResults: stamped CompletionTime={this._batchState.CompletionTime.Value:F2}s into {entries.Count} metric(s)");
-                }
-
-                // Also stamp into the metrics tree by updating the serialized JSON strings
-                if (this._metricsTree != null)
-                {
-                    this.StampCompletionTimeIntoMetricsTree(this._batchState.CompletionTime.Value);
+                    this._batchState.PersistedMetrics.CompletionTime = this._batchState.CompletionTime.Value;
+                    Debug.WriteLine($"[AIStatefulAsync] FinishResults: stamped CompletionTime={this._batchState.CompletionTime.Value:F2}s into _persistedMetrics");
                 }
 
                 this._batchState.CompletionTime = null;
@@ -289,38 +211,6 @@ namespace SmartHopper.Core.ComponentBase
 
             // Always emit metrics (replaces the ShouldEmitMetricsInPostSolve pattern)
             this.SetMetricsOutput(null);
-        }
-
-        /// <summary>
-        /// Updates every serialized metric in <see cref="_metricsTree"/> with the given completion time.
-        /// Parses each JSON string, overwrites the "completion_time" property, and re-serializes.
-        /// </summary>
-        private void StampCompletionTimeIntoMetricsTree(double completionTime)
-        {
-            if (this._metricsTree == null) return;
-
-            var updatedTree = new GH_Structure<GH_String>();
-            foreach (var path in this._metricsTree.Paths)
-            {
-                var branch = this._metricsTree.get_Branch(path);
-                if (branch == null) continue;
-                foreach (GH_String item in branch)
-                {
-                    try
-                    {
-                        var obj = JObject.Parse(item.Value);
-                        obj["completion_time"] = completionTime;
-                        updatedTree.Append(new GH_String(obj.ToString(Newtonsoft.Json.Formatting.None)), path);
-                    }
-                    catch
-                    {
-                        // If parsing fails, keep the original
-                        updatedTree.Append(item, path);
-                    }
-                }
-            }
-
-            this._metricsTree = updatedTree;
         }
 
         #endregion

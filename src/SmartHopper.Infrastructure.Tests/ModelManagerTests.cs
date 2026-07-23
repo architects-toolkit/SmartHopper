@@ -21,7 +21,7 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Collections.Generic;
     using System.Globalization;
     using System.Reflection;
-    using SmartHopper.Infrastructure.AIModels;
+    using SmartHopper.ProviderSdk.AIModels;
     using Xunit;
 
     /// <summary>
@@ -34,10 +34,8 @@ namespace SmartHopper.Infrastructure.Tests
         /// </summary>
         private static void ResetManager()
         {
-            var manager = ModelManager.Instance;
-            var registryField = typeof(ModelManager).GetField("_registry", BindingFlags.NonPublic | BindingFlags.Instance);
-            var newRegistry = System.Activator.CreateInstance(typeof(AIModelCapabilityRegistry));
-            registryField?.SetValue(manager, newRegistry);
+            var registry = AIModelCapabilityRegistry.Instance;
+            registry.Models.Clear();
         }
 
         /// <summary>
@@ -51,8 +49,8 @@ namespace SmartHopper.Infrastructure.Tests
         public void Instance_ShouldReturnSameInstance()
         {
             // Arrange & Act
-            var instance1 = ModelManager.Instance;
-            var instance2 = ModelManager.Instance;
+            var instance1 = AIModelCapabilityRegistry.Instance;
+            var instance2 = AIModelCapabilityRegistry.Instance;
 
             // Assert
             Assert.Same(instance1, instance2);
@@ -71,7 +69,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
             const string provider = "TestProvider";
             const string model = "TestModel";
             const AICapability capabilities = AICapability.Text2Text | AICapability.Text2Json;
@@ -101,7 +99,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
 
             // Act & Assert - null/empty provider
             manager.RegisterCapabilities(null!, "TestModel", AICapability.Text2Text);
@@ -131,7 +129,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
 
             // Act & Assert - should not throw
             manager.SetCapabilities(null!);
@@ -149,7 +147,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
 
             // Act
             var capabilities = manager.GetCapabilities("UnknownProvider", "UnknownModel");
@@ -170,7 +168,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
             const string provider = "TestProvider";
             const string chatModel = "ChatModel";
             const string toolsModel = "ToolsModel";
@@ -198,7 +196,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
             const string registeredProvider = "RegisteredProvider";
             const string unregisteredProvider = "UnregisteredProvider";
 
@@ -224,7 +222,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
             const string provider = "TestProvider";
             const string model = "TestModel";
             const AICapability capabilities = AICapability.Text2Text | AICapability.Text2Json;
@@ -258,7 +256,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
             const string provider = "TestProvider";
             manager.RegisterCapabilities(provider, "KnownModel", AICapability.Text2Text);
 
@@ -281,7 +279,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
             const string provider = "TestProvider";
             const string model = "CapableModel";
             manager.RegisterCapabilities(provider, model, AICapability.Text2Text);
@@ -305,7 +303,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
             const string provider = "TestProvider";
             const string notCapable = "JsonOnly";
             const string preferred = "TextChat";
@@ -331,7 +329,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange 1: exact default exists
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
             const string provider = "TestProvider";
 
             // exact default for Text2Text
@@ -376,7 +374,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             // Arrange 2: remove exact default flag to test compatible-default path
             ResetManager();
-            manager = ModelManager.Instance;
+            manager = AIModelCapabilityRegistry.Instance;
             manager.SetCapabilities(new AIModelCapabilities
             {
                 Provider = provider.ToLower(System.Globalization.CultureInfo.InvariantCulture),
@@ -403,7 +401,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             // Arrange 3: no defaults -> choose best by quality (Verified, Rank, !Deprecated)
             ResetManager();
-            manager = ModelManager.Instance;
+            manager = AIModelCapabilityRegistry.Instance;
             manager.SetCapabilities(new AIModelCapabilities
             {
                 Provider = provider.ToLower(System.Globalization.CultureInfo.InvariantCulture),
@@ -439,7 +437,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
             const string provider = "TestProvider";
             manager.RegisterCapabilities(provider, "A", AICapability.Text2Text, AICapability.Text2Text);
             manager.RegisterCapabilities(provider, "B", AICapability.Text2Text);
@@ -468,7 +466,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
             const string provider = "TestProvider";
 
             // Act
@@ -492,7 +490,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
             const string provider = "AliasProvider";
 
             manager.SetCapabilities(new AIModelCapabilities
@@ -523,7 +521,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
             const string provider = "TestProvider";
 
             // Register model with Image2Text capability
@@ -550,7 +548,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Arrange
             ResetManager();
-            var manager = ModelManager.Instance;
+            var manager = AIModelCapabilityRegistry.Instance;
             const string provider = "TestProvider";
 
             // Register model with Text2Image capability

@@ -23,6 +23,7 @@ using System.Windows.Forms;
 using Grasshopper.Kernel;
 using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Core.ComponentBase.Cores
 {

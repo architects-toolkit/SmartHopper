@@ -31,7 +31,7 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Components.List
 {

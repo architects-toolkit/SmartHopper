@@ -33,6 +33,10 @@ using Rhino;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Utils;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Settings;
+using SmartHopper.ProviderSdk.Utils;
 
 namespace SmartHopper.Infrastructure.AIProviders
 {
@@ -52,11 +56,18 @@ namespace SmartHopper.Infrastructure.AIProviders
         private readonly ConcurrentDictionary<string, bool> _mismatchedProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers with hash mismatches
         private readonly ConcurrentDictionary<string, bool> _unavailableProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers where hash check was unavailable (network issues)
         private readonly ConcurrentDictionary<string, bool> _unknownProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers not found in hash manifest (custom/third-party)
+        private readonly ConcurrentDictionary<string, ProviderClassification> _providerClassifications = new ConcurrentDictionary<string, ProviderClassification>(); // Tracks each loaded provider's classification
+        private readonly ConcurrentDictionary<string, bool> _unsignedProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers loaded without any strong-name signature
 
         private ProviderManager()
         {
             // NOTE: Do NOT automatically call RefreshProviders() here to avoid circular dependencies
             // RefreshProviders() should be called explicitly after initialization
+
+            // Wire the SDK host composition root so SDK code (validation, runtime
+            // messages, request building) can consume host services without taking
+            // a hard dependency on Infrastructure singletons.
+            ProviderSdkHost.ProviderTrust = new SmartHopperProviderTrustHost();
         }
 
         /// <summary>
@@ -70,22 +81,54 @@ namespace SmartHopper.Infrastructure.AIProviders
                 this._mismatchedProviders.Clear();
                 this._unavailableProviders.Clear();
                 this._unknownProviders.Clear();
+                this._providerClassifications.Clear();
+                this._unsignedProviders.Clear();
 
-                // Get the directory where the current assembly is located
+                // Scan both the app-local provider directory (next to the executing
+                // assembly) and the user-local provider directory under
+                // %AppData%/SmartHopper/Providers. App-local wins on duplicate ids per
+                // plan §2.2 — we discover app-local first, then user-local, and the
+                // loader rejects duplicates.
                 string assemblyLocation = Assembly.GetExecutingAssembly().Location;
-                string baseDirectory = Path.GetDirectoryName(assemblyLocation);
+                string baseDirectory = Path.GetDirectoryName(assemblyLocation) ?? string.Empty;
+                var providerSearchPaths = new List<string> { baseDirectory };
 
-                // Find all external provider DLLs
-                string[] providerFiles = Directory.GetFiles(baseDirectory, "SmartHopper.Providers.*.dll");
-                foreach (string providerFile in providerFiles)
+                try
                 {
+                    var userLocal = GetUserLocalProvidersDirectory();
+                    if (!string.IsNullOrEmpty(userLocal) && Directory.Exists(userLocal))
+                    {
+                        providerSearchPaths.Add(userLocal);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ProviderManager] Could not resolve user-local provider directory: {ex.Message}");
+                }
+
+                foreach (var searchPath in providerSearchPaths)
+                {
+                    string[] providerFiles;
                     try
                     {
-                        await this.LoadProviderAssemblyAsync(providerFile).ConfigureAwait(false);
+                        providerFiles = Directory.GetFiles(searchPath, "SmartHopper.Providers.*.dll");
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Error loading provider assembly {providerFile}: {ex.Message}");
+                        Debug.WriteLine($"[ProviderManager] Could not enumerate provider files in {searchPath}: {ex.Message}");
+                        continue;
+                    }
+
+                    foreach (string providerFile in providerFiles)
+                    {
+                        try
+                        {
+                            await this.LoadProviderAssemblyAsync(providerFile).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error loading provider assembly {providerFile}: {ex.Message}");
+                        }
                     }
                 }
             }
@@ -93,6 +136,19 @@ namespace SmartHopper.Infrastructure.AIProviders
             {
                 Debug.WriteLine($"Error discovering providers: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Returns the user-local provider directory, typically
+        /// <c>%AppData%/SmartHopper/Providers</c> on Windows and the equivalent
+        /// <c>~/Library/Application Support/SmartHopper/Providers</c> on macOS. This
+        /// directory is in addition to the app-local provider folder (next to the
+        /// SmartHopper assemblies) and is rescanned on every <see cref="RefreshProvidersAsync"/>.
+        /// </summary>
+        public static string GetUserLocalProvidersDirectory()
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            return Path.Combine(appData, "SmartHopper", "Providers");
         }
 
         /// <summary>
@@ -168,26 +224,62 @@ namespace SmartHopper.Infrastructure.AIProviders
         {
             try
             {
-                // Authenticode signature validation (Windows-only, skip on macOS)
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                // Cryptographic classification: replaces the old throw-to-block VerifySignature
+                // path. Returns a structured result so we can apply policy uniformly.
+                var classification = await ProviderClassifier.ClassifyAsync(assemblyPath).ConfigureAwait(false);
+                var policySettings = SmartHopperSettings.Instance;
+                var asmFileName = Path.GetFileName(assemblyPath);
+                var asmBaseName = Path.GetFileNameWithoutExtension(assemblyPath);
+
+                // Track strong-name absence for warning surfacing.
+                if (string.IsNullOrEmpty(classification.StrongNameToken))
                 {
-                    try
-                    {
-                        this.VerifySignature(assemblyPath);
-                    }
-                    catch (CryptographicException ex)
-                    {
-                        Debug.WriteLine($"Authenticode signature verification failed for {assemblyPath}: {ex.Message}");
+                    this._unsignedProviders[asmBaseName] = true;
+                }
+
+                switch (classification.Classification)
+                {
+                    case ProviderClassification.Invalid:
+                        Debug.WriteLine($"[ProviderManager] {classification.Diagnostic}");
+                        RhinoApp.WriteLine($"[SmartHopper] {classification.Diagnostic}");
+                        return;
+
+                    case ProviderClassification.OfficialTampered:
+                        // Always block, regardless of settings.
+                        Debug.WriteLine($"[ProviderManager] {classification.Diagnostic}");
+                        RhinoApp.WriteLine($"[SmartHopper] {classification.Diagnostic}");
                         await Task.Run(() => RhinoApp.InvokeOnUiThread(() =>
                         {
-                            StyledMessageDialog.ShowError($"Authenticode signature verification failed for provider '{Path.GetFileName(assemblyPath)}'. Please replace it with a file downloaded from official SmartHopper sources.", "SmartHopper");
+                            StyledMessageDialog.ShowError(
+                                classification.Diagnostic + "\n\nThe provider will not be loaded.",
+                                "Provider Tampering Detected - SmartHopper");
                         })).ConfigureAwait(false);
                         return;
-                    }
-                }
-                else
-                {
-                    Debug.WriteLine($"[ProviderManager] Skipping Authenticode verification on non-Windows platform for {Path.GetFileName(assemblyPath)}");
+
+                    case ProviderClassification.Community:
+                        if (policySettings.BlockNonOfficialProviders)
+                        {
+                            Debug.WriteLine($"[ProviderManager] Community provider '{asmFileName}' blocked by BlockNonOfficialProviders policy.");
+                            RhinoApp.WriteLine($"[SmartHopper] Community provider '{asmFileName}' blocked by the BlockNonOfficialProviders policy.");
+                            return;
+                        }
+
+                        if (!policySettings.AllowCommunityProviders)
+                        {
+                            Debug.WriteLine($"[ProviderManager] Community provider '{asmFileName}' blocked because AllowCommunityProviders is disabled.");
+                            RhinoApp.WriteLine($"[SmartHopper] Community provider '{asmFileName}' was not loaded. To enable community providers, turn on 'Allow community providers' in Settings.");
+                            return;
+                        }
+
+                        // Allowed to attempt load. The hash-mode / per-provider trust
+                        // flow below still applies; we additionally record the classification
+                        // on successful registration so components can surface warnings.
+                        break;
+
+                    case ProviderClassification.Official:
+                        // Continue through the rest of the flow (hash policy, trust prompt
+                        // on first discovery if it's an unknown DLL).
+                        break;
                 }
 
                 // SHA-256 hash verification (cross-platform)
@@ -377,8 +469,16 @@ namespace SmartHopper.Infrastructure.AIProviders
                     Debug.WriteLine($"[ProviderManager] Trust already exists for: {asmName} = {settings.TrustedProviders[asmName]}");
                 }
 
-                // Load the assembly
-                var assembly = Assembly.LoadFrom(assemblyPath);
+                // Load the assembly into an isolated per-provider ALC and validate
+                // that its IAIProviderFactory references resolve to the host's SDK
+                // type identity. This rejects providers built against a mismatched SDK.
+                var loadOutcome = ProviderAssemblyLoader.TryLoad(assemblyPath, out var assembly, out var loadDiagnostic);
+                if (loadOutcome != ProviderLoadOutcome.Loaded || assembly is null)
+                {
+                    Debug.WriteLine($"[ProviderManager] {loadDiagnostic} (outcome={loadOutcome})");
+                    RhinoApp.WriteLine($"[SmartHopper] {loadDiagnostic}");
+                    return;
+                }
 
                 // Find all types that implement IAIProviderFactory
                 var factoryTypes = assembly.GetTypes()
@@ -396,10 +496,12 @@ namespace SmartHopper.Infrastructure.AIProviders
                         var provider = factory.CreateProvider();
                         var providerSettings = factory.CreateProviderSettings();
 
-                        // Register the provider
+                        // Register the provider with its cryptographic classification so
+                        // components and the WebChat banner can surface warnings.
                         this.RegisterProvider(provider, providerSettings, assembly);
+                        this._providerClassifications[provider.Name] = classification.Classification;
 
-                        Debug.WriteLine($"Successfully registered provider: {provider.Name} from {assembly.GetName().Name}");
+                        Debug.WriteLine($"Successfully registered provider: {provider.Name} from {assembly.GetName().Name} (classification={classification.Classification})");
                     }
                     catch (Exception ex)
                     {
@@ -424,6 +526,40 @@ namespace SmartHopper.Infrastructure.AIProviders
             if (provider == null || string.IsNullOrEmpty(provider.Name))
                 return;
 
+            // Duplicate provider id resolution per plan §2.2:
+            //   Official > trusted Community > everything else.
+            // Tampered/Invalid never reach this method (they're filtered earlier).
+            if (this._providers.ContainsKey(provider.Name))
+            {
+                var existingClass = this._providerClassifications.TryGetValue(provider.Name, out var ec)
+                    ? ec
+                    : ProviderClassification.Community;
+
+                // We don't know the incoming classification here without re-running the
+                // classifier; the caller of RegisterProvider always sets the entry into
+                // _providerClassifications immediately after, so for now we treat ties
+                // as "first one wins" unless the incoming provider's assembly is signed
+                // by SmartHopper (which we can detect cheaply).
+                var existingTokenMatches = false;
+                if (this._providerAssemblies.TryGetValue(provider.Name, out var existingAssembly))
+                {
+                    var hostToken = typeof(ProviderManager).Assembly.GetName().GetPublicKeyToken();
+                    var existingToken = existingAssembly.GetName().GetPublicKeyToken();
+                    existingTokenMatches = hostToken is { Length: > 0 }
+                        && existingToken is { Length: > 0 }
+                        && hostToken.SequenceEqual(existingToken);
+                }
+
+                if (existingTokenMatches || existingClass == ProviderClassification.Official)
+                {
+                    Debug.WriteLine($"[ProviderManager] Duplicate provider id '{provider.Name}' rejected from '{assembly?.GetName().Name}' — an official provider with that id is already registered.");
+                    RhinoApp.WriteLine($"[SmartHopper] A duplicate provider id '{provider.Name}' was ignored (an official provider with that id is already loaded).");
+                    return;
+                }
+
+                Debug.WriteLine($"[ProviderManager] Duplicate provider id '{provider.Name}' from '{assembly?.GetName().Name}' is replacing the previously registered instance.");
+            }
+
             // Add the provider and its settings to our dictionaries
             this._providers[provider.Name] = provider;
             this._providerSettings[provider.Name] = settings;
@@ -434,13 +570,26 @@ namespace SmartHopper.Infrastructure.AIProviders
                 this._providerAssemblies[provider.Name] = assembly;
             }
 
-            // Initialize provider asynchronously without blocking
+            // Initialize provider asynchronously without blocking. A misbehaving
+            // provider (hang, throw, exhaust resources) MUST NOT take down discovery
+            // or affect other providers — wrap in per-provider timeout + try/catch.
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    await provider.InitializeProviderAsync().ConfigureAwait(false);
-                    Debug.WriteLine($"[ProviderManager] Successfully initialized provider: {provider.Name}");
+                    using var cts = new System.Threading.CancellationTokenSource(ProviderInitializationTimeout);
+                    var initTask = provider.InitializeProviderAsync();
+                    var winner = await Task.WhenAny(initTask, Task.Delay(ProviderInitializationTimeout, cts.Token)).ConfigureAwait(false);
+                    if (winner != initTask)
+                    {
+                        Debug.WriteLine($"[ProviderManager] Initialization of provider '{provider.Name}' timed out after {ProviderInitializationTimeout.TotalSeconds:0}s and was abandoned. The provider may behave unpredictably.");
+                        RhinoApp.WriteLine($"[SmartHopper] Provider '{provider.Name}' initialization timed out; functionality may be limited.");
+                    }
+                    else
+                    {
+                        await initTask.ConfigureAwait(false);
+                        Debug.WriteLine($"[ProviderManager] Successfully initialized provider: {provider.Name}");
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -450,6 +599,14 @@ namespace SmartHopper.Infrastructure.AIProviders
                 }
             });
         }
+
+        /// <summary>
+        /// Per-provider initialization timeout, after which the provider's
+        /// <see cref="IAIProvider.InitializeProviderAsync"/> is abandoned (it keeps
+        /// running but the manager no longer waits on it). Prevents one misbehaving
+        /// provider from stalling the entire host.
+        /// </summary>
+        private static readonly TimeSpan ProviderInitializationTimeout = TimeSpan.FromSeconds(30);
 
         /// <summary>
         /// Gets all providers, optionally including untrusted ones.
@@ -667,6 +824,83 @@ namespace SmartHopper.Infrastructure.AIProviders
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Returns the cryptographic classification recorded for the given provider, or
+        /// <see cref="ProviderClassification.Invalid"/> if the provider is not registered.
+        /// </summary>
+        /// <param name="providerName">The registered provider name.</param>
+        public ProviderClassification GetProviderClassification(string providerName)
+        {
+            if (string.IsNullOrEmpty(providerName))
+            {
+                return ProviderClassification.Invalid;
+            }
+
+            return this._providerClassifications.TryGetValue(providerName, out var c)
+                ? c
+                : ProviderClassification.Invalid;
+        }
+
+        /// <summary>
+        /// Returns <c>true</c> if the provider was loaded with a non-Official classification
+        /// (community / unsigned / third-party). Components can use this to display
+        /// warning badges on every AI component using that provider.
+        /// </summary>
+        /// <param name="providerName">The registered provider name.</param>
+        public bool IsProviderCommunity(string providerName)
+        {
+            return this.GetProviderClassification(providerName) == ProviderClassification.Community;
+        }
+
+        /// <summary>
+        /// Returns <c>true</c> if the provider's assembly is loaded without any
+        /// strong-name signature.
+        /// </summary>
+        /// <param name="providerName">The registered provider name.</param>
+        public bool IsProviderUnsigned(string providerName)
+        {
+            if (string.IsNullOrEmpty(providerName))
+            {
+                return false;
+            }
+
+            if (this._providerAssemblies.TryGetValue(providerName, out var assembly))
+            {
+                var asmName = assembly.GetName().Name;
+                return asmName != null && this._unsignedProviders.ContainsKey(asmName);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Returns the persisted <see cref="TrustedProviderRecord"/> for the given
+        /// provider, or <c>null</c> if no decision has been recorded yet.
+        /// </summary>
+        /// <param name="providerName">The registered provider name.</param>
+        public TrustedProviderRecord? GetProviderTrustRecord(string providerName)
+        {
+            if (string.IsNullOrEmpty(providerName))
+            {
+                return null;
+            }
+
+            string? key = providerName;
+            if (this._providerAssemblies.TryGetValue(providerName, out var assembly))
+            {
+                key = assembly.GetName().Name ?? providerName;
+            }
+
+            var settings = SmartHopperSettings.Instance;
+            if (settings.TrustedProviderRecords != null
+                && settings.TrustedProviderRecords.TryGetValue(key!, out var record))
+            {
+                return record;
+            }
+
+            return null;
         }
 
         /// <summary>

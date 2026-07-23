@@ -26,7 +26,7 @@ using GhJSON.Core;
 using GhJSON.Core.Validation;
 using Grasshopper.Kernel;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Components.Grasshopper
 {

@@ -50,7 +50,7 @@ namespace SmartHopper.Components.Test.Badges
                 "Test Badges: Three",
                 "TBadges3",
                 "Renders three sample badges above the component for visual verification.",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Badges")
         {
         }

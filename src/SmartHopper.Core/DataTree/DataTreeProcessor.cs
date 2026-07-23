@@ -24,8 +24,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Core.DataTree
 {

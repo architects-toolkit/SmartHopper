@@ -46,7 +46,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test Broadcast (Deeper Same Root)",
                 "TEST-BC-DEEP-ROOT0",
                 "Tests flat {0} broadcasting to deeper paths {0;0},{0;1}",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

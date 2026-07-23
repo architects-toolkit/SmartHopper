@@ -18,9 +18,9 @@
 
 using System;
 using System.Collections.Generic;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
 
 namespace SmartHopper.Infrastructure.AICall.Validation
 {

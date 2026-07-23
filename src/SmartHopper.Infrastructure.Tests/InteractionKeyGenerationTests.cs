@@ -20,9 +20,9 @@ namespace SmartHopper.Infrastructure.Tests
 {
     using System;
     using Newtonsoft.Json.Linq;
-    using SmartHopper.Infrastructure.AICall.Core.Base;
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
-    using SmartHopper.Infrastructure.Diagnostics;
+    using SmartHopper.ProviderSdk.AICall.Core.Base;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+    using SmartHopper.ProviderSdk.Diagnostics;
     using Xunit;
 
     /// <summary>

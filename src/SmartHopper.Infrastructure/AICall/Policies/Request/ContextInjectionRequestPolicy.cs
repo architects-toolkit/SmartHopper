@@ -19,9 +19,9 @@
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AIContext;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
 namespace SmartHopper.Infrastructure.AICall.Policies.Request
 {

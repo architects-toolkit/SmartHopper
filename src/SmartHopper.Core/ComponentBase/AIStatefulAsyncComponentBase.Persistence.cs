@@ -29,13 +29,14 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.ComponentBase.State;
-using SmartHopper.Infrastructure.AICall.Batch;
-using SmartHopper.Infrastructure.AICall.Core;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.AICall.Batch;
+using SmartHopper.ProviderSdk.AICall.Core;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -217,14 +218,7 @@ namespace SmartHopper.Core.ComponentBase
                         var idsJson = reader.GetString(PersistenceKeys.BatchCustomIds);
                         if (!string.IsNullOrEmpty(idsJson))
                         {
-                            try
-                            {
-                                customIds = JArray.Parse(idsJson).Values<string>().ToList().AsReadOnly();
-                            }
-                            catch (Exception parseEx)
-                            {
-                                Debug.WriteLine($"[AIStatefulAsync] Failed to parse batch custom IDs: {parseEx.Message}");
-                            }
+                            customIds = JArray.Parse(idsJson).Values<string>().ToList().AsReadOnly();
                         }
                     }
                     else if (reader.ItemExists(PersistenceKeys.LegacyBatchCustomId))
@@ -237,7 +231,7 @@ namespace SmartHopper.Core.ComponentBase
 
                     if (!string.IsNullOrEmpty(batchId) && !string.IsNullOrEmpty(providerName))
                     {
-                        this._batchState.Submission = new SmartHopper.Infrastructure.AICall.Batch.AIBatchSubmission(batchId, providerName, serializedReq, customIds ?? new List<string>().AsReadOnly());
+                        this._batchState.Submission = new SmartHopper.ProviderSdk.AICall.Batch.AIBatchSubmission(batchId, providerName, serializedReq, customIds ?? new List<string>().AsReadOnly());
                         Debug.WriteLine($"[AIStatefulAsync] Read: restored batch state, batchId={batchId}, items={customIds?.Count ?? 0}");
 
                         // Restore component to Processing state so sentinel values aren't output
@@ -264,15 +258,8 @@ namespace SmartHopper.Core.ComponentBase
                     var sentinelJson = reader.GetString(PersistenceKeys.BatchSentinelIds);
                     if (!string.IsNullOrEmpty(sentinelJson))
                     {
-                        try
-                        {
-                            this._batchState.SentinelIds = new HashSet<string>(JArray.Parse(sentinelJson).Values<string>());
-                            Debug.WriteLine($"[AIStatefulAsync] Read: restored {this._batchState.SentinelIds.Count} sentinel IDs");
-                        }
-                        catch (Exception parseEx)
-                        {
-                            Debug.WriteLine($"[AIStatefulAsync] Failed to parse batch sentinel IDs: {parseEx.Message}");
-                        }
+                        this._batchState.SentinelIds = new HashSet<string>(JArray.Parse(sentinelJson).Values<string>());
+                        Debug.WriteLine($"[AIStatefulAsync] Read: restored {this._batchState.SentinelIds.Count} sentinel IDs");
                     }
                 }
 
@@ -281,40 +268,32 @@ namespace SmartHopper.Core.ComponentBase
                     var treesJson = reader.GetString(PersistenceKeys.BatchSentinelTrees);
                     if (!string.IsNullOrEmpty(treesJson))
                     {
-                        try
+                        var treesObj = JObject.Parse(treesJson);
+                        this._batchState.SentinelTrees = new Dictionary<string, object>();
+                        foreach (var prop in treesObj.Properties())
                         {
-                            var treesObj = JObject.Parse(treesJson);
-                            this._batchState.SentinelTrees = new Dictionary<string, object>();
-                            foreach (var prop in treesObj.Properties())
+                            var tree = new GH_Structure<GH_String>();
+                            foreach (var branchToken in prop.Value as JArray ?? new JArray())
                             {
-                                var tree = new GH_Structure<GH_String>();
-                                foreach (var branchToken in prop.Value as JArray ?? new JArray())
+                                var pathIndices = (branchToken["path"] as JArray)?.Values<int>().ToArray() ?? Array.Empty<int>();
+                                var ghPath = new Grasshopper.Kernel.Data.GH_Path(pathIndices);
+                                var items = (branchToken["items"] as JArray) ?? new JArray();
+                                foreach (var itemToken in items)
                                 {
-                                    var pathIndices = (branchToken["path"] as JArray)?.Values<int>().ToArray() ?? Array.Empty<int>();
-                                    var ghPath = new Grasshopper.Kernel.Data.GH_Path(pathIndices);
-                                    var items = (branchToken["items"] as JArray) ?? new JArray();
-                                    foreach (var itemToken in items)
-                                    {
-                                        tree.Append(new GH_String(itemToken.ToString()), ghPath);
-                                    }
+                                    tree.Append(new GH_String(itemToken.ToString()), ghPath);
                                 }
-
-                                this._batchState.SentinelTrees[prop.Name] = tree;
                             }
 
-                            Debug.WriteLine($"[AIStatefulAsync] Read: restored {this._batchState.SentinelTrees.Count} sentinel tree(s)");
+                            this._batchState.SentinelTrees[prop.Name] = tree;
                         }
-                        catch (Exception parseEx)
-                        {
-                            Debug.WriteLine($"[AIStatefulAsync] Failed to parse batch sentinel trees: {parseEx.Message}");
-                        }
+
+                        Debug.WriteLine($"[AIStatefulAsync] Read: restored {this._batchState.SentinelTrees.Count} sentinel tree(s)");
                     }
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[AIStatefulAsync] Read batch state error: {ex.Message}");
-                this.SetPersistentRuntimeMessage("batch_read_error", GH_RuntimeMessageLevel.Error, $"Error restoring batch state: {ex.Message}", false);
             }
 
             return true;

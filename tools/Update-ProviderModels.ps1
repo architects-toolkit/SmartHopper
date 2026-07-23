@@ -773,11 +773,6 @@ function Get-ModelName($fullId) {
     return $name
 }
 
-function Get-LogicalModelKey($modelName) {
-    if ([string]::IsNullOrWhiteSpace($modelName)) { return $modelName }
-    return ([string]$modelName).ToLowerInvariant() -replace '(?<=\d)[\.-](?=\d)', '.'
-}
-
 $openRouterModels = [System.Collections.Generic.List[psobject]]::new()
 foreach ($item in $response.data) {
     $fullId = $item.id
@@ -922,17 +917,17 @@ if (-not [string]::IsNullOrWhiteSpace($ProviderApiKey) -and $ProviderApis.Contai
         $providerResponse = Invoke-RestMethod -Uri $api.Url -Headers $providerHeaders -Method GET -TimeoutSec 60
         $providerApiQueried = $true
 
-                # Most providers return { data: [{ id: ... }] }.
+        # Most providers return { data: [{ id: ... }] }.
         # Gemini returns { models: [{ name: "models/<id>" }] } instead.
         if ($Provider -eq 'Gemini') {
             $providerData = if ($providerResponse.models) { $providerResponse.models } else { @() }
             foreach ($pm in $providerData) {
                 $rawName = $pm.name
                 if ([string]::IsNullOrWhiteSpace($rawName)) { continue }
+                # Strip the "models/" prefix that Google's API returns.
                 if ($rawName.StartsWith('models/', [System.StringComparison]::OrdinalIgnoreCase)) {
                     $rawName = $rawName.Substring('models/'.Length)
                 }
-                if (Test-RealtimeModelName $rawName) { continue }
                 [void]$providerApiModelNames.Add($rawName)
                 $providerApiLookup[$rawName] = $pm
             }
@@ -941,7 +936,6 @@ if (-not [string]::IsNullOrWhiteSpace($ProviderApiKey) -and $ProviderApis.Contai
             $providerData = if ($providerResponse.data) { $providerResponse.data } else { @() }
             foreach ($pm in $providerData) {
                 if (-not [string]::IsNullOrWhiteSpace($pm.id) -and -not $pm.id.StartsWith('ft:')) {
-                    if (Test-RealtimeModelName $pm.id) { continue }
                     [void]$providerApiModelNames.Add($pm.id)
                     $providerApiLookup[$pm.id] = $pm
                 }

@@ -28,8 +28,8 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AIModels;
 
 namespace SmartHopper.Components.Output
 {

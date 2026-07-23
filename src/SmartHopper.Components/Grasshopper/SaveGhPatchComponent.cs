@@ -23,7 +23,7 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Components.Grasshopper
 {

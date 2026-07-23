@@ -28,6 +28,9 @@ using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using SmartHopper.Infrastructure.Utils;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Utils;
 
 namespace SmartHopper.Infrastructure.AIProviders
 {
@@ -50,30 +53,6 @@ namespace SmartHopper.Infrastructure.AIProviders
     }
 
     /// <summary>
-    /// Provider integrity check mode defining how verification failures are handled.
-    /// </summary>
-    public enum ProviderIntegrityCheckMode
-    {
-        /// <summary>
-        /// Strict mode: Will block providers on mismatch, unavailable and not found.
-        /// Highest security, requires all providers to have valid published hashes.
-        /// </summary>
-        Strict,
-
-        /// <summary>
-        /// Hard check mode: Will block providers on mismatch and not found.
-        /// Allows loading when hash repository is unavailable (network issues).
-        /// </summary>
-        Hard,
-
-        /// <summary>
-        /// Soft check mode: Will warn but not block providers on mismatch, unavailable and not found.
-        /// Best for development and third-party providers. Default mode.
-        /// </summary>
-        Soft
-    }
-
-    /// <summary>
     /// Verification result containing hash comparison status and details.
     /// </summary>
     public sealed class ProviderVerificationResult
@@ -92,7 +71,7 @@ namespace SmartHopper.Infrastructure.AIProviders
     /// <summary>
     /// Verifies provider DLL integrity using SHA-256 hashes from public repository.
     /// </summary>
-    internal class ProviderHashVerifier
+    public class ProviderHashVerifier
     {
         private const string HashBaseUrl = "https://architects-toolkit.github.io/SmartHopper/hashes";
         private static readonly HttpClient HttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };

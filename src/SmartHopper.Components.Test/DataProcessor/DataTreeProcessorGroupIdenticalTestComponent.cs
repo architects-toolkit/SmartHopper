@@ -48,7 +48,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test DataTreeProcessor (Group Identical)",
                 "TEST-DTP-GROUP",
                 "Tests DataTreeProcessor Group Identical behavior where all items are processed together.",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

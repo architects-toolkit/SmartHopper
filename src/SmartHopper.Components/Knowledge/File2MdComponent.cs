@@ -32,7 +32,7 @@ using SmartHopper.Core.Grasshopper.AITools;
 using SmartHopper.Core.Models;
 using SmartHopper.Core.Parameters;
 using SmartHopper.Core.Types;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {

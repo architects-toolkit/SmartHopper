@@ -29,16 +29,16 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall.Core;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.JsonSchemas;
-using SmartHopper.Infrastructure.AICall.Metrics;
-using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Diagnostics;
-using SmartHopper.Infrastructure.Streaming;
+using SmartHopper.ProviderSdk.AICall.Core;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AICall.JsonSchemas;
+using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Streaming;
 
 namespace SmartHopper.Providers.OpenRouter
 {
@@ -643,7 +643,7 @@ namespace SmartHopper.Providers.OpenRouter
                     reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
 
                 // Extract metrics (tokens, model, finish reason) if present
-                var metrics = new Infrastructure.AICall.Metrics.AIMetrics
+                var metrics = new ProviderSdk.AICall.Metrics.AIMetrics
                 {
                     Provider = this.Name,
                     Model = response["model"]?.ToString(),
@@ -1156,18 +1156,6 @@ namespace SmartHopper.Providers.OpenRouter
                     typeof(int),
                     null),
                 new AIExtraDescriptor(
-                    "top_a",
-                    "Top A",
-                    "Alternative nucleus sampling method. Threshold based on probability of most likely token.",
-                    typeof(double),
-                    null),
-                new AIExtraDescriptor(
-                    "min_p",
-                    "Min P",
-                    "Minimum probability for token sampling (0.0–1.0). Tokens below this threshold are ignored.",
-                    typeof(double),
-                    null),
-                new AIExtraDescriptor(
                     "frequency_penalty",
                     "Frequency Penalty",
                     "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
@@ -1179,10 +1167,24 @@ namespace SmartHopper.Providers.OpenRouter
                     "Penalizes tokens already in the text (-2.0 to 2.0). Positive values encourage new topics.",
                     typeof(double),
                     null),
+
+                // OpenRouter-specific parameters
                 new AIExtraDescriptor(
                     "repetition_penalty",
                     "Repetition Penalty",
                     "Alternative penalty for repeated tokens (0.0–2.0). Higher values reduce repetition more strongly.",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "min_p",
+                    "Min P",
+                    "Minimum probability for token sampling (0.0–1.0). Tokens below this threshold are ignored.",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "top_a",
+                    "Top A",
+                    "Alternative nucleus sampling method. Threshold based on probability of most likely token.",
                     typeof(double),
                     null),
                 new AIExtraDescriptor(
@@ -1199,6 +1201,12 @@ namespace SmartHopper.Providers.OpenRouter
                     null),
 
                 // Provider selection settings
+                new AIExtraDescriptor(
+                    "allow_fallback",
+                    "Allow Fallback",
+                    "Whether to allow OpenRouter to fall back to other providers if the primary is unavailable.",
+                    typeof(bool),
+                    null),
                 new AIExtraDescriptor(
                     "sort",
                     "Sort",
@@ -1224,7 +1232,7 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIExtraDescriptor(
                     "enable_caching",
                     "Enable Prompt Caching",
-                    "Enables prompt caching optimizations: adds automatic cache_control for Anthropic models and a stable session_id for provider sticky routing so repeated requests stay on the same endpoint. OpenAI, DeepSeek, Grok, Groq, and Gemini 2.5 models cache automatically regardless of this setting.",
+                    "Adds cache_control to the request body, enabling prompt caching for supported providers routed through OpenRouter.",
                     typeof(bool),
                     null),
             };

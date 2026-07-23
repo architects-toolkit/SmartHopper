@@ -1,0 +1,144 @@
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2024-2026 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ */
+
+namespace SmartHopper.ProviderSdk.AICall.Core.Base
+{
+    /// <summary>
+    /// Specifies the originator of an AI interaction.
+    /// </summary>
+    public enum AIAgent
+    {
+        /// <summary>The context provided by Context Manager.</summary>
+        Context,
+
+        /// <summary>The system (e.g. system prompts).</summary>
+        System,
+
+        /// <summary>A user message.</summary>
+        User,
+
+        /// <summary>The AI assistant response.</summary>
+        Assistant,
+
+        /// <summary>A tool call.</summary>
+        ToolCall,
+
+        /// <summary>A tool result.</summary>
+        ToolResult,
+
+        /// <summary>A conversation summary (merged with system prompt).</summary>
+        Summary,
+
+        /// <summary>A runtime or api error.</summary>
+        Error,
+
+        /// <summary>A non-fatal warning surfaced to the UI.</summary>
+        Warning,
+
+        /// <summary>An informational diagnostic surfaced to the UI.</summary>
+        Info,
+
+        /// <summary>A low-level debug diagnostic, typically hidden from end users.</summary>
+        Debug,
+
+        /// <summary>Unknown agent.</summary>
+        Unknown,
+    }
+
+    /// <summary>
+    /// Extension methods for AIAgent.
+    /// </summary>
+    public static class AIAgentExtensions
+    {
+        /// <summary>
+        /// Converts an AIAgent to a string.
+        /// </summary>
+        /// <param name="agent">The agent to convert.</param>
+        /// <returns>The string representation of the agent.</returns>
+        public static string ToString(this AIAgent agent)
+        {
+            return agent switch
+            {
+                AIAgent.Context => "context",
+                AIAgent.System => "system",
+                AIAgent.User => "user",
+                AIAgent.Assistant => "assistant",
+                AIAgent.ToolCall => "tool_call",
+                AIAgent.ToolResult => "tool_result",
+                AIAgent.Summary => "summary",
+                AIAgent.Error => "error",
+                AIAgent.Warning => "warning",
+                AIAgent.Info => "info",
+                AIAgent.Debug => "debug",
+                _ => "unknown",
+            };
+        }
+
+        /// <summary>
+        /// Converts an AIAgent to a description.
+        /// </summary>
+        /// <param name="agent">The agent to convert.</param>
+        /// <returns>The description of the agent.</returns>
+        public static string ToDescription(this AIAgent agent)
+        {
+            return agent switch
+            {
+                AIAgent.Context => "Context",
+                AIAgent.System => "System",
+                AIAgent.User => "User",
+                AIAgent.Assistant => "Assistant",
+                AIAgent.ToolCall => "Tool Call",
+                AIAgent.ToolResult => "Tool Result",
+                AIAgent.Summary => "Summary",
+                AIAgent.Error => "Error",
+                AIAgent.Warning => "Warning",
+                AIAgent.Info => "Info",
+                AIAgent.Debug => "Debug",
+                _ => "Unknown",
+            };
+        }
+
+        /// <summary>
+        /// Converts a string to an AIAgent.
+        /// </summary>
+        /// <param name="agent">The string to convert.</param>
+        /// <returns>The AIAgent.</returns>
+        public static AIAgent FromString(string agent)
+        {
+            agent = agent.ToLowerInvariant();
+            var result = agent switch
+            {
+                "context" => AIAgent.Context,
+                "system" => AIAgent.System,
+                "developer" => AIAgent.System,
+                "user" => AIAgent.User,
+                "assistant" => AIAgent.Assistant,
+                "tool_call" => AIAgent.ToolCall,
+                "tool_result" => AIAgent.ToolResult,
+                "tool" => AIAgent.ToolResult,
+                "summary" => AIAgent.Summary,
+                "error" => AIAgent.Error,
+                "warning" => AIAgent.Warning,
+                "info" => AIAgent.Info,
+                "debug" => AIAgent.Debug,
+                _ => AIAgent.Unknown,
+            };
+            return result;
+        }
+    }
+}

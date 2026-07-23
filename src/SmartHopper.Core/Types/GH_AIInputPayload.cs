@@ -19,7 +19,7 @@
 using System;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Core.Models;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
 namespace SmartHopper.Core.Types
 {

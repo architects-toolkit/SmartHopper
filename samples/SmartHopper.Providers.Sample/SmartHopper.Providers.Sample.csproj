@@ -1,0 +1,32 @@
+<!--
+  SmartHopper Provider SDK Sample
+  Demonstrates the minimum surface needed to ship a community AI provider
+  for SmartHopper. This project intentionally references the SmartHopper.ProviderSdk
+  NuGet package only — it does not depend on SmartHopper.Infrastructure or any
+  SmartHopper host assembly.
+
+  In CI, this project is rebuilt from the produced .nupkg to catch packaging
+  issues that wouldn't show up with a project reference.
+
+  Licensed under MIT, same as the SDK.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net7.0;net7.0-windows</TargetFrameworks>
+    <RootNamespace>SmartHopper.Providers.Sample</RootNamespace>
+    <AssemblyName>SmartHopper.Providers.Sample</AssemblyName>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>CS1591;NU1701</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- In CI: switch this to a PackageReference pointing at the produced .nupkg. -->
+    <ProjectReference Include="..\..\src\SmartHopper.ProviderSdk\SmartHopper.ProviderSdk.csproj" />
+  </ItemGroup>
+
+</Project>

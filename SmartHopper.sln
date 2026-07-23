@@ -35,6 +35,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Core.Grasshoppe
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Core.Tests", "src\SmartHopper.Core.Tests\SmartHopper.Core.Tests.csproj", "{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.ProviderSdk", "src\SmartHopper.ProviderSdk\SmartHopper.ProviderSdk.csproj", "{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -224,11 +226,26 @@ Global
 		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Release|x64.Build.0 = Release|Any CPU
 		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Release|x86.ActiveCfg = Release|Any CPU
 		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Release|x86.Build.0 = Release|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Debug|x64.Build.0 = Debug|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Debug|x86.Build.0 = Debug|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Release|x64.ActiveCfg = Release|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Release|x64.Build.0 = Release|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Release|x86.ActiveCfg = Release|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {0D5011CB-B808-41E4-A6FC-C01F3190649C}
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

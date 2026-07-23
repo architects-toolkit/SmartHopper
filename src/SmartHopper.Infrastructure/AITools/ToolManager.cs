@@ -22,10 +22,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AITools
 {
@@ -155,14 +155,14 @@ namespace SmartHopper.Infrastructure.AITools
                 var cancellationToken = toolCall.CancellationToken;
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var result = await tool.Execute(toolCall).ConfigureAwait(false);
+                var result = await _tools[toolInfo.Name].Execute(toolCall).ConfigureAwait(false);
                 Debug.WriteLine($"[AIToolManager] Tool execution complete: {toolInfo.Name}");
 
                 // Ensure tool result interactions carry the original tool call id/name/TurnId for provider schemas (e.g., OpenAI tool_call_id)
                 try
                 {
                     var results = result?.Body?.Interactions?
-                        .OfType<SmartHopper.Infrastructure.AICall.Core.Interactions.AIInteractionToolResult>()
+                        .OfType<SmartHopper.ProviderSdk.AICall.Core.Interactions.AIInteractionToolResult>()
                         .ToList();
                     if (results != null && results.Count > 0)
                     {

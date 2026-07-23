@@ -19,7 +19,7 @@
 namespace SmartHopper.Infrastructure.Tests.AICall
 {
     using System;
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using Xunit;
 
     public class AIInteractionImageTests

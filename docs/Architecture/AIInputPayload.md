@@ -1,74 +1,50 @@
 # AIInputPayload Wire Type Architecture
 
-The AIInputPayload wire type enables a composable input/output architecture for SmartHopper components using input adapters, payload wires, and output components.
+## Overview
 
----
-
-## Metadata
-
-| Property | Value |
-| --- | --- |
-| **Source Code** | `src/SmartHopper.Core/Models/AIInputPayload.cs` |
-| **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
-| **Documentation Maintainer** | Devin AI |
-
-_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
-
----
-
-## Why Read This?
-
-This document explains the composable AI input/output architecture that replaces monolithic components with small, focused adapters. Understanding this architecture is essential for building custom input adapters or output components that integrate with SmartHopper's AI pipeline.
-
-**You should read this if you:**
-
-- Want to understand how data flows between Grasshopper components and AI operations
-- Are building custom input adapters or output components
-- Need to understand how multiple inputs are merged before AI calls
-- Want to learn about the payload rendering system for Grasshopper UI
-
----
-
-## End-User Guide
-
-### Overview
-
-The **AIInputPayload** wire type enables a composable input/output architecture for SmartHopper components. Instead of monolithic "X→AI→Y" components, the new architecture uses:
+The **AIInputPayload** wire type enables a composable input/output architecture for SmartHopper components. Instead of monolithic "Xâ†’AIâ†’Y" components, the new architecture uses:
 
 - **Input Adapters**: Synchronous, stateless components that produce `GH_AIInputPayload` outputs
 - **AIInputPayload Wire**: Carries AI interactions between components
 - **Output Components**: Consume payloads and execute AI operations
 
+## Core Concepts
+
 ### AIInputPayload
 
 A payload is a container for AI interactions with metadata:
 
-**Payload Types:**
+```csharp
+public sealed class AIInputPayload
+{
+    public List<IAIInteraction> Interactions { get; }
+    public AICapability InputCapabilityAtSource { get; }
+    public string Hint { get; }  // Optional MIME type
+    public AIInputPayloadType PayloadType { get; }
+}
+```
 
-- `Text` — Text content interactions
-- `Image` — Image content interactions
-- `Audio` — Audio content interactions
-- `Context` — Context provider filters
-- `Unknown` — Mixed or unclassified payloads
+**Payload Types:**
+- `Text` â€” Text content interactions
+- `Image` â€” Image content interactions
+- `Audio` â€” Audio content interactions
+- `Context` â€” Context provider filters
+- `Unknown` â€” Mixed or unclassified payloads
 
 ### Merging Strategy
 
 When multiple `GH_AIInputPayload` inputs are wired to the same branch path on an output component:
 
-1. **Order matters**: Payloads are merged in wire index order (first received → first interaction)
+1. **Order matters**: Payloads are merged in wire index order (first received â†’ first interaction)
 2. **Context payloads are special**: Context filters are extracted and concatenated with commas
 3. **Result**: A single `AIBody` with all interactions in sequence
 
 Example:
-
 ```
-
-Wire 0: Text("Hello") → Interaction 0
-Wire 1: Text("World") → Interaction 1
-Wire 2: Context("time") → Context filter added
+Wire 0: Text("Hello") â†’ Interaction 0
+Wire 1: Text("World") â†’ Interaction 1
+Wire 2: Context("time") â†’ Context filter added
 Result: AIBody with 2 text interactions + context filter "time"
-
 ```
 
 ### User-Readable Rendering
@@ -82,103 +58,17 @@ Each payload type has a custom renderer for Grasshopper UI display:
 
 Use `AIInputPayloadRenderer.RenderToUserText(payload)` for formatted display.
 
-### Component Integration
+## Component Integration
 
-#### Input Adapters
+### Input Adapters
 
 Input adapters are **synchronous, stateless** components that:
-
 1. Accept Grasshopper data (text, images, files, etc.)
 2. Create `AIInteraction` objects
 3. Wrap in `AIInputPayload`
 4. Output as `GH_AIInputPayload`
 
 Example: `Text2AI` component
-
-#### Output Components
-
-Output components:
-
-1. Receive multiple `GH_AIInputPayload` inputs per branch
-2. Merge payloads using `AIInputPayloadMerger.MergePerBranch()`
-3. Build final `AIBody` with system prompt
-4. Execute AI call
-5. Process and output results
-
-### AIContext Component
-
-The `AIContextComponent` is a special input adapter that:
-
-1. **Input**: Provider ID (e.g., "time", "file", "rhino")
-2. **Processing**: Calls `AIContextManager.GetCurrentContext(providerId)`
-3. **Output**:
-   - `GH_AIInputPayload` with context filter
-   - Display text showing context data
-
-**Important**: The context filter in the payload is **not** used directly by output components. Instead, output components generate their own filter based on all connected context payloads.
-
-Example flow:
-
-```
-
-AIContextComponent("time") → GH_AIInputPayload(Context("time"))
-                                    ↓
-                          [Output Component]
-                                    ↓
-                    Generates filter: "time" (or merged with other contexts)
-                                    ↓
-                    Passes to AIBodyBuilder.WithContextFilter()
-
-```
-
-### File Structure
-
-#### Core Types (SmartHopper.Core/Models/)
-
-- `AIInputPayload.cs` — Core payload class and `AIInputPayloadType` enum
-- `GH_AIInputPayload.cs` — Grasshopper goo wrapper
-- `AIInputPayloadParameter.cs` — Grasshopper parameter type
-- `AIInputPayloadMerger.cs` — Branch-aware merging logic
-- `AIInputPayloadRenderer.cs` — User-readable rendering
-
-#### Image Support (SmartHopper.Core/Models/)
-
-- `VersatileImage.cs` — Versatile image source adapter
-- `GH_AIImage.cs` — Grasshopper goo wrapper for images
-
-#### Audio Support
-
-**SmartHopper.Core/Types/**
-
-- `VersatileAudio.cs` — Versatile audio source adapter (file path, URL, or byte data)
-- `GH_AIAudio.cs` — Grasshopper goo wrapper for audio
-
-**SmartHopper.Infrastructure/AICall/Core/Interactions/**
-
-- `AIInteractionAudio.cs` — Audio interaction type for AI conversations
-
-#### Components (SmartHopper.Components/Input/)
-
-- `AIContextComponent.cs` — Context provider input adapter
-
----
-
-## Developer Reference
-
-### Core Type Definition
-
-```csharp
-public sealed class AIInputPayload
-{
-    public List<IAIInteraction> Interactions { get; }
-    public AICapability InputCapabilityAtSource { get; }
-    public string Hint { get; }  // Optional MIME type
-    public AIInputPayloadType PayloadType { get; }
-}
-```
-
-### Input Adapter Example
-
 ```csharp
 public class Text2AIComponent : GH_Component
 {
@@ -193,6 +83,65 @@ public class Text2AIComponent : GH_Component
 }
 ```
 
+### Output Components
+
+Output components:
+
+1. Receive multiple `GH_AIInputPayload` inputs per branch
+2. Merge payloads using `AIInputPayloadMerger.MergePerBranch()`
+3. Build final `AIBody` with system prompt
+4. Execute AI call
+5. Process and output results
+
+## AIContext Component
+
+The `AIContextComponent` is a special input adapter that:
+
+1. **Input**: Provider ID (e.g., "time", "file", "rhino")
+2. **Processing**: Calls `AIContextManager.GetCurrentContext(providerId)`
+3. **Output**:
+   - `GH_AIInputPayload` with context filter
+   - Display text showing context data
+
+**Important**: The context filter in the payload is **not** used directly by output components. Instead, output components generate their own filter based on all connected context payloads.
+
+Example flow:
+
+```
+AIContextComponent("time") â†’ GH_AIInputPayload(Context("time"))
+                                    â†“
+                          [Output Component]
+                                    â†“
+                    Generates filter: "time" (or merged with other contexts)
+                                    â†“
+                    Passes to AIBodyBuilder.WithContextFilter()
+```
+
+## File Structure
+
+### Core Types (SmartHopper.Core.Grasshopper/Types/)
+
+- `AIInputPayload.cs` â€” Core payload class and `AIInputPayloadType` enum
+- `GH_AIInputPayload.cs` â€” Grasshopper goo wrapper
+- `AIInputPayloadParameter.cs` â€” Grasshopper parameter type
+- `AIInputPayloadMerger.cs` â€” Branch-aware merging logic
+- `AIInputPayloadRenderer.cs` â€” User-readable rendering
+
+### Image Support (SmartHopper.Core.Grasshopper/Types/)
+
+- `VersatileImage.cs` â€” Versatile image source adapter
+- `GH_AIImage.cs` â€” Grasshopper goo wrapper for images
+
+### Audio Support (SmartHopper.Infrastructure/AICall/Core/Interactions/)
+
+- `AIInteractionAudio.cs` â€” Audio interaction type
+
+### Components (SmartHopper.Components/Input/)
+
+- `AIContextComponent.cs` â€” Context provider input adapter
+
+## Usage Examples
+
 ### Creating Text Payload
 
 ```csharp
@@ -206,7 +155,6 @@ var gooPayload = new GH_AIInputPayload(payload);
 var imageSource = VersatileImage.FromString("path/to/image.png");
 var interaction = imageSource.ToInteraction();
 var payload = AIInputPayload.FromImage(interaction);
-
 ```
 
 ### Merging Payloads
@@ -223,11 +171,7 @@ var displayText = AIInputPayloadRenderer.RenderToUserText(payload);
 var summary = AIInputPayloadRenderer.GetSummary(payload);
 ```
 
----
-
-## Architecture & Design
-
-### Design Principles
+## Design Principles
 
 1. **Composability**: Small, focused input adapters can be combined flexibly
 2. **Order Preservation**: Interaction order is maintained during merging
@@ -235,12 +179,48 @@ var summary = AIInputPayloadRenderer.GetSummary(payload);
 4. **Statelessness**: Input adapters have no internal state or AI calls
 5. **Extensibility**: New payload types can be added without breaking existing code
 
-### Current State
+## Future Phases
 
-The AIInputPayload architecture is fully implemented with:
+- **Phase 4**: Output components (`AI2Text`, `AI2List`, `AI2Json`, etc.)
+- **Phase 5**: Data tree processing centralization
+- **Phase 6**: Batch and sentinel centralization
+- **Phase 7**: Fallback resolver (modality fallback)
+- **Phase 8**: Audio provider support
+- **Phase 9**: Shim wrappers and panel reorganization
 
-- **Input Adapters**: Text, image, audio, and context providers
-- **Output Components**: Full suite of AI2* components for converting AI responses to Grasshopper data types
-- **Data Tree Processing**: Centralized through `AIInputPayloadMerger` and component integration
-- **Streaming Support**: Integrated with async component base classes
-- **Tool Integration**: Complete tool result envelope support with metadata tracking
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about AIInputPayload.
+
+
+## End-User Guide
+
+End-user guidance for AIInputPayload.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for AIInputPayload.

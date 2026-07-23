@@ -46,7 +46,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test Mixed Depths",
                 "TEST-BC-MIXED",
                 "Tests flat {0} broadcasting to mixed depth paths",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

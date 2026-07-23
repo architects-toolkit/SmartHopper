@@ -20,6 +20,7 @@ using System;
 using System.Runtime.CompilerServices;
 using Rhino;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Core.UI
 {

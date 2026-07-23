@@ -25,17 +25,18 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using System.Runtime.CompilerServices;
     using System.Threading;
     using System.Threading.Tasks;
-    using SmartHopper.Infrastructure.AICall.Core.Base;
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
-    using SmartHopper.Infrastructure.AICall.Core.Requests;
-    using SmartHopper.Infrastructure.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AICall.Execution;
-    using SmartHopper.Infrastructure.AICall.Metrics;
     using SmartHopper.Infrastructure.AICall.Policies;
-    using SmartHopper.Infrastructure.AICall.Utilities;
-    using SmartHopper.Infrastructure.Diagnostics;
-    using SmartHopper.Infrastructure.Settings;
-    using SmartHopper.Infrastructure.Streaming;
+using SmartHopper.Infrastructure.Settings;
+    using SmartHopper.ProviderSdk.AICall.Core.Base;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+    using SmartHopper.ProviderSdk.AICall.Core.Requests;
+    using SmartHopper.ProviderSdk.AICall.Core.Returns;
+    using SmartHopper.ProviderSdk.AICall.Metrics;
+    using SmartHopper.ProviderSdk.AICall.Utilities;
+    using SmartHopper.ProviderSdk.Diagnostics;
+    using SmartHopper.ProviderSdk.Settings;
+    using SmartHopper.ProviderSdk.Streaming;
 
     /// <summary>
     /// Conversation session that manages chat history and orchestrates multi-turn conversations.

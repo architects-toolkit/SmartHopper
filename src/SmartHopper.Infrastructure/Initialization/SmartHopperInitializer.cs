@@ -24,6 +24,9 @@ using Rhino;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Utils;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Settings;
+using SmartHopper.ProviderSdk.Utils;
 
 namespace SmartHopper.Infrastructure.Initialization
 {

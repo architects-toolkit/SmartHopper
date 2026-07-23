@@ -25,8 +25,8 @@ using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AIModels;
 
 namespace SmartHopper.Components.Output
 {

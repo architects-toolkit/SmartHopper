@@ -24,10 +24,12 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -41,7 +43,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         public TestDeepSeekStandardCallComponent()
-            : base("Test DeepSeek Standard Call", "TEST-DEEPSEEK-CALL", "Tests DeepSeek standard API call and metrics validation", "SmartHopper Tests", "Testing Providers")
+            : base("Test DeepSeek Standard Call", "TEST-DEEPSEEK-CALL", "Tests DeepSeek standard API call and metrics validation", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("DeepSeek");
@@ -161,11 +163,6 @@ namespace SmartHopper.Components.Test.Providers
                         this._messages.Add(new GH_String("Metrics not populated"));
                     }
 
-                    if (result != null)
-                    {
-                        this._parent.SetAIReturnSnapshot(result as AIReturn);
-                    }
-
                     this._callSuccess = new GH_Boolean(callSuccess);
                     this._metricsValid = new GH_Boolean(metricsValid);
                 }
@@ -185,7 +182,6 @@ namespace SmartHopper.Components.Test.Providers
                 this._parent.SetPersistentOutput("Call Success", this._callSuccess, DA);
                 this._parent.SetPersistentOutput("Metrics Valid", this._metricsValid, DA);
                 this._parent.SetPersistentOutput("Messages", this._messages, DA);
-                this._parent.SetMetricsOutput(DA);
                 message = this._callSuccess.Value && this._metricsValid.Value ? "DeepSeek standard call test passed" : "DeepSeek standard call test failed";
             }
         }

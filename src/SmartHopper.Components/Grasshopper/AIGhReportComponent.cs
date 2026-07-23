@@ -28,7 +28,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.ProviderSdk.AIModels;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -137,7 +137,7 @@ namespace SmartHopper.Components.Grasshopper
 
                     if (toolResult == null || !toolResult.Success)
                     {
-                        var errorMsg = toolResult?.Messages?.FirstOrDefault(m => m.Severity == SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageSeverity.Error);
+                        var errorMsg = toolResult?.Messages?.FirstOrDefault(m => m.Severity == SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageSeverity.Error);
                         if (errorMsg != null)
                         {
                             this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, errorMsg.Message);

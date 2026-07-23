@@ -51,7 +51,7 @@ This document explains how to convert documents to Markdown within Grasshopper, 
 | **XML** | `.xml` | Built-in | Pretty-printed fenced code block |
 | **Plain Text** | `.txt` | Built-in | Pass-through with line normalization |
 
-### Using the File2Md Component
+## Using the File2Md Component
 
 #### Basic Usage
 
@@ -87,6 +87,13 @@ The component supports tree inputs, allowing you to convert multiple files in pa
 {0;0}: C:\docs\file1.pdf
 {0;1}: C:\docs\file2.docx
 {1;0}: C:\docs\file3.xlsx
+```
+
+## Using the file2md AI Tool
+
+The `file2md` tool is automatically available in AI Chat conversations. Simply mention a file path and the AI can invoke the tool to read and process the file.
+
+### Example Chat Interaction
 
 ```
 
@@ -127,7 +134,7 @@ AI: [Calls file2md tool with filePath: "C:\reports\Q4-2025.pdf"]
 
 > Table structure, hyperlinks, and Office Math are now always preserved and are no longer exposed as individual parameters.
 
-### Image Mode in AI Components
+When `extractImages: true` is passed to the `file2md` tool, embedded images are extracted as base64 data and returned alongside the Markdown content.
 
 AI file components (`AIFile2Md`, `File2AI`) expose an **Image Mode** input that controls how images are handled after `file2md` extracts them:
 
@@ -488,7 +495,6 @@ public class MyConverter : IFileConverter
 ```
 
 2. Register in `file2md.cs`:
-
 ```csharp
 registry.Register(new MyConverter());
 
@@ -537,7 +543,11 @@ FileConversionResult
 
 #### Design Principles
 
-- **Plugin Architecture**: New formats are added by implementing `IFileConverter` and registering with `FileConverterRegistry`
-- **Unified Options**: `FileConversionOptions` carries behavior flags (table preservation, header/footer removal, image extraction, hyperlinks, footnotes/endnotes, math, inline formatting) to every converter
-- **Structured Results**: `FileConversionResult` encapsulates content, metadata, warnings, and images so callers can inspect conversion quality
-- **Async Pipeline**: All conversions are async, allowing batch processing without blocking the Grasshopper canvas
+### Poor Table Formatting
+- Set `preserveTableStructure: false` to get plain text instead of Markdown tables
+- Complex nested tables may require manual cleanup
+
+## Related Components
+
+- **Web Page Read**: For fetching and converting web pages (URLs)
+- **AI Chat**: Uses `file2md` tool automatically when you mention file paths

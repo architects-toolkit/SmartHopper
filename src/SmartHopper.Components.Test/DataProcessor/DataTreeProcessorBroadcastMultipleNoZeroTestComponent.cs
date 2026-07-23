@@ -46,7 +46,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test Broadcast (Multiple No {0}",
                 "TEST-BC-MULTI-NO0",
                 "Tests flat {0} broadcasting to multiple paths {1},{2} (no {0} in B)",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

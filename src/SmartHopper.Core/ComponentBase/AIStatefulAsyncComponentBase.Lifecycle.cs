@@ -19,20 +19,16 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Data;
-using Grasshopper.Kernel.Types;
-using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Core.ComponentBase.Mixins;
-using SmartHopper.Core.DataTree;
-using SmartHopper.Infrastructure.AICall.Batch;
-using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.ProviderSdk.AICall.Batch;
+using SmartHopper.ProviderSdk.AICall.Core;
+using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -179,104 +175,7 @@ namespace SmartHopper.Core.ComponentBase
             Debug.WriteLine($"[AIStatefulAsyncComponentBase] OnEnteringNeedsRun: resetting per-run state, SentinelTrees count={this._batchState.SentinelTrees?.Count ?? 0}");
             this.AIReturnSnapshot = null;
             this._batchState.ResetForNextRun();
-            this._currentProcessingPath = null;
-            this._currentProcessingItemIndex = null;
-            this._metricsTree = null;
             this.ResetProgress();
-        }
-
-        /// <inheritdoc/>
-        protected override void OnProcessingUnitStart(GH_Path path, int? itemIndex)
-        {
-            base.OnProcessingUnitStart(path, itemIndex);
-            this._currentProcessingPath = path;
-            this._currentProcessingItemIndex = itemIndex;
-        }
-
-        /// <inheritdoc/>
-        protected override void OnProcessingUnitComplete(GH_Path inputPath, List<GH_Path> targetPaths)
-        {
-            base.OnProcessingUnitComplete(inputPath, targetPaths);
-
-            // When GroupIdenticalBranches is active, non-primary target paths reuse
-            // results from the primary path. Replicate metrics to those reused paths
-            // so downstream components can distinguish processed vs reused.
-            if (this._metricsTree == null || inputPath == null || targetPaths == null)
-            {
-                return;
-            }
-
-            if (this.ComponentProcessingOptions.Topology == ProcessingTopology.ItemGraft)
-            {
-                // Metrics are already stored at grafted child paths (inputPath + item index).
-                // Copy each child branch to the corresponding grafted path on every sibling target.
-                var childPaths = this._metricsTree.Paths
-                    .Where(p => p.Length == inputPath.Length + 1 && p.Indices.Take(inputPath.Length).SequenceEqual(inputPath.Indices))
-                    .ToList();
-
-                foreach (var targetPath in targetPaths)
-                {
-                    if (targetPath == null || targetPath.Equals(inputPath))
-                    {
-                        continue;
-                    }
-
-                    foreach (var childPath in childPaths)
-                    {
-                        int itemIndex = childPath.Indices[inputPath.Length];
-                        var siblingPath = targetPath.AppendElement(itemIndex);
-                        var childBranch = this._metricsTree.get_Branch(childPath);
-                        if (childBranch == null)
-                        {
-                            continue;
-                        }
-
-                        foreach (GH_String metricStr in childBranch)
-                        {
-                            try
-                            {
-                                var obj = JObject.Parse(metricStr.Value);
-                                obj["data_count"] = 0;
-                                this._metricsTree.Append(new GH_String(obj.ToString(Newtonsoft.Json.Formatting.None)), siblingPath);
-                            }
-                            catch
-                            {
-                                // If parsing fails, skip the copy
-                            }
-                        }
-                    }
-                }
-
-                return;
-            }
-
-            var inputBranch = this._metricsTree.get_Branch(inputPath);
-            if (inputBranch == null || inputBranch.Count == 0)
-            {
-                return;
-            }
-
-            foreach (var targetPath in targetPaths)
-            {
-                if (targetPath == null || targetPath.Equals(inputPath))
-                {
-                    continue;
-                }
-
-                foreach (GH_String metricStr in inputBranch)
-                {
-                    try
-                    {
-                        var obj = JObject.Parse(metricStr.Value);
-                        obj["data_count"] = 0;
-                        this._metricsTree.Append(new GH_String(obj.ToString(Newtonsoft.Json.Formatting.None)), targetPath);
-                    }
-                    catch
-                    {
-                        // If parsing fails, skip the copy
-                    }
-                }
-            }
         }
 
         protected override void OnSolveInstancePostSolve(IGH_DataAccess DA)

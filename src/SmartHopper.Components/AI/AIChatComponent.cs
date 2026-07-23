@@ -31,9 +31,9 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.UI.Chat;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
 
 namespace SmartHopper.Components.AI
 {

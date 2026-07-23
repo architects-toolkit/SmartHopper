@@ -18,7 +18,8 @@
 
 namespace SmartHopper.Infrastructure.Tests
 {
-    using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.AIProviders;
+    using SmartHopper.ProviderSdk.AIProviders;
     using Xunit;
 
     public class ProviderManagerTests

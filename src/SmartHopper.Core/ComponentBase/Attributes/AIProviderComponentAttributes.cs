@@ -25,6 +25,8 @@ using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Settings;
 using Timer = System.Timers.Timer;
 
 namespace SmartHopper.Core.ComponentBase.Attributes

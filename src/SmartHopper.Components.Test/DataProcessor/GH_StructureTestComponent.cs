@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test GH_Structure",
                 "TEST-GH-STRUCT",
                 "Tests GH_Structure, GH_Path, and related Grasshopper data types.",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

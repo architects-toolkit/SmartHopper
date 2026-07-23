@@ -49,7 +49,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test DataTreeProcessor (BranchToBranch)",
                 "TEST-DTP-B2B",
                 "Tests DataTreeProcessor with BranchToBranch topology - one-to-one branch matching.",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

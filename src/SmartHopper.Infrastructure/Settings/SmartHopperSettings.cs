@@ -26,6 +26,9 @@ using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Infrastructure.Settings
 {
@@ -79,6 +82,32 @@ namespace SmartHopper.Infrastructure.Settings
         /// </summary>
         [JsonProperty]
         public ProviderIntegrityCheckMode ProviderIntegrityCheckMode { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether non-official providers (Community)
+        /// are even considered for loading. When <c>false</c> (default), community
+        /// providers are blocked at discovery time regardless of any user trust
+        /// recorded in <see cref="TrustedProviders"/>. When <c>true</c>, they may load
+        /// subject to <see cref="ProviderIntegrityCheckMode"/> and per-provider trust.
+        /// </summary>
+        [JsonProperty]
+        public bool AllowCommunityProviders { get; set; }
+
+        /// <summary>
+        /// Gets or sets a hard override that blocks any provider not classified as
+        /// Official, regardless of <see cref="AllowCommunityProviders"/> or per-provider
+        /// trust. Intended for locked-down installations.
+        /// </summary>
+        [JsonProperty]
+        public bool BlockNonOfficialProviders { get; set; }
+
+        /// <summary>
+        /// Gets or sets the structured per-provider trust records (introduced in 2.x).
+        /// Replaces the legacy <see cref="TrustedProviders"/> dictionary, which is still
+        /// read for migration purposes.
+        /// </summary>
+        [JsonProperty]
+        public Dictionary<string, TrustedProviderRecord> TrustedProviderRecords { get; set; }
 
         /// <summary>
         /// Gets the effective provider integrity check mode, accounting for DEBUG builds.
@@ -157,7 +186,10 @@ namespace SmartHopper.Infrastructure.Settings
             this.DebounceTime = 1000;
             this.DefaultAIProvider = string.Empty;
             this.TrustedProviders = new Dictionary<string, bool>();
+            this.TrustedProviderRecords = new Dictionary<string, TrustedProviderRecord>();
             this.ProviderIntegrityCheckMode = ProviderIntegrityCheckMode.Soft; // Default to soft verification
+            this.AllowCommunityProviders = false;
+            this.BlockNonOfficialProviders = false;
             this.SmartHopperAssistant = new SmartHopperAssistantSettings();
             this.EncryptionVersion = encryptionVersion;
         }
@@ -934,6 +966,18 @@ namespace SmartHopper.Infrastructure.Settings
                             Debug.WriteLine($"[Load] Migration failed: {migrationEx.Message}");
                         }
 
+                        // Migrate legacy TrustedProviders<bool> to TrustedProviderRecords
+                        // with Classification="Unknown" so the new schema is populated
+                        // without losing the user's previous Allow/Deny decisions.
+                        try
+                        {
+                            settings.MigrateTrustedProvidersSchema();
+                        }
+                        catch (Exception trustMigrationEx)
+                        {
+                            Debug.WriteLine($"[Load] TrustedProviders schema migration failed: {trustMigrationEx.Message}");
+                        }
+
                         return settings;
                     }
                 }
@@ -972,6 +1016,41 @@ namespace SmartHopper.Infrastructure.Settings
             // Fallback: Return default settings with legacy encryption
             Debug.WriteLine($"[Load] Returning default settings due to error");
             return new SmartHopperSettings(encryptionVersion: 1);
+        }
+
+        /// <summary>
+        /// Promote legacy boolean entries in <see cref="TrustedProviders"/> into
+        /// structured <see cref="TrustedProviderRecord"/> objects so future code paths
+        /// can rely on the new schema. The legacy dictionary is preserved so older
+        /// SmartHopper versions reading the same settings file continue to function.
+        /// </summary>
+        public void MigrateTrustedProvidersSchema()
+        {
+            if (this.TrustedProviderRecords == null)
+            {
+                this.TrustedProviderRecords = new Dictionary<string, TrustedProviderRecord>();
+            }
+
+            if (this.TrustedProviders == null || this.TrustedProviders.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var (key, allowed) in this.TrustedProviders)
+            {
+                if (this.TrustedProviderRecords.ContainsKey(key))
+                {
+                    continue;
+                }
+
+                this.TrustedProviderRecords[key] = new TrustedProviderRecord
+                {
+                    Key = key,
+                    Classification = "Unknown",
+                    Allowed = allowed,
+                    DecidedAt = DateTime.UtcNow,
+                };
+            }
         }
 
         /// <summary>

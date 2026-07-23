@@ -46,7 +46,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test Rule 2 Override",
                 "TEST-BC-RULE2-OR",
                 "Tests Rule 2 overriding Rule 4 with multiple top-level paths",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

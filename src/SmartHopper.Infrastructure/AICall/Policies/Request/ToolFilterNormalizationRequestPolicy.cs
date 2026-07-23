@@ -20,8 +20,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.Utils;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.Utils;
 
 namespace SmartHopper.Infrastructure.AICall.Policies.Request
 {

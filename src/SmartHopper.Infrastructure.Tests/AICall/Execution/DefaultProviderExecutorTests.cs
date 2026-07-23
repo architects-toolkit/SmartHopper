@@ -19,15 +19,17 @@
 namespace SmartHopper.Infrastructure.Tests.AICall.Execution
 {
     using System;
+    using System.Collections.Generic;
     using System.Threading;
     using System.Threading.Tasks;
-    using SmartHopper.Infrastructure.AICall.Core.Base;
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
-    using SmartHopper.Infrastructure.AICall.Core.Requests;
-    using SmartHopper.Infrastructure.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AICall.Execution;
     using SmartHopper.Infrastructure.AICall.Tools;
-    using SmartHopper.Infrastructure.Streaming;
+    using SmartHopper.ProviderSdk.AICall.Core.Base;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+    using SmartHopper.ProviderSdk.AICall.Core.Requests;
+    using SmartHopper.ProviderSdk.AICall.Core.Returns;
+    using SmartHopper.ProviderSdk.Diagnostics;
+    using SmartHopper.ProviderSdk.Streaming;
     using Xunit;
 
     /// <summary>
@@ -148,9 +150,9 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Execution
         {
             public int DelayMs { get; set; }
 
-            public override (bool IsValid, System.Collections.Generic.List<Diagnostics.SHRuntimeMessage> Errors) IsValid()
+            public override (bool IsValid, List<SHRuntimeMessage> Errors) IsValid()
             {
-                return (true, new System.Collections.Generic.List<Diagnostics.SHRuntimeMessage>());
+                return (true, new List<SHRuntimeMessage>());
             }
 
             public override async Task<AIReturn> Exec(bool stream = false, CancellationToken cancellationToken = default)

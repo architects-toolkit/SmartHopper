@@ -17,7 +17,7 @@
  */
 
 using Grasshopper.Kernel;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Core.Diagnostics
 {

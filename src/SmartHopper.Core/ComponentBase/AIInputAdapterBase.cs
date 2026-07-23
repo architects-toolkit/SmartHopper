@@ -21,8 +21,8 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using SmartHopper.Core.Models;
 using SmartHopper.Core.Types;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -42,15 +42,19 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="description">Component description.</param>
         /// <param name="exposure">Component exposure level (primary or secondary).</param>
         protected AIInputAdapterBase(string name, string nickname, string description, GH_Exposure exposure)
-            : base(name, nickname, description, "SmartHopper", "B. Input")
+            : base(name, nickname, description, "SmartHopper", "Input")
         {
             this._exposure = exposure;
         }
 
-        /// <inheritdoc/>
-        protected override abstract Bitmap Icon { get; }
+        /// <summary>
+        /// Gets the component icon.
+        /// </summary>
+        protected abstract Bitmap Icon { get; }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Gets the component exposure level (primary or secondary).
+        /// </summary>
         public override GH_Exposure Exposure => this._exposure;
 
         /// <summary>

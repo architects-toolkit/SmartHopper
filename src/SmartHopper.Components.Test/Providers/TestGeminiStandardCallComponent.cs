@@ -26,11 +26,12 @@ using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -45,7 +46,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public TestGeminiStandardCallComponent()
-            : base("Test Gemini Standard Call", "TEST-GEMINI-CALL", "Tests Gemini standard API call and metrics validation", "SmartHopper Tests", "Testing Providers")
+            : base("Test Gemini Standard Call", "TEST-GEMINI-CALL", "Tests Gemini standard API call and metrics validation", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("Gemini");
@@ -104,11 +105,11 @@ namespace SmartHopper.Components.Test.Providers
 
                     // Get provider from manager
                     var providerManager = SmartHopper.Infrastructure.AIProviders.ProviderManager.Instance;
-                    var provider = providerManager.GetProvider("Gemini");
+                    var provider = providerManager.GetProvider("GoogleGemini");
 
                     if (provider == null)
                     {
-                        this._messages.Add(new GH_String("Gemini provider not found"));
+                        this._messages.Add(new GH_String("Google Gemini provider not found"));
                         this._callSuccess = new GH_Boolean(false);
                         this._metricsValid = new GH_Boolean(false);
                         await Task.Yield();
@@ -165,11 +166,6 @@ namespace SmartHopper.Components.Test.Providers
                         this._messages.Add(new GH_String("Metrics not populated"));
                     }
 
-                    if (result != null)
-                    {
-                        this._parent.SetAIReturnSnapshot(result as AIReturn);
-                    }
-
                     this._callSuccess = new GH_Boolean(callSuccess);
                     this._metricsValid = new GH_Boolean(metricsValid);
                 }
@@ -189,7 +185,6 @@ namespace SmartHopper.Components.Test.Providers
                 this._parent.SetPersistentOutput("Call Success", this._callSuccess, DA);
                 this._parent.SetPersistentOutput("Metrics Valid", this._metricsValid, DA);
                 this._parent.SetPersistentOutput("Messages", this._messages, DA);
-                this._parent.SetMetricsOutput(DA);
                 message = this._callSuccess.Value && this._metricsValid.Value ? "Gemini standard call test passed" : "Gemini standard call test failed";
             }
         }

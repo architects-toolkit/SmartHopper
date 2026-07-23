@@ -31,9 +31,12 @@
     <OutputPath>$(SolutionDir)bin/$(SolutionVersion)/$(Configuration)</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\SmartHopper.ProviderSdk\SmartHopper.ProviderSdk.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
-    <PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime">
+    <PackageReference Include="RhinoCommon" Version="8.24.25281.15001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
@@ -84,7 +87,7 @@
     Run that script after generating or updating the signing key.
   -->
   <PropertyGroup>
-    <SmartHopperPublicKey>This value is automatically replaced by the build tooling before official builds.</SmartHopperPublicKey>
+    <SmartHopperPublicKey>00240000048000009400000006020000002400005253413100040000010001003D2D5599128DE50EF9F60EDE984889FAE33652EAD2C4BF0EBEB943393782E22C0ADB35AA42B557FC549B455B1A0ECCC43131BDCB216DDED2189C7B981C69AAF0D23AB8909C2AA52C16CA04E577206C6B7A500F7496155DD6ABBFBEBF65395BB7166363A5E3F98D8C0A4FF50C7C4BD74A85A9E1D39208C7113ED8303C14F6F4C5</SmartHopperPublicKey>
   </PropertyGroup>
   <ItemGroup>
     <!-- Core assemblies -->
@@ -92,13 +95,11 @@
     <InternalsVisibleTo Include="SmartHopper.Core.Grasshopper, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Components, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Menu, PublicKey=$(SmartHopperPublicKey)" />
-    <!-- Built-in providers -->
-    <InternalsVisibleTo Include="SmartHopper.Providers.Anthropic, PublicKey=$(SmartHopperPublicKey)" />
-    <InternalsVisibleTo Include="SmartHopper.Providers.DeepSeek, PublicKey=$(SmartHopperPublicKey)" />
-    <InternalsVisibleTo Include="SmartHopper.Providers.MistralAI, PublicKey=$(SmartHopperPublicKey)" />
-    <InternalsVisibleTo Include="SmartHopper.Providers.OpenAI, PublicKey=$(SmartHopperPublicKey)" />
-    <InternalsVisibleTo Include="SmartHopper.Providers.OpenRouter, PublicKey=$(SmartHopperPublicKey)" />
-    <InternalsVisibleTo Include="SmartHopper.Providers.Gemini, PublicKey=$(SmartHopperPublicKey)" />
+    <!--
+      Provider IVTs were intentionally removed in 2.0.0 — see Plan §4.3.
+      All providers, including first-party ones, must compile against the
+      SmartHopper.ProviderSdk public surface only.
+    -->
     <!-- Test assemblies -->
     <InternalsVisibleTo Include="SmartHopper.Infrastructure.Tests, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Components.Test, PublicKey=$(SmartHopperPublicKey)" />

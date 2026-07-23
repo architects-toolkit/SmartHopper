@@ -21,12 +21,12 @@ namespace SmartHopper.Infrastructure.Tests.AICall
     using System;
     using System.Collections.Generic;
     using System.Linq;
-    using SmartHopper.Infrastructure.AICall.Core.Base;
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
-    using SmartHopper.Infrastructure.AICall.Core.Requests;
-    using SmartHopper.Infrastructure.AICall.Core.Returns;
-    using SmartHopper.Infrastructure.AICall.Metrics;
-    using SmartHopper.Infrastructure.Diagnostics;
+    using SmartHopper.ProviderSdk.AICall.Core.Base;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+    using SmartHopper.ProviderSdk.AICall.Core.Requests;
+    using SmartHopper.ProviderSdk.AICall.Core.Returns;
+    using SmartHopper.ProviderSdk.AICall.Metrics;
+    using SmartHopper.ProviderSdk.Diagnostics;
     using Xunit;
 
     /// <summary>

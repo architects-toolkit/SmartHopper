@@ -18,9 +18,9 @@
 
 using System;
 using System.Collections.Generic;
-using SmartHopper.Infrastructure.AICall.Batch;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.ProviderSdk.AICall.Batch;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Metrics;
 
 namespace SmartHopper.Core.ComponentBase.Cores
 {
@@ -48,7 +48,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
     ///     <b>Per-run scratch</b>: <see cref="Queue"/>,
     ///     <see cref="SentinelIds"/>, <see cref="ProgressCompleted"/>,
     ///     <see cref="UnsupportedChecked"/>, <see cref="StartTime"/>,
-    ///     <see cref="CompletionTime"/>, <see cref="PersistedMetricsList"/>. All seven
+    ///     <see cref="CompletionTime"/>, <see cref="PersistedMetrics"/>. All seven
     ///     are wiped at the entry of <c>NeedsRun</c> so each new run begins from a
     ///     clean baseline.
     ///   </item>
@@ -115,11 +115,11 @@ namespace SmartHopper.Core.ComponentBase.Cores
         public double? CompletionTime { get; set; }
 
         /// <summary>
-        /// Ordered list of per-call metrics for the run. Replaces the former scalar
-        /// <c>PersistedMetrics</c> as the source of truth for <c>SetMetricsOutput</c>.
-        /// Per-run scratch.
+        /// Single authoritative metrics instance for the run. Replaces the
+        /// computed-on-demand <c>AIReturn.Metrics</c> property as the source of
+        /// truth for <c>SetMetricsOutput</c>. Per-run scratch.
         /// </summary>
-        public AIMetricsList PersistedMetricsList { get; set; }
+        public AIMetrics PersistedMetrics { get; set; }
 
         /// <summary>
         /// Wipes per-run scratch fields without touching the cross-run survivors
@@ -134,7 +134,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
             this.UnsupportedChecked = false;
             this.StartTime = null;
             this.CompletionTime = null;
-            this.PersistedMetricsList = null;
+            this.PersistedMetrics = null;
         }
 
         /// <summary>

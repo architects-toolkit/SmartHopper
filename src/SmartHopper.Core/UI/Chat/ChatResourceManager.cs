@@ -33,9 +33,8 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using Markdig;
-using Markdig.Parsers;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
 namespace SmartHopper.Core.UI.Chat
 {
@@ -380,7 +379,7 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         private static List<(int Start, int Length)> GetTopLevelBlockSpans(string rawText, MarkdownPipeline pipeline)
         {
-            var document = MarkdownParser.Parse(rawText, pipeline);
+            var document = Markdown.Parse(rawText, pipeline);
             var spans = new List<(int Start, int Length)>(document.Count);
 
             foreach (var block in document)
