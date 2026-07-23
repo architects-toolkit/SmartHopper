@@ -28,9 +28,9 @@ using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using SmartHopper.Infrastructure.Utils;
+using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Hosting;
 using SmartHopper.ProviderSdk.Utils;
-using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Infrastructure.AIProviders
 {

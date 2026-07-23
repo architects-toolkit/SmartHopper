@@ -23,9 +23,9 @@ using System.Threading.Tasks;
 using Eto.Drawing;
 using Eto.Forms;
 using Rhino.UI;
-using SmartHopper.ProviderSdk.AIProviders;
-using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Properties;
+using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Infrastructure.Dialogs
 {

@@ -601,9 +601,9 @@ namespace SmartHopper.Infrastructure.Settings
 
                 // Encrypt data with AES
                 byte[] encryptedData;
+                using (var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
                 using (var encryptor = aes.CreateEncryptor())
                 using (var msEncrypt = new MemoryStream())
-                using (var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
                 {
                     byte[] plainBytes = Encoding.UTF8.GetBytes(plainText);
                     csEncrypt.Write(plainBytes, 0, plainBytes.Length);
@@ -643,9 +643,9 @@ namespace SmartHopper.Infrastructure.Settings
                 aes.Key = key;
                 aes.IV = iv;
 
+                using (var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
                 using (var decryptor = aes.CreateDecryptor())
                 using (var msDecrypt = new MemoryStream(cipherData))
-                using (var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
                 using (var srDecrypt = new StreamReader(csDecrypt))
                 {
                     return srDecrypt.ReadToEnd();
@@ -775,9 +775,9 @@ namespace SmartHopper.Infrastructure.Settings
                     aes.Key = LegacyKey;
                     aes.IV = LegacyIv;
 
+                    using (var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
                     using (var encryptor = aes.CreateEncryptor())
                     using (var msEncrypt = new MemoryStream())
-                    using (var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
                     using (var swEncrypt = new StreamWriter(csEncrypt))
                     {
                         swEncrypt.Write(plainText);
@@ -808,9 +808,9 @@ namespace SmartHopper.Infrastructure.Settings
                     aes.Key = LegacyKey;
                     aes.IV = LegacyIv;
 
+                    using (var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
                     using (var decryptor = aes.CreateDecryptor())
                     using (var msDecrypt = new MemoryStream(cipherText))
-                    using (var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
                     using (var srDecrypt = new StreamReader(csDecrypt))
                     {
                         return srDecrypt.ReadToEnd();
