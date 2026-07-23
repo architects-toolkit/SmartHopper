@@ -35,6 +35,7 @@ using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -69,6 +70,7 @@ namespace SmartHopper.Components.Grasshopper
             pManager.AddIntegerParameter("Count", "Ct", "Maximum number of components to retrieve. Default is 100.", GH_ParamAccess.item, 100);
             pManager.AddBooleanParameter("Include Metadata", "M", "Include document metadata (timestamps, Rhino/Grasshopper versions, plugin dependencies)", GH_ParamAccess.item, false);
             pManager.AddBooleanParameter("Include Runtime Data", "Dt", "Include runtime/volatile data (actual values flowing through outputs). This is token-expansive!", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Viewport Only", "V", "Only include components visible in the current canvas viewport", GH_ParamAccess.item, false);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -87,6 +89,22 @@ namespace SmartHopper.Components.Grasshopper
         {
             private readonly GhGetComponents parent;
 
+            private List<string> typeFilters = new List<string>();
+            private List<string> categoryFilters = new List<string>();
+            private List<string> attrFilters = new List<string>();
+            private int connectionDepth;
+            private int count;
+            private bool includeMetadata;
+            private bool includeRuntimeData;
+
+            /// <summary>Whether to restrict results to components visible in the canvas viewport.</summary>
+            private bool viewportOnly;
+            private List<IGH_DocumentObject> selectedObjects = new List<IGH_DocumentObject>();
+
+            private List<string> names = new List<string>();
+            private List<string> guids = new List<string>();
+            private string json = string.Empty;
+
             public GhGetWorker(GhGetComponents parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
@@ -96,109 +114,96 @@ namespace SmartHopper.Components.Grasshopper
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 dataCount = 1;
+                DA.GetDataList(0, this.typeFilters);
+                DA.GetDataList(1, this.categoryFilters);
+                DA.GetDataList(2, this.attrFilters);
+                DA.GetData(3, ref this.connectionDepth);
+                DA.GetData(4, ref this.count);
+                DA.GetData(5, ref this.includeMetadata);
+                DA.GetData(6, ref this.includeRuntimeData);
+                DA.GetData(7, ref this.viewportOnly);
+                this.selectedObjects = new List<IGH_DocumentObject>(this.parent.SelectedObjects);
             }
 
-            public override Task DoWorkAsync(CancellationToken token)
-            {
-                return Task.CompletedTask;
-            }
-
-            public override void SetOutput(IGH_DataAccess DA, out string message)
-            {
-                message = "GhGet processing complete";
-            }
-        }
-
-        protected override void OnStateCompleted(IGH_DataAccess DA)
-        {
-            base.OnStateCompleted(DA);
-
-            var componentNames = this.GetPersistentOutput<List<string>>("Names", new List<string>());
-            var componentGuids = this.GetPersistentOutput<List<string>>("Guids", new List<string>());
-            var json = this.GetPersistentOutput<string>("JSON", string.Empty);
-
-            DA.SetDataList(0, componentNames);
-            DA.SetDataList(1, componentGuids);
-            DA.SetData(2, json);
-        }
-
-        protected override void OnStateWaiting(IGH_DataAccess DA)
-        {
-            base.OnStateWaiting(DA);
-
-            var componentNames = this.GetPersistentOutput<List<string>>("Names", new List<string>());
-            var componentGuids = this.GetPersistentOutput<List<string>>("Guids", new List<string>());
-            var json = this.GetPersistentOutput<string>("JSON", string.Empty);
-
-            DA.SetDataList(0, componentNames);
-            DA.SetDataList(1, componentGuids);
-            DA.SetData(2, json);
-        }
-
-        protected override void OnStateProcessing(IGH_DataAccess DA)
-        {
-            int connectionDepth = 0;
-            DA.GetData(3, ref connectionDepth);
-
-            private List<string> typeFilters = new List<string>();
-            private List<string> categoryFilters = new List<string>();
-            private List<string> attrFilters = new List<string>();
-            private int connectionDepth;
-            private int count;
-            private bool includeMetadata;
-            private bool includeRuntimeData;
-
-            bool includeRuntimeData = false;
-            DA.GetData(5, ref includeRuntimeData);
-
-            try
+            public override async Task DoWorkAsync(CancellationToken token)
             {
                 try
                 {
-                    ["attrFilters"] = JArray.FromObject(filters),
-                    ["typeFilter"] = JArray.FromObject(typeFilters),
-                    ["categoryFilter"] = JArray.FromObject(categoryFilters),
-                    ["connectionDepth"] = connectionDepth,
-                    ["includeMetadata"] = includeMetadata,
-                    ["guidFilter"] = JArray.FromObject(this.SelectedObjects.Select(o => o.InstanceGuid.ToString())),
-                    ["includeRuntimeData"] = includeRuntimeData,
-                };
+                    var parameters = new JObject
+                    {
+                        ["attrFilters"] = JArray.FromObject(this.attrFilters),
+                        ["typeFilter"] = JArray.FromObject(this.typeFilters),
+                        ["categoryFilter"] = JArray.FromObject(this.categoryFilters),
+                        ["connectionDepth"] = this.connectionDepth,
+                        ["pageSize"] = this.count,
+                        ["page"] = 1,
+                        ["includeMetadata"] = this.includeMetadata,
+                        ["guidFilter"] = JArray.FromObject(this.selectedObjects.Select(o => o.InstanceGuid.ToString())),
+                        ["includeRuntimeData"] = this.includeRuntimeData,
+                        ["viewportOnly"] = this.viewportOnly,
+                    };
 
-                var toolCallInteraction = new AIInteractionToolCall
-                {
-                    Name = "gh_get",
-                    Arguments = parameters,
-                    Agent = AIAgent.Assistant,
-                };
+                    var toolCallInteraction = new AIInteractionToolCall
+                    {
+                        Name = "gh_get",
+                        Arguments = parameters,
+                        Agent = AIAgent.Assistant,
+                    };
 
                     var toolCall = new AIToolCall();
                     toolCall.Endpoint = "gh_get";
                     toolCall.FromToolCallInteraction(toolCallInteraction);
                     toolCall.SkipMetricsValidation = true;
 
-                var toolResult = ToolCallResult.FromAIReturn(toolCall.Exec().GetAwaiter().GetResult());
-                if (toolResult.Result == null)
-                {
-                    this.SetPersistentRuntimeMessage("gh_get_error", GH_RuntimeMessageLevel.Error, "Tool 'gh_get' did not return a valid result");
-                    return;
+                    var aiReturn = await toolCall.Exec();
+                    var toolResult = ToolCallResult.FromAIReturn(aiReturn);
+                    if (toolResult.Result == null)
+                    {
+                        this.CollectMessage(SHRuntimeMessageSeverity.Error, "Tool 'gh_get' did not return a valid result");
+                        return;
+                    }
+
+                    // Surface any warning/info messages from the tool (e.g. viewportOnly with no canvas)
+                    foreach (var msg in aiReturn.Messages.Where(m => m?.Severity != SHRuntimeMessageSeverity.Error))
+                    {
+                        this.CollectMessage(msg.Severity, msg.Message);
+                    }
+
+                    // Surface pagination info so users know when the output is truncated
+                    var pagination = toolResult["pagination"] as JObject;
+                    if (pagination != null)
+                    {
+                        var returned = pagination["returnedComponents"]?.ToObject<int?>() ?? 0;
+                        var total = pagination["totalComponents"]?.ToObject<int?>() ?? 0;
+                        var page = pagination["page"]?.ToObject<int?>() ?? 1;
+                        var pageCount = pagination["pageCount"]?.ToObject<int?>() ?? 1;
+                        if (total > returned && total > 0)
+                        {
+                            this.CollectMessage(SHRuntimeMessageSeverity.Info, $"Returning {returned} of {total} components (page {page} of {pageCount}). Boundary connections to components outside this page are preserved.");
+                        }
+                    }
+
+                    this.names = toolResult["names"]?.ToObject<List<string>>() ?? new List<string>();
+                    this.guids = toolResult["guids"]?.ToObject<List<string>>() ?? new List<string>();
+                    this.json = toolResult["ghjson"]?.ToString() ?? string.Empty;
                 }
-
-                var componentNames = toolResult["names"]?.ToObject<List<string>>() ?? new List<string>();
-                var componentGuids = toolResult["guids"]?.ToObject<List<string>>() ?? new List<string>();
-                var json = toolResult["ghjson"]?.ToString() ?? string.Empty;
-
-                this.SetPersistentOutput("Names", componentNames, DA);
-                this.SetPersistentOutput("Guids", componentGuids, DA);
-                this.SetPersistentOutput("JSON", json, DA);
-
-                DA.SetDataList(0, componentNames);
-                DA.SetDataList(1, componentGuids);
-                DA.SetData(2, json);
+                catch (Exception ex)
+                {
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, $"gh_get failed: {ex.Message}");
+                }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                this.SetPersistentRuntimeMessage("gh_get_exception", GH_RuntimeMessageLevel.Error, ex.Message);
+                message = "GhGet processing complete";
+
+                this.parent.SetPersistentOutput("Names", this.names, DA);
+                this.parent.SetPersistentOutput("Guids", this.guids, DA);
+                this.parent.SetPersistentOutput("GhJSON", this.json, DA);
+
+                DA.SetDataList(0, this.names);
+                DA.SetDataList(1, this.guids);
+                DA.SetData(2, this.json);
             }
         }
     }
