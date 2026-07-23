@@ -19,6 +19,7 @@
 namespace SmartHopper.Infrastructure.Tests.AICall.Execution
 {
     using System;
+    using System.Collections.Generic;
     using System.Threading;
     using System.Threading.Tasks;
     using SmartHopper.Infrastructure.AICall.Execution;
@@ -149,9 +150,9 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Execution
         {
             public int DelayMs { get; set; }
 
-            public override (bool IsValid, System.Collections.Generic.List<Diagnostics.SHRuntimeMessage> Errors) IsValid()
+            public override (bool IsValid, List<SHRuntimeMessage> Errors) IsValid()
             {
-                return (true, new System.Collections.Generic.List<Diagnostics.SHRuntimeMessage>());
+                return (true, new List<SHRuntimeMessage>());
             }
 
             public override async Task<AIReturn> Exec(bool stream = false, CancellationToken cancellationToken = default)
