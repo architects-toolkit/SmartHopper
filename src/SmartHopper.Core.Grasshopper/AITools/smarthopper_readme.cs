@@ -194,6 +194,16 @@ Provider and model configuration in SmartHopper:
                     return """
 Knowledge base workflow:
 
+Discourse URL anatomy — IMPORTANT before choosing a tool:
+- Topic URL: /t/{slug}/{topicId} or /t/{slug}/{topicId}/{postNumber}
+  → topicId is the integer after the slug (e.g. 207407 in /t/my-topic/207407/44)
+  → postNumber (e.g. 44) is the 1-based position within the topic, NOT a global post id
+  → Use *_forum_topic_get with topic_id to fetch the topic; use max_posts to limit
+- Global post id: the numeric "id" field in a post object returned by *_forum_post_get or *_forum_search
+  → Only found in /posts/{id}.json API responses or the "id" key of search results
+  → Use *_forum_post_get only when you have this global id
+- Never pass a topicId or postNumber to *_forum_post_get — it will return the wrong post.
+
 For McNeel Discourse forum (discourse.mcneel.com):
 1) mcneel_forum_search: find candidate posts/topics.
 2) mcneel_forum_topic_get (topic_id) to read all posts in a topic; or mcneel_forum_post_get (global post id) for a single post by its id field.
@@ -201,16 +211,16 @@ For McNeel Discourse forum (discourse.mcneel.com):
 
 For Ladybug Tools Discourse forum (discourse.ladybug.tools):
 1) ladybug_forum_search: find candidate posts/topics.
-2) ladybug_forum_topic_get / ladybug_forum_post_get: retrieve the minimum useful content.
+2) ladybug_forum_topic_get (topic_id) / ladybug_forum_post_get (global post id): retrieve the minimum useful content.
 3) ladybug_forum_topic_summarize / ladybug_forum_post_summarize: summarize and extract actionable steps.
 
 For any other Discourse forum (requires base_url parameter):
 1) discourse_forum_search: find candidate posts/topics (requires base_url).
-2) discourse_forum_topic_get / discourse_forum_post_get: retrieve content (requires base_url).
+2) discourse_forum_topic_get (topic_id) / discourse_forum_post_get (global post id): retrieve content (requires base_url).
 3) discourse_forum_topic_summarize / discourse_forum_post_summarize: summarize (requires base_url).
 
 For general content:
-- web2md: read docs/pages by URL before citing or relying on them.
+- web2md: read docs/pages by URL before citing or relying on them. Note: web2md may fail or return placeholder text for pages that require JavaScript rendering (e.g. GitHub release pages served as SPAs). Prefer dedicated API tools when available.
 - file2md: convert local files to Markdown given a file path.
 """;
 
@@ -240,7 +250,7 @@ For canonical step-by-step workflows (create, edit, debug), call smarthopper_wor
 """;
 
                 default:
-                    return "Unknown topic. Call the `instruction_get` function again and specify the `topic` argument. Valid topics are: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, ladybug-forum, discourse-forum, research, web.";
+                    return "Unknown topic. Call the `smarthopper_readme` function again and specify the `topic` argument. Valid topics are: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, providers, mcneel-forum, ladybug-forum, discourse-forum, research, web. For canonical step-by-step workflows, call `smarthopper_workflows`.";
             }
         }
     }

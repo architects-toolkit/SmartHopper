@@ -73,6 +73,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
     {
         private static readonly Regex MultiBlankLineRegex = new Regex(@"(\r?\n){3,}", RegexOptions.Compiled);
         private static readonly Regex LangClassRegex = new Regex(@"(?:^|\s)(?:language|lang|highlight-source)-([A-Za-z0-9+#._-]+)", RegexOptions.Compiled);
+        private static readonly Regex CollapseWhitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled);
 
         public IEnumerable<string> SupportedExtensions => new[] { ".html", ".htm" };
 
@@ -81,7 +82,16 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             try
             {
                 var html = await File.ReadAllTextAsync(filePath, Encoding.UTF8).ConfigureAwait(false);
-                return await ConvertHtmlStringAsync(html, options).ConfigureAwait(false);
+
+                // Local HTML files should resolve relative URLs against the file path instead
+                // of the placeholder domain used by SmartReader when no base URL is supplied.
+                var localOptions = options?.Clone() ?? new FileConversionOptions();
+                if (string.IsNullOrWhiteSpace(localOptions.BaseUrl) && File.Exists(filePath))
+                {
+                    localOptions.BaseUrl = new Uri(Path.GetFullPath(filePath)).AbsoluteUri;
+                }
+
+                return await ConvertHtmlStringAsync(html, localOptions).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -215,6 +225,8 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 ResolveRelativeUrls(doc, baseUri);
             }
 
+            FlattenHeadingsInsideAnchors(doc);
+
             if (!options.IncludeImages)
             {
                 var imgs = doc.DocumentNode.SelectNodes("//img");
@@ -276,6 +288,31 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         node.SetAttributeValue(attrName, absolute.ToString());
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Removes <c>&lt;h1&gt;</c>–<c>&lt;h6&gt;</c> tags that are nested inside <c>&lt;a&gt;</c>
+        /// tags, replacing them with their normalized text content. ReverseMarkdown renders
+        /// headings as ATX <c>#</c> markers; when a heading sits inside a link, those markers
+        /// leak into the link text and produce invalid Markdown such as
+        /// <c>[## Title](url)</c>. Flattening the heading keeps only the readable title as the
+        /// link text.
+        /// </summary>
+        private static void FlattenHeadingsInsideAnchors(HtmlDocument doc)
+        {
+            var headingsInAnchors = doc.DocumentNode.SelectNodes("//a//h1|//a//h2|//a//h3|//a//h4|//a//h5|//a//h6");
+            if (headingsInAnchors == null)
+            {
+                return;
+            }
+
+            foreach (var heading in headingsInAnchors.ToList())
+            {
+                var text = heading.InnerText ?? string.Empty;
+                text = CollapseWhitespaceRegex.Replace(text.Trim(), " ");
+                var replacement = doc.CreateTextNode(text);
+                heading.ParentNode?.ReplaceChild(replacement, heading);
             }
         }
 

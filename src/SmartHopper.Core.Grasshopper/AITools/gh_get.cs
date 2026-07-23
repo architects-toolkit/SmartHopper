@@ -35,6 +35,7 @@ using SmartHopper.Infrastructure.AIContext;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -48,6 +49,64 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Name of the AI tool provided by this class.
         /// </summary>
         private readonly string toolName = "gh_get";
+
+        /// <summary>
+        /// Common metadata for all gh_get variants.
+        /// </summary>
+        private AITool CreateGhGetTool(
+            string name,
+            string description,
+            string parametersSchema,
+            Func<AIToolCall, Task<AIReturn>> execute,
+            bool includeInternalizedData = false,
+            bool includePagination = true)
+        {
+            var tags = new List<string> { "canvas", "components", "read-only", "ghjson" };
+            if (includeInternalizedData)
+            {
+                tags.Add("data-intensive");
+            }
+
+            var outputSchema = @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Serialized Grasshopper document in GhJSON format."" }, ""runtimeData"": { ""type"": ""object"", ""description"": ""Volatile data values for requested components."" }, ""pagination"": { ""type"": ""object"", ""description"": ""Pagination metadata."" }, ""serializationQuality"": { ""type"": ""object"" } } }";
+
+            var schema = includePagination ? AddPaginationToSchema(parametersSchema) : parametersSchema;
+
+            return new AITool(
+                name: name,
+                description: description,
+                category: "Components",
+                parametersSchema: schema,
+                execute: execute,
+                mutatesCanvas: false,
+                tags: tags,
+                outputSchema: outputSchema,
+                annotations: new AIToolAnnotations(readOnlyHint: true));
+        }
+
+        /// <summary>
+        /// Adds pagination parameters to a JSON schema when they are not already present.
+        /// </summary>
+        private static string AddPaginationToSchema(string parametersSchema)
+        {
+            var obj = JObject.Parse(parametersSchema);
+            var properties = obj["properties"] as JObject;
+            if (properties == null)
+            {
+                return parametersSchema;
+            }
+
+            if (!properties.ContainsKey("page"))
+            {
+                properties["page"] = JObject.Parse(@"{ ""type"": ""integer"", ""default"": 1, ""minimum"": 1, ""description"": ""One-based page index for paginated results. Default is 1."" }");
+            }
+
+            if (!properties.ContainsKey("pageSize"))
+            {
+                properties["pageSize"] = JObject.Parse(@"{ ""type"": ""integer"", ""default"": 25, ""minimum"": 1, ""description"": ""Number of components per page. Default is 25."" }");
+            }
+
+            return obj.ToString(Formatting.None);
+        }
 
         /// <summary>
         /// Returns a list of AI tools provided by this plugin.

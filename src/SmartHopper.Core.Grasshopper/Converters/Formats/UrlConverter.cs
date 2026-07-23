@@ -200,8 +200,26 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
                     Debug.WriteLine($"[UrlConverter] Fetched HTML from {url}. Length: {html.Length}");
 
+                    sawPasswordField = HasPasswordField(html);
+
+                    if (LooksLikeBotChallenge(html))
+                    {
+                        return FileConversionResult.Failure(
+                            "url",
+                            $"The page at '{uri}' returned a bot/human-verification challenge instead of content.",
+                            FileConversionFailureReason.BotChallenge);
+                    }
+
+                    if (sawPasswordField && HasLoginPhrase(html))
+                    {
+                        return FileConversionResult.Failure(
+                            "url",
+                            $"The page at '{uri}' requires authentication (login wall) and did not return readable content.",
+                            FileConversionFailureReason.LoginRequired);
+                    }
+
                     // Pass the fetched URL as base URL so relative links/images become absolute.
-                    var htmlOptions = options?.Clone() ?? new FileConversionOptions();
+                    var htmlOptions = effectiveOptions.Clone();
                     htmlOptions.BaseUrl = uri.ToString();
 
                     // Save HTML to temp file for HtmlConverter
@@ -249,6 +267,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 result.Metadata["source"] = url;
                 result.Metadata["format"] = contentFormat;
                 result.IsSuccess = true;
+                result.FailureReason = FileConversionFailureReason.None;
 
                 return result;
             }

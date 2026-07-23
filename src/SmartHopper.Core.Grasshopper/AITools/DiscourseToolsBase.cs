@@ -102,7 +102,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 description: $"Retrieve a filtered {this.ForumName} forum post by ID (username, date, title, raw markdown).",
                 category: "Knowledge",
                 parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"id\": {{ \"type\": \"integer\", \"description\": \"ID of the forum post to fetch.\" }} }}, \"required\": [{baseUrlRequired}\"id\"] }}",
-                execute: this.GetPostAsync);
+                execute: this.GetPostAsync,
+                mutatesCanvas: false,
+                tags: new[] { "knowledge", "forum", "web", "read-only", "external" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""post"": { ""type"": ""object"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
 
             yield return new AITool(
                 name: summarizePostToolName,
@@ -121,7 +125,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 description: $"Retrieve all posts in a {this.ForumName} forum topic by topic ID (title, URL, posts array).",
                 category: "Knowledge",
                 parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"topic_id\": {{ \"type\": \"integer\", \"description\": \"ID of the forum topic to fetch.\" }}, \"max_posts\": {{ \"type\": \"integer\", \"description\": \"Optional maximum number of posts to return. If omitted, all available posts are returned up to the server limit.\" }} }}, \"required\": [{baseUrlRequired}\"topic_id\"] }}",
-                execute: this.GetTopicAsync);
+                execute: this.GetTopicAsync,
+                mutatesCanvas: false,
+                tags: new[] { "knowledge", "forum", "web", "read-only", "external" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""topic"": { ""type"": ""object"" }, ""posts"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
 
             yield return new AITool(
                 name: summarizeTopicToolName,
@@ -140,7 +148,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 description: $"Search {this.ForumName} forum posts by query and return matching results.",
                 category: "Knowledge",
                 parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"query\": {{ \"type\": \"string\", \"description\": \"Search query for the forum.\" }} }}, \"required\": [{baseUrlRequired}\"query\"] }}",
-                execute: this.SearchAsync);
+                execute: this.SearchAsync,
+                mutatesCanvas: false,
+                tags: new[] { "knowledge", "forum", "web", "search", "read-only", "external" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""results"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
         }
 
         /// <summary>
@@ -188,7 +200,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolCall.SkipMetricsValidation = true;
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
 
                 string? baseUrl = this.GetBaseUrl(args);
                 if (!this.ValidateBaseUrl(baseUrl, output))
@@ -245,12 +257,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.GetArgumentsOrEmpty();
-
-                string? baseUrl = this.GetBaseUrl(args);
-                if (!this.ValidateBaseUrl(baseUrl, output))
-                {
-                    return output;
-                }
 
                 string? baseUrl = this.GetBaseUrl(args);
                 if (!this.ValidateBaseUrl(baseUrl, output))
@@ -414,12 +420,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                string? baseUrl = this.GetBaseUrl(args);
-                if (!this.ValidateBaseUrl(baseUrl, output))
-                {
-                    return output;
-                }
-
                 int? topicIdNullable = args["topic_id"]?.Value<int>();
                 if (!topicIdNullable.HasValue)
                 {
@@ -494,12 +494,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.GetArgumentsOrEmpty();
-
-                string? baseUrl = this.GetBaseUrl(args);
-                if (!this.ValidateBaseUrl(baseUrl, output))
-                {
-                    return output;
-                }
 
                 string? baseUrl = this.GetBaseUrl(args);
                 if (!this.ValidateBaseUrl(baseUrl, output))
@@ -691,11 +685,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private async Task<JObject> FetchPostAsync(string baseUrl, int id)
         {
             using var httpClient = new HttpClient();
-            var postUri = new Uri($"{baseUrl}/posts/{id}.json");
-            var response = await httpClient.GetAsync(postUri).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
-            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            return JObject.Parse(content);
+            return await DiscourseForumService.FetchPostAsync(httpClient, baseUrl, id).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -713,49 +703,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         private async Task<JObject> FetchTopicAsync(string baseUrl, int topicId)
         {
-            return await this.FetchTopicWithQueryAsync(baseUrl, topicId, includeRaw: true, print: false).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Helper method to fetch a topic with query parameters.
-        /// </summary>
-        private async Task<JObject> FetchTopicWithQueryAsync(string baseUrl, int topicId, bool includeRaw, bool print)
-        {
             using var httpClient = new HttpClient();
-
-            var queryParts = new List<string>();
-            if (includeRaw)
-            {
-                queryParts.Add("include_raw=1");
-            }
-
-            if (print)
-            {
-                queryParts.Add("print=true");
-            }
-
-            var builder = new StringBuilder($"{baseUrl}/t/{topicId}.json");
-            if (queryParts.Count > 0)
-            {
-                builder.Append('?');
-                builder.Append(string.Join("&", queryParts));
-            }
-
-            var topicUri = new Uri(builder.ToString());
-            var response = await httpClient.GetAsync(topicUri).ConfigureAwait(false);
-            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                string serverMessage = DiscourseUtils.ExtractDiscourseErrorMessage(content);
-                string errorMessage = string.IsNullOrWhiteSpace(serverMessage)
-                    ? $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}"
-                    : $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}: {serverMessage}";
-
-                throw new HttpRequestException(errorMessage);
-            }
-
-            return JObject.Parse(content);
+            return await DiscourseForumService.FetchTopicAsync(httpClient, baseUrl, topicId, includeRaw: true).ConfigureAwait(false);
         }
 
         /// <summary>

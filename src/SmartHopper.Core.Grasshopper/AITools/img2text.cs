@@ -86,7 +86,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 execute: this.DescribeImageAsync,
                 requiredCapabilities: this.toolCapabilityRequirements,
-                buildRequest: this.BuildDescribeRequest);
+                buildRequest: this.BuildDescribeRequest,
+                mutatesCanvas: false,
+                tags: new[] { "image", "vision", "text", "read-only", "external" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""string"", ""description"": ""Text description or analysis of the image."" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
         }
 
         /// <summary>
@@ -139,7 +143,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private AIRequestCall BuildDescribeRequest(AIToolCall toolCall)
         {
             AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-            var args = toolInfo.Arguments ?? new JObject();
+            var args = toolInfo.GetArgumentsOrEmpty();
 
             var request = new AIRequestCall();
             request.Initialize(

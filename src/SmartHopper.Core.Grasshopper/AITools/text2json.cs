@@ -71,7 +71,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Generates a JSON object from a prompt, conforming strictly to a provided JSON Schema",
+                description: "Generates a JSON object from a prompt, conforming strictly to a provided JSON Schema. Example: text2json({ prompt: 'Describe a chair', jsonSchema: '{\"type\":\"object\",\"properties\":{\"material\":{\"type\":\"string\"}}}' }).",
                 category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -93,7 +93,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 execute: this.GenerateJson,
                 requiredCapabilities: this.toolCapabilityRequirements,
-                buildRequest: this.BuildGenerateRequest);
+                buildRequest: this.BuildGenerateRequest,
+                mutatesCanvas: false,
+                tags: new[] { "text", "json", "data-processing", "read-only" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""object"", ""description"": ""Generated JSON object conforming to the provided schema."" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         /// <summary>
@@ -105,7 +109,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private AIRequestCall BuildGenerateRequest(AIToolCall toolCall)
         {
             AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-            var args = toolInfo.Arguments ?? new JObject();
+            var args = toolInfo.GetArgumentsOrEmpty();
             string prompt = args["prompt"]?.ToString();
             string instructions = args["instructions"]?.ToString();
             string jsonSchema = args["jsonSchema"]?.ToString();
@@ -147,7 +151,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine("[JsonTools] Running GenerateJson tool");
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 string? prompt = args["prompt"]?.ToString();
                 string? instructions = args["instructions"]?.ToString();
                 string? jsonSchema = args["jsonSchema"]?.ToString();

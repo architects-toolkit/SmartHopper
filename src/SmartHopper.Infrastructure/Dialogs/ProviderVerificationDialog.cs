@@ -23,8 +23,8 @@ using System.Threading.Tasks;
 using Eto.Drawing;
 using Eto.Forms;
 using Rhino.UI;
-using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Properties;
+using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Infrastructure.Dialogs
