@@ -37,8 +37,8 @@ using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.Diagnostics;
+
 using CommonDrawing = System.Drawing;
-using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Components.Text
 {

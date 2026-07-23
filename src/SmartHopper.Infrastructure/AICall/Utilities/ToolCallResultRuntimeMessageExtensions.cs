@@ -36,7 +36,7 @@ namespace SmartHopper.Infrastructure.AICall.Utilities
         /// </summary>
         /// <param name="toolResult">The envelope to extract messages from.</param>
         /// <returns>A list of extracted SHRuntimeMessage objects, or empty list if none found.</returns>
-        public static List<SHRuntimeMessage> ExtractMessages(ToolCallResult toolResult)
+        public static List<SHRuntimeMessage> ExtractMessages(this ToolCallResult toolResult)
         {
             var messages = new List<SHRuntimeMessage>();
             if (toolResult == null)
