@@ -69,28 +69,6 @@ namespace SmartHopper.Components.Img
         };
 
         /// <inheritdoc/>
-        public override IEnumerable<string> Keywords => new[] {
-            "AI Image Generate",
-            "AIImgGen",
-            "AIImageGen",
-            "AIImgGenerate",
-            "AIImageGenerate",
-            "text2img",
-            "Image Generate",
-            "Generate Image",
-            "Create Image",
-            "AI Picture",
-            "Picture Generate",
-            "Image AI",
-            "AI Art",
-            "AI Drawing",
-            "DALL-E",
-            "Image Synthesis",
-            "Text to Image",
-            "Prompt to Image",
-        };
-
-        /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2img" };
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
