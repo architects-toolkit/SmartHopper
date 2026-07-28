@@ -38,6 +38,8 @@
     </PackageReference>
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="7.0.3" />
+    <!-- Pin patched version to mitigate CVE-2024-38095 (GHSA-447r-wph3-92pm). -->
+    <PackageReference Include="System.Formats.Asn1" Version="8.0.1" />
   </ItemGroup>
   <!-- For Windows only builds -->
   <PropertyGroup Condition="$(TargetFramework.Contains('-windows'))">
@@ -84,7 +86,7 @@
     Run that script after generating or updating the signing key.
   -->
   <PropertyGroup>
-    <SmartHopperPublicKey>This value is automatically replaced by the build tooling before official builds.</SmartHopperPublicKey>
+    <SmartHopperPublicKey>0024000004800000940000000602000000240000525341310004000001000100216d84bfd52fc24b385543b738303c8a73f053919c9bf5b399f3fc9f65d3d68cf4c19c8bad9bd3bf1230cc0d8df19caeeafffe442bf86fb136056f26234cdc00b0176bec57ad450623704c139d103b3ce0cd1b166b2edc99d07501ef9e572f440bd78465b5033ebb425aaf2099a8d187854c3f0eff10c6bdaa403460dd00e9a3</SmartHopperPublicKey>
   </PropertyGroup>
   <ItemGroup>
     <!-- Core assemblies -->
