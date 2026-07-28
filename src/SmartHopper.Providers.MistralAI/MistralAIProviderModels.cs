@@ -289,22 +289,11 @@ namespace SmartHopper.Providers.MistralAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "voxtral-mini-tts-mellon-greek-2606-solutions",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.AudioOutput,
-                    Default = AICapability.Text2Speech,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9930,
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "voxtral-small-2507",
                     Capabilities = AICapability.AudioInput | AICapability.TextOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9925,
+                    Rank = 9930,
                     ContextLimit = 32000,
                     Aliases = new List<string> { "voxtral-small-latest" },
                 },
@@ -534,6 +523,18 @@ namespace SmartHopper.Providers.MistralAI
                     Deprecated = true,
                     Rank = -80,
                     Aliases = new List<string> { "voxtral-mini-2507" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "voxtral-mini-tts-mellon-greek-2606-solutions",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.AudioOutput,
+                    Default = AICapability.Text2Speech,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -85,
                 }
             };
 
