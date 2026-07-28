@@ -64,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - Replaced the non-Windows file-based XOR obfuscation for the encryption master key with macOS Keychain storage (DPAPI unchanged on Windows). This removes the predictable `System.Random` seed derived from the user and machine names. (VULN-002)
+- Fixed `SmartHopperSettings.Decrypt` and `DecryptLegacy` so they return `null` instead of the original (possibly sensitive) ciphertext when the encryption key is missing or decryption fails. (VULN-003)
 
 ## [2.0.0-dev.260705] - 2026-07-05
 

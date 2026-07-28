@@ -168,7 +168,7 @@ namespace SmartHopper.Infrastructure.Settings
         /// <param name="providerName">The name of the provider.</param>
         /// <param name="settingName">The name of the setting.</param>
         /// <returns>The setting value, or null if not found.</returns>
-        internal object GetSetting(string providerName, string settingName)
+        internal object? GetSetting(string providerName, string settingName)
         {
             // Initialize recursion guard if needed
             if (_currentlyGettingSettings == null)
@@ -467,11 +467,11 @@ namespace SmartHopper.Infrastructure.Settings
         }
 
         /// <summary>
-        /// Decrypts a string using OS secure store or legacy decryption with automatic migration.
+        /// Decrypts a string using OS secure store or legacy decryption.
         /// </summary>
         /// <param name="encryptedText">The encrypted text.</param>
-        /// <returns>The decrypted string.</returns>
-        private static string Decrypt(string encryptedText)
+        /// <returns>The decrypted string, or <c>null</c> if decryption fails.</returns>
+        private static string? Decrypt(string encryptedText)
         {
             if (string.IsNullOrEmpty(encryptedText))
             {
@@ -491,7 +491,7 @@ namespace SmartHopper.Infrastructure.Settings
                     else
                     {
                         Debug.WriteLine("[Decryption] Encryption key not found for decryption");
-                        return encryptedText;
+                        return null;
                     }
                 }
                 else
@@ -503,9 +503,7 @@ namespace SmartHopper.Infrastructure.Settings
             catch (Exception ex)
             {
                 Debug.WriteLine($"[Decryption] Error decrypting: {ex.Message}");
-
-                // If decryption fails, return the original string
-                return encryptedText;
+                return null;
             }
         }
 
@@ -727,7 +725,9 @@ namespace SmartHopper.Infrastructure.Settings
         /// <summary>
         /// Legacy AES decryption for migration support.
         /// </summary>
-        private static string DecryptLegacy(string encryptedText)
+        /// <param name="encryptedText">The encrypted text.</param>
+        /// <returns>The decrypted string, or <c>null</c> if decryption fails.</returns>
+        private static string? DecryptLegacy(string encryptedText)
         {
             try
             {
@@ -750,7 +750,7 @@ namespace SmartHopper.Infrastructure.Settings
             catch (Exception ex)
             {
                 Debug.WriteLine($"[Legacy Decryption] Error: {ex.Message}");
-                return encryptedText;
+                return null;
             }
         }
 
@@ -819,6 +819,11 @@ namespace SmartHopper.Infrastructure.Settings
                         {
                             // Decrypt with legacy method
                             var plainText = DecryptLegacy(encryptedValue);
+
+                            if (string.IsNullOrEmpty(plainText))
+                            {
+                                continue;
+                            }
 
                             // Re-encrypt with OS secure store method
                             var newEncryptedValue = EncryptWithSecureKey(plainText, key);
