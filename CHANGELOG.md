@@ -61,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the missing `JSON Set Value` component (`JsonSetValueComponent`) for non-AI JSON editing.
 - Replaced placeholder/low-entropy component GUIDs in `AI Text To Text List` and `Apply GhPatch` with random GUIDs to avoid future collisions.
 
+### Security
+
+- Replaced the non-Windows file-based XOR obfuscation for the encryption master key with macOS Keychain storage (DPAPI unchanged on Windows). This removes the predictable `System.Random` seed derived from the user and machine names. (VULN-002)
+
 ## [2.0.0-dev.260705] - 2026-07-05
 
 Many thanks to the following contributors to this release:

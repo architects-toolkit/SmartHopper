@@ -622,7 +622,7 @@ namespace SmartHopper.Infrastructure.Settings
         }
 
         /// <summary>
-        /// Stores data securely using OS-specific protection (DPAPI on Windows, file-based on other platforms).
+        /// Stores data securely using OS-specific protection (DPAPI on Windows, macOS Keychain on other platforms).
         /// </summary>
         /// <param name="keyName">The name/identifier for the data.</param>
         /// <param name="data">The data to store securely.</param>
@@ -639,33 +639,12 @@ namespace SmartHopper.Infrastructure.Settings
                 Debug.WriteLine($"[SecureStore] Stored data '{keyName}' using DPAPI in Windows Registry");
                 return true;
 #else
-                // Use file-based storage on other platforms with basic protection
-                var secureDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".smarthopper", "secure");
-                Directory.CreateDirectory(secureDir);
-
-                var filePath = Path.Combine(secureDir, $"{keyName}.dat");
-
-                // Add basic obfuscation (not cryptographically secure, but better than plaintext)
-                var obfuscated = new byte[data.Length];
-                var seed = Environment.UserName.GetHashCode(StringComparison.Ordinal) ^ Environment.MachineName.GetHashCode(StringComparison.Ordinal);
-                var rng = new Random(seed);
-
-                for (int i = 0; i < data.Length; i++)
-                {
-                    obfuscated[i] = (byte)(data[i] ^ (rng.Next() & 0xFF));
-                }
-
-                File.WriteAllBytes(filePath, obfuscated);
-
-                // Set restrictive file permissions (Unix-like systems)
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
-                    // chmod 600 equivalent
-                    File.SetUnixFileMode(filePath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+                    return MacKeychainSecureStorage.Store(keyName, data);
                 }
 
-                Debug.WriteLine($"[SecureStore] Stored data '{keyName}' using file-based storage with obfuscation");
-                return true;
+                return false;
 #endif
             }
             catch (Exception ex)
@@ -676,7 +655,7 @@ namespace SmartHopper.Infrastructure.Settings
         }
 
         /// <summary>
-        /// Retrieves data securely using OS-specific protection (DPAPI on Windows, file-based on other platforms).
+        /// Retrieves data securely using OS-specific protection (DPAPI on Windows, macOS Keychain on other platforms).
         /// </summary>
         /// <param name="keyName">The name/identifier for the data.</param>
         /// <returns>The retrieved data, or null if not found or error.</returns>
@@ -699,29 +678,12 @@ namespace SmartHopper.Infrastructure.Settings
                 Debug.WriteLine($"[SecureStore] Retrieved data '{keyName}' using DPAPI from Windows Registry");
                 return data;
 #else
-                // Use file-based storage on other platforms
-                var secureDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".smarthopper", "secure");
-                var filePath = Path.Combine(secureDir, $"{keyName}.dat");
-
-                if (!File.Exists(filePath))
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
-                    return null;
+                    return MacKeychainSecureStorage.Retrieve(keyName);
                 }
 
-                var obfuscated = File.ReadAllBytes(filePath);
-
-                // Reverse the obfuscation
-                var data = new byte[obfuscated.Length];
-                var seed = Environment.UserName.GetHashCode(StringComparison.Ordinal) ^ Environment.MachineName.GetHashCode(StringComparison.Ordinal);
-                var rng = new Random(seed);
-
-                for (int i = 0; i < obfuscated.Length; i++)
-                {
-                    data[i] = (byte)(obfuscated[i] ^ (rng.Next() & 0xFF));
-                }
-
-                Debug.WriteLine($"[SecureStore] Retrieved data '{keyName}' using file-based storage with deobfuscation");
-                return data;
+                return null;
 #endif
             }
             catch (Exception ex)
