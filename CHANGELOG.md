@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-dev.260802] - 2026-08-02
+
 ### Added
 
 - Backported DeepSeek provider settings from hotfix 1.4.4: `ReasoningEffort` and `TopP` settings, plus `reasoning_effort` per-request extra support.
@@ -69,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `SmartHopperSettings.Decrypt` so it returns `null` instead of the original (possibly sensitive) ciphertext when the encryption key is missing or decryption fails. (VULN-003)
 - Sanitised HTML rendered in the WebView chat before it is inserted into the DOM by embedding DOMPurify and applying a Content-Security-Policy, closing stored/reflected XSS vectors through `innerHTML`. (VULN-009)
 - Pinned transitive package versions to patched releases: `AngleSharp` 1.5.0, `System.Formats.Asn1` 8.0.1, and `System.Text.RegularExpressions` 4.3.1, removing the NuGet vulnerabilities flagged in VULN-012.
-- Removed the hardcoded `LegacyKey`/`LegacyIv` and the legacy `EncryptLegacy`/`DecryptLegacy`/migration code paths from `SmartHopperSettings`. Secrets are now refused when the OS secure store is unavailable instead of falling back to a hardcoded key or plaintext. (VULN-001, VULN-003)
+- Removed the hardcoded `LegacyKey`/`LegacyIv` and the legacy `EncryptLegacy`/`DecryptLegacy`/migration code paths from `SmartHopperSettings`, bumped the default `EncryptionVersion` to 2, and removed migration triggers. Secrets are now refused when the OS secure store is unavailable instead of falling back to a hardcoded key or plaintext. (VULN-001, VULN-003)
 
 ## [2.0.0-dev.260705] - 2026-07-05
 
