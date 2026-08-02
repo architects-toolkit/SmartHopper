@@ -40,9 +40,11 @@ namespace SmartHopper.Infrastructure.Settings
             "Grasshopper",
             "SmartHopper.json");
 
-        // Legacy encryption keys for migration purposes only
-        private static readonly byte[] LegacyKey = new byte[] { 132, 42, 53, 84, 75, 46, 97, 88, 109, 110, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 };
-        private static readonly byte[] LegacyIv = new byte[] { 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116 };
+        // Prefix for the current OS secure store encrypted format.
+        private const string SecurePrefix = "SH03:";
+
+        // Legacy prefix used by earlier releases (still accepted on decrypt for backward compatibility).
+        private const string LegacySecurePrefix = "SH02:";
 
         // Recursion guard to prevent infinite loops during settings access
         [ThreadStatic]
@@ -135,10 +137,10 @@ namespace SmartHopper.Infrastructure.Settings
         public event EventHandler? SettingsSaved;
 
         /// <summary>
-        /// Gets or sets version of the encryption method used. 1 = legacy AES, 2 = OS secure store.
+        /// Gets or sets version of the encryption method used. 3 = OS secure store (SH03:).
         /// </summary>
         [JsonProperty]
-        public int EncryptionVersion { get; set; } = 1;
+        public int EncryptionVersion { get; set; } = 3;
 
         private static SmartHopperSettings? instance;
 
@@ -150,8 +152,7 @@ namespace SmartHopper.Infrastructure.Settings
         /// <summary>
         /// Initializes a new instance of the <see cref="SmartHopperSettings"/> class with default values.
         /// </summary>
-        /// <param name="encryptionVersion">The encryption version to use (1 = legacy AES, 2 = OS secure store). Defaults to 1 for backward compatibility.</param>
-        public SmartHopperSettings(int encryptionVersion = 1)
+        public SmartHopperSettings()
         {
             this.ProviderSettings = new Dictionary<string, Dictionary<string, object>>();
             this.DebounceTime = 1000;
@@ -159,7 +160,7 @@ namespace SmartHopper.Infrastructure.Settings
             this.TrustedProviders = new Dictionary<string, bool>();
             this.ProviderIntegrityCheckMode = ProviderIntegrityCheckMode.Soft; // Default to soft verification
             this.SmartHopperAssistant = new SmartHopperAssistantSettings();
-            this.EncryptionVersion = encryptionVersion;
+            this.EncryptionVersion = 3;
         }
 
         /// <summary>
@@ -168,7 +169,7 @@ namespace SmartHopper.Infrastructure.Settings
         /// <param name="providerName">The name of the provider.</param>
         /// <param name="settingName">The name of the setting.</param>
         /// <returns>The setting value, or null if not found.</returns>
-        internal object GetSetting(string providerName, string settingName)
+        internal object? GetSetting(string providerName, string settingName)
         {
             // Initialize recursion guard if needed
             if (_currentlyGettingSettings == null)
@@ -195,8 +196,14 @@ namespace SmartHopper.Infrastructure.Settings
 
                     if (descriptor?.IsSecret == true && value != null)
                     {
+                        var encrypted = value.ToString();
+                        if (string.IsNullOrEmpty(encrypted))
+                        {
+                            return null;
+                        }
+
                         Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage (secret)");
-                        return Decrypt(value.ToString());
+                        return Decrypt(encrypted);
                     }
 
                     Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage = {value}");
@@ -230,19 +237,6 @@ namespace SmartHopper.Infrastructure.Settings
         /// <param name="value">The setting value.</param>
         internal void SetSetting(string providerName, string settingName, object value)
         {
-            // Ensure migration is triggered before storing new values
-            if (this.EncryptionVersion < 2)
-            {
-                try
-                {
-                    this.MigrateEncryption();
-                }
-                catch (Exception migrationEx)
-                {
-                    Debug.WriteLine($"[SetSetting] Migration failed: {migrationEx.Message}");
-                }
-            }
-
             if (!this.ProviderSettings.TryGetValue(providerName, out Dictionary<string, object>? settingsValue))
             {
                 settingsValue = new Dictionary<string, object>();
@@ -254,8 +248,25 @@ namespace SmartHopper.Infrastructure.Settings
 
             if (descriptor?.IsSecret == true && value != null)
             {
-                Debug.WriteLine($"[Settings] Storing encrypted secret for {providerName}.{settingName}");
-                settingsValue[settingName] = Encrypt(value.ToString());
+                var secret = value.ToString();
+                if (string.IsNullOrEmpty(secret))
+                {
+                    settingsValue.Remove(settingName);
+                }
+                else
+                {
+                    Debug.WriteLine($"[Settings] Storing encrypted secret for {providerName}.{settingName}");
+                    try
+                    {
+                        settingsValue[settingName] = Encrypt(secret);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Broad catch is intentional: any encryption failure must not leave the secret in plaintext.
+                        Debug.WriteLine($"[Settings] Refusing to store secret for {providerName}.{settingName}: {ex.Message}");
+                        settingsValue.Remove(settingName);
+                    }
+                }
             }
             else
             {
@@ -438,7 +449,8 @@ namespace SmartHopper.Infrastructure.Settings
         /// Encrypts a string using OS secure store (DPAPI/Keychain) protected key.
         /// </summary>
         /// <param name="plainText">The plain text to encrypt.</param>
-        /// <returns>The encrypted string.</returns>
+        /// <returns>The encrypted string, or the original value if it is null or empty.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the OS secure store is unavailable or encryption fails.</exception>
         private static string Encrypt(string plainText)
         {
             if (string.IsNullOrEmpty(plainText))
@@ -446,32 +458,21 @@ namespace SmartHopper.Infrastructure.Settings
                 return plainText;
             }
 
-            try
+            var key = GetOrCreateEncryptionKey();
+            if (key == null)
             {
-                var key = GetOrCreateEncryptionKey();
-                if (key == null)
-                {
-                    Debug.WriteLine("[Encryption] Could not get encryption key, using legacy encryption");
-                    return EncryptLegacy(plainText);
-                }
-
-                return EncryptWithSecureKey(plainText, key);
+                throw new InvalidOperationException("Cannot encrypt setting: OS secure store is unavailable.");
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[Encryption] Error encrypting with secure key: {ex.Message}");
 
-                // Fallback to legacy encryption
-                return EncryptLegacy(plainText);
-            }
+            return EncryptWithSecureKey(plainText, key);
         }
 
         /// <summary>
-        /// Decrypts a string using OS secure store or legacy decryption with automatic migration.
+        /// Decrypts a string using the OS secure store protected key.
         /// </summary>
         /// <param name="encryptedText">The encrypted text.</param>
-        /// <returns>The decrypted string.</returns>
-        private static string Decrypt(string encryptedText)
+        /// <returns>The decrypted string, or <c>null</c> if decryption fails or the format is unrecognized.</returns>
+        private static string? Decrypt(string encryptedText)
         {
             if (string.IsNullOrEmpty(encryptedText))
             {
@@ -480,32 +481,30 @@ namespace SmartHopper.Infrastructure.Settings
 
             try
             {
-                // Try OS secure store decryption first (new format starts with "SH02:")
-                if (encryptedText.StartsWith("SH02:"))
+                // Accept the current secure prefix (SH03:) and the legacy prefix (SH02:) for backward compatibility.
+                if (encryptedText.StartsWith(SecurePrefix, StringComparison.Ordinal) ||
+                    encryptedText.StartsWith(LegacySecurePrefix, StringComparison.Ordinal))
                 {
                     var key = GetOrCreateEncryptionKey();
                     if (key != null)
                     {
-                        return DecryptWithSecureKey(encryptedText.Substring(5), key);
+                        return DecryptWithSecureKey(encryptedText.Substring(SecurePrefix.Length), key);
                     }
                     else
                     {
                         Debug.WriteLine("[Decryption] Encryption key not found for decryption");
-                        return encryptedText;
+                        return null;
                     }
                 }
-                else
-                {
-                    // Try legacy decryption for backwards compatibility
-                    return DecryptLegacy(encryptedText);
-                }
+
+                // Unrecognized or unsupported format.
+                Debug.WriteLine("[Decryption] Unrecognized or legacy setting encountered and ignored.");
+                return null;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[Decryption] Error decrypting: {ex.Message}");
-
-                // If decryption fails, return the original string
-                return encryptedText;
+                return null;
             }
         }
 
@@ -559,7 +558,7 @@ namespace SmartHopper.Infrastructure.Settings
         /// </summary>
         /// <param name="plainText">The plain text to encrypt.</param>
         /// <param name="key">The encryption key from OS secure store.</param>
-        /// <returns>The encrypted string with SH02: prefix.</returns>
+        /// <returns>The encrypted string with SH03: prefix.</returns>
         private static string EncryptWithSecureKey(string plainText, byte[] key)
         {
             using (var aes = Aes.Create())
@@ -584,7 +583,7 @@ namespace SmartHopper.Infrastructure.Settings
                 result.AddRange(aes.IV);
                 result.AddRange(encryptedData);
 
-                return "SH02:" + Convert.ToBase64String(result.ToArray());
+                return SecurePrefix + Convert.ToBase64String(result.ToArray());
             }
         }
 
@@ -622,7 +621,7 @@ namespace SmartHopper.Infrastructure.Settings
         }
 
         /// <summary>
-        /// Stores data securely using OS-specific protection (DPAPI on Windows, file-based on other platforms).
+        /// Stores data securely using OS-specific protection (DPAPI on Windows, macOS Keychain on other platforms).
         /// </summary>
         /// <param name="keyName">The name/identifier for the data.</param>
         /// <param name="data">The data to store securely.</param>
@@ -639,33 +638,12 @@ namespace SmartHopper.Infrastructure.Settings
                 Debug.WriteLine($"[SecureStore] Stored data '{keyName}' using DPAPI in Windows Registry");
                 return true;
 #else
-                // Use file-based storage on other platforms with basic protection
-                var secureDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".smarthopper", "secure");
-                Directory.CreateDirectory(secureDir);
-
-                var filePath = Path.Combine(secureDir, $"{keyName}.dat");
-
-                // Add basic obfuscation (not cryptographically secure, but better than plaintext)
-                var obfuscated = new byte[data.Length];
-                var seed = Environment.UserName.GetHashCode(StringComparison.Ordinal) ^ Environment.MachineName.GetHashCode(StringComparison.Ordinal);
-                var rng = new Random(seed);
-
-                for (int i = 0; i < data.Length; i++)
-                {
-                    obfuscated[i] = (byte)(data[i] ^ (rng.Next() & 0xFF));
-                }
-
-                File.WriteAllBytes(filePath, obfuscated);
-
-                // Set restrictive file permissions (Unix-like systems)
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
-                    // chmod 600 equivalent
-                    File.SetUnixFileMode(filePath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+                    return MacKeychainSecureStorage.Store(keyName, data);
                 }
 
-                Debug.WriteLine($"[SecureStore] Stored data '{keyName}' using file-based storage with obfuscation");
-                return true;
+                return false;
 #endif
             }
             catch (Exception ex)
@@ -676,7 +654,7 @@ namespace SmartHopper.Infrastructure.Settings
         }
 
         /// <summary>
-        /// Retrieves data securely using OS-specific protection (DPAPI on Windows, file-based on other platforms).
+        /// Retrieves data securely using OS-specific protection (DPAPI on Windows, macOS Keychain on other platforms).
         /// </summary>
         /// <param name="keyName">The name/identifier for the data.</param>
         /// <returns>The retrieved data, or null if not found or error.</returns>
@@ -699,29 +677,12 @@ namespace SmartHopper.Infrastructure.Settings
                 Debug.WriteLine($"[SecureStore] Retrieved data '{keyName}' using DPAPI from Windows Registry");
                 return data;
 #else
-                // Use file-based storage on other platforms
-                var secureDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".smarthopper", "secure");
-                var filePath = Path.Combine(secureDir, $"{keyName}.dat");
-
-                if (!File.Exists(filePath))
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
-                    return null;
+                    return MacKeychainSecureStorage.Retrieve(keyName);
                 }
 
-                var obfuscated = File.ReadAllBytes(filePath);
-
-                // Reverse the obfuscation
-                var data = new byte[obfuscated.Length];
-                var seed = Environment.UserName.GetHashCode(StringComparison.Ordinal) ^ Environment.MachineName.GetHashCode(StringComparison.Ordinal);
-                var rng = new Random(seed);
-
-                for (int i = 0; i < obfuscated.Length; i++)
-                {
-                    data[i] = (byte)(obfuscated[i] ^ (rng.Next() & 0xFF));
-                }
-
-                Debug.WriteLine($"[SecureStore] Retrieved data '{keyName}' using file-based storage with deobfuscation");
-                return data;
+                return null;
 #endif
             }
             catch (Exception ex)
@@ -732,159 +693,145 @@ namespace SmartHopper.Infrastructure.Settings
         }
 
         /// <summary>
-        /// Legacy AES encryption for backwards compatibility.
+        /// Migrates Windows secrets from the legacy SH02: prefix to the current SH03: prefix.
+        /// The encryption key is unchanged, so this is a safe, lossless prefix rename.
+        /// macOS is intentionally skipped because the old file-based master key cannot be recovered reliably.
         /// </summary>
-        private static string EncryptLegacy(string plainText)
+        internal void MigrateWindowsSH02ToSH03()
         {
-            try
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                using (var aes = Aes.Create())
-                {
-                    aes.Key = LegacyKey;
-                    aes.IV = LegacyIv;
-
-                    using (var encryptor = aes.CreateEncryptor())
-                    using (var msEncrypt = new MemoryStream())
-                    using (var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
-                    using (var swEncrypt = new StreamWriter(csEncrypt))
-                    {
-                        swEncrypt.Write(plainText);
-                        swEncrypt.Flush();
-                        csEncrypt.FlushFinalBlock();
-                        return Convert.ToBase64String(msEncrypt.ToArray());
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[Legacy Encryption] Error: {ex.Message}");
-                return plainText;
-            }
-        }
-
-        /// <summary>
-        /// Legacy AES decryption for migration support.
-        /// </summary>
-        private static string DecryptLegacy(string encryptedText)
-        {
-            try
-            {
-                byte[] cipherText = Convert.FromBase64String(encryptedText);
-
-                using (var aes = Aes.Create())
-                {
-                    aes.Key = LegacyKey;
-                    aes.IV = LegacyIv;
-
-                    using (var decryptor = aes.CreateDecryptor())
-                    using (var msDecrypt = new MemoryStream(cipherText))
-                    using (var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
-                    using (var srDecrypt = new StreamReader(csDecrypt))
-                    {
-                        return srDecrypt.ReadToEnd();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[Legacy Decryption] Error: {ex.Message}");
-                return encryptedText;
-            }
-        }
-
-        /// <summary>
-        /// Manually triggers encryption migration from legacy to certificate-based encryption.
-        /// </summary>
-        /// <returns>True if migration was performed or already completed, false if migration failed.</returns>
-        public bool TriggerEncryptionMigration()
-        {
-            try
-            {
-                this.MigrateEncryption();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[Migration] Manual migration trigger failed: {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Migrates settings from legacy encryption to OS secure store encryption.
-        /// </summary>
-        private void MigrateEncryption()
-        {
-            if (this.EncryptionVersion >= 2)
-            {
-                return; // Already migrated
+                return;
             }
 
-            Debug.WriteLine("[Migration] Starting encryption migration from legacy to OS secure store");
+            if (this.ProviderSettings == null)
+            {
+                return;
+            }
 
             var key = GetOrCreateEncryptionKey();
             if (key == null)
             {
-                Debug.WriteLine("[Migration] Cannot migrate - no encryption key available");
+                Debug.WriteLine("[Migration] Cannot migrate SH02: to SH03: Windows secure store key unavailable.");
                 return;
             }
 
-            bool migrated = false;
+            bool migratedAny = false;
 
-            // Migrate all encrypted settings
             foreach (var providerKvp in this.ProviderSettings.ToList())
             {
                 var providerName = providerKvp.Key;
                 var settings = providerKvp.Value;
+                if (settings == null)
+                {
+                    continue;
+                }
+
                 var descriptors = GetProviderDescriptors(providerName);
 
                 foreach (var settingKvp in settings.ToList())
                 {
                     var settingName = settingKvp.Key;
-                    var descriptor = descriptors.FirstOrDefault(d => d.Name == settingName);
+                    var encryptedValue = settingKvp.Value?.ToString();
 
-                    if (descriptor?.IsSecret == true && settingKvp.Value != null)
+                    if (string.IsNullOrWhiteSpace(encryptedValue) ||
+                        !encryptedValue.StartsWith(LegacySecurePrefix, StringComparison.Ordinal))
                     {
-                        var encryptedValue = settingKvp.Value.ToString();
+                        continue;
+                    }
 
-                        // Skip if already OS secure store encrypted
-                        if (encryptedValue.StartsWith("SH02:"))
+                    var descriptor = descriptors.FirstOrDefault(d => d.Name == settingName);
+                    if (descriptor?.IsSecret != true)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        var plainText = DecryptWithSecureKey(encryptedValue.Substring(LegacySecurePrefix.Length), key);
+                        if (string.IsNullOrWhiteSpace(plainText))
                         {
                             continue;
                         }
 
-                        try
-                        {
-                            // Decrypt with legacy method
-                            var plainText = DecryptLegacy(encryptedValue);
-
-                            // Re-encrypt with OS secure store method
-                            var newEncryptedValue = EncryptWithSecureKey(plainText, key);
-
-                            // Update the setting
-                            settings[settingName] = newEncryptedValue;
-
-                            Debug.WriteLine($"[Migration] Migrated {providerName}.{settingName}");
-                            migrated = true;
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"[Migration] Failed to migrate {providerName}.{settingName}: {ex.Message}");
-                        }
+                        settings[settingName] = EncryptWithSecureKey(plainText, key);
+                        migratedAny = true;
+                        Debug.WriteLine($"[Migration] Migrated {providerName}.{settingName} from SH02: to SH03:.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[Migration] Failed to migrate {providerName}.{settingName}: {ex.Message}");
                     }
                 }
             }
 
-            if (migrated)
+            if (migratedAny)
             {
-                this.EncryptionVersion = 2;
-                Debug.WriteLine("[Migration] Encryption migration completed successfully");
-                this.Save(); // Save the migrated settings
+                this.EncryptionVersion = 3;
+                this.Save();
+                Debug.WriteLine("[Migration] Windows SH02: to SH03: migration completed and saved.");
             }
-            else
+        }
+
+        /// <summary>
+        /// Determines whether any provider setting still contains a legacy SH02: encrypted value.
+        /// </summary>
+        /// <returns><c>true</c> if at least one SH02: value exists; otherwise <c>false</c>.</returns>
+        internal bool HasSH02EncryptedValues()
+        {
+            if (this.ProviderSettings == null)
             {
-                Debug.WriteLine("[Migration] No settings required migration");
+                return false;
             }
+
+            foreach (var settings in this.ProviderSettings.Values)
+            {
+                if (settings == null)
+                {
+                    continue;
+                }
+
+                foreach (var value in settings.Values)
+                {
+                    if (value?.ToString()?.StartsWith(LegacySecurePrefix, StringComparison.Ordinal) == true)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Removes all provider settings whose value starts with the legacy SH02: prefix
+        /// and marks the settings as using the current SH03: encryption version.
+        /// This is used on macOS after warning the user that old API keys cannot be recovered.
+        /// </summary>
+        internal void ClearSH02EncryptedValues()
+        {
+            if (this.ProviderSettings == null)
+            {
+                return;
+            }
+
+            foreach (var settings in this.ProviderSettings.Values.ToList())
+            {
+                if (settings == null)
+                {
+                    continue;
+                }
+
+                foreach (var key in settings.Keys.ToList())
+                {
+                    if (settings[key]?.ToString()?.StartsWith(LegacySecurePrefix, StringComparison.Ordinal) == true)
+                    {
+                        settings.Remove(key);
+                    }
+                }
+            }
+
+            this.EncryptionVersion = 3;
         }
 
         private static IEnumerable<SettingDescriptor> GetProviderDescriptors(string providerName)
@@ -908,7 +855,7 @@ namespace SmartHopper.Infrastructure.Settings
             {
                 if (File.Exists(SettingsPath))
                 {
-                    // EXISTING INSTALLATION - Load and migrate if needed
+                    // EXISTING INSTALLATION - Load settings
                     Debug.WriteLine($"[Load] Loading existing settings from: {SettingsPath}");
                     var json = File.ReadAllText(SettingsPath);
                     var settings = JsonConvert.DeserializeObject<SmartHopperSettings>(json);
@@ -923,23 +870,12 @@ namespace SmartHopper.Infrastructure.Settings
                         // This should happen explicitly after both SmartHopperSettings and ProviderManager
                         // are fully initialized.
 
-                        // Trigger encryption migration if needed (safe to do here as it doesn't depend on ProviderManager)
-                        // Note: This will be a no-op if already migrated or no certificate available
-                        try
-                        {
-                            settings.MigrateEncryption();
-                        }
-                        catch (Exception migrationEx)
-                        {
-                            Debug.WriteLine($"[Load] Migration failed: {migrationEx.Message}");
-                        }
-
                         return settings;
                     }
                 }
                 else
                 {
-                    // NEW INSTALLATION - Initialize with encryption version 2
+                    // NEW INSTALLATION - Initialize with OS secure store encryption
                     Debug.WriteLine($"[Load] First run detected - initializing new settings");
 
                     // Create encryption key and store it securely
@@ -948,8 +884,7 @@ namespace SmartHopper.Infrastructure.Settings
                     {
                         Debug.WriteLine($"[Load] Encryption key created and stored securely");
 
-                        // Create new settings with encryption version 2
-                        var settings = new SmartHopperSettings(encryptionVersion: 2);
+                        var settings = new SmartHopperSettings();
 
                         // Save immediately to persist the configuration
                         settings.Save();
@@ -959,8 +894,8 @@ namespace SmartHopper.Infrastructure.Settings
                     }
                     else
                     {
-                        Debug.WriteLine($"[Load] Warning: Could not create encryption key, falling back to legacy encryption");
-                        return new SmartHopperSettings(encryptionVersion: 1);
+                        Debug.WriteLine($"[Load] Warning: Could not create encryption key. Secrets will not be stored until the OS secure store is available.");
+                        return new SmartHopperSettings();
                     }
                 }
             }
@@ -969,9 +904,9 @@ namespace SmartHopper.Infrastructure.Settings
                 Debug.WriteLine($"[Load] Error loading settings: {ex.Message}");
             }
 
-            // Fallback: Return default settings with legacy encryption
+            // Fallback: Return default settings
             Debug.WriteLine($"[Load] Returning default settings due to error");
-            return new SmartHopperSettings(encryptionVersion: 1);
+            return new SmartHopperSettings();
         }
 
         /// <summary>

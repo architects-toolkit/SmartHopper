@@ -105,6 +105,26 @@ function recordHtmlCache(key, html) {
     lruSet(key, html);
 }
 
+/**
+ * Sanitizes an untrusted HTML string using DOMPurify before it is inserted into
+ * the DOM. This removes script tags, event handlers, javascript: URLs and other
+ * XSS vectors while preserving the safe markup Markdig produces.
+ * @param {string} html - The HTML string to sanitize.
+ * @returns {string} The sanitized HTML, or an empty string if sanitization is unavailable.
+ */
+function sanitizeHtml(html) {
+    if (!html) return '';
+    if (typeof DOMPurify === 'undefined' || !DOMPurify.sanitize) {
+        console.warn('[JS] DOMPurify not available; returning escaped text instead of HTML');
+        return html.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    return DOMPurify.sanitize(html, {
+        USE_PROFILES: { html: true },
+        ALLOW_DATA_ATTR: true,
+        ALLOW_ARIA_ATTR: true
+    });
+}
+
 function addWipeAnimation(node) {
     try {
         if (!node || !node.classList) return;
@@ -117,20 +137,26 @@ function addWipeAnimation(node) {
 
 function cloneFromTemplate(html, context) {
     if (!html) return null;
-    let frag = _templateCache.get(html);
+    const originalHtml = html;
+    let frag = _templateCache.get(originalHtml);
     if (!frag) {
         // Guard against excessively large payloads
         if (html.length > MAX_MESSAGE_HTML_LENGTH) {
             console.warn(`[JS] ${context}: html length ${html.length} exceeds cap ${MAX_MESSAGE_HTML_LENGTH}, truncating`);
             html = html.slice(0, MAX_MESSAGE_HTML_LENGTH) + '…';
         }
+        const safeHtml = sanitizeHtml(html);
+        if (!safeHtml) {
+            console.warn(`[JS] ${context}: sanitized html is empty`);
+            return null;
+        }
         const temp = document.createElement('div');
-        temp.innerHTML = html;
+        temp.innerHTML = safeHtml;
         frag = document.createDocumentFragment();
         while (temp.firstChild) {
             frag.appendChild(temp.firstChild);
         }
-        _templateCache.set(html, frag.cloneNode(true));
+        _templateCache.set(originalHtml, frag.cloneNode(true));
     }
     return frag.cloneNode(true).firstElementChild || frag.cloneNode(true).firstChild || null;
 }
@@ -200,9 +226,10 @@ function patchExistingMessage(existing, incoming) {
 function applyPatchToExisting(existing, patchObj, context) {
     if (!existing || !patchObj) return null;
     const content = existing.querySelector('.message-content') || existing;
+    const safeHtml = sanitizeHtml(patchObj.html || '');
     if (patchObj.patch === 'append') {
         const temp = document.createElement('div');
-        temp.innerHTML = patchObj.html || '';
+        temp.innerHTML = safeHtml;
         // Append children to content
         while (temp.firstChild) {
             content.appendChild(temp.firstChild);
@@ -210,7 +237,7 @@ function applyPatchToExisting(existing, patchObj, context) {
         return existing;
     }
     if (patchObj.patch === 'replace-content') {
-        content.innerHTML = patchObj.html || '';
+        content.innerHTML = safeHtml;
         return existing;
     }
     console.warn(`[JS] ${context}: unsupported patch type`, patchObj.patch);
@@ -242,7 +269,7 @@ function getContainerWithBottom(context) {
  */
 function createNodeFromHtml(messageHtml, context) {
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = messageHtml || '';
+    tempDiv.innerHTML = sanitizeHtml(messageHtml || '');
     const node = tempDiv.firstElementChild || tempDiv.firstChild;
     if (!node) {
         console.error(`[JS] ${context}: no valid node in messageHtml`);
@@ -260,7 +287,7 @@ function createNodeFromHtml(messageHtml, context) {
  */
 function createElementFromHtml(messageHtml, context) {
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = messageHtml || '';
+    tempDiv.innerHTML = sanitizeHtml(messageHtml || '');
     const el = tempDiv.firstElementChild || null;
     if (!el) {
         console.error(`[JS] ${context}: no valid element in HTML`);

@@ -82,7 +82,12 @@ namespace SmartHopper.Infrastructure.Initialization
                             // RefreshProvidersAsync will internally refresh settings once as providers are registered
                             await providerManager.RefreshProvidersAsync().ConfigureAwait(false);
 
-                            // Step 4: Now that both settings and providers are fully initialized, run integrity check
+                            // Step 4: On Windows, migrate any remaining SH02: prefixed secrets to the current SH03: prefix.
+                            // macOS is skipped because the old file-based master key cannot be recovered reliably.
+                            settings.MigrateWindowsSH02ToSH03();
+                            Debug.WriteLine("[SmartHopperInitializer] Windows SH02: to SH03: migration check completed");
+
+                            // Step 5: Now that both settings and providers are fully initialized, run integrity check
                             // Run integrity check on UI thread as it may interact with Rhino/Grasshopper
                             RhinoApp.InvokeOnUiThread(() =>
                             {
