@@ -66,9 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - Replaced the non-Windows file-based XOR obfuscation for the encryption master key with macOS Keychain storage (DPAPI unchanged on Windows). This removes the predictable `System.Random` seed derived from the user and machine names. (VULN-002)
-- Fixed `SmartHopperSettings.Decrypt` and `DecryptLegacy` so they return `null` instead of the original (possibly sensitive) ciphertext when the encryption key is missing or decryption fails. (VULN-003)
+- Fixed `SmartHopperSettings.Decrypt` so it returns `null` instead of the original (possibly sensitive) ciphertext when the encryption key is missing or decryption fails. (VULN-003)
 - Sanitised HTML rendered in the WebView chat before it is inserted into the DOM by embedding DOMPurify and applying a Content-Security-Policy, closing stored/reflected XSS vectors through `innerHTML`. (VULN-009)
 - Pinned transitive package versions to patched releases: `AngleSharp` 1.5.0, `System.Formats.Asn1` 8.0.1, and `System.Text.RegularExpressions` 4.3.1, removing the NuGet vulnerabilities flagged in VULN-012.
+- Removed the hardcoded `LegacyKey`/`LegacyIv` and the legacy `EncryptLegacy`/`DecryptLegacy`/migration code paths from `SmartHopperSettings`. Secrets are now refused when the OS secure store is unavailable instead of falling back to a hardcoded key or plaintext. (VULN-001, VULN-003)
 
 ## [2.0.0-dev.260705] - 2026-07-05
 

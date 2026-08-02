@@ -1728,7 +1728,7 @@ function Test-SourceDeprecated($model) {
     return $false
 }
 
-Write-Host "DEBUG: sourceDeprecatedSet count = $($sourceDeprecatedSet.Count)"
+
 
 $newModels        = @($mergedModels.Values | Where-Object { -not (Test-KnownInSource $_) } | ForEach-Object { $_.Model } | Sort-Object)
 # Only report a model as "deprecated" when it was not already deprecated in the source.
