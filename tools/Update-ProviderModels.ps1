@@ -692,6 +692,11 @@ foreach ($bm in $blockMatches) {
     }
 }
 
+# Capture the original deprecated state before any merge/update logic mutates it.
+$sourceDeprecatedSet = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]($existingModels.Keys | Where-Object { $existingModels[$_].Deprecated -eq 'true' }),
+    [System.StringComparer]::OrdinalIgnoreCase)
+
 Write-Host "[$Provider] Parsed $($existingModels.Count) existing model block(s)."
 
 if ($ValidateOnly) {
@@ -1711,9 +1716,25 @@ function Test-KnownInSource($model) {
     return $false
 }
 
+function Test-SourceDeprecated($model) {
+    if ($sourceDeprecatedSet.Contains([string]$model.Model)) { return $true }
+    if ($model.Aliases) {
+        foreach ($alias in @($model.Aliases)) {
+            if (-not [string]::IsNullOrWhiteSpace($alias) -and $sourceDeprecatedSet.Contains([string]$alias)) {
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
+Write-Host "DEBUG: sourceDeprecatedSet count = $($sourceDeprecatedSet.Count)"
+
 $newModels        = @($mergedModels.Values | Where-Object { -not (Test-KnownInSource $_) } | ForEach-Object { $_.Model } | Sort-Object)
-$deprecatedModels = $allModelNames     | Where-Object { $mergedModels[$_].Deprecated -eq 'true' -and ($_ -in $sourceModelNamesList) }
-$unchangedModels  = @($mergedModels.Values | Where-Object { (Test-KnownInSource $_) -and $_.Deprecated -ne 'true' } | ForEach-Object { $_.Model } | Sort-Object)
+# Only report a model as "deprecated" when it was not already deprecated in the source.
+# Previously-deprecated models are treated as unchanged for the PR summary and details table.
+$deprecatedModels = @($mergedModels.Values | Where-Object { (Test-KnownInSource $_) -and $_.Deprecated -eq 'true' -and -not (Test-SourceDeprecated $_) } | ForEach-Object { $_.Model } | Sort-Object)
+$unchangedModels  = @($mergedModels.Values | Where-Object { (Test-KnownInSource $_) -and -not ($_.Deprecated -eq 'true' -and -not (Test-SourceDeprecated $_)) } | ForEach-Object { $_.Model } | Sort-Object)
 
 $validation = Test-ProviderModelValidation @($mergedModels.Values)
 

@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standardized the git commit author across GitHub Actions workflows and the code-style action to use the `SMARTHOPPER_BOT_NAME`/`SMARTHOPPER_BOT_EMAIL` repository variables instead of hardcoded `github-actions[bot]` identities.
 - `get_available_providers` now returns only enabled providers and omits the redundant `enabled` field from the output; use `get_available_providers` to discover configured providers and `get_available_models` to inspect their models.
 - Scheduled provider-model updates (`.github/workflows/chore-update-provider-models.yml`) now open PRs against `dev` and `dev-*` branches only; `main` is excluded from automatic model-update PRs.
+- DEV.md sync workflows (`chore-update-dev-aitools.yml` and `chore-update-dev-provider-models.yml`) no longer trigger on pull requests; the automated sync PR is created only after the source changes are pushed, so the workflows do not block incoming PRs.
 
 ### Fixed
 
@@ -60,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Discourse Post Get` post JSON now includes `topic_title` and `url`, matching the fields emitted by `Discourse Search`.
 - Added the missing `JSON Set Value` component (`JsonSetValueComponent`) for non-AI JSON editing.
 - Replaced placeholder/low-entropy component GUIDs in `AI Text To Text List` and `Apply GhPatch` with random GUIDs to avoid future collisions.
+- Provider model update PR summaries now count only newly deprecated models in the `Deprecated` metric; previously-deprecated models are reported as unchanged and no longer show a `Deprecated` decision in the details table.
 
 ### Security
 
