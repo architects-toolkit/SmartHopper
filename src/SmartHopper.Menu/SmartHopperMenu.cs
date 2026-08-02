@@ -22,6 +22,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Grasshopper;
 using Grasshopper.Kernel;
+using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Initialization;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Menu.Items;
@@ -87,7 +88,7 @@ namespace SmartHopper.Menu
                     "Your previously saved provider API keys cannot be recovered automatically and must be re-entered in the SmartHopper settings. " +
                     "We apologize for the inconvenience; your keys will be more secure from now on.";
 
-                Eto.Forms.MessageBox.Show(message, "SmartHopper", Eto.Forms.MessageBoxType.Information);
+                StyledMessageDialog.ShowWarning(message, "SmartHopper");
 
                 settings.ClearSH02EncryptedValues();
                 settings.Save();
