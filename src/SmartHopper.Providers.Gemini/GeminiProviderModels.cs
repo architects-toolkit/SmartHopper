@@ -49,7 +49,7 @@ namespace SmartHopper.Providers.Gemini
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between April 2026 and July 2026
+                // Released between May 2026 and August 2026
 
                 new AIModelCapabilities
                 {
@@ -222,7 +222,7 @@ namespace SmartHopper.Providers.Gemini
 
 
 
-                // Released between January 2026 and April 2026
+                // Released between February 2026 and May 2026
 
                 new AIModelCapabilities
                 {
@@ -257,8 +257,8 @@ namespace SmartHopper.Providers.Gemini
                     Created = new DateTime(2026, 4, 3),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000012m,
-                        Completion = 0.00000035m,
+                        Prompt = 0.00000007m,
+                        Completion = 0.00000034m,
                         InputCacheRead = 0.00000005m,
                     },
                 },
@@ -274,9 +274,9 @@ namespace SmartHopper.Providers.Gemini
                     Created = new DateTime(2026, 4, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000014m,
-                        Completion = 0.0000004m,
-                        InputCacheRead = 0.00000012m,
+                        Prompt = 0.0000001m,
+                        Completion = 0.00000034m,
+                        InputCacheRead = 0.0000001m,
                     },
                 },
 
@@ -382,7 +382,7 @@ namespace SmartHopper.Providers.Gemini
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9930,
-                    ContextLimit = 131072,
+                    ContextLimit = 65536,
                     Created = new DateTime(2026, 2, 26),
                     Pricing = new AIModelPricing
                     {
@@ -392,6 +392,10 @@ namespace SmartHopper.Providers.Gemini
                         WebSearch = 0.014m,
                     },
                 },
+
+
+
+                // Released between November 2025 and February 2026
 
                 new AIModelCapabilities
                 {
@@ -444,7 +448,7 @@ namespace SmartHopper.Providers.Gemini
 
 
 
-                // Released between July 2025 and October 2025
+                // Released between August 2025 and November 2025
 
                 new AIModelCapabilities
                 {
@@ -472,7 +476,7 @@ namespace SmartHopper.Providers.Gemini
 
 
 
-                // Released between April 2025 and July 2025
+                // Released between May 2025 and August 2025
 
                 new AIModelCapabilities
                 {
@@ -611,7 +615,7 @@ namespace SmartHopper.Providers.Gemini
 
 
 
-                // Released between January 2025 and April 2025
+                // Released between February 2025 and May 2025
 
                 new AIModelCapabilities
                 {
@@ -664,7 +668,7 @@ namespace SmartHopper.Providers.Gemini
 
 
 
-                // Released between July 2024 and October 2024
+                // Released before August 2024 or unknown release date
 
                 new AIModelCapabilities
                 {
