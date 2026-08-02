@@ -272,7 +272,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var aiResult = await request.Exec().ConfigureAwait(false);
 
-                if (!aiResult.Success)
+                if (aiResult == null || !aiResult.Success)
                 {
                     Debug.WriteLine("[gh_smart_connect] AI request failed");
                     return (null, null, aiResult?.Metrics, aiResult?.Messages);

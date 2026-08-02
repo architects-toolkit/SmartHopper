@@ -86,14 +86,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return Task.FromResult(output);
                 }
 
-                var requestedGuids = new List<Guid>();
-                foreach (var token in guidArray)
-                {
-                    if (Guid.TryParse(token.ToString(), out var g) && g != Guid.Empty)
-                    {
-                        requestedGuids.Add(g);
-                    }
-                }
+                var requestedGuids = guidArray
+                    .Select(t => t?.ToString())
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .SelectMany(s => Guid.TryParse(s, out var g) && g != Guid.Empty ? new[] { g } : Array.Empty<Guid>())
+                    .ToList();
 
                 if (requestedGuids.Count == 0)
                 {

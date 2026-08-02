@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
@@ -177,11 +178,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 return images;
             }
 
-            foreach (var imgToken in imagesArray)
+            foreach (var imgObj in imagesArray.OfType<JObject>())
             {
-                var imgObj = imgToken as JObject;
-                if (imgObj == null) continue;
-
                 string base64Data = imgObj["base64Data"]?.ToString() ?? string.Empty;
                 if (string.IsNullOrEmpty(base64Data)) continue;
 
@@ -208,14 +206,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 return warnings;
             }
 
-            foreach (var w in warningsArray)
-            {
-                var text = w?.ToString();
-                if (!string.IsNullOrWhiteSpace(text))
-                {
-                    warnings.Add(text);
-                }
-            }
+            warnings.AddRange(
+                warningsArray
+                    .Select(w => w?.ToString())
+                    .Where(text => !string.IsNullOrWhiteSpace(text))
+                    .Select(text => text));
 
             return warnings;
         }

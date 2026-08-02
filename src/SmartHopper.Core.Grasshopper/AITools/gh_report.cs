@@ -633,17 +633,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     continue;
                 }
 
-                foreach (var output in outputs)
+                foreach (var owner in outputs
+                    .SelectMany(o => o.Recipients)
+                    .Select(r => r.Attributes?.GetTopLevel?.DocObject)
+                    .Where(owner => owner != null && objectSet.Contains(owner.InstanceGuid)))
                 {
-                    foreach (var recipient in output.Recipients)
-                    {
-                        var owner = recipient.Attributes?.GetTopLevel?.DocObject;
-                        if (owner != null && objectSet.Contains(owner.InstanceGuid))
-                        {
-                            hasOutgoing.Add(obj.InstanceGuid);
-                            hasIncoming.Add(owner.InstanceGuid);
-                        }
-                    }
+                    hasOutgoing.Add(obj.InstanceGuid);
+                    hasIncoming.Add(owner.InstanceGuid);
                 }
             }
 
