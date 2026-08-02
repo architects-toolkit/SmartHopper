@@ -40,6 +40,12 @@ namespace SmartHopper.Infrastructure.Settings
             "Grasshopper",
             "SmartHopper.json");
 
+        // TEMPORARY: Legacy key material for one-time macOS migration.
+        // These are kept only to decrypt existing settings and will be removed
+        // after users have had a release cycle to migrate.
+        private static readonly byte[] LegacyKey = new byte[] { 132, 42, 53, 84, 75, 46, 97, 88, 109, 110, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 };
+        private static readonly byte[] LegacyIv = new byte[] { 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116 };
+
         // Recursion guard to prevent infinite loops during settings access
         [ThreadStatic]
         private static HashSet<string> _currentlyGettingSettings;
@@ -135,6 +141,13 @@ namespace SmartHopper.Infrastructure.Settings
         /// </summary>
         [JsonProperty]
         public int EncryptionVersion { get; set; } = 2;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether legacy macOS key storage has been migrated to the macOS Keychain.
+        /// This is temporary and will be removed once the migration period has elapsed.
+        /// </summary>
+        [JsonProperty]
+        public bool HasMigratedToMacOSKeychain { get; set; } = false;
 
         private static SmartHopperSettings? instance;
 
@@ -682,6 +695,210 @@ namespace SmartHopper.Infrastructure.Settings
             {
                 Debug.WriteLine($"[SecureStore] Error retrieving secure data '{keyName}': {ex.Message}");
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// TEMPORARY: Decrypts a value that was encrypted with the legacy hardcoded AES key.
+        /// This is used only for the one-time macOS keychain migration.
+        /// </summary>
+        /// <param name="encryptedText">The base64 legacy ciphertext.</param>
+        /// <returns>The plaintext, or <c>null</c> if decryption fails.</returns>
+        private static string? DecryptLegacy(string encryptedText)
+        {
+            try
+            {
+                byte[] cipherText = Convert.FromBase64String(encryptedText);
+
+                using (var aes = Aes.Create())
+                {
+                    aes.Key = LegacyKey;
+                    aes.IV = LegacyIv;
+
+                    using (var decryptor = aes.CreateDecryptor())
+                    using (var msDecrypt = new MemoryStream(cipherText))
+                    using (var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
+                    using (var srDecrypt = new StreamReader(csDecrypt))
+                    {
+                        return srDecrypt.ReadToEnd();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[Legacy Decryption] Failed to decrypt legacy value: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// TEMPORARY: Reads the legacy macOS encryption key from the old file-based XOR obfuscated store.
+        /// </summary>
+        /// <returns>The 32-byte legacy key, or <c>null</c> if it cannot be retrieved.</returns>
+        private static byte[]? TryGetLegacyMacOSKey()
+        {
+            try
+            {
+                var secureDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    ".smarthopper",
+                    "secure");
+                var filePath = Path.Combine(secureDir, "SmartHopper.EncryptionKey.dat");
+
+                if (!File.Exists(filePath))
+                {
+                    return null;
+                }
+
+                var obfuscated = File.ReadAllBytes(filePath);
+                var data = new byte[obfuscated.Length];
+                var seed = Environment.UserName.GetHashCode(StringComparison.Ordinal) ^
+                           Environment.MachineName.GetHashCode(StringComparison.Ordinal);
+                var rng = new Random(seed);
+
+                for (int i = 0; i < obfuscated.Length; i++)
+                {
+                    data[i] = (byte)(obfuscated[i] ^ (rng.Next() & 0xFF));
+                }
+
+                if (data.Length == 32)
+                {
+                    Debug.WriteLine("[Migration] Retrieved legacy macOS encryption key from file.");
+                    return data;
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[Migration] Could not retrieve legacy macOS key: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// TEMPORARY: Migrates legacy macOS key storage to the new macOS Keychain-backed store.
+        /// Re-encrypts provider secrets that were stored with the old file-based XOR key or the
+        /// legacy hardcoded AES key. This method will be removed once users have had a release cycle
+        /// to migrate.
+        /// </summary>
+        public void MigrateLegacyMacOSSettings()
+        {
+            if (this.HasMigratedToMacOSKeychain)
+            {
+                return;
+            }
+
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                this.HasMigratedToMacOSKeychain = true;
+                return;
+            }
+
+            try
+            {
+                Debug.WriteLine("[Migration] Starting legacy macOS key storage migration.");
+
+                if (this.ProviderSettings == null)
+                {
+                    this.ProviderSettings = new Dictionary<string, Dictionary<string, object>>();
+                }
+
+                var newKey = GetOrCreateEncryptionKey();
+                if (newKey == null)
+                {
+                    Debug.WriteLine("[Migration] Cannot migrate: new macOS Keychain key is unavailable.");
+                    return;
+                }
+
+                var oldKey = TryGetLegacyMacOSKey();
+                bool migratedAny = false;
+
+                foreach (var providerKvp in this.ProviderSettings.ToList())
+                {
+                    var providerName = providerKvp.Key;
+                    var settings = providerKvp.Value;
+                    var descriptors = GetProviderDescriptors(providerName);
+
+                    foreach (var settingKvp in settings.ToList())
+                    {
+                        var settingName = settingKvp.Key;
+                        var encryptedValue = settingKvp.Value?.ToString();
+
+                        if (string.IsNullOrWhiteSpace(encryptedValue))
+                        {
+                            continue;
+                        }
+
+                        var descriptor = descriptors.FirstOrDefault(d => d.Name == settingName);
+                        if (descriptor?.IsSecret != true)
+                        {
+                            continue;
+                        }
+
+                        string? plainText = null;
+                        bool isOldFormat = false;
+
+                        if (encryptedValue.StartsWith("SH02:", StringComparison.Ordinal))
+                        {
+                            if (oldKey == null)
+                            {
+                                Debug.WriteLine($"[Migration] Cannot migrate {providerName}.{settingName}: legacy key unavailable.");
+                                continue;
+                            }
+
+                            try
+                            {
+                                plainText = DecryptWithSecureKey(encryptedValue.Substring(5), oldKey);
+                                isOldFormat = true;
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[Migration] Failed to decrypt legacy SH02 value for {providerName}.{settingName}: {ex.Message}");
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            plainText = DecryptLegacy(encryptedValue);
+                            isOldFormat = plainText != null;
+                        }
+
+                        if (!isOldFormat || string.IsNullOrWhiteSpace(plainText))
+                        {
+                            continue;
+                        }
+
+                        try
+                        {
+                            settings[settingName] = EncryptWithSecureKey(plainText, newKey);
+                            migratedAny = true;
+                            Debug.WriteLine($"[Migration] Migrated {providerName}.{settingName} to macOS Keychain encryption.");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[Migration] Failed to re-encrypt {providerName}.{settingName}: {ex.Message}");
+                        }
+                    }
+                }
+
+                this.EncryptionVersion = 2;
+                this.HasMigratedToMacOSKeychain = true;
+
+                if (migratedAny)
+                {
+                    this.Save();
+                    Debug.WriteLine("[Migration] Legacy macOS key storage migration completed and saved.");
+                }
+                else
+                {
+                    this.Save();
+                    Debug.WriteLine("[Migration] No legacy macOS values found to migrate; marking as complete.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[Migration] Legacy macOS migration failed: {ex.Message}");
             }
         }
 

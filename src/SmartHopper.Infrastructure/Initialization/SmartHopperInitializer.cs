@@ -82,7 +82,12 @@ namespace SmartHopper.Infrastructure.Initialization
                             // RefreshProvidersAsync will internally refresh settings once as providers are registered
                             await providerManager.RefreshProvidersAsync().ConfigureAwait(false);
 
-                            // Step 4: Now that both settings and providers are fully initialized, run integrity check
+                            // Step 4: Migrate any legacy macOS key storage to the new Keychain-backed store.
+                            // This is temporary and will be removed after users have had a release cycle to migrate.
+                            settings.MigrateLegacyMacOSSettings();
+                            Debug.WriteLine("[SmartHopperInitializer] Legacy macOS migration check completed");
+
+                            // Step 5: Now that both settings and providers are fully initialized, run integrity check
                             // Run integrity check on UI thread as it may interact with Rhino/Grasshopper
                             RhinoApp.InvokeOnUiThread(() =>
                             {
