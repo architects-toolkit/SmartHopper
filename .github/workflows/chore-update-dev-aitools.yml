@@ -2,22 +2,10 @@ name: 🔄 Update DEV.md AI Tools
 
 # Description: Keeps the AI Tools table in DEV.md in sync with the
 # AITool definitions in src/SmartHopper.Core.Grasshopper/AITools.
-# Pull requests validate that DEV.md is current;
-# pushes to protected branches open an automated PR when documentation changes.
+# Pushes to protected branches open an automated PR when documentation changes;
+# not triggered by pull requests, so it cannot block an incoming PR.
 
 on:
-  pull_request:
-    branches:
-      - main
-      - dev
-      - 'main-*'
-      - 'dev-*'
-      - 'hotfix/**'
-      - 'release/**'
-    paths:
-      - 'src/SmartHopper.Core.Grasshopper/AITools/**/*.cs'
-      - 'tools/Update-DevAiTools.ps1'
-      - 'DEV.md'
   push:
     branches:
       - main
@@ -60,13 +48,6 @@ jobs:
             throw "Update-DevAiTools.ps1 failed with exit code $code"
           }
           $global:LASTEXITCODE = 0
-
-      - name: Verify DEV.md is current
-        if: github.event_name == 'pull_request' && steps.update.outputs.changed == 'true'
-        shell: pwsh
-        run: |
-          git diff -- DEV.md
-          throw "DEV.md AI Tools table is out of date. Run tools/Update-DevAiTools.ps1 and commit the result."
 
       - name: Emit step summary
         if: always()
