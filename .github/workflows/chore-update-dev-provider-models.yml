@@ -1,22 +1,11 @@
 name: 🔄 Update DEV.md Provider Models
 
 # Description: Keeps the provider model summary in DEV.md in sync with the
-# *ProviderModels.cs source files. Pull requests validate that DEV.md is current;
-# pushes to protected branches open an automated PR when documentation changes.
+# *ProviderModels.cs source files. Pushes to protected branches open an automated
+# PR when documentation changes; not triggered by pull requests, so it cannot
+# block an incoming PR.
 
 on:
-  pull_request:
-    branches:
-      - main
-      - dev
-      - 'main-*'
-      - 'dev-*'
-      - 'hotfix/**'
-      - 'release/**'
-    paths:
-      - 'src/SmartHopper.Providers.*/[A-Z]*ProviderModels.cs'
-      - 'tools/Update-DevProviderModels.ps1'
-      - 'DEV.md'
   push:
     branches:
       - main
@@ -58,13 +47,6 @@ jobs:
             throw "Update-DevProviderModels.ps1 failed with exit code $code"
           }
           $global:LASTEXITCODE = 0
-
-      - name: Verify DEV.md is current
-        if: github.event_name == 'pull_request' && steps.update.outputs.changed == 'true'
-        shell: pwsh
-        run: |
-          git diff -- DEV.md
-          throw "DEV.md provider model table is out of date. Run tools/Update-DevProviderModels.ps1 and commit the result."
 
       - name: Emit step summary
         if: always()

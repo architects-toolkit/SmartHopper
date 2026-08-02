@@ -58,6 +58,7 @@ namespace SmartHopper.Core.UI.Chat
         private string _cachedErrorTemplate;
         private string _cachedCssContent;
         private string _cachedJsContent;
+        private string _cachedPurifyDataUri;
         private readonly MarkdownPipeline _markdownPipeline;
 
         /// <summary>
@@ -92,6 +93,7 @@ namespace SmartHopper.Core.UI.Chat
         // Resource names
         private const string CSS_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.css.chat-styles.css";
         private const string JS_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.js.chat-script.js";
+        private const string PURIFY_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.js.purify.min.js";
         private const string CHAT_TEMPLATE_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.templates.chat-template.html";
         private const string MESSAGE_TEMPLATE_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.templates.message-template.html";
         private const string ERROR_TEMPLATE_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.templates.error-template.html";
@@ -133,6 +135,7 @@ namespace SmartHopper.Core.UI.Chat
                 // Load all required resources
                 string cssContent = this.GetCssContent();
                 string jsContent = this.GetJsContent();
+                string purifyDataUri = this.GetPurifyDataUri();
                 string messageTemplate = this.GetMessageTemplate();
                 string chatTemplate = this.GetChatTemplate();
 
@@ -142,6 +145,7 @@ namespace SmartHopper.Core.UI.Chat
                 // Replace all placeholders with actual content
                 string completeHtml = chatTemplate
                     .Replace("{{cssChat}}", cssContent, StringComparison.Ordinal)
+                    .Replace("{{jsSanitizer}}", purifyDataUri, StringComparison.Ordinal)
                     .Replace("{{jsChat}}", jsContent, StringComparison.Ordinal)
                     .Replace("{{debugActionsLeft}}", this.GetDebugActionsLeftHtml(), StringComparison.Ordinal)
                     .Replace("{{messageTemplate}}", messageTemplate, StringComparison.Ordinal);
@@ -272,6 +276,29 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             return this._cachedJsContent;
+        }
+
+        /// <summary>
+        /// Gets a base64 data URI for the DOMPurify sanitizer script so it can be
+        /// loaded without an external network request and without being interpreted
+        /// as an inline script by the document parser.
+        /// </summary>
+        /// <returns>A data URI containing the DOMPurify library.</returns>
+        private string GetPurifyDataUri()
+        {
+            Debug.WriteLine("[ChatResourceManager] Getting DOMPurify data URI");
+
+            if (string.IsNullOrEmpty(this._cachedPurifyDataUri))
+            {
+                Debug.WriteLine($"[ChatResourceManager] Reading embedded resource: {PURIFY_RESOURCE}");
+                string purifyScript = this.ReadEmbeddedResource(PURIFY_RESOURCE);
+                byte[] purifyBytes = Encoding.UTF8.GetBytes(purifyScript);
+                string purifyBase64 = Convert.ToBase64String(purifyBytes);
+                this._cachedPurifyDataUri = $"data:application/javascript;base64,{purifyBase64}";
+                Debug.WriteLine($"[ChatResourceManager] DOMPurify data URI created, length: {this._cachedPurifyDataUri?.Length ?? 0}");
+            }
+
+            return this._cachedPurifyDataUri;
         }
 
         /// <summary>
@@ -690,6 +717,7 @@ namespace SmartHopper.Core.UI.Chat
                 Debug.WriteLine("[ChatResourceManager] Checking for required resources:");
                 Debug.WriteLine($"[ChatResourceManager]   - CSS: {resources.Contains(CSS_RESOURCE)}");
                 Debug.WriteLine($"[ChatResourceManager]   - JS: {resources.Contains(JS_RESOURCE)}");
+                Debug.WriteLine($"[ChatResourceManager]   - Purify: {resources.Contains(PURIFY_RESOURCE)}");
                 Debug.WriteLine($"[ChatResourceManager]   - Chat Template: {resources.Contains(CHAT_TEMPLATE_RESOURCE)}");
                 Debug.WriteLine($"[ChatResourceManager]   - Message Template: {resources.Contains(MESSAGE_TEMPLATE_RESOURCE)}");
                 Debug.WriteLine($"[ChatResourceManager]   - Error Template: {resources.Contains(ERROR_TEMPLATE_RESOURCE)}");
