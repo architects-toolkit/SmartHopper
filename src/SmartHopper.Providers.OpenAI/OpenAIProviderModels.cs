@@ -1110,20 +1110,23 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-live-transcribe",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9705,
+                    ContextLimit = 16000,
+                    DiscouragedForTools = new List<string> { "*" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
                     Model = "gpt-transcribe",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9700,
+                    ContextLimit = 16000,
                 },
 
                 new AIModelCapabilities
