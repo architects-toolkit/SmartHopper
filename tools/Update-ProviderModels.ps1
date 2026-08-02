@@ -549,6 +549,10 @@ function Test-RealtimeModelName($modelName) {
     return -not [string]::IsNullOrWhiteSpace($modelName) -and $modelName -match '(?i)realtime'
 }
 
+function Test-LiveOrRealtimeModelName($modelName) {
+    return -not [string]::IsNullOrWhiteSpace($modelName) -and $modelName -match '(?i)(realtime|live)'
+}
+
 function Test-ProviderModelValidation($models) {
     $validationErrors = [System.Collections.Generic.List[string]]::new()
     $validationWarnings = [System.Collections.Generic.List[string]]::new()
@@ -1423,7 +1427,7 @@ if ($providerApiQueried) {
             Created               = if ($enrichment) { $enrichment.Created } else { $null }
             Pricing               = if ($enrichment) { $enrichment.Pricing } else { $null }
             Aliases               = if ($apiAliases.Count -gt 0) { $apiAliases } else { $null }
-            DiscouragedForTools   = $null
+            DiscouragedForTools   = if (Test-LiveOrRealtimeModelName $pmId) { @('*') } else { $null }
             CacheKeyStrategy      = $null
         }
     }
@@ -1465,7 +1469,7 @@ else {
                 Created               = $enrichment.Created
                 Pricing               = $enrichment.Pricing
                 Aliases               = $null
-                DiscouragedForTools   = $null
+                DiscouragedForTools   = if (Test-LiveOrRealtimeModelName $modelName) { @('*') } else { $null }
                 CacheKeyStrategy      = $null
             }
         }
@@ -1485,6 +1489,20 @@ foreach ($m in $mergedModels.Values) {
         if ($seen.Add($a)) { [void]$clean.Add($a) }
     }
     $m.Aliases = if ($clean.Count -gt 0) { $clean.ToArray() } else { $null }
+}
+
+# ---------------------------------------------------------------------------
+# Default discouragement for live / realtime models.
+#
+# Models that are designed for realtime or live interaction are not suitable
+# as default choices for any tool, so mark them as discouraged by default.
+# ---------------------------------------------------------------------------
+foreach ($m in $mergedModels.Values) {
+    if (Test-LiveOrRealtimeModelName $m.Model) {
+        if (-not $m.DiscouragedForTools -or $m.DiscouragedForTools.Count -eq 0) {
+            $m.DiscouragedForTools = @('*')
+        }
+    }
 }
 
 # ---------------------------------------------------------------------------
