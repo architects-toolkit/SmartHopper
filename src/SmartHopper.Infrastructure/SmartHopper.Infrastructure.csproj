@@ -38,6 +38,8 @@
     </PackageReference>
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="7.0.3" />
+    <!-- Pin patched version to mitigate CVE-2024-38095 (GHSA-447r-wph3-92pm). -->
+    <PackageReference Include="System.Formats.Asn1" Version="8.0.1" />
   </ItemGroup>
   <!-- For Windows only builds -->
   <PropertyGroup Condition="$(TargetFramework.Contains('-windows'))">

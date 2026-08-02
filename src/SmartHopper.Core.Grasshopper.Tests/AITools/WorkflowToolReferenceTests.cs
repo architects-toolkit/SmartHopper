@@ -70,31 +70,19 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
             var knownToolNames = this.ParseToolNamesFromSource();
             var workflows = this.GetAllWorkflows();
 
-            var missing = new List<string>();
-            foreach (var workflow in workflows)
-            {
-                var workflowName = workflow["name"]?.ToString() ?? "unknown";
-                var steps = workflow["steps"] as JArray ?? new JArray();
-
-                foreach (var step in steps)
+            var missing = workflows
+                .SelectMany(workflow =>
                 {
-                    var stepText = step?.ToString() ?? string.Empty;
-                    foreach (Match match in ToolCandidateRegex.Matches(stepText))
-                    {
-                        var candidate = match.Value;
-                        if (candidate.EndsWith("_", StringComparison.Ordinal))
-                        {
-                            // Ignore placeholders like "gh_get_".
-                            continue;
-                        }
-
-                        if (!knownToolNames.Contains(candidate))
-                        {
-                            missing.Add($"{workflowName}: '{candidate}'");
-                        }
-                    }
-                }
-            }
+                    var workflowName = workflow["name"]?.ToString() ?? "unknown";
+                    var steps = workflow["steps"] as JArray ?? new JArray();
+                    return steps
+                        .Select(step => step?.ToString() ?? string.Empty)
+                        .SelectMany(stepText => ToolCandidateRegex.Matches(stepText).Cast<Match>())
+                        .Select(match => match.Value)
+                        .Where(candidate => !candidate.EndsWith("_", StringComparison.Ordinal) && !knownToolNames.Contains(candidate))
+                        .Select(candidate => $"{workflowName}: '{candidate}'");
+                })
+                .ToList();
 
             Assert.True(
                 missing.Count == 0,

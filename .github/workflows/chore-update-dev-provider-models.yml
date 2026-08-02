@@ -1,22 +1,11 @@
 name: 🔄 Update DEV.md Provider Models
 
 # Description: Keeps the provider model summary in DEV.md in sync with the
-# *ProviderModels.cs source files. Pull requests validate that DEV.md is current;
-# pushes to protected branches open an automated PR when documentation changes.
+# *ProviderModels.cs source files. Pushes to protected branches open an automated
+# PR when documentation changes; not triggered by pull requests, so it cannot
+# block an incoming PR.
 
 on:
-  pull_request:
-    branches:
-      - main
-      - dev
-      - 'main-*'
-      - 'dev-*'
-      - 'hotfix/**'
-      - 'release/**'
-    paths:
-      - 'src/SmartHopper.Providers.*/[A-Z]*ProviderModels.cs'
-      - 'tools/Update-DevProviderModels.ps1'
-      - 'DEV.md'
   push:
     branches:
       - main
@@ -59,13 +48,6 @@ jobs:
           }
           $global:LASTEXITCODE = 0
 
-      - name: Verify DEV.md is current
-        if: github.event_name == 'pull_request' && steps.update.outputs.changed == 'true'
-        shell: pwsh
-        run: |
-          git diff -- DEV.md
-          throw "DEV.md provider model table is out of date. Run tools/Update-DevProviderModels.ps1 and commit the result."
-
       - name: Emit step summary
         if: always()
         shell: pwsh
@@ -79,20 +61,35 @@ jobs:
             Write-Output "The provider model table in ``DEV.md`` is already up to date." >> $env:GITHUB_STEP_SUMMARY
           }
 
+      # Derive a per-base branch slug. The workflow runs on several base branches
+      # (dev, main, main-*, dev-*, hotfix/**, release/**); a single shared PR branch
+      # name would be reused across different bases and the PR would then list
+      # commits from whichever base it was last built on. Namespacing the branch
+      # by base keeps each base's sync PR isolated. Slashes are replaced with '-'.
+      - name: Compute PR branch slug
+        id: slug
+        if: github.event_name == 'push' && steps.update.outputs.changed == 'true'
+        shell: pwsh
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          $slug = $env:REF_NAME -replace '[/ ]', '-'
+          "value=$slug" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+
       - name: Create Pull Request
         if: github.event_name == 'push' && steps.update.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "docs(dev): update provider model summary [ci skip]"
-          title: "docs(dev): sync provider model summary"
+          title: "docs(dev): sync provider model summary (${{ github.ref_name }})"
           body: |
             Auto-generated PR from `.github/workflows/chore-update-dev-provider-models.yml`.
 
             The provider model summary in `DEV.md` has been refreshed to reflect
             the current default and verified models declared in each
             `*ProviderModels.cs` file.
-          branch: "chore/update-dev-provider-models"
+          branch: "chore/update-dev-provider-models-${{ steps.slug.outputs.value }}"
           base: ${{ github.ref_name }}
           delete-branch: true
           labels: |

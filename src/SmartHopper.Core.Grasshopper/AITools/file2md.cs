@@ -62,7 +62,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     new HtmlConverter(),
                     new PdfConverter(),
                     new DocxConverter(),
+                    new OpenDocumentConverter(),
                     new XlsxConverter(),
+                    new XlsConverter(),
                     new PptxConverter(),
                     new EmlConverter(),
                     new EpubConverter(),
@@ -77,7 +79,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text. Use this when you need to read the contents of a file that the user has mentioned or referenced. Example: file2md({ filePath: 'C:/docs/spec.pdf' }).",
+                description: "Convert a local file (PDF, DOCX, XLS, XLSX, PPTX, ODT, ODS, ODP, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text. Use this when you need to read the contents of a file that the user has mentioned or referenced. Example: file2md({ filePath: 'C:/docs/spec.pdf' }).",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -93,7 +95,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         },
                         ""preserveFormatting"": {
                             ""type"": ""boolean"",
-                            ""description"": ""Whether to preserve inline text formatting. DOCX preserves colors, highlights, bold, and italic; XLSX and PPTX preserve bold and italic. Default: true."",
+                            ""description"": ""Whether to preserve inline text formatting. DOCX and ODF text documents preserve colors, highlights, bold, italic, underline, and strikethrough; XLSX, ODS, and PPTX preserve bold and italic. Default: true."",
                             ""default"": true
                         },
                         ""preserveComments"": {

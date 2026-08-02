@@ -4,6 +4,6 @@
     "siblings_only": true
   },
   "MD033": {
-    "allowed_elements": ["br", "sub"]
+    "allowed_elements": ["a", "br", "div", "span", "sub"]
   }
 }

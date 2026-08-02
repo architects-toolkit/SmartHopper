@@ -17,7 +17,7 @@ const MAX_MESSAGE_HTML_LENGTH = 20000; // cap DOM insertion size to avoid huge p
 const PERF_LOG_THRESHOLD_MS = 16; // only log perf outliers (>1 frame)
 const LRU_MAX_ENTRIES = 100; // recent DOM html cache size
 const FLUSH_INTERVAL_MS = 50; // max wait before flushing queued DOM ops
-const DIFF_SAMPLE_RATE = 0.25; // sample equality diffing (25%) to lower cost
+const DIFF_SAMPLE_RATE = 1.0; // always diff before mutating the DOM; equality check is far cheaper than a DOM write
 const RENDER_ANIM_DURATION_MS = 280; // wipe animation duration
 const PERF_SAMPLE_RATE = 0.25; // sample perf counters to reduce overhead
 
@@ -105,6 +105,26 @@ function recordHtmlCache(key, html) {
     lruSet(key, html);
 }
 
+/**
+ * Sanitizes an untrusted HTML string using DOMPurify before it is inserted into
+ * the DOM. This removes script tags, event handlers, javascript: URLs and other
+ * XSS vectors while preserving the safe markup Markdig produces.
+ * @param {string} html - The HTML string to sanitize.
+ * @returns {string} The sanitized HTML, or an empty string if sanitization is unavailable.
+ */
+function sanitizeHtml(html) {
+    if (!html) return '';
+    if (typeof DOMPurify === 'undefined' || !DOMPurify.sanitize) {
+        console.warn('[JS] DOMPurify not available; returning escaped text instead of HTML');
+        return html.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    return DOMPurify.sanitize(html, {
+        USE_PROFILES: { html: true },
+        ALLOW_DATA_ATTR: true,
+        ALLOW_ARIA_ATTR: true
+    });
+}
+
 function addWipeAnimation(node) {
     try {
         if (!node || !node.classList) return;
@@ -117,20 +137,26 @@ function addWipeAnimation(node) {
 
 function cloneFromTemplate(html, context) {
     if (!html) return null;
-    let frag = _templateCache.get(html);
+    const originalHtml = html;
+    let frag = _templateCache.get(originalHtml);
     if (!frag) {
         // Guard against excessively large payloads
         if (html.length > MAX_MESSAGE_HTML_LENGTH) {
             console.warn(`[JS] ${context}: html length ${html.length} exceeds cap ${MAX_MESSAGE_HTML_LENGTH}, truncating`);
             html = html.slice(0, MAX_MESSAGE_HTML_LENGTH) + '…';
         }
+        const safeHtml = sanitizeHtml(html);
+        if (!safeHtml) {
+            console.warn(`[JS] ${context}: sanitized html is empty`);
+            return null;
+        }
         const temp = document.createElement('div');
-        temp.innerHTML = html;
+        temp.innerHTML = safeHtml;
         frag = document.createDocumentFragment();
         while (temp.firstChild) {
             frag.appendChild(temp.firstChild);
         }
-        _templateCache.set(html, frag.cloneNode(true));
+        _templateCache.set(originalHtml, frag.cloneNode(true));
     }
     return frag.cloneNode(true).firstElementChild || frag.cloneNode(true).firstChild || null;
 }
@@ -150,12 +176,60 @@ function parsePatchPayload(messageHtml) {
     return null;
 }
 
+/**
+ * Patches an existing message bubble in place by swapping only the parts of the DOM that
+ * can legitimately change between renders (the `.message-content` body and the metrics
+ * footer), instead of replacing the entire bubble subtree. This avoids destroying and
+ * rebuilding the avatar/header/footer chrome on every streaming delta, which is the main
+ * cause of DOM-churn related jank during long streamed responses.
+ * @param {HTMLElement} existing - The currently rendered message bubble.
+ * @param {HTMLElement} incoming - The freshly parsed message bubble containing the new content.
+ * @returns {boolean} True if the patch was applied successfully.
+ */
+function patchExistingMessage(existing, incoming) {
+    if (!existing || !incoming) return false;
+    try {
+        const oldContent = existing.querySelector('.message-content');
+        const newContent = incoming.querySelector('.message-content');
+        if (!oldContent || !newContent) return false;
+
+        // Swap the expensive part: the rendered Markdown body.
+        oldContent.innerHTML = newContent.innerHTML;
+
+        // Keep the copy-to-clipboard source text in sync (cheap attribute copy).
+        const copyContent = newContent.getAttribute('data-copy-content');
+        if (copyContent !== null) {
+            oldContent.setAttribute('data-copy-content', copyContent);
+        }
+
+        // Keep the metrics footer in sync (e.g. becomes visible once final metrics arrive).
+        const oldFooterIcon = existing.querySelector('.message-footer .metrics-icon');
+        const newFooterIcon = incoming.querySelector('.message-footer .metrics-icon');
+        if (oldFooterIcon && newFooterIcon) {
+            oldFooterIcon.className = newFooterIcon.className;
+            const metricsAttrs = ['data-in', 'data-out', 'data-provider', 'data-model', 'data-reason', 'data-context-usage'];
+            for (const attr of metricsAttrs) {
+                const val = newFooterIcon.getAttribute(attr);
+                if (val !== null) {
+                    oldFooterIcon.setAttribute(attr, val);
+                }
+            }
+        }
+
+        return true;
+    } catch (err) {
+        console.error('[JS] patchExistingMessage error', err);
+        return false;
+    }
+}
+
 function applyPatchToExisting(existing, patchObj, context) {
     if (!existing || !patchObj) return null;
     const content = existing.querySelector('.message-content') || existing;
+    const safeHtml = sanitizeHtml(patchObj.html || '');
     if (patchObj.patch === 'append') {
         const temp = document.createElement('div');
-        temp.innerHTML = patchObj.html || '';
+        temp.innerHTML = safeHtml;
         // Append children to content
         while (temp.firstChild) {
             content.appendChild(temp.firstChild);
@@ -163,7 +237,7 @@ function applyPatchToExisting(existing, patchObj, context) {
         return existing;
     }
     if (patchObj.patch === 'replace-content') {
-        content.innerHTML = patchObj.html || '';
+        content.innerHTML = safeHtml;
         return existing;
     }
     console.warn(`[JS] ${context}: unsupported patch type`, patchObj.patch);
@@ -195,7 +269,7 @@ function getContainerWithBottom(context) {
  */
 function createNodeFromHtml(messageHtml, context) {
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = messageHtml || '';
+    tempDiv.innerHTML = sanitizeHtml(messageHtml || '');
     const node = tempDiv.firstElementChild || tempDiv.firstChild;
     if (!node) {
         console.error(`[JS] ${context}: no valid node in messageHtml`);
@@ -213,7 +287,7 @@ function createNodeFromHtml(messageHtml, context) {
  */
 function createElementFromHtml(messageHtml, context) {
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = messageHtml || '';
+    tempDiv.innerHTML = sanitizeHtml(messageHtml || '');
     const el = tempDiv.firstElementChild || null;
     if (!el) {
         console.error(`[JS] ${context}: no valid element in HTML`);
@@ -397,14 +471,36 @@ function upsertMessage(key, messageHtml) {
 
         const incoming = cloneFromTemplate(messageHtml, 'upsertMessage') || createNodeFromHtml(messageHtml, 'upsertMessage');
         if (!incoming) return false;
+
+        // If the bubble already exists, patch its content/footer in place rather than
+        // replacing the whole subtree. This avoids destroying and recreating the avatar,
+        // header, and footer chrome on every streaming delta, which is expensive for
+        // long responses updated many times per second.
+        if (existing && patchExistingMessage(existing, incoming)) {
+            finalizeMessageInsertion(existing, wasAtBottom);
+            recordHtmlCache(key, messageHtml);
+
+            const patchDur = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - start;
+            if (Math.random() <= PERF_SAMPLE_RATE) {
+                _perfCounters.renders += 1;
+                _perfCounters.renderMs += patchDur;
+            }
+            if (patchDur > PERF_LOG_THRESHOLD_MS) {
+                _perfCounters.renderSlow += 1;
+                console.debug('[JS] upsertMessage slow patch', { ms: patchDur.toFixed(2), len: messageHtml ? messageHtml.length : 0 });
+            }
+            return true;
+        }
+
         setDatasetKeySafe(incoming, key);
-        
+
         // Only animate on NEW bubble insertion (first chunk), not on updates to existing bubbles
         if (!existing) {
             addWipeAnimation(incoming);
         }
 
         if (existing) {
+            // Fallback: patching failed (unexpected template shape) - replace the whole bubble.
             chatContainer.replaceChild(incoming, existing);
         } else {
             insertAboveThinkingIfPresent(chatContainer, incoming);

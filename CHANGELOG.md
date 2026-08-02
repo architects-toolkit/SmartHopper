@@ -7,9 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-dev.260802] - 2026-08-02
+
+### Added
+
+- Backported DeepSeek provider settings from hotfix 1.4.4: `ReasoningEffort` and `TopP` settings, plus `reasoning_effort` per-request extra support.
+- Backported OpenRouter provider model default capability assignments from hotfix 1.4.4.
+- Added `smarthopper_ghjson_reference` AI tool that returns GhJSON/GhPatch format reference docs from an embedded snapshot of `ghjson-spec`, with a `tools/Sync-GhJsonSpecDocs.ps1` sync script to keep the snapshot current.
+- Added `.github/workflows/chore-update-ghjson-spec-docs.yml` to automate syncing the embedded GhJSON/GhPatch spec snapshot from `ghjson-spec` and to validate the snapshot on related pull requests.
+- Enabled `gh_generate` AI tool for production: renamed from `_gh_generate`, switched to instructions-driven GhJSON generation via an AI subagent, embedded the GhJSON specification into the system prompt, added GhJSON validation and retry logic, and introduced `gh_generate_and_place_on_canvas` wrapper that calls `gh_put`.
+- Added `gh_report` AI tool: read-only markdown canvas status report with object counts by type/topology, unique component names, group titles, scribble texts, viewport contents, file metadata, and all errors/warnings. Optionally includes an AI-generated summary of the file purpose.
+- Added `gh_clear` AI tool: clears all components from the canvas with optional `keepLocked` support. Protected components (and their direct neighbors) are always preserved via `CanvasProtection`. Destructive — supports undo.
+- Added `gh_smart_connect` AI tool: AI-suggested wiring. Retrieves component structure directly via the ghjson-dotnet facade, asks an AI model to propose connections based on a purpose description, and executes them via `GhJsonGrasshopper.Connect`. Returns connection results and AI reasoning.
+- Added `set_ai_provider_and_model` AI tool: configures an `IProviderComponent` by setting its selected AI provider and wiring a new Panel with the model name into its Settings input. Supports undo and respects `CanvasProtection`.
+- Added `get_available_providers` AI tool: returns the list of enabled AI providers registered in SmartHopper, including a `configured` flag for each provider.
+- Added `get_available_models` AI tool: returns the list of available models for a provider, preferring live provider APIs and falling back to the static model list.
+- Refactored `AIModelsComponent` to execute `get_available_models` through `AIToolManager`, reusing the same AI tool infrastructure as other AI-powered components.
+- Added `IAIProvider.IsConfigured` and `AIProvider.IsConfigured` to expose a provider's configuration state, computed from persisted settings at access time (not stored in settings).
+- Implemented `IsConfigured` in all providers (OpenAI, Anthropic, MistralAI, DeepSeek, Gemini, OpenRouter) using non-empty API key as the configured check.
+- Added pre-validation in `AIProvider.Call` that returns a structured error when the provider is not configured before attempting an API call.
+- Added `providers` topic to `smarthopper_readme` explaining how default provider/model settings are managed in the environment and how to configure or override them.
+- Added `AIGhReportComponent` Grasshopper component: wraps `gh_report` with an `Include Summary` toggle and `Report`/`Summary` outputs.
+- Added `AIGhConnectComponent` Grasshopper component: wraps `gh_smart_connect` for canvas-selected components with a `Purpose` input and `Success`/`Reasoning`/`Connections` outputs.
+- OpenDocument Format (ODF) support for `.odt`, `.ods`, and `.odp` files.
+- Legacy Excel (`.xls`) file-to-Markdown conversion via `XlsConverter`.
+- Single-item input adapters: `Number to AI`, `Boolean to AI`, and `Integer to AI`.
+- Raw text fallback and improved encoding detection for file converters.
+- `GhJsonSpecLoader` to load embedded GhJSON/GhPatch spec snapshots.
+- MCP lock support for SmartHopper components: right-clicking an `AsyncComponentBase`, `SelectingComponentBase`, `ProviderComponentBase`, or derived component adds a "Lock from MCP updates" menu item, and locked components are highlighted with an orange border and lock icon overlay.
+
+### Changed
+
+- Stabilization backport (`stabilization-2-complete.yml`) now cherry-picks only the commits unique to `main-X.Y.Z` onto a fresh `backport/X.Y.Z` branch cut from `main`, instead of merging the whole stabilization branch. It skips creation when there is nothing to backport and lists the cherry-picked (and any conflicting) commits in the PR body.
+- Standardized the git commit author across GitHub Actions workflows and the code-style action to use the `SMARTHOPPER_BOT_NAME`/`SMARTHOPPER_BOT_EMAIL` repository variables instead of hardcoded `github-actions[bot]` identities.
+- `get_available_providers` now returns only enabled providers and omits the redundant `enabled` field from the output; use `get_available_providers` to discover configured providers and `get_available_models` to inspect their models.
+- Scheduled provider-model updates (`.github/workflows/chore-update-provider-models.yml`) now open PRs against `dev` and `dev-*` branches only; `main` is excluded from automatic model-update PRs.
+- DEV.md sync workflows (`chore-update-dev-aitools.yml` and `chore-update-dev-provider-models.yml`) no longer trigger on pull requests; the automated sync PR is created only after the source changes are pushed, so the workflows do not block incoming PRs.
+
 ### Fixed
 
-- **CI**: Allow auto-generated `hash-update/*` PRs to add new `hashes/*.json` files while still blocking modifications to existing ones in `pr-build-hash-validation.yml`.
+- Backported DeepSeek provider tool-call fixes from hotfix 1.4.4: consecutive assistant messages are now merged, `reasoning_content` is preserved on assistant messages with tool calls and stripped from text-only assistant messages, and tool result `name` is no longer sent.
+- Backported OpenRouter provider tool result fix from hotfix 1.4.4: removed the invalid `name` field from `role=tool` messages.
+- `tools/Update-DevAiTools.ps1` no longer appends extra blank lines to the end of `DEV.md`; it now leaves exactly one trailing blank line.
+- CI merge-queue support: required PR checks now run on `merge_group` events so queued PRs don't stall waiting for status reports.
+- [#647](https://github.com/architects-toolkit/SmartHopper/issues/647): MistralAI reasoning_effort validation now gates the field and restricts values to "none" or "high".
+- Issue-labeler configuration syntax: regex patterns now use JavaScript-compatible `/pattern/i` syntax instead of `(?i)`.
+- PDF text extraction order: switched `PdfConverter` from `DefaultReadingOrderDetector` to `UnsupervisedReadingOrderDetector` configured as `RowWise` without rendering order, so PDF pages are emitted in correct top-to-bottom, left-to-right reading order instead of following the PDF content stream order.
+- Metrics tree topology for batch image descriptions in File2Md, Web2Md, and Web2AI: per-image slot metrics now land at the same output branch path as the Markdown output instead of collapsing to `{0}`.
+- Knowledge components to ensure the `Run` parameter triggers execution by disabling `RunOnlyOnInputChanges`.
+- DEV.md provider-model sync workflow (`chore-update-dev-provider-models.yml`) now uses a per-base branch name (`chore/update-dev-provider-models-<base>`) instead of a single shared branch, preventing its auto PRs from listing unrelated commits carried over from another base branch.
+- `gh_diff` now strips `instanceGuid` from added components and groups, producing valid `.ghpatch` documents that pass `gh_patch_validate` and `gh_patch_apply`.
+- Fixed MCP lock overlay position: the canvas graphics transform is now reset before drawing so the orange border and lock icon align with the protected component instead of being double-projected.
+- Fixed the placeholder component GUID in `AI Web To Markdown` so it no longer uses the non-unique `ABCDEFAB-CDEF-ABCD-EFAB-CDEFABCDEFAB` value.
+- `VersatileImage` now rejects unsupported or missing image file paths instead of defaulting to `LocalFile` and producing malformed payloads.
+- `Discourse Post Get` post JSON now includes `topic_title` and `url`, matching the fields emitted by `Discourse Search`.
+- Added the missing `JSON Set Value` component (`JsonSetValueComponent`) for non-AI JSON editing.
+- Replaced placeholder/low-entropy component GUIDs in `AI Text To Text List` and `Apply GhPatch` with random GUIDs to avoid future collisions.
+- Provider model update PR summaries now count only newly deprecated models in the `Deprecated` metric; previously-deprecated models are reported as unchanged and no longer show a `Deprecated` decision in the details table.
+
+### Security
+
+- Replaced the non-Windows file-based XOR obfuscation for the encryption master key with macOS Keychain storage (DPAPI unchanged on Windows). This removes the predictable `System.Random` seed derived from the user and machine names. (VULN-002)
+- Fixed `SmartHopperSettings.Decrypt` so it returns `null` instead of the original (possibly sensitive) ciphertext when the encryption key is missing or decryption fails. (VULN-003)
+- Sanitised HTML rendered in the WebView chat before it is inserted into the DOM by embedding DOMPurify and applying a Content-Security-Policy, closing stored/reflected XSS vectors through `innerHTML`. (VULN-009)
+- Pinned transitive package versions to patched releases: `AngleSharp` 1.5.0, `System.Formats.Asn1` 8.0.1, and `System.Text.RegularExpressions` 4.3.1, removing the NuGet vulnerabilities flagged in VULN-012.
+- Removed the hardcoded `LegacyKey`/`LegacyIv` and all legacy migration code from `SmartHopperSettings`. The secure-store encryption prefix is now `SH03:` on both Windows and macOS. (VULN-001, VULN-003)
+- Added a Windows-only automatic migration that renames existing `SH02:` prefixed secrets to `SH03:` using the same DPAPI key, so Windows users do not need to re-enter API keys. (VULN-001, VULN-003)
+- Added a one-time macOS warning that informs users their saved provider API keys cannot be recovered and must be re-entered, then clears the stale `SH02:` values. The message is not shown again once the settings are updated. (VULN-001, VULN-003)
 
 ## [2.0.0-dev.260705] - 2026-07-05
 

@@ -549,6 +549,10 @@ function Test-RealtimeModelName($modelName) {
     return -not [string]::IsNullOrWhiteSpace($modelName) -and $modelName -match '(?i)realtime'
 }
 
+function Test-LiveOrRealtimeModelName($modelName) {
+    return -not [string]::IsNullOrWhiteSpace($modelName) -and $modelName -match '(?i)(realtime|live)'
+}
+
 function Test-ProviderModelValidation($models) {
     $validationErrors = [System.Collections.Generic.List[string]]::new()
     $validationWarnings = [System.Collections.Generic.List[string]]::new()
@@ -691,6 +695,11 @@ foreach ($bm in $blockMatches) {
         $existingModels[$parsed.Model] = $parsed
     }
 }
+
+# Capture the original deprecated state before any merge/update logic mutates it.
+$sourceDeprecatedSet = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]($existingModels.Keys | Where-Object { $existingModels[$_].Deprecated -eq 'true' }),
+    [System.StringComparer]::OrdinalIgnoreCase)
 
 Write-Host "[$Provider] Parsed $($existingModels.Count) existing model block(s)."
 
@@ -1423,7 +1432,7 @@ if ($providerApiQueried) {
             Created               = if ($enrichment) { $enrichment.Created } else { $null }
             Pricing               = if ($enrichment) { $enrichment.Pricing } else { $null }
             Aliases               = if ($apiAliases.Count -gt 0) { $apiAliases } else { $null }
-            DiscouragedForTools   = $null
+            DiscouragedForTools   = if (Test-LiveOrRealtimeModelName $pmId) { @('*') } else { $null }
             CacheKeyStrategy      = $null
         }
     }
@@ -1465,7 +1474,7 @@ else {
                 Created               = $enrichment.Created
                 Pricing               = $enrichment.Pricing
                 Aliases               = $null
-                DiscouragedForTools   = $null
+                DiscouragedForTools   = if (Test-LiveOrRealtimeModelName $modelName) { @('*') } else { $null }
                 CacheKeyStrategy      = $null
             }
         }
@@ -1485,6 +1494,20 @@ foreach ($m in $mergedModels.Values) {
         if ($seen.Add($a)) { [void]$clean.Add($a) }
     }
     $m.Aliases = if ($clean.Count -gt 0) { $clean.ToArray() } else { $null }
+}
+
+# ---------------------------------------------------------------------------
+# Default discouragement for live / realtime models.
+#
+# Models that are designed for realtime or live interaction are not suitable
+# as default choices for any tool, so mark them as discouraged by default.
+# ---------------------------------------------------------------------------
+foreach ($m in $mergedModels.Values) {
+    if (Test-LiveOrRealtimeModelName $m.Model) {
+        if (-not $m.DiscouragedForTools -or $m.DiscouragedForTools.Count -eq 0) {
+            $m.DiscouragedForTools = @('*')
+        }
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -1711,9 +1734,25 @@ function Test-KnownInSource($model) {
     return $false
 }
 
+function Test-SourceDeprecated($model) {
+    if ($sourceDeprecatedSet.Contains([string]$model.Model)) { return $true }
+    if ($model.Aliases) {
+        foreach ($alias in @($model.Aliases)) {
+            if (-not [string]::IsNullOrWhiteSpace($alias) -and $sourceDeprecatedSet.Contains([string]$alias)) {
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
+
+
 $newModels        = @($mergedModels.Values | Where-Object { -not (Test-KnownInSource $_) } | ForEach-Object { $_.Model } | Sort-Object)
-$deprecatedModels = $allModelNames     | Where-Object { $mergedModels[$_].Deprecated -eq 'true' -and ($_ -in $sourceModelNamesList) }
-$unchangedModels  = @($mergedModels.Values | Where-Object { (Test-KnownInSource $_) -and $_.Deprecated -ne 'true' } | ForEach-Object { $_.Model } | Sort-Object)
+# Only report a model as "deprecated" when it was not already deprecated in the source.
+# Previously-deprecated models are treated as unchanged for the PR summary and details table.
+$deprecatedModels = @($mergedModels.Values | Where-Object { (Test-KnownInSource $_) -and $_.Deprecated -eq 'true' -and -not (Test-SourceDeprecated $_) } | ForEach-Object { $_.Model } | Sort-Object)
+$unchangedModels  = @($mergedModels.Values | Where-Object { (Test-KnownInSource $_) -and -not ($_.Deprecated -eq 'true' -and -not (Test-SourceDeprecated $_)) } | ForEach-Object { $_.Model } | Sort-Object)
 
 $validation = Test-ProviderModelValidation @($mergedModels.Values)
 

@@ -36,6 +36,8 @@ on:
       - 'dev-*'
       - hotfix/**
       - release/**
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
     inputs:
       pr_number:

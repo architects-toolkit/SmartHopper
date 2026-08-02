@@ -604,12 +604,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     if (jObj[settingsKey] is JArray settingsArray)
                     {
-                        foreach (var item in settingsArray)
+                        foreach (var itemObj in settingsArray.OfType<JObject>())
                         {
-                            if (item is JObject itemObj)
-                            {
-                                itemObj.Remove("runtimeData");
-                            }
+                            itemObj.Remove("runtimeData");
                         }
                     }
                 }

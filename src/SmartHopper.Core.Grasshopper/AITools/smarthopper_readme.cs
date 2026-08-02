@@ -38,7 +38,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: ToolName,
-                description: "Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, research, web. Use this to retrieve guidance instead of relying on a long system prompt.",
+                description: "Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, providers, mcneel-forum, research, web. Use this to retrieve guidance instead of relying on a long system prompt.",
                 category: "Instructions",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -46,11 +46,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""topic"": {
                             ""type"": ""string"",
                             ""description"": ""Which instruction bundle to return."",
-                            ""enum"": [""canvas"", ""discovery"", ""scripting"", ""knowledge"", ""ghjson"", ""selected"", ""errors"", ""locks"", ""visibility"", ""mcneel-forum"", ""ladybug-forum"", ""discourse-forum"", ""research"", ""web"", ""python"", ""csharp"", ""vb""]
+                            ""enum"": [""canvas"", ""discovery"", ""scripting"", ""knowledge"", ""ghjson"", ""selected"", ""errors"", ""locks"", ""visibility"", ""providers"", ""mcneel-forum"", ""ladybug-forum"", ""discourse-forum"", ""research"", ""web"", ""python"", ""csharp"", ""vb""]
                         }
                     },
                     ""required"": [""topic""]
                 }",
+
                 execute: this.ExecuteAsync,
                 mutatesCanvas: false,
                 tags: new[] { "instructions", "readme", "read-only" },
@@ -104,13 +105,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
             switch (topic.Trim().ToLowerInvariant())
             {
                 case "canvas":
-                case "ghjson":
                 case "selected":
                 case "errors":
                 case "locks":
                 case "visibility":
                     return """
 Canvas state reading:
+- gh_report: generate a comprehensive markdown status report of the canvas (object counts, topology, groups, scribbles, viewport, errors/warnings, metadata). Optionally include an AI summary. Read-only.
 - Use gh_get_selected when the user refers to "this/these/selected".
 - Use gh_get_errors to locate broken definitions.
 - Use gh_get_locked / gh_get_preview_off / gh_get_preview_on for quick attribute-based filters.
@@ -135,6 +136,29 @@ Quick actions on selected components (no GUIDs needed):
 Modifying canvas:
 - gh_group, gh_move, gh_tidy_up, gh_component_toggle_lock, gh_component_toggle_preview
 - gh_put: place components from GhJSON; when instanceGuid matches existing, it replaces it (prefer user confirmation).
+- gh_connect / gh_disconnect: wire or unwire existing components by GUID and parameter name.
+- gh_smart_connect: AI-suggested wiring — provide component GUIDs and a purpose description; the AI proposes and executes connections.
+- gh_clear: clear the canvas (optionally keep locked components); protected components are always preserved. Destructive — prefer user confirmation.
+""";
+
+                case "ghjson":
+                    return """
+GhJSON format documentation is maintained in the dedicated `smarthopper_ghjson_reference` tool.
+
+Use `smarthopper_ghjson_reference` with one of these topics to get the authoritative GhJSON/GhPatch reference:
+- overview
+- specification
+- ghpatch
+- document_structure
+- components
+- connections
+- groups
+- data_types
+- component_specific_formats
+- validation
+- examples
+
+For canvas operations that use GhJSON (e.g., gh_put), use the `canvas` topic instead.
 """;
 
                 case "discovery":
@@ -147,6 +171,20 @@ Discovering available components:
    - Use categoryFilter with +/- tokens to narrow scope.
 """;
 
+                case "providers":
+                    return """
+Provider and model configuration in SmartHopper:
+- SmartHopper reads the default provider and model from the environment settings (SmartHopper settings in Rhino/Grasshopper).
+- By default, all AI calls use the provider and model set in the environment. You do not need to set them on every component unless you want a per-component override.
+- To discover the available providers and whether they are properly configured in this environment, call `get_available_providers`.
+  The response includes a `configured` flag for each provider. Only those whose `configured` flag is `true` can be used to run AI calls.
+- To list the models available for a specific provider, call `get_available_models` with the provider name.
+- To override the provider and model on a component that supports provider selection (any `IProviderComponent`), use the `set_ai_provider_and_model` tool.
+- To configure a provider, open the SmartHopper settings from the Rhino/Grasshopper menu and set the required fields:
+  - Most providers require an API key.
+  - Some local or custom providers may also require a base endpoint URL (e.g., `http://localhost:11434`).
+""";
+
                 case "knowledge":
                 case "mcneel-forum":
                 case "ladybug-forum":
@@ -156,23 +194,33 @@ Discovering available components:
                     return """
 Knowledge base workflow:
 
+Discourse URL anatomy — IMPORTANT before choosing a tool:
+- Topic URL: /t/{slug}/{topicId} or /t/{slug}/{topicId}/{postNumber}
+  → topicId is the integer after the slug (e.g. 207407 in /t/my-topic/207407/44)
+  → postNumber (e.g. 44) is the 1-based position within the topic, NOT a global post id
+  → Use *_forum_topic_get with topic_id to fetch the topic; use max_posts to limit
+- Global post id: the numeric "id" field in a post object returned by *_forum_post_get or *_forum_search
+  → Only found in /posts/{id}.json API responses or the "id" key of search results
+  → Use *_forum_post_get only when you have this global id
+- Never pass a topicId or postNumber to *_forum_post_get — it will return the wrong post.
+
 For McNeel Discourse forum (discourse.mcneel.com):
 1) mcneel_forum_search: find candidate posts/topics.
-2) mcneel_forum_topic_get / mcneel_forum_post_get: retrieve the minimum useful content.
+2) mcneel_forum_topic_get (topic_id) to read all posts in a topic; or mcneel_forum_post_get (global post id) for a single post by its id field.
 3) mcneel_forum_topic_summarize / mcneel_forum_post_summarize: summarize and extract actionable steps.
 
 For Ladybug Tools Discourse forum (discourse.ladybug.tools):
 1) ladybug_forum_search: find candidate posts/topics.
-2) ladybug_forum_topic_get / ladybug_forum_post_get: retrieve the minimum useful content.
+2) ladybug_forum_topic_get (topic_id) / ladybug_forum_post_get (global post id): retrieve the minimum useful content.
 3) ladybug_forum_topic_summarize / ladybug_forum_post_summarize: summarize and extract actionable steps.
 
 For any other Discourse forum (requires base_url parameter):
 1) discourse_forum_search: find candidate posts/topics (requires base_url).
-2) discourse_forum_topic_get / discourse_forum_post_get: retrieve content (requires base_url).
+2) discourse_forum_topic_get (topic_id) / discourse_forum_post_get (global post id): retrieve content (requires base_url).
 3) discourse_forum_topic_summarize / discourse_forum_post_summarize: summarize (requires base_url).
 
 For general content:
-- web2md: read docs/pages by URL before citing or relying on them.
+- web2md: read docs/pages by URL before citing or relying on them. Note: web2md may fail or return placeholder text for pages that require JavaScript rendering (e.g. GitHub release pages served as SPAs). Prefer dedicated API tools when available.
 - file2md: convert local files to Markdown given a file path.
 """;
 
@@ -202,7 +250,7 @@ For canonical step-by-step workflows (create, edit, debug), call smarthopper_wor
 """;
 
                 default:
-                    return "Unknown topic. Call the `smarthopper_readme` function again and specify the `topic` argument. Valid topics are: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, ladybug-forum, discourse-forum, research, web. For canonical step-by-step workflows, call `smarthopper_workflows`.";
+                    return "Unknown topic. Call the `smarthopper_readme` function again and specify the `topic` argument. Valid topics are: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, providers, mcneel-forum, ladybug-forum, discourse-forum, research, web. For canonical step-by-step workflows, call `smarthopper_workflows`.";
             }
         }
     }

@@ -47,8 +47,8 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --local user.email "${{ secrets.SMARTHOPPER_BOT_EMAIL }}"
-          git config --local user.name "${{ secrets.SMARTHOPPER_BOT_NAME }}"
+          git config --local user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
+          git config --local user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
 
       - name: Get target branch and setup
         run: |

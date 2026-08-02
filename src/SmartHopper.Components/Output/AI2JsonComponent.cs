@@ -26,8 +26,10 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Output
 {
@@ -62,6 +64,22 @@ namespace SmartHopper.Components.Output
         /// Gets the AI tools used by this component.
         /// </summary>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2json" };
+
+        /// <summary>
+        /// The text2json tool advertises JsonOutput because the real tool emits structured JSON.
+        /// This adapter can parse JSON from free-form text, so JsonOutput is only required when
+        /// the caller supplies a Schema (applied to the body in <see cref="PrepareInputs"/>).
+        /// </summary>
+        protected override AICapability RequiredCapability
+        {
+            get
+            {
+                var capability = base.RequiredCapability;
+                return capability & ~AICapability.JsonOutput;
+            }
+
+            set => base.RequiredCapability = value;
+        }
 
         /// <summary>
         /// Gets the internal system prompt.
@@ -130,10 +148,13 @@ namespace SmartHopper.Components.Output
 
             try
             {
-                var schemaTree = new GH_Structure<IGH_Goo>();
-                if (DA.GetDataTree(2, out schemaTree) && schemaTree != null && schemaTree.DataCount > 0)
+                // The Schema parameter is a Param_Text, so its underlying tree is GH_Structure<GH_String>.
+                // Read it with the concrete type and then convert to GH_Structure<IGH_Goo> so the
+                // output-adapter pipeline can slice and broadcast it like any other additional input.
+                var schemaTree = new GH_Structure<GH_String>();
+                if (DA.GetDataTree(1, out schemaTree) && schemaTree != null && schemaTree.DataCount > 0)
                 {
-                    additionalInputs["Schema"] = schemaTree;
+                    additionalInputs["Schema"] = GHStructureConverter.ConvertToGooTree(schemaTree);
                 }
             }
             catch (Exception ex)

@@ -36,6 +36,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Grasshopper.Kernel;
+using SmartHopper.Infrastructure.Mcp;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -391,6 +392,25 @@ namespace SmartHopper.Core.ComponentBase
             {
                 this.RequestTaskCancellation();
             });
+            AppendMcpLockItem(menu, this);
+        }
+
+        /// <summary>
+        /// Appends a standard "Lock from MCP updates" toggle item for the given component.
+        /// </summary>
+        protected internal static void AppendMcpLockItem(ToolStripDropDown menu, IGH_DocumentObject docObject)
+        {
+            bool isLocked = McpCanvasLockState.IsLocked(docObject.InstanceGuid);
+            var lockItem = Menu_AppendItem(
+                menu,
+                "Lock from MCP updates",
+                (s, e) =>
+                {
+                    McpCanvasLockState.Toggle(docObject.InstanceGuid);
+                },
+                true,
+                isLocked);
+            lockItem.ToolTipText = "When checked, this component cannot be modified by MCP tools.";
         }
 
         protected virtual void OnWorkerCompleted()

@@ -694,7 +694,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private async Task<JObject> FetchFilteredPostAsync(string baseUrl, int id)
         {
             var postJson = await this.FetchPostAsync(baseUrl, id).ConfigureAwait(false);
-            string filteredJson = DiscourseUtils.FilterPostJson(postJson.ToString(Newtonsoft.Json.Formatting.None));
+            string filteredJson = DiscourseUtils.FilterPostJson(postJson.ToString(Newtonsoft.Json.Formatting.None), baseUrl);
             return JObject.Parse(filteredJson);
         }
 

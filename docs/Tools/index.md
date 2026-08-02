@@ -41,7 +41,8 @@ Tools are discrete operations with JSON-schema-defined inputs that the AI can in
 - **Text tasks**: Use `text2text`, `text2boolean`, `text2textlist`, `text2json`
 - **Image tasks**: Use `img2text` (vision) or `text2img` (generation)
 - **Document tasks**: Use `file2md` or `web2md` to convert documents and web pages to Markdown
-- **Canvas tasks**: Use `gh_get`, `gh_put`, `gh_move`, `gh_group`, `gh_tidy_up`, `gh_connect`, `gh_disconnect` for Grasshopper automation
+- **Canvas tasks**: Use `gh_get`, `gh_put`, `gh_move`, `gh_group`, `gh_tidy_up`, `gh_connect`, `gh_disconnect`, `set_ai_provider_and_model` for Grasshopper automation
+- **Provider/model tasks**: Use `get_available_providers` (includes a `configured` flag per provider), `get_available_models` to inspect registered AI providers and their supported models, and `set_ai_provider_and_model` to override provider/model on a component
 - **Knowledge tasks**: Use `smarthopper_readme`, `smarthopper_tool_help`, `mcneel_forum_search` for contextual guidance
 
 ### Visual Guide
@@ -176,7 +177,7 @@ Component → AIToolRequest → ToolManager → Provider formatting → AI Model
 
 | Category | Tools |
 | --- | --- |
-| Instruction & Knowledge | `smarthopper_readme`, `smarthopper_workflows`, `smarthopper_tool_help`, `file2md`, `web2md`, `mcneel_forum_search`, `mcneel_forum_topic`, `mcneel_forum_post` |
+| Instruction & Knowledge | `smarthopper_readme`, `smarthopper_workflows`, `smarthopper_tool_help`, `smarthopper_ghjson_reference`, `file2md`, `web2md`, `mcneel_forum_search`, `mcneel_forum_topic`, `mcneel_forum_post` |
 | Text Generation | `text2text`, `text2boolean`, `text2textlist`, `text2json`, `list_filter`, `textlist2boolean` |
 | Image Processing | `img2text`, `text2img` |
 | Grasshopper Canvas | `gh_get`, `gh_put`, `gh_move`, `gh_merge`, `gh_group`, `gh_tidy_up`, `gh_list_categories`, `gh_list_components`, `gh_component_preview`, `gh_component_lock`, `gh_connect`, `gh_disconnect` |
@@ -189,3 +190,4 @@ Component → AIToolRequest → ToolManager → Provider formatting → AI Model
 - [smarthopper_readme Tool](./smarthopper_readme.md)
 - [smarthopper_workflows Tool](./smarthopper_workflows.md)
 - [smarthopper_tool_help Tool](./smarthopper_tool_help.md)
+- [smarthopper_ghjson_reference Tool](./smarthopper_ghjson_reference.md)

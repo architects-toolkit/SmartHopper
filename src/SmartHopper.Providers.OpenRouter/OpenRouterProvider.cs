@@ -65,6 +65,12 @@ namespace SmartHopper.Providers.OpenRouter
         public override bool IsEnabled => true;
 
         /// <summary>
+        /// Gets a value indicating whether this provider is configured in the current environment.
+        /// OpenRouter requires a non-empty API key.
+        /// </summary>
+        public override bool IsConfigured => this.IsSettingConfigured("ApiKey");
+
+        /// <summary>
         /// Helper to retrieve the configured API key for this provider.
         /// Exposed to nested streaming adapter to avoid protected access issues.
         /// </summary>
@@ -457,13 +463,8 @@ namespace SmartHopper.Providers.OpenRouter
             }
             else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
-                // Format for tool results
+                // Format for tool results (OpenRouter docs only document role, tool_call_id and content).
                 obj["tool_call_id"] = toolResultInteraction.Id;
-                if (!string.IsNullOrWhiteSpace(toolResultInteraction.Name))
-                {
-                    obj["name"] = toolResultInteraction.Name;
-                }
-
                 obj["content"] = toolResultInteraction.Result?.ToString() ?? string.Empty;
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
