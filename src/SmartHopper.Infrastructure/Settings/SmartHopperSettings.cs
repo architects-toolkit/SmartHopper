@@ -40,11 +40,11 @@ namespace SmartHopper.Infrastructure.Settings
             "Grasshopper",
             "SmartHopper.json");
 
-        // TEMPORARY: Legacy key material for one-time macOS migration.
-        // These are kept only to decrypt existing settings and will be removed
-        // after users have had a release cycle to migrate.
-        private static readonly byte[] LegacyKey = new byte[] { 132, 42, 53, 84, 75, 46, 97, 88, 109, 110, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 };
-        private static readonly byte[] LegacyIv = new byte[] { 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116 };
+        // Prefix for the current OS secure store encrypted format.
+        private const string SecurePrefix = "SH03:";
+
+        // Legacy prefix used by earlier releases (still accepted on decrypt for backward compatibility).
+        private const string LegacySecurePrefix = "SH02:";
 
         // Recursion guard to prevent infinite loops during settings access
         [ThreadStatic]
@@ -137,17 +137,10 @@ namespace SmartHopper.Infrastructure.Settings
         public event EventHandler? SettingsSaved;
 
         /// <summary>
-        /// Gets or sets version of the encryption method used. 2 = OS secure store.
+        /// Gets or sets version of the encryption method used. 3 = OS secure store (SH03:).
         /// </summary>
         [JsonProperty]
-        public int EncryptionVersion { get; set; } = 2;
-
-        /// <summary>
-        /// Gets or sets a value indicating whether legacy macOS key storage has been migrated to the macOS Keychain.
-        /// This is temporary and will be removed once the migration period has elapsed.
-        /// </summary>
-        [JsonProperty]
-        public bool HasMigratedToMacOSKeychain { get; set; } = false;
+        public int EncryptionVersion { get; set; } = 3;
 
         private static SmartHopperSettings? instance;
 
@@ -167,7 +160,7 @@ namespace SmartHopper.Infrastructure.Settings
             this.TrustedProviders = new Dictionary<string, bool>();
             this.ProviderIntegrityCheckMode = ProviderIntegrityCheckMode.Soft; // Default to soft verification
             this.SmartHopperAssistant = new SmartHopperAssistantSettings();
-            this.EncryptionVersion = 2;
+            this.EncryptionVersion = 3;
         }
 
         /// <summary>
@@ -478,7 +471,7 @@ namespace SmartHopper.Infrastructure.Settings
         /// Decrypts a string using the OS secure store protected key.
         /// </summary>
         /// <param name="encryptedText">The encrypted text.</param>
-        /// <returns>The decrypted string, or <c>null</c> if decryption fails or the legacy format is encountered.</returns>
+        /// <returns>The decrypted string, or <c>null</c> if decryption fails or the format is unrecognized.</returns>
         private static string? Decrypt(string encryptedText)
         {
             if (string.IsNullOrEmpty(encryptedText))
@@ -488,13 +481,14 @@ namespace SmartHopper.Infrastructure.Settings
 
             try
             {
-                // Only support the OS secure store encrypted format (starts with "SH02:")
-                if (encryptedText.StartsWith("SH02:"))
+                // Accept the current secure prefix (SH03:) and the legacy prefix (SH02:) for backward compatibility.
+                if (encryptedText.StartsWith(SecurePrefix, StringComparison.Ordinal) ||
+                    encryptedText.StartsWith(LegacySecurePrefix, StringComparison.Ordinal))
                 {
                     var key = GetOrCreateEncryptionKey();
                     if (key != null)
                     {
-                        return DecryptWithSecureKey(encryptedText.Substring(5), key);
+                        return DecryptWithSecureKey(encryptedText.Substring(SecurePrefix.Length), key);
                     }
                     else
                     {
@@ -503,8 +497,8 @@ namespace SmartHopper.Infrastructure.Settings
                     }
                 }
 
-                // Legacy format is no longer supported; refuse to return it as plaintext.
-                Debug.WriteLine("[Decryption] Legacy or unencrypted setting encountered and ignored.");
+                // Unrecognized or unsupported format.
+                Debug.WriteLine("[Decryption] Unrecognized or legacy setting encountered and ignored.");
                 return null;
             }
             catch (Exception ex)
@@ -564,7 +558,7 @@ namespace SmartHopper.Infrastructure.Settings
         /// </summary>
         /// <param name="plainText">The plain text to encrypt.</param>
         /// <param name="key">The encryption key from OS secure store.</param>
-        /// <returns>The encrypted string with SH02: prefix.</returns>
+        /// <returns>The encrypted string with SH03: prefix.</returns>
         private static string EncryptWithSecureKey(string plainText, byte[] key)
         {
             using (var aes = Aes.Create())
@@ -589,7 +583,7 @@ namespace SmartHopper.Infrastructure.Settings
                 result.AddRange(aes.IV);
                 result.AddRange(encryptedData);
 
-                return "SH02:" + Convert.ToBase64String(result.ToArray());
+                return SecurePrefix + Convert.ToBase64String(result.ToArray());
             }
         }
 
@@ -699,207 +693,145 @@ namespace SmartHopper.Infrastructure.Settings
         }
 
         /// <summary>
-        /// TEMPORARY: Decrypts a value that was encrypted with the legacy hardcoded AES key.
-        /// This is used only for the one-time macOS keychain migration.
+        /// Migrates Windows secrets from the legacy SH02: prefix to the current SH03: prefix.
+        /// The encryption key is unchanged, so this is a safe, lossless prefix rename.
+        /// macOS is intentionally skipped because the old file-based master key cannot be recovered reliably.
         /// </summary>
-        /// <param name="encryptedText">The base64 legacy ciphertext.</param>
-        /// <returns>The plaintext, or <c>null</c> if decryption fails.</returns>
-        private static string? DecryptLegacy(string encryptedText)
+        internal void MigrateWindowsSH02ToSH03()
         {
-            try
-            {
-                byte[] cipherText = Convert.FromBase64String(encryptedText);
-
-                using (var aes = Aes.Create())
-                {
-                    aes.Key = LegacyKey;
-                    aes.IV = LegacyIv;
-
-                    using (var decryptor = aes.CreateDecryptor())
-                    using (var msDecrypt = new MemoryStream(cipherText))
-                    using (var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
-                    using (var srDecrypt = new StreamReader(csDecrypt))
-                    {
-                        return srDecrypt.ReadToEnd();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[Legacy Decryption] Failed to decrypt legacy value: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// TEMPORARY: Reads the legacy macOS encryption key from the old file-based XOR obfuscated store.
-        /// </summary>
-        /// <returns>The 32-byte legacy key, or <c>null</c> if it cannot be retrieved.</returns>
-        private static byte[]? TryGetLegacyMacOSKey()
-        {
-            try
-            {
-                var secureDir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    ".smarthopper",
-                    "secure");
-                var filePath = Path.Combine(secureDir, "SmartHopper.EncryptionKey.dat");
-
-                if (!File.Exists(filePath))
-                {
-                    return null;
-                }
-
-                var obfuscated = File.ReadAllBytes(filePath);
-                var data = new byte[obfuscated.Length];
-                var seed = Environment.UserName.GetHashCode(StringComparison.Ordinal) ^
-                           Environment.MachineName.GetHashCode(StringComparison.Ordinal);
-                var rng = new Random(seed);
-
-                for (int i = 0; i < obfuscated.Length; i++)
-                {
-                    data[i] = (byte)(obfuscated[i] ^ (rng.Next() & 0xFF));
-                }
-
-                if (data.Length == 32)
-                {
-                    Debug.WriteLine("[Migration] Retrieved legacy macOS encryption key from file.");
-                    return data;
-                }
-
-                return null;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[Migration] Could not retrieve legacy macOS key: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// TEMPORARY: Migrates legacy macOS key storage to the new macOS Keychain-backed store.
-        /// Re-encrypts provider secrets that were stored with the old file-based XOR key or the
-        /// legacy hardcoded AES key. This method will be removed once users have had a release cycle
-        /// to migrate.
-        /// </summary>
-        public void MigrateLegacyMacOSSettings()
-        {
-            if (this.HasMigratedToMacOSKeychain)
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 return;
             }
 
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            if (this.ProviderSettings == null)
             {
-                this.HasMigratedToMacOSKeychain = true;
                 return;
             }
 
-            try
+            var key = GetOrCreateEncryptionKey();
+            if (key == null)
             {
-                Debug.WriteLine("[Migration] Starting legacy macOS key storage migration.");
+                Debug.WriteLine("[Migration] Cannot migrate SH02: to SH03: Windows secure store key unavailable.");
+                return;
+            }
 
-                if (this.ProviderSettings == null)
+            bool migratedAny = false;
+
+            foreach (var providerKvp in this.ProviderSettings.ToList())
+            {
+                var providerName = providerKvp.Key;
+                var settings = providerKvp.Value;
+                if (settings == null)
                 {
-                    this.ProviderSettings = new Dictionary<string, Dictionary<string, object>>();
+                    continue;
                 }
 
-                var newKey = GetOrCreateEncryptionKey();
-                if (newKey == null)
+                var descriptors = GetProviderDescriptors(providerName);
+
+                foreach (var settingKvp in settings.ToList())
                 {
-                    Debug.WriteLine("[Migration] Cannot migrate: new macOS Keychain key is unavailable.");
-                    return;
-                }
+                    var settingName = settingKvp.Key;
+                    var encryptedValue = settingKvp.Value?.ToString();
 
-                var oldKey = TryGetLegacyMacOSKey();
-                bool migratedAny = false;
-
-                foreach (var providerKvp in this.ProviderSettings.ToList())
-                {
-                    var providerName = providerKvp.Key;
-                    var settings = providerKvp.Value;
-                    var descriptors = GetProviderDescriptors(providerName);
-
-                    foreach (var settingKvp in settings.ToList())
+                    if (string.IsNullOrWhiteSpace(encryptedValue) ||
+                        !encryptedValue.StartsWith(LegacySecurePrefix, StringComparison.Ordinal))
                     {
-                        var settingName = settingKvp.Key;
-                        var encryptedValue = settingKvp.Value?.ToString();
+                        continue;
+                    }
 
-                        if (string.IsNullOrWhiteSpace(encryptedValue))
+                    var descriptor = descriptors.FirstOrDefault(d => d.Name == settingName);
+                    if (descriptor?.IsSecret != true)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        var plainText = DecryptWithSecureKey(encryptedValue.Substring(LegacySecurePrefix.Length), key);
+                        if (string.IsNullOrWhiteSpace(plainText))
                         {
                             continue;
                         }
 
-                        var descriptor = descriptors.FirstOrDefault(d => d.Name == settingName);
-                        if (descriptor?.IsSecret != true)
-                        {
-                            continue;
-                        }
-
-                        string? plainText = null;
-                        bool isOldFormat = false;
-
-                        if (encryptedValue.StartsWith("SH02:", StringComparison.Ordinal))
-                        {
-                            if (oldKey == null)
-                            {
-                                Debug.WriteLine($"[Migration] Cannot migrate {providerName}.{settingName}: legacy key unavailable.");
-                                continue;
-                            }
-
-                            try
-                            {
-                                plainText = DecryptWithSecureKey(encryptedValue.Substring(5), oldKey);
-                                isOldFormat = true;
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine($"[Migration] Failed to decrypt legacy SH02 value for {providerName}.{settingName}: {ex.Message}");
-                                continue;
-                            }
-                        }
-                        else
-                        {
-                            plainText = DecryptLegacy(encryptedValue);
-                            isOldFormat = plainText != null;
-                        }
-
-                        if (!isOldFormat || string.IsNullOrWhiteSpace(plainText))
-                        {
-                            continue;
-                        }
-
-                        try
-                        {
-                            settings[settingName] = EncryptWithSecureKey(plainText, newKey);
-                            migratedAny = true;
-                            Debug.WriteLine($"[Migration] Migrated {providerName}.{settingName} to macOS Keychain encryption.");
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"[Migration] Failed to re-encrypt {providerName}.{settingName}: {ex.Message}");
-                        }
+                        settings[settingName] = EncryptWithSecureKey(plainText, key);
+                        migratedAny = true;
+                        Debug.WriteLine($"[Migration] Migrated {providerName}.{settingName} from SH02: to SH03:.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[Migration] Failed to migrate {providerName}.{settingName}: {ex.Message}");
                     }
                 }
-
-                this.EncryptionVersion = 2;
-                this.HasMigratedToMacOSKeychain = true;
-
-                if (migratedAny)
-                {
-                    this.Save();
-                    Debug.WriteLine("[Migration] Legacy macOS key storage migration completed and saved.");
-                }
-                else
-                {
-                    this.Save();
-                    Debug.WriteLine("[Migration] No legacy macOS values found to migrate; marking as complete.");
-                }
             }
-            catch (Exception ex)
+
+            if (migratedAny)
             {
-                Debug.WriteLine($"[Migration] Legacy macOS migration failed: {ex.Message}");
+                this.EncryptionVersion = 3;
+                this.Save();
+                Debug.WriteLine("[Migration] Windows SH02: to SH03: migration completed and saved.");
             }
+        }
+
+        /// <summary>
+        /// Determines whether any provider setting still contains a legacy SH02: encrypted value.
+        /// </summary>
+        /// <returns><c>true</c> if at least one SH02: value exists; otherwise <c>false</c>.</returns>
+        internal bool HasSH02EncryptedValues()
+        {
+            if (this.ProviderSettings == null)
+            {
+                return false;
+            }
+
+            foreach (var settings in this.ProviderSettings.Values)
+            {
+                if (settings == null)
+                {
+                    continue;
+                }
+
+                foreach (var value in settings.Values)
+                {
+                    if (value?.ToString()?.StartsWith(LegacySecurePrefix, StringComparison.Ordinal) == true)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Removes all provider settings whose value starts with the legacy SH02: prefix
+        /// and marks the settings as using the current SH03: encryption version.
+        /// This is used on macOS after warning the user that old API keys cannot be recovered.
+        /// </summary>
+        internal void ClearSH02EncryptedValues()
+        {
+            if (this.ProviderSettings == null)
+            {
+                return;
+            }
+
+            foreach (var settings in this.ProviderSettings.Values.ToList())
+            {
+                if (settings == null)
+                {
+                    continue;
+                }
+
+                foreach (var key in settings.Keys.ToList())
+                {
+                    if (settings[key]?.ToString()?.StartsWith(LegacySecurePrefix, StringComparison.Ordinal) == true)
+                    {
+                        settings.Remove(key);
+                    }
+                }
+            }
+
+            this.EncryptionVersion = 3;
         }
 
         private static IEnumerable<SettingDescriptor> GetProviderDescriptors(string providerName)

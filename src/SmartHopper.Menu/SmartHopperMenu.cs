@@ -18,10 +18,12 @@
 
 using System;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Grasshopper;
 using Grasshopper.Kernel;
 using SmartHopper.Infrastructure.Initialization;
+using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Menu.Items;
 
 namespace SmartHopper.Menu
@@ -29,6 +31,7 @@ namespace SmartHopper.Menu
     public class SmartHopperMenu : GH_AssemblyPriority
     {
         private Timer _timer;
+        private bool _macOSKeyUpgradeWarningShown;
 
         public override GH_LoadingInstruction PriorityLoad()
         {
@@ -58,6 +61,40 @@ namespace SmartHopper.Menu
             {
                 this._timer.Stop();
                 this.AddToMainMenu();
+                this.ShowMacOSKeyUpgradeWarningIfNeeded();
+            }
+        }
+
+        private void ShowMacOSKeyUpgradeWarningIfNeeded()
+        {
+            if (this._macOSKeyUpgradeWarningShown || !RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                return;
+            }
+
+            try
+            {
+                var settings = SmartHopperSettings.Instance;
+                if (!settings.HasSH02EncryptedValues())
+                {
+                    return;
+                }
+
+                this._macOSKeyUpgradeWarningShown = true;
+
+                var message =
+                    "This version of SmartHopper strengthens the encryption of your API keys by storing them in the macOS Keychain. " +
+                    "Your previously saved provider API keys cannot be recovered automatically and must be re-entered in the SmartHopper settings. " +
+                    "We apologize for the inconvenience; your keys will be more secure from now on.";
+
+                Eto.Forms.MessageBox.Show(message, "SmartHopper", Eto.Forms.MessageBoxType.Information);
+
+                settings.ClearSH02EncryptedValues();
+                settings.Save();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[SmartHopperMenu] Failed to show macOS key upgrade warning: {ex.Message}");
             }
         }
 
