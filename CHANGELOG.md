@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `.github/workflows/pr-linear-history.yml` to enforce that pull requests targeting `main` (and release/hotfix branches) are rebased and contain no merge commits.
+- Added `.github/workflows/sync-dev-from-main.yml` to automatically open a PR that merges the latest `main` changes into `dev` when `dev` is behind.
+
 ## [2.0.0-dev.260802] - 2026-08-02
 
 ### Added
