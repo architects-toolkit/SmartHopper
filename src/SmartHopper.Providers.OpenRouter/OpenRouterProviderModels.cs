@@ -347,7 +347,7 @@ namespace SmartHopper.Providers.OpenRouter
                 {
                     Provider = provider,
                     Model = "nex-agi/nex-n2-pro",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     Verified = false,
                     Rank = 9905,
                     ContextLimit = 262144,
@@ -1250,23 +1250,6 @@ namespace SmartHopper.Providers.OpenRouter
                     {
                         Prompt = 0.0000001m,
                         Completion = 0.0000001m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "liquid/lfm-2-24b-a2b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9640,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2026, 2, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000003m,
-                        Completion = 0.00000012m,
                     },
                 },
 
@@ -2552,23 +2535,6 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "arcee-ai/trinity-mini",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9370,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 12, 1),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000045m,
-                        Completion = 0.00000015m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "nvidia/nemotron-3-nano-30b-a3b",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
@@ -2925,29 +2891,6 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "google/gemini-2.5-flash-image",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9240,
-                    ContextLimit = 32768,
-                    Created = new DateTime(2025, 10, 7),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000025m,
-                        Image = 0.0000003m,
-                        Audio = 0.000001m,
-                        InputCacheRead = 0.00000003m,
-                        InputCacheWrite = 0.00000008333333333333334m,
-                        InternalReasoning = 0.0000025m,
-                        WebSearch = 0.014m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "google/gemini-3-flash-preview",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
@@ -3017,8 +2960,10 @@ namespace SmartHopper.Providers.OpenRouter
                     Created = new DateTime(2025, 12, 4),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000008m,
+                        Prompt = 0.00000125m,
+                        Completion = 0.00001m,
+                        InputCacheRead = 0.000000125m,
+                        WebSearch = 0.01m,
                     },
                 },
 
@@ -3194,18 +3139,6 @@ namespace SmartHopper.Providers.OpenRouter
                     Rank = 9145,
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 10, 28),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3-next-80b-a3b-instruct:free",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9150,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 9, 11),
                 },
 
                 new AIModelCapabilities
@@ -3410,8 +3343,8 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "tencent/hunyuan-a13b-instruct",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "qwen/qwen3-vl-30b-a3b-instruct",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9080,
@@ -3600,23 +3533,6 @@ namespace SmartHopper.Providers.OpenRouter
                         Prompt = 0.00000021m,
                         Completion = 0.0000019m,
                         InputCacheRead = 0.0000001m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "morph/morph-v3-large",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 8975,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 7, 7),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000009m,
-                        Completion = 0.0000019m,
                     },
                 },
 
@@ -4569,23 +4485,6 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "microsoft/phi-4",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 8745,
-                    ContextLimit = 16384,
-                    Created = new DateTime(2025, 1, 10),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000007m,
-                        Completion = 0.00000014m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "google/gemma-3-12b-it",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
@@ -5034,22 +4933,6 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "aion-labs/aion-1.0",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.Reasoning,
-                    Verified = false,
-                    Rank = 8635,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 2, 4),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000004m,
-                        Completion = 0.000008m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "cohere/command-a",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsStreaming = true,
@@ -5454,40 +5337,6 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "inflection/inflection-3-pi",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 8540,
-                    ContextLimit = 8000,
-                    Created = new DateTime(2024, 10, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000025m,
-                        Completion = 0.00001m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "inflection/inflection-3-productivity",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 8535,
-                    ContextLimit = 8000,
-                    Created = new DateTime(2024, 10, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000025m,
-                        Completion = 0.00001m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "openai/o1",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
@@ -5563,7 +5412,7 @@ namespace SmartHopper.Providers.OpenRouter
                 {
                     Provider = provider,
                     Model = "meta-llama/llama-3.2-3b-instruct",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 8515,
@@ -5597,7 +5446,7 @@ namespace SmartHopper.Providers.OpenRouter
                 {
                     Provider = provider,
                     Model = "thedrummer/rocinante-12b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 8505,

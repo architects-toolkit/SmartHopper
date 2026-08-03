@@ -562,8 +562,8 @@ try {
         $newSection.RemoveAt($newSection.Count - 1)
     }
 
-    $newContent = ($newSection -join "`n").TrimEnd() + "`n"
-    $oldContent = ([System.IO.File]::ReadAllText($DevFile, [System.Text.Encoding]::UTF8)).TrimEnd() + "`n"
+    $newContent = ($newSection -join "`n") + "`n"
+    $oldContent = [System.IO.File]::ReadAllText($DevFile, [System.Text.Encoding]::UTF8)
 
     if ($newContent -eq $oldContent) {
         Write-Host "No content changes."

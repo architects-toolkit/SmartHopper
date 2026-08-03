@@ -113,26 +113,6 @@ namespace SmartHopper.Providers.Anthropic
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-opus-4-7",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9985,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 5, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000005m,
-                        Completion = 0.000025m,
-                        InputCacheRead = 0.0000005m,
-                        InputCacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
                     Model = "claude-fable-5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
@@ -218,29 +198,6 @@ namespace SmartHopper.Providers.Anthropic
 
 
                 // Released between November 2025 and February 2026
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
-                    Model = "claude-haiku-4-5-20251001",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.ToolChat | AICapability.Image2Text,
-                    SupportsStreaming = true,
-                    Verified = true,
-                    Rank = 9970,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 10, 15),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000001m,
-                        Completion = 0.000005m,
-                        InputCacheRead = 0.0000001m,
-                        InputCacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "claude-haiku-4-5", "claude-haiku-4-5-latest", "claude-haiku-4.5", "claude-haiku-4.5-latest" },
-                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
-                },
 
                 new AIModelCapabilities
                 {
