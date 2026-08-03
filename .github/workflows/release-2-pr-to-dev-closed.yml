@@ -22,6 +22,7 @@ name: 🏁 2 PR Release to Main from Dev
 # Permissions:
 # - contents:write - Required to create GitHub releases
 # - issues:read - Required to read issue information for release notes
+# - issues:write - Required to open rebase-notification issues
 # - pull-requests:write - Required to create PRs
 
 on:
@@ -42,7 +43,7 @@ on:
 permissions:
   actions: write
   contents: write
-  issues: read
+  issues: write
   pull-requests: write
 
 concurrency:
@@ -79,22 +80,56 @@ jobs:
             echo "dev is up to date with main"
             echo "sync_needed=false" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::dev is not a descendant of origin/main. A sync PR will be opened instead of the release PR."
+            echo "::warning::dev is not a descendant of origin/main. A release PR cannot be created until dev is rebased onto main."
             echo "sync_needed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Trigger dev sync workflow
+      - name: Open issue to rebase dev onto main
         if: ${{ github.event_name == 'pull_request' && steps.sync-check.outputs.sync_needed == 'true' }}
         uses: actions/github-script@v7
         with:
           script: |
-            await github.rest.actions.createWorkflowDispatch({
+            const title = 'Action required: rebase dev onto main before release PR';
+            const label = 'dev-sync';
+            const sourcePr = context.payload.pull_request ? `#${context.payload.pull_request.number}` : 'workflow_dispatch';
+            const body = `A release PR could not be created because \`dev\` is not a descendant of \`origin/main\`.` +
+              `\n\nBecause \`dev\` now uses squash merges only, \`main\` must be integrated into \`dev\` via rebase and force-push.` +
+              `\n\nPlease run (with bypass/force-push permissions):` +
+              `\n\`\`\`bash\n` +
+              `git fetch origin\n` +
+              `git checkout dev\n` +
+              `git rebase --autostash origin/main\n` +
+              `git push --force-with-lease origin dev\n` +
+              `\`\`\`\n\n` +
+              `Then trigger the release PR workflow again (or merge another release branch to \`dev\`).` +
+              `\n\n_Source: release-2-pr-to-dev-closed.yml after PR ${sourcePr}_`;
+
+            const { data: existing } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: 'sync-dev-from-main.yml',
-              ref: 'main',
+              labels: label,
+              state: 'open',
+              per_page: 1
             });
-            console.log('Dispatched sync-dev-from-main.yml to open a main→dev sync PR.');
+
+            if (existing.length > 0) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing[0].number,
+                body
+              });
+              console.log(`Updated issue #${existing[0].number}`);
+            } else {
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: [label, 'automated', 'status: needs attention']
+              });
+              console.log(`Created issue #${issue.number}`);
+            }
 
       - name: Create PR (on PR closed)
         if: ${{ github.event_name == 'pull_request' && steps.sync-check.outputs.sync_needed != 'true' }}
