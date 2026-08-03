@@ -13,6 +13,14 @@ inputs:
     description: "GitHub token for creating a PR if the branch is protected"
     required: false
     default: ${{ github.token }}
+  bot-name:
+    description: "Git user.name for the commit"
+    required: false
+    default: ""
+  bot-email:
+    description: "Git user.email for the commit"
+    required: false
+    default: ""
 runs:
   using: "composite"
   steps:
@@ -75,3 +83,5 @@ runs:
         pr-title: "chore: automatically fix code style"
         pr-body: "Automated code style fixes applied by the Code Style action."
         token: ${{ inputs.token }}
+        bot-name: ${{ inputs.bot-name }}
+        bot-email: ${{ inputs.bot-email }}

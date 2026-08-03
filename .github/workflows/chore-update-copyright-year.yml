@@ -63,6 +63,8 @@ jobs:
         with:
           base-ref: dev
           token: ${{ secrets.GITHUB_TOKEN }}
+          bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
+          bot-email: ${{ vars.SMARTHOPPER_BOT_EMAIL }}
 
       - name: Create Pull Request
         if: steps.check-changes.outputs.has-changes == 'true'

@@ -53,6 +53,8 @@ jobs:
         with:
           base-ref: ${{ github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
+          bot-email: ${{ vars.SMARTHOPPER_BOT_EMAIL }}
 
       - name: Run Update-ModelVerificationTemplate.ps1
         id: update
