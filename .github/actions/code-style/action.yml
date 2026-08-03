@@ -17,6 +17,10 @@ inputs:
     description: "Git user.email for the commit (pass ${{ vars.SMARTHOPPER_BOT_EMAIL }})"
     required: false
     default: ""
+  token:
+    description: "GitHub token for creating a PR if the branch is protected"
+    required: false
+    default: ${{ github.token }}
 runs:
   using: "composite"
   steps:
@@ -66,11 +70,16 @@ runs:
     - name: Fail on check errors
       if: ${{ inputs.mode == 'check' && (steps.header.outcome == 'failure' || steps.whitespace.outcome == 'failure' || steps.using_sorter.outcome == 'failure' || steps.namespace_fixer.outcome == 'failure') }}
       run: exit 1
-    - name: Commit & push changes
+    - name: Stage code-style changes
       if: ${{ inputs.commit }}
       shell: bash
-      run: |
-        git config user.name "${{ inputs.bot-name }}"
-        git config user.email "${{ inputs.bot-email }}"
-        git add .
-        git diff --quiet || (git commit -m "chore: automatically fix code style" && git push)
+      run: git add .
+
+    - name: Commit and push (or open PR if protected)
+      if: ${{ inputs.commit }}
+      uses: ./.github/actions/utils/safe-commit
+      with:
+        commit-message: "chore: automatically fix code style"
+        pr-title: "chore: automatically fix code style"
+        pr-body: "Automated code style fixes applied by the Code Style action."
+        token: ${{ inputs.token }}

@@ -1,0 +1,116 @@
+name: Rebase onto base
+
+description: |
+  Fetches the specified base branch from origin, ensures the current branch is
+  rebased onto `origin/<base-ref>`, and optionally pushes the result.
+  Uses `--autostash` so uncommitted working-tree changes are preserved.
+
+inputs:
+  base-ref:
+    description: 'Base branch to rebase onto (e.g. main, dev, release/1.2.3)'
+    required: true
+  head-ref:
+    description: 'Local branch to rebase. Defaults to the currently checked-out branch.'
+    required: false
+    default: ''
+  token:
+    description: 'GitHub token used by any internal gh calls (optional)'
+    required: false
+    default: ${{ github.token }}
+  push:
+    description: 'Whether to push the rebased branch back to origin'
+    required: false
+    default: 'false'
+  bot-name:
+    description: 'Git user.name for any commit/rebase operations'
+    required: false
+    default: ${{ vars.SMARTHOPPER_BOT_NAME || 'github-actions' }}
+  bot-email:
+    description: 'Git user.email for any commit/rebase operations'
+    required: false
+    default: ${{ vars.SMARTHOPPER_BOT_EMAIL || 'github-actions@users.noreply.github.com' }}
+
+outputs:
+  is-ancestor:
+    description: 'true if the head was already a descendant of the base before rebasing'
+    value: ${{ steps.check.outputs.is_ancestor }}
+  rebased:
+    description: 'true if a rebase was actually performed'
+    value: ${{ steps.rebase.outputs.rebased }}
+  head-ref:
+    description: 'The branch that was (or would be) rebased'
+    value: ${{ steps.resolve.outputs.head_ref }}
+
+runs:
+  using: composite
+  steps:
+    - name: Configure git
+      shell: bash
+      run: |
+        git config user.name "${{ inputs.bot-name }}"
+        git config user.email "${{ inputs.bot-email }}"
+
+    - name: Resolve head ref
+      id: resolve
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.head-ref }}" ]; then
+          HEAD_REF="${{ inputs.head-ref }}"
+          git checkout -B "$HEAD_REF"
+        else
+          HEAD_REF="$(git rev-parse --abbrev-ref HEAD)"
+          if [ "$HEAD_REF" = "HEAD" ]; then
+            echo "::error::HEAD is detached and no head-ref input was provided."
+            exit 1
+          fi
+        fi
+        echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+
+    - name: Fetch base
+      shell: bash
+      run: |
+        git fetch origin "${{ inputs.base-ref }}"
+
+    - name: Check ancestry
+      id: check
+      shell: bash
+      run: |
+        HEAD_REF="${{ steps.resolve.outputs.head_ref }}"
+        if git merge-base --is-ancestor "origin/${{ inputs.base-ref }}" "$HEAD_REF"; then
+          echo "is_ancestor=true" >> "$GITHUB_OUTPUT"
+          echo "origin/${{ inputs.base-ref }} is already an ancestor of $HEAD_REF"
+        else
+          echo "is_ancestor=false" >> "$GITHUB_OUTPUT"
+          echo "$HEAD_REF is not up to date with origin/${{ inputs.base-ref }}"
+        fi
+
+    - name: Rebase onto base
+      id: rebase
+      shell: bash
+      run: |
+        HEAD_REF="${{ steps.resolve.outputs.head_ref }}"
+        if [ "${{ steps.check.outputs.is_ancestor }}" = "true" ]; then
+          echo "rebased=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        if git rebase --autostash "origin/${{ inputs.base-ref }}"; then
+          echo "rebased=true" >> "$GITHUB_OUTPUT"
+          echo "Successfully rebased $HEAD_REF onto origin/${{ inputs.base-ref }}"
+        else
+          git rebase --abort || true
+          echo "::error::Failed to rebase $HEAD_REF onto origin/${{ inputs.base-ref }}. Resolve conflicts manually."
+          exit 1
+        fi
+
+    - name: Push rebased branch
+      if: ${{ inputs.push == 'true' }}
+      shell: bash
+      run: |
+        HEAD_REF="${{ steps.resolve.outputs.head_ref }}"
+        if git push --force-with-lease origin "$HEAD_REF"; then
+          echo "Pushed $HEAD_REF to origin"
+        else
+          echo "::error::Failed to push $HEAD_REF (branch may be protected or remote has newer commits)."
+          exit 1
+        fi
