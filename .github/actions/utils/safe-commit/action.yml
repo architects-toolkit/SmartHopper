@@ -43,6 +43,16 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Configure git
+      shell: bash
+      run: |
+        BOT_NAME="${{ vars.SMARTHOPPER_BOT_NAME }}"
+        BOT_EMAIL="${{ vars.SMARTHOPPER_BOT_EMAIL }}"
+        [ -z "$BOT_NAME" ] && BOT_NAME="github-actions"
+        [ -z "$BOT_EMAIL" ] && BOT_EMAIL="github-actions@users.noreply.github.com"
+        git config user.name "$BOT_NAME"
+        git config user.email "$BOT_EMAIL"
+
     - name: Resolve current branch
       id: resolve
       shell: bash

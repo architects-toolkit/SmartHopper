@@ -9,14 +9,6 @@ inputs:
     description: "Commit?"
     required: false
     default: false
-  bot-name:
-    description: "Git user.name for the commit (pass ${{ vars.SMARTHOPPER_BOT_NAME }})"
-    required: false
-    default: ""
-  bot-email:
-    description: "Git user.email for the commit (pass ${{ vars.SMARTHOPPER_BOT_EMAIL }})"
-    required: false
-    default: ""
   token:
     description: "GitHub token for creating a PR if the branch is protected"
     required: false

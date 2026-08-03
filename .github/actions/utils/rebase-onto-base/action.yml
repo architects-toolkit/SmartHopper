@@ -22,13 +22,13 @@ inputs:
     required: false
     default: 'false'
   bot-name:
-    description: 'Git user.name for any commit/rebase operations'
+    description: 'Git user.name for any commit/rebase operations. Defaults to github-actions.'
     required: false
-    default: ${{ vars.SMARTHOPPER_BOT_NAME || 'github-actions' }}
+    default: ''
   bot-email:
-    description: 'Git user.email for any commit/rebase operations'
+    description: 'Git user.email for any commit/rebase operations. Defaults to github-actions@users.noreply.github.com.'
     required: false
-    default: ${{ vars.SMARTHOPPER_BOT_EMAIL || 'github-actions@users.noreply.github.com' }}
+    default: ''
 
 outputs:
   is-ancestor:
@@ -47,8 +47,14 @@ runs:
     - name: Configure git
       shell: bash
       run: |
-        git config user.name "${{ inputs.bot-name }}"
-        git config user.email "${{ inputs.bot-email }}"
+        BOT_NAME="${{ inputs.bot-name }}"
+        BOT_EMAIL="${{ inputs.bot-email }}"
+        [ -z "$BOT_NAME" ] && BOT_NAME="${{ vars.SMARTHOPPER_BOT_NAME }}"
+        [ -z "$BOT_EMAIL" ] && BOT_EMAIL="${{ vars.SMARTHOPPER_BOT_EMAIL }}"
+        [ -z "$BOT_NAME" ] && BOT_NAME="github-actions"
+        [ -z "$BOT_EMAIL" ] && BOT_EMAIL="github-actions@users.noreply.github.com"
+        git config user.name "$BOT_NAME"
+        git config user.email "$BOT_EMAIL"
 
     - name: Resolve head ref
       id: resolve
