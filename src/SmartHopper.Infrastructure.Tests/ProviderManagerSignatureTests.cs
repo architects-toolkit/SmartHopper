@@ -237,9 +237,13 @@ namespace SmartHopper.Infrastructure.Tests
                 this.output.WriteLine($"Updated PATH with: {newPaths}");
             }
 
-            // Generate temp SNK file for strong-name signing
+            // Generate temp SNK file for strong-name signing.
+            // Use a unique file name per test invocation to avoid file-locking
+            // races when multiple target frameworks run tests in parallel.
             var tempDir = Path.GetTempPath();
-            var snkPath = Path.Combine(tempDir, "signing.snk");
+            var snkFileName = $"signing-{Guid.NewGuid()}.snk";
+            var snkPath = Path.Combine(tempDir, snkFileName);
+            var targetSnk = Path.Combine(assemblyDir, snkFileName);
 
             // Try to find sn.exe in the updated PATH
             var snExe = FindExecutable("sn.exe");
@@ -262,7 +266,7 @@ namespace SmartHopper.Infrastructure.Tests
 
                     if (snProcess.ExitCode == 0 && File.Exists(snkPath))
                     {
-                        File.Copy(snkPath, Path.Combine(solutionDir, "signing.snk"), true);
+                        File.Copy(snkPath, targetSnk, true);
                         this.output.WriteLine("Successfully generated SNK using sn.exe");
                         goto SnkGenerated;
                     }
@@ -275,7 +279,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             // Fall back to PowerShell script if sn.exe failed or wasn't found
             this.output.WriteLine("Falling back to PowerShell script for SNK generation");
-            var psi = new ProcessStartInfo("pwsh", $"-NoProfile -ExecutionPolicy Bypass -File \"{snkScriptPath}\" -Generate")
+            var psi = new ProcessStartInfo("pwsh", $"-NoProfile -ExecutionPolicy Bypass -File \"{snkScriptPath}\" -Generate -SnkPath \"{snkPath}\"")
             {
                 WorkingDirectory = tempDir,
                 RedirectStandardOutput = true,
@@ -291,24 +295,19 @@ namespace SmartHopper.Infrastructure.Tests
 
             if (proc.ExitCode != 0)
             {
-                this.output.WriteLine($"SNK generation failed: {stderr}. Falling back to existing signing.snk.");
+                this.output.WriteLine($"SNK generation failed: {stderr}.");
             }
 
         // If we get here, we used the PowerShell script, so mark that we've generated the SNK
         SnkGenerated:
 
-            // Copy SNK to assembly directory to ensure same strong-name for tests
-            var sourceSnk = Path.Combine(solutionDir, "signing.snk");
-            var targetSnk = Path.Combine(assemblyDir, "signing.snk");
-            if (File.Exists(sourceSnk))
-            {
-                File.Copy(sourceSnk, targetSnk, true);
-            }
-            else if (File.Exists(snkPath))
+            // Ensure the SNK exists at the target location used by the build step.
+            if (!File.Exists(targetSnk) && File.Exists(snkPath))
             {
                 File.Copy(snkPath, targetSnk, true);
             }
-            else
+
+            if (!File.Exists(targetSnk))
             {
                 throw new FileNotFoundException("Failed to generate or locate the SNK file");
             }
@@ -320,6 +319,24 @@ namespace SmartHopper.Infrastructure.Tests
             var verifyMethod = typeof(ProviderManager).GetMethod("VerifySignature", BindingFlags.NonPublic | BindingFlags.Instance);
             var ex = Assert.Throws<TargetInvocationException>(() => verifyMethod.Invoke(manager, new object[] { builtDll }));
             Assert.IsType<CryptographicException>(ex.InnerException);
+
+            // Cleanup generated key files
+            try
+            {
+                if (File.Exists(snkPath))
+                {
+                    File.Delete(snkPath);
+                }
+
+                if (File.Exists(targetSnk))
+                {
+                    File.Delete(targetSnk);
+                }
+            }
+            catch
+            {
+                // Best effort cleanup; do not fail the test if files are locked.
+            }
         }
 
         // #if NET7_WINDOWS
