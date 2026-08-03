@@ -1,17 +1,21 @@
-name: Notify dev rebase from main
+name: Sync dev from main
 
-# Description: When `main` moves ahead of `dev`, this workflow opens or updates a
-# GitHub issue asking the maintainer to rebase `dev` onto `origin/main` and
-# force-push. Because `dev` now uses squash merges only, `main` cannot be merged
-# into `dev` with a merge commit; the correct integration is a rebase.
+# Description: When `main` moves ahead of `dev`, this workflow tries to rebase
+# `dev` onto `origin/main` and force-push the result. Because `dev` is now
+# squash-only, a merge commit cannot be used to bring `main` into `dev`.
+#
+# The automatic rebase and force-push only succeeds if the `github-actions` bot
+# (or the token used) is allowed to bypass the `dev` branch protection. If the
+# push is rejected, the workflow falls back to opening/updating a GitHub issue
+# asking the maintainer to rebase `dev` manually.
 #
 # Triggers:
 # - push to main
 # - workflow_dispatch
 #
 # Permissions:
-# - issues: write (to create/update the notification issue)
-# - contents: read (to fetch refs)
+# - contents: write (to push the rebased dev branch)
+# - issues: write (to create/update the fallback notification issue)
 
 on:
   push:
@@ -20,16 +24,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 concurrency:
-  group: "sync-dev-from-main"
+  group: "dev-rebase-onto-main"
   cancel-in-progress: true
 
 jobs:
-  notify:
-    name: Check if dev needs rebase from main
+  rebase-dev:
+    name: Rebase dev onto main
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -48,60 +52,24 @@ jobs:
             echo "dev is up to date with main"
             echo "behind=false" >> "$GITHUB_OUTPUT"
           else
-            echo "dev is not up to date with main and needs rebase"
+            echo "dev is behind main and will be rebased"
             echo "behind=true" >> "$GITHUB_OUTPUT"
             echo "main_head=$(git rev-parse --short origin/main)" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Open or update rebase notification issue
+      - name: Rebase and force-push dev onto main
         if: steps.check.outputs.behind == 'true'
-        uses: actions/github-script@v7
+        id: rebase
+        continue-on-error: true
+        uses: ./.github/actions/utils/rebase-onto-base
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const label = 'dev-sync';
-            const mainHead = '${{ steps.check.outputs.main_head }}';
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const body = `\`main\` has moved ahead of \`dev\` (main HEAD \`${mainHead}\`).` +
-              ` Because \`dev\` is configured for squash merges only, a merge commit cannot be used to bring \`main\` into \`dev\`.` +
-              `\n\nPlease rebase \`dev\` onto \`origin/main\` and force-push (you will need bypass/force-push permissions):` +
-              `\n\`\`\`bash\n` +
-              `git fetch origin\n` +
-              `git checkout dev\n` +
-              `git rebase --autostash origin/main\n` +
-              `git push --force-with-lease origin dev\n` +
-              `\`\`\`\n\n` +
-              `_Auto-detected by \`.github/workflows/sync-dev-from-main.yml\` ([run](${runUrl}))._`;
+          head-ref: dev
+          base-ref: main
+          push: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-            const { data: existing } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: label,
-              state: 'open',
-              per_page: 1
-            });
-
-            if (existing.length > 0) {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: existing[0].number,
-                body
-              });
-              console.log(`Updated issue #${existing[0].number}`);
-            } else {
-              const { data: issue } = await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: 'Action required: rebase dev onto main',
-                body,
-                labels: [label, 'automated', 'status: needs attention']
-              });
-              console.log(`Created issue #${issue.number}`);
-            }
-
-      - name: Close notification issue when dev is up to date
-        if: steps.check.outputs.behind == 'false'
+      - name: Close notification issue when rebase succeeded
+        if: steps.check.outputs.behind == 'false' || steps.rebase.outcome == 'success'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -115,15 +83,65 @@ jobs:
               per_page: 10
             });
 
+            const title = 'Action required: rebase dev onto main';
             for (const issue of existing) {
-              if (issue.title === 'Action required: rebase dev onto main') {
+              if (issue.title === title) {
                 await github.rest.issues.update({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issue.number,
                   state: 'closed',
-                  body: `${issue.body || ''}\n\n---\n\`dev\` is now up to date with \`main\`. Closing.`
+                  body: `${issue.body || ''}\n\n---\n\`dev\` was successfully rebased onto \`main\`. Closing.`
                 });
                 console.log(`Closed issue #${issue.number}`);
               }
+            }
+
+      - name: Open or update rebase notification issue on failure
+        if: steps.check.outputs.behind == 'true' && steps.rebase.outcome != 'success'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const label = 'dev-sync';
+            const mainHead = '${{ steps.check.outputs.main_head }}';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = `Automatic rebase of \`dev\` onto \`origin/main\` (HEAD \`${mainHead}\`) failed.` +
+              ` This usually means the \`github-actions\` bot is not allowed to force-push to the protected \`dev\` branch.` +
+              `\n\nTo enable fully automatic rebases, add the **GitHub Actions** app as a bypass actor for the \`dev\` branch in the ruleset/branch protection settings.` +
+              `\n\nUntil then, please rebase \`dev\` onto \`origin/main\` and force-push (you will need bypass/force-push permissions):` +
+              `\n\`\`\`bash\n` +
+              `git fetch origin\n` +
+              `git checkout dev\n` +
+              `git rebase --autostash origin/main\n` +
+              `git push --force-with-lease origin dev\n` +
+              `\`\`\`\n\n` +
+              `_Run: ${runUrl}_`;
+
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: label,
+              state: 'open',
+              per_page: 1
+            });
+
+            const title = 'Action required: rebase dev onto main';
+            if (existing.length > 0) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing[0].number,
+                body
+              });
+              console.log(`Updated issue #${existing[0].number}`);
+            } else {
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: [label, 'automated', 'status: needs attention']
+              });
+              console.log(`Created issue #${issue.number}`);
             }

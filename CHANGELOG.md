@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added `.github/workflows/pr-linear-history.yml` to enforce that pull requests targeting `main` (and release/hotfix branches) are rebased and contain no merge commits.
-- Added `.github/workflows/sync-dev-from-main.yml` to notify the maintainer when `dev` needs to be rebased onto `main` (because `dev` is now squash-only and cannot receive merge commits).
+- Added `.github/workflows/sync-dev-from-main.yml` to automatically rebase `dev` onto `main` and force-push; if branch protection blocks the push, it falls back to a notification issue.
 - Added `.github/actions/utils/rebase-onto-base` composite action to centralize rebase/base-management operations for GitHub Actions workflows.
 
 ### Changed

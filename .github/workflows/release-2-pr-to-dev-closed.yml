@@ -47,7 +47,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: release-pr-dev-${{ github.event.pull_request.number || github.run_id }}
+  group: dev-rebase-onto-main
   cancel-in-progress: false
 
 jobs:
@@ -84,17 +84,30 @@ jobs:
             echo "sync_needed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Open issue to rebase dev onto main
+      - name: Rebase and force-push dev onto main
         if: ${{ github.event_name == 'pull_request' && steps.sync-check.outputs.sync_needed == 'true' }}
+        id: rebase
+        continue-on-error: true
+        uses: ./.github/actions/utils/rebase-onto-base
+        with:
+          head-ref: dev
+          base-ref: main
+          push: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Open issue if rebase failed
+        if: ${{ github.event_name == 'pull_request' && steps.sync-check.outputs.sync_needed == 'true' && steps.rebase.outcome == 'failure' }}
         uses: actions/github-script@v7
         with:
           script: |
             const title = 'Action required: rebase dev onto main before release PR';
             const label = 'dev-sync';
             const sourcePr = context.payload.pull_request ? `#${context.payload.pull_request.number}` : 'workflow_dispatch';
-            const body = `A release PR could not be created because \`dev\` is not a descendant of \`origin/main\`.` +
-              `\n\nBecause \`dev\` now uses squash merges only, \`main\` must be integrated into \`dev\` via rebase and force-push.` +
-              `\n\nPlease run (with bypass/force-push permissions):` +
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = `A release PR could not be created because \`dev\` is not a descendant of \`origin/main\`, and the automatic rebase failed.` +
+              `\n\nThis usually means the \`github-actions\` bot is not allowed to force-push to the protected \`dev\` branch.` +
+              ` To enable fully automatic rebases, add the **GitHub Actions** app as a bypass actor for the \`dev\` branch in the ruleset/branch protection settings.` +
+              `\n\nUntil then, please rebase \`dev\` onto \`origin/main\` and force-push (you will need bypass/force-push permissions):` +
               `\n\`\`\`bash\n` +
               `git fetch origin\n` +
               `git checkout dev\n` +
@@ -102,7 +115,7 @@ jobs:
               `git push --force-with-lease origin dev\n` +
               `\`\`\`\n\n` +
               `Then trigger the release PR workflow again (or merge another release branch to \`dev\`).` +
-              `\n\n_Source: release-2-pr-to-dev-closed.yml after PR ${sourcePr}_`;
+              `\n\n_Source: release-2-pr-to-dev-closed.yml after PR ${sourcePr}_ ([run](${runUrl}))._`;
 
             const { data: existing } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
@@ -132,7 +145,7 @@ jobs:
             }
 
       - name: Create PR (on PR closed)
-        if: ${{ github.event_name == 'pull_request' && steps.sync-check.outputs.sync_needed != 'true' }}
+        if: ${{ github.event_name == 'pull_request' && (steps.sync-check.outputs.sync_needed != 'true' || steps.rebase.outcome == 'success') }}
         id: create-pr-event
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
