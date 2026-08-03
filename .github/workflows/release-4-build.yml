@@ -433,6 +433,13 @@ jobs:
           Write-Host "No changes to commit (hash file already exists with same content)"
         } else {
           git commit -m "chore: add provider hash manifest for version $version (dual platform)"
+          # Ensure the hash branch is on top of the latest main before pushing
+          git fetch origin main
+          if (-not (git rebase --autostash origin/main)) {
+            git rebase --abort | Out-Null
+            Write-Error "Rebase of hash branch onto origin/main failed. Resolve conflicts manually."
+            exit 1
+          }
           git push origin $tempBranch
           
           # Create PR to main

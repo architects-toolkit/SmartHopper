@@ -72,6 +72,16 @@ jobs:
           new-version: ${{ steps.calculate-version.outputs.new-version }}
           require-src-changes: 'false'
 
+      - name: Sanitize ref name for branch
+        id: ref-slug
+        if: steps.version-manager.outputs.has-changes == 'true'
+        shell: bash
+        run: |
+          SAFE_REF="${{ github.ref_name }}"
+          SAFE_REF="${SAFE_REF//\//-}"
+          SAFE_REF="${SAFE_REF// /-}"
+          echo "safe_ref=$SAFE_REF" >> "$GITHUB_OUTPUT"
+
       - name: Determine PR details
         id: pr-details
         if: steps.version-manager.outputs.has-changes == 'true'
@@ -80,12 +90,12 @@ jobs:
           if [[ "${{ steps.calculate-version.outputs.was-date-updated }}" == "true" ]]; then
             echo "commit-message=chore: update development version date to ${{ steps.calculate-version.outputs.new-version }}" >> $GITHUB_OUTPUT
             echo "title=chore: update development version date to ${{ steps.calculate-version.outputs.new-version }}" >> $GITHUB_OUTPUT
-            echo "branch=chore/update-version-date-${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "branch=chore/update-version-date-${{ steps.ref-slug.outputs.safe_ref }}" >> $GITHUB_OUTPUT
             echo "pr-title=chore: update development version date to ${{ steps.calculate-version.outputs.new-version }}" >> $GITHUB_OUTPUT
           else
             echo "commit-message=docs: update version badge for ${{ github.ref_name }}" >> $GITHUB_OUTPUT
             echo "title=docs: update version badge for ${{ github.ref_name }} to ${{ steps.current-version.outputs.version }}" >> $GITHUB_OUTPUT
-            echo "branch=docs/update-version-badge-${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "branch=docs/update-version-badge-${{ steps.ref-slug.outputs.safe_ref }}" >> $GITHUB_OUTPUT
             echo "pr-title=docs: update version badge for ${{ github.ref_name }} to ${{ steps.current-version.outputs.version }}" >> $GITHUB_OUTPUT
           fi
 
@@ -98,6 +108,15 @@ jobs:
           else
             echo "has_changes=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Rebase onto latest ${{ github.ref_name }}
+        if: steps.version-manager.outputs.has-changes == 'true' && steps.check-changes.outputs.has_changes == 'true'
+        uses: ./.github/actions/utils/rebase-onto-base
+        with:
+          base-ref: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
+          bot-email: ${{ vars.SMARTHOPPER_BOT_EMAIL }}
 
       - name: Create Pull Request
         if: steps.version-manager.outputs.has-changes == 'true' && steps.check-changes.outputs.has_changes == 'true'

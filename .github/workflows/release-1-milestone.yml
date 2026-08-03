@@ -177,10 +177,17 @@ jobs:
       #     bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
       #     bot-email: ${{ vars.SMARTHOPPER_BOT_EMAIL }}
       
-      - name: Commit and push changes
+      - name: Commit and rebase release branch onto latest base
         run: |
+          BASE_BRANCH="${{ steps.detect-branch.outputs.base-branch }}"
           git add Solution.props CHANGELOG.md README.md yak-package/manifest.yml src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj src/
           git commit -m "chore: prepare release ${{ inputs.milestone-title }} with version update and code style fixes"
+          git fetch origin "$BASE_BRANCH"
+          if ! git rebase --autostash "origin/$BASE_BRANCH"; then
+            git rebase --abort || true
+            echo "::error::Rebase of release branch onto origin/$BASE_BRANCH failed. Resolve conflicts manually."
+            exit 1
+          fi
           git push origin release/${{ inputs.milestone-title }}
 
       - name: Create Pull Request

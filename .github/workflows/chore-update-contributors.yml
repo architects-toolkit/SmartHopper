@@ -43,47 +43,39 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.ref }}
+          ref: ${{ github.ref_name }}
 
       - name: Configure Git
         run: |
           git config --local user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
           git config --local user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
 
+      - name: Rebase onto latest base
+        uses: ./.github/actions/utils/rebase-onto-base
+        with:
+          base-ref: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
+          bot-email: ${{ vars.SMARTHOPPER_BOT_EMAIL }}
+
       - name: Get target branch and setup
         run: |
           TARGET_BRANCH="${{ github.ref_name }}"
+          SAFE_TARGET="${TARGET_BRANCH//\//-}"
           echo "TARGET_BRANCH=$TARGET_BRANCH" >> $GITHUB_ENV
-          echo "CONTRIB_BRANCH=chore/update-contributors-$TARGET_BRANCH" >> $GITHUB_ENV
-
-      - name: Delete existing contributor branches
-        continue-on-error: true
-        run: |
-          echo "Cleaning up existing branches..."
-          git push origin --delete ${{ env.CONTRIB_BRANCH }} 2>/dev/null || true
-
-      - name: Close existing PRs
-        continue-on-error: true
-        run: |
-          PR_NUMBER=$(gh pr list --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --json number --jq '.[0].number')
-          if [ ! -z "$PR_NUMBER" ]; then
-            echo "Closing existing PR #$PR_NUMBER"
-            gh pr close $PR_NUMBER --delete-branch
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "CONTRIB_BRANCH=chore/update-contributors-$SAFE_TARGET" >> $GITHUB_ENV
 
       - name: Find last release tag
         id: last-release
         run: |
           # Find the most recent release tag (matching v* or [0-9].* pattern)
           LAST_TAG=$(git tag --list | grep -E '^v?[0-9]+\.[0-9]+' | sort -V | tail -1)
-          
+
           if [ -z "$LAST_TAG" ]; then
             echo "No release tag found, using first commit"
             LAST_TAG=$(git rev-list --max-parents=0 HEAD)
           fi
-          
+
           echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
           echo "Last release tag: $LAST_TAG"
 
@@ -132,7 +124,7 @@ jobs:
           while read -r sha login; do
             [[ -z "$sha" || -z "$login" ]] && continue
             if grep -qF "$sha" /tmp/git_shas.txt; then
-              LOGIN_COUNTS["$login"]=$(( ${LOGIN_COUNTS["$login"]:-0} + 1 ))
+              LOGIN_COUNTS["$login"]=$((${LOGIN_COUNTS["$login"]:-0} + 1))
             fi
           done < /tmp/sha_login_pairs.txt
 
@@ -214,50 +206,50 @@ jobs:
             echo "No contributors file found"
             exit 0
           fi
-          
+
           # Build the contributors section
           CONTRIBUTORS_SECTION="Many thanks to the following contributors to this release:\n\n"
-          
+
           while IFS='|' read -r name username link is_first_time commit_count; do
             [ -z "$name" ] && continue
-            
+
             first_time_badge=""
             if [ "$is_first_time" = "true" ]; then
               first_time_badge=" **First contribution!**"
             fi
-            
+
             if [ ! -z "$username" ]; then
               CONTRIBUTORS_SECTION="${CONTRIBUTORS_SECTION}- [${username}](${link})${first_time_badge}\n"
             fi
           done < /tmp/new_contributors.txt
-          
+
           CONTRIBUTORS_SECTION="${CONTRIBUTORS_SECTION}\n----\n"
-          
+
           echo "Contributors section to add:"
           printf '%b\n' "$CONTRIBUTORS_SECTION"
-          
+
           # Read current CHANGELOG
           CHANGELOG_CONTENT=$(cat CHANGELOG.md)
-          
+
           # Check if [Unreleased] section exists
           if ! echo "$CHANGELOG_CONTENT" | grep -q "^## \[Unreleased\]"; then
             echo "ERROR: No [Unreleased] section found in CHANGELOG.md"
             exit 1
           fi
-          
+
           # Check if contributors section already exists under [Unreleased]
           # We need to find the position between [Unreleased] and the next ## or ###
-          
+
           # Extract the Unreleased section (from ## [Unreleased] to the next ## [ or end of file)
           UNRELEASED_SECTION=$(echo "$CHANGELOG_CONTENT" | sed -n '/^## \[Unreleased\]/,/^## \[/p' | sed '$d')
-          
+
           # Check if contributors already exists in this section
           if echo "$UNRELEASED_SECTION" | grep -q "Many thanks to the following contributors"; then
             echo "Contributors section already exists in [Unreleased], skipping"
             echo "changelog_updated=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
+
           # Check if [Unreleased] section is effectively empty (dev->main merge scenario)
           # Count non-empty lines after the header (excluding the header itself)
           UNRELEASED_CONTENT_LINES=$(echo "$UNRELEASED_SECTION" | tail -n +2 | grep -v '^[[:space:]]*$' | wc -l)
@@ -266,15 +258,15 @@ jobs:
             echo "changelog_updated=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
+
           # Find the position to insert (after ## [Unreleased] line, before first ### or content)
           # Look for the first ### after [Unreleased]
           UNRELEASED_START=$(grep -n "^## \[Unreleased\]" CHANGELOG.md | head -1 | cut -d: -f1)
-          
-          # Find where to insert - after the Unreleased header line, before any ### 
+
+          # Find where to insert - after the Unreleased header line, before any ###
           # Check if there's already an empty line after [Unreleased]
           NEXT_LINE=$(sed -n "$((UNRELEASED_START + 1))p" CHANGELOG.md)
-          
+
           if [ -z "$NEXT_LINE" ]; then
             # Empty line after header, insert after it
             INSERT_LINE=$((UNRELEASED_START + 2))
@@ -282,74 +274,53 @@ jobs:
             # No empty line, insert after header
             INSERT_LINE=$((UNRELEASED_START + 1))
           fi
-          
+
           # Create the new content
           # Convert \n to actual newlines for sed
           TEMP_FILE=$(mktemp)
           printf '%b\n' "$CONTRIBUTORS_SECTION" > "$TEMP_FILE"
-          
+
           # Insert the contributors section
           head -n $((INSERT_LINE - 1)) CHANGELOG.md > /tmp/changelog_new.md
           cat "$TEMP_FILE" >> /tmp/changelog_new.md
           tail -n +$INSERT_LINE CHANGELOG.md >> /tmp/changelog_new.md
-          
+
           mv /tmp/changelog_new.md CHANGELOG.md
-          
+
           echo "CHANGELOG.md updated successfully"
           echo "changelog_updated=true" >> $GITHUB_OUTPUT
 
-      - name: Create and push branch
+      - name: Create Pull Request
         if: steps.identify-contributors.outputs.has_contributors == 'true' && steps.update-changelog.outputs.changelog_updated == 'true'
-        run: |
-          echo "Creating new branch: ${{ env.CONTRIB_BRANCH }}"
-          git checkout -b ${{ env.CONTRIB_BRANCH }}
-          
-          # Check if there are actual changes to commit
-          if [[ -n "$(git status --porcelain CHANGELOG.md)" ]]; then
-            echo "Changes detected in CHANGELOG.md, committing and pushing"
-            git add CHANGELOG.md
-            git commit -m "docs: update contributors section for ${{ env.TARGET_BRANCH }}"
-            git push origin ${{ env.CONTRIB_BRANCH }}
-            echo "CHANGES_PUSHED=true" >> $GITHUB_ENV
-          else
-            echo "No changes detected in CHANGELOG.md"
-            echo "CHANGES_PUSHED=false" >> $GITHUB_ENV
-          fi
-
-      - name: Create PR
-        if: steps.identify-contributors.outputs.has_contributors == 'true' && steps.update-changelog.outputs.changelog_updated == 'true' && env.CHANGES_PUSHED == 'true'
         id: create-pr
-        run: |
-          PR_TITLE="docs: update contributors section for ${{ env.TARGET_BRANCH }}"
-          PR_BODY=$(printf '%s\n\n%s' \
-            "This PR updates the contributors section in CHANGELOG.md under [Unreleased] to acknowledge new contributors since the last release." \
-            "This is an automated PR created by the Update Contributors workflow.")
-          
-          gh pr create --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --title "$PR_TITLE" --body "$PR_BODY" 2>&1 || true
-          
-          # Capture PR number (works whether pr was just created or already existed)
-          PR_NUMBER=$(gh pr list --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --json number --jq '.[0].number')
-          if [ -z "$PR_NUMBER" ]; then
-            echo "::error::Failed to create or find PR"
-            exit 1
-          fi
-          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "docs: update contributors section for ${{ env.TARGET_BRANCH }}"
+          title: "docs: update contributors section for ${{ env.TARGET_BRANCH }}"
+          body: |
+            This PR updates the contributors section in CHANGELOG.md under [Unreleased] to acknowledge new contributors since the last release.
+
+            This is an automated PR created by the Update Contributors workflow.
+          branch: "${{ env.CONTRIB_BRANCH }}"
+          base: ${{ env.TARGET_BRANCH }}
+          delete-branch: true
+          labels: |
+            automated
 
       - name: Assign PR to Milestone
-        if: steps.identify-contributors.outputs.has_contributors == 'true' && steps.update-changelog.outputs.changelog_updated == 'true' && env.CHANGES_PUSHED == 'true' && steps.create-pr.outputs.pr_number != ''
+        if: steps.identify-contributors.outputs.has_contributors == 'true' && steps.update-changelog.outputs.changelog_updated == 'true' && steps.create-pr.outputs.pull-request-number != ''
         uses: ./.github/actions/milestone/assign-pr
         with:
-          pr-number: ${{ steps.create-pr.outputs.pr_number }}
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Dispatch required PR checks
-        if: steps.identify-contributors.outputs.has_contributors == 'true' && steps.update-changelog.outputs.changelog_updated == 'true' && env.CHANGES_PUSHED == 'true' && steps.create-pr.outputs.pr_number != ''
+        if: steps.identify-contributors.outputs.has_contributors == 'true' && steps.update-changelog.outputs.changelog_updated == 'true' && steps.create-pr.outputs.pull-request-number != ''
         uses: ./.github/actions/dispatch-required-pr-checks
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ env.CONTRIB_BRANCH }}
-          pr-number: ${{ steps.create-pr.outputs.pr_number }}
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
           base-ref: ${{ env.TARGET_BRANCH }}
           pr-title: "docs: update contributors section for ${{ env.TARGET_BRANCH }}"

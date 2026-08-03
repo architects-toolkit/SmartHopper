@@ -191,6 +191,15 @@ jobs:
             throw "Update-VersionVerificationTemplate.ps1 failed with exit code $code"
           }
 
+      - name: Rebase template update branch onto latest ${{ steps.target-branch.outputs.branch }}
+        if: steps.dev_check.outputs.skip != 'true' && steps.update_template.outputs.changed == 'true'
+        uses: ./.github/actions/utils/rebase-onto-base
+        with:
+          base-ref: ${{ steps.target-branch.outputs.branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
+          bot-email: ${{ vars.SMARTHOPPER_BOT_EMAIL }}
+
       - name: Create Pull Request for Template Update
         if: steps.dev_check.outputs.skip != 'true' && steps.update_template.outputs.changed == 'true'
         id: create-pr

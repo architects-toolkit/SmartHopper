@@ -66,6 +66,26 @@ jobs:
           mode: set-version
           new-version: ${{ steps.strip-date.outputs.new-version }}
 
+      - name: Sanitize head ref for branch
+        id: head-slug
+        if: steps.strip-date.outputs.new-version != steps.get-version.outputs.version
+        shell: bash
+        run: |
+          SAFE_HEAD="${{ github.event.pull_request.head.ref }}"
+          SAFE_HEAD="${SAFE_HEAD//\//-}"
+          SAFE_HEAD="${SAFE_HEAD// /-}"
+          echo "safe_head=$SAFE_HEAD" >> "$GITHUB_OUTPUT"
+
+      - name: Rebase onto latest ${{ github.event.pull_request.head.ref }}
+        if: steps.strip-date.outputs.new-version != steps.get-version.outputs.version
+        uses: ./.github/actions/utils/rebase-onto-base
+        with:
+          head-ref: ${{ github.event.pull_request.head.ref }}
+          base-ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
+          bot-email: ${{ vars.SMARTHOPPER_BOT_EMAIL }}
+
       - name: Create Pull Request
         if: steps.strip-date.outputs.new-version != steps.get-version.outputs.version
         id: create-pr
@@ -78,7 +98,7 @@ jobs:
             This PR removes the date suffix from the version in Solution.props to prepare for a main release.
 
             This is an automated PR created by the Remove Release Version Date workflow.
-          branch: "chore/strip-version-date-${{ github.event.pull_request.head.ref }}"
+          branch: "chore/strip-version-date-${{ steps.head-slug.outputs.safe_head }}"
           base: ${{ github.event.pull_request.head.ref }}
           delete-branch: true
           labels: |
