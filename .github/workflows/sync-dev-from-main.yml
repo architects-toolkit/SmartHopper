@@ -61,3 +61,5 @@ jobs:
           base-ref: main
           push: true
           token: ${{ secrets.GITHUB_TOKEN }}
+          bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
+          bot-email: ${{ vars.SMARTHOPPER_BOT_EMAIL }}

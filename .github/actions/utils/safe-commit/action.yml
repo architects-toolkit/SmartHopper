@@ -25,6 +25,14 @@ inputs:
   token:
     description: 'GitHub token for creating PRs'
     required: true
+  bot-name:
+    description: 'Git user.name for the commit'
+    required: false
+    default: ''
+  bot-email:
+    description: 'Git user.email for the commit'
+    required: false
+    default: ''
 
 outputs:
   method:
@@ -46,8 +54,8 @@ runs:
     - name: Configure git
       shell: bash
       run: |
-        BOT_NAME="${{ vars.SMARTHOPPER_BOT_NAME }}"
-        BOT_EMAIL="${{ vars.SMARTHOPPER_BOT_EMAIL }}"
+        BOT_NAME="${{ inputs.bot-name }}"
+        BOT_EMAIL="${{ inputs.bot-email }}"
         [ -z "$BOT_NAME" ] && BOT_NAME="github-actions"
         [ -z "$BOT_EMAIL" ] && BOT_EMAIL="github-actions@users.noreply.github.com"
         git config user.name "$BOT_NAME"

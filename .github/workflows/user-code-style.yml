@@ -130,6 +130,8 @@ jobs:
           pr-title: 'chore(ci): apply code style fixes'
           pr-body: 'Automated code style fixes applied by the Fix Code Style workflow.'
           token: ${{ secrets.GITHUB_TOKEN }}
+          bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
+          bot-email: ${{ vars.SMARTHOPPER_BOT_EMAIL }}
       - name: Report result
         run: |
           if [ "${{ steps.safe-commit.outputs.method }}" = "pr" ]; then

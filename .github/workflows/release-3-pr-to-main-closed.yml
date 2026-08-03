@@ -197,6 +197,8 @@ jobs:
         with:
           base-ref: ${{ steps.target-branch.outputs.branch }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
+          bot-email: ${{ vars.SMARTHOPPER_BOT_EMAIL }}
 
       - name: Create Pull Request for Template Update
         if: steps.dev_check.outputs.skip != 'true' && steps.update_template.outputs.changed == 'true'
