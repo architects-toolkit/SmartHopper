@@ -49,6 +49,8 @@ runs:
       run: |
         BOT_NAME="${{ inputs.bot-name }}"
         BOT_EMAIL="${{ inputs.bot-email }}"
+        [ -z "$BOT_NAME" ] && BOT_NAME="${{ vars.SMARTHOPPER_BOT_NAME }}"
+        [ -z "$BOT_EMAIL" ] && BOT_EMAIL="${{ vars.SMARTHOPPER_BOT_EMAIL }}"
         [ -z "$BOT_NAME" ] && BOT_NAME="github-actions"
         [ -z "$BOT_EMAIL" ] && BOT_EMAIL="github-actions@users.noreply.github.com"
         git config user.name "$BOT_NAME"
