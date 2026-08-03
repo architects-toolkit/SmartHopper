@@ -1,0 +1,95 @@
+name: Linear History
+
+# Description: Enforces that pull requests targeting the linear-history protected
+# branches are rebased onto their base and contain no merge commits. The `dev`
+# branch is intentionally excluded because it no longer requires linear history.
+#
+# Triggers:
+# - pull_request to main and related release/hotfix branches
+# - merge_group checks
+# - workflow_dispatch
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'main-*'
+      - 'hotfix/**'
+      - 'release/**'
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Base branch to check against.
+        required: true
+        type: string
+      head_sha:
+        description: Head commit SHA.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-linear-history:
+    name: Check linear history
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine base and head
+        id: refs
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "base=${{ github.event.inputs.base_ref }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.inputs.head_sha }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "merge_group" ]; then
+            # merge_group payload uses a generated ref for the candidate merge
+            echo "base=${{ github.event.merge_group.base_ref }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.merge_group.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch base ref
+        shell: bash
+        run: |
+          git fetch origin "${{ steps.refs.outputs.base }}"
+
+      - name: Verify branch is rebased onto base
+        shell: bash
+        run: |
+          if ! git merge-base --is-ancestor "origin/${{ steps.refs.outputs.base }}" "${{ steps.refs.outputs.head }}"; then
+            echo "::error::The PR branch is not rebased onto origin/${{ steps.refs.outputs.base }}. Please run: git fetch origin && git rebase origin/${{ steps.refs.outputs.base }}"
+            exit 1
+          fi
+
+      - name: Verify no merge commits
+        shell: bash
+        run: |
+          merges=$(git log --merges --oneline "origin/${{ steps.refs.outputs.base }}..${{ steps.refs.outputs.head }}" || true)
+          if [ -n "$merges" ]; then
+            echo "::error::The PR branch contains merge commits, which are not allowed on protected branches. Rebase and remove them:"
+            echo "$merges"
+            exit 1
+          fi
+
+      - name: Check for leftover conflict markers
+        shell: bash
+        run: |
+          if ! git diff --check "origin/${{ steps.refs.outputs.base }}..${{ steps.refs.outputs.head }}"; then
+            echo "::error::Conflict markers or whitespace errors found in the PR diff."
+            exit 1
+          fi
