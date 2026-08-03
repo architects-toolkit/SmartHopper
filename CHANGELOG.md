@@ -10,12 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added `.github/workflows/pr-linear-history.yml` to enforce that pull requests targeting `main` (and release/hotfix branches) are rebased and contain no merge commits.
-- Added `.github/workflows/sync-dev-from-main.yml` to automatically rebase `dev` onto `main` and force-push; if branch protection blocks the push, it falls back to a notification issue.
+- Added `.github/workflows/sync-dev-from-main.yml` to automatically rebase `dev` onto `main` and force-push; if the rebase fails, the workflow run fails so it surfaces in GitHub Actions.
 - Added `.github/actions/utils/rebase-onto-base` composite action to centralize rebase/base-management operations for GitHub Actions workflows.
 
 ### Changed
 
-- `release-2-pr-to-dev-closed.yml` now checks `git merge-base --is-ancestor origin/main HEAD` before creating the `dev → main` release PR and opens a notification issue when `dev` is behind `main` and needs rebasing.
+- `release-2-pr-to-dev-closed.yml` now checks `git merge-base --is-ancestor origin/main HEAD` before creating the `dev → main` release PR and rebases/force-pushes `dev` onto `main` when it is behind.
 - `chore-update-model-verification-template.yml` now targets the triggering branch (typically `dev`) instead of `main`, so updates flow through the regular release PR.
 - `chore-update-contributors.yml` and `pr-anonymize-public-key.yml` no longer delete/recreate branches and PRs; they use `peter-evans/create-pull-request` updates.
 - `safe-commit` and `code-style` now rebase (`git pull --rebase --autostash`) before pushing, falling back to a PR if the branch is protected.

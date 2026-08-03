@@ -12,17 +12,15 @@ name: 🏁 2 PR Release to Main from Dev
 # When the release/* branch is merged to dev or dev-X.Y.Z.
 #
 # Before creating the release PR, it verifies that dev is rebased onto main.
-# If dev is behind main, it dispatches the sync-dev-from-main workflow so a
-# sync PR can be merged first. This prevents the dev→main release PR from
-# carrying stale history or conflicts.
+# If dev is behind main, it rebases and force-pushes dev. If the rebase fails
+# (e.g. due to conflicts), the workflow run fails so the problem surfaces in
+# GitHub Actions.
 #
 # Triggers:
 # - Automatically when a PR to dev or dev-* is closed
 #
 # Permissions:
 # - contents:write - Required to create GitHub releases
-# - issues:read - Required to read issue information for release notes
-# - issues:write - Required to open rebase-notification issues
 # - pull-requests:write - Required to create PRs
 
 on:
@@ -43,7 +41,6 @@ on:
 permissions:
   actions: write
   contents: write
-  issues: write
   pull-requests: write
 
 concurrency:
@@ -87,62 +84,12 @@ jobs:
       - name: Rebase and force-push dev onto main
         if: ${{ github.event_name == 'pull_request' && steps.sync-check.outputs.sync_needed == 'true' }}
         id: rebase
-        continue-on-error: true
         uses: ./.github/actions/utils/rebase-onto-base
         with:
           head-ref: dev
           base-ref: main
           push: true
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Open issue if rebase failed
-        if: ${{ github.event_name == 'pull_request' && steps.sync-check.outputs.sync_needed == 'true' && steps.rebase.outcome == 'failure' }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const title = 'Action required: rebase dev onto main before release PR';
-            const label = 'dev-sync';
-            const sourcePr = context.payload.pull_request ? `#${context.payload.pull_request.number}` : 'workflow_dispatch';
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const body = `A release PR could not be created because \`dev\` is not a descendant of \`origin/main\`, and the automatic rebase failed.` +
-              `\n\nThis usually means the \`github-actions\` bot is not allowed to force-push to the protected \`dev\` branch.` +
-              ` To enable fully automatic rebases, add the **GitHub Actions** app as a bypass actor for the \`dev\` branch in the ruleset/branch protection settings.` +
-              `\n\nUntil then, please rebase \`dev\` onto \`origin/main\` and force-push (you will need bypass/force-push permissions):` +
-              `\n\`\`\`bash\n` +
-              `git fetch origin\n` +
-              `git checkout dev\n` +
-              `git rebase --autostash origin/main\n` +
-              `git push --force-with-lease origin dev\n` +
-              `\`\`\`\n\n` +
-              `Then trigger the release PR workflow again (or merge another release branch to \`dev\`).` +
-              `\n\n_Source: release-2-pr-to-dev-closed.yml after PR ${sourcePr}_ ([run](${runUrl}))._`;
-
-            const { data: existing } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: label,
-              state: 'open',
-              per_page: 1
-            });
-
-            if (existing.length > 0) {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: existing[0].number,
-                body
-              });
-              console.log(`Updated issue #${existing[0].number}`);
-            } else {
-              const { data: issue } = await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                body,
-                labels: [label, 'automated', 'status: needs attention']
-              });
-              console.log(`Created issue #${issue.number}`);
-            }
 
       - name: Create PR (on PR closed)
         if: ${{ github.event_name == 'pull_request' && (steps.sync-check.outputs.sync_needed != 'true' || steps.rebase.outcome == 'success') }}
