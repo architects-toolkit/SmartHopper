@@ -799,29 +799,6 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-4o-2024-08-06",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9805,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2024, 8, 6),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000025m,
-                        Completion = 0.00001m,
-                        InputCacheRead = 0.00000125m,
-                    },
-                    Aliases = new List<string> { "gpt-4o-latest", "gpt-4o" },
-                },
-
-
-
-                // Released before July 2024 or unknown release date
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "gpt-3.5-turbo-instruct",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsStreaming = true,

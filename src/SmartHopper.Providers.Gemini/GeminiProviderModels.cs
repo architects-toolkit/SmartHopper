@@ -54,27 +54,10 @@ namespace SmartHopper.Providers.Gemini
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "gemini-3.1-flash-lite-image",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
-                    Verified = false,
-                    Rank = 10000,
-                    ContextLimit = 65536,
-                    Created = new DateTime(2026, 6, 30),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000025m,
-                        Completion = 0.0000015m,
-                        WebSearch = 0.014m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
                     Model = "gemini-3.1-flash-lite",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     Verified = false,
-                    Rank = 9995,
+                    Rank = 10000,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 5, 7),
                     Pricing = new AIModelPricing
@@ -97,7 +80,7 @@ namespace SmartHopper.Providers.Gemini
                     Model = "gemini-3.5-flash-lite",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     Verified = false,
-                    Rank = 9985,
+                    Rank = 9995,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 7, 21),
                     Pricing = new AIModelPricing
@@ -306,25 +289,6 @@ namespace SmartHopper.Providers.Gemini
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "gemini-3.1-flash-image-preview",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Image,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9950,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2026, 2, 26),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000005m,
-                        Completion = 0.000003m,
-                        WebSearch = 0.014m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
                     Model = "gemini-3.1-pro-preview-customtools",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     Verified = false,
@@ -368,10 +332,6 @@ namespace SmartHopper.Providers.Gemini
                         WebSearch = 0.014m,
                     },
                 },
-
-
-
-                // Released between October 2025 and January 2026
 
                 new AIModelCapabilities
                 {
@@ -463,13 +423,15 @@ namespace SmartHopper.Providers.Gemini
                     Created = new DateTime(2025, 10, 7),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000004m,
-                        Image = 0.0000001m,
-                        Audio = 0.0000003m,
-                        InputCacheRead = 0.00000001m,
+                        Prompt = 0.0000003m,
+                        Completion = 0.0000025m,
+                        Image = 0.0000003m,
+                        ImageOutput = 0.00003m,
+                        Audio = 0.000001m,
+                        InputAudioCache = 0.0000001m,
+                        InputCacheRead = 0.00000003m,
                         InputCacheWrite = 0.00000008333333333333334m,
-                        InternalReasoning = 0.0000004m,
+                        InternalReasoning = 0.0000025m,
                         WebSearch = 0.014m,
                     },
                 },
