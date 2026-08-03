@@ -11,6 +11,11 @@ name: 🏁 2 PR Release to Main from Dev
 # Description: This workflow automatically creates a PR to merge a release branch into main (or main-X.Y.Z for stabilization paths).
 # When the release/* branch is merged to dev or dev-X.Y.Z.
 #
+# Before creating the release PR, it verifies that dev is rebased onto main.
+# If dev is behind main, it dispatches the sync-dev-from-main workflow so a
+# sync PR can be merged first. This prevents the dev→main release PR from
+# carrying stale history or conflicts.
+#
 # Triggers:
 # - Automatically when a PR to dev or dev-* is closed
 #
@@ -55,8 +60,44 @@ jobs:
       issues: read
       pull-requests: write
     steps:
-      - name: Create PR (on PR closed)
+      - name: Checkout dev
         if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Ensure dev is rebased onto main
+        if: ${{ github.event_name == 'pull_request' }}
+        id: sync-check
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo "dev is up to date with main"
+            echo "sync_needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::dev is not a descendant of origin/main. A sync PR will be opened instead of the release PR."
+            echo "sync_needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger dev sync workflow
+        if: ${{ github.event_name == 'pull_request' && steps.sync-check.outputs.sync_needed == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'sync-dev-from-main.yml',
+              ref: 'main',
+            });
+            console.log('Dispatched sync-dev-from-main.yml to open a main→dev sync PR.');
+
+      - name: Create PR (on PR closed)
+        if: ${{ github.event_name == 'pull_request' && steps.sync-check.outputs.sync_needed != 'true' }}
         id: create-pr-event
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -79,7 +120,7 @@ jobs:
             --head "$MAIN_HEAD" \
             --title "$SOURCE_PR_TITLE" \
             --body "$SOURCE_PR_BODY" 2>&1 || true
-          
+
           # Capture PR number (works whether PR was just created or already existed)
           PR_NUMBER=$(gh pr list --repo ${{ github.repository }} --base "$TARGET_BRANCH" --head "$MAIN_HEAD" --json number --jq '.[0].number')
           if [ -z "$PR_NUMBER" ]; then
@@ -114,7 +155,7 @@ jobs:
             --head dev \
             --title "${{ github.event.inputs['pr-title'] }}" \
             --body "${{ github.event.inputs['pr-body'] }}" 2>&1 || true
-          
+
           # Capture PR number (works whether PR was just created or already existed)
           PR_NUMBER=$(gh pr list --repo ${{ github.repository }} --base main --head dev --json number --jq '.[0].number')
           if [ -z "$PR_NUMBER" ]; then

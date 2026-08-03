@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `.github/workflows/pr-linear-history.yml` to enforce that pull requests targeting `main` (and release/hotfix branches) are rebased and contain no merge commits.
 - Added `.github/workflows/sync-dev-from-main.yml` to automatically open a PR that merges the latest `main` changes into `dev` when `dev` is behind.
+- Added `.github/actions/utils/rebase-onto-base` composite action to centralize rebase/base-management operations for GitHub Actions workflows.
+
+### Changed
+
+- `release-2-pr-to-dev-closed.yml` now checks `git merge-base --is-ancestor origin/main HEAD` before creating the `dev → main` release PR and dispatches `sync-dev-from-main.yml` when `dev` is behind.
+- `chore-update-model-verification-template.yml` now targets the triggering branch (typically `dev`) instead of `main`, so updates flow through the regular release PR.
+- `chore-update-contributors.yml` and `pr-anonymize-public-key.yml` no longer delete/recreate branches and PRs; they use `peter-evans/create-pull-request` updates.
+- `safe-commit` and `code-style` now rebase (`git pull --rebase --autostash`) before pushing, falling back to a PR if the branch is protected.
+- Automated workflows that open PRs to `main`/`main-*`/`release/**`/`hotfix/**` now fetch full history and rebase onto the target base before calling `create-pull-request`.
+- `pr-block-dev-to-main.yml` is now `Warn Dev Release to Main`: it emits a warning and a PR comment instead of exiting with an error when a `-dev` version is merged into a protected branch.
 
 ## [2.0.0-dev.260802] - 2026-08-02
 

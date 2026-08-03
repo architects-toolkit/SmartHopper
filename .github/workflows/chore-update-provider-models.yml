@@ -116,7 +116,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ matrix.branch }}
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Fetch and compare models for ${{ matrix.provider }}
         if: steps.check.outputs.skipped == 'false'
@@ -371,13 +371,16 @@ jobs:
         run: |
           base="${{ matrix.branch }}"
           provider="${{ matrix.provider }}"
-          if [ "$base" = "main" ]; then
-            echo "pr-branch=chore/update-models-${provider}" >> "$GITHUB_OUTPUT"
-          else
-            # Replace / with - for valid branch names
-            safe_base="${base//\//-}"
-            echo "pr-branch=chore/update-models-${provider}-${safe_base}" >> "$GITHUB_OUTPUT"
-          fi
+          # Replace / with - for valid branch names
+          safe_base="${base//\//-}"
+          echo "pr-branch=chore/update-models-${provider}-${safe_base}" >> "$GITHUB_OUTPUT"
+
+      - name: Rebase PR branch onto latest ${{ matrix.branch }}
+        if: steps.check.outputs.skipped == 'false' && steps.models.outputs.changed == 'true'
+        uses: ./.github/actions/utils/rebase-onto-base
+        with:
+          base-ref: ${{ matrix.branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Pull Request
         if: steps.check.outputs.skipped == 'false' && steps.models.outputs.changed == 'true'

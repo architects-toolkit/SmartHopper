@@ -59,11 +59,20 @@ jobs:
             echo "behind=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Stage merge from main
+      - name: Fast-forward dev and stage merge from main
         id: merge
         if: steps.check.outputs.behind == 'true'
         shell: bash
         run: |
+          git fetch origin dev
+          if ! git merge-base --is-ancestor origin/dev HEAD; then
+            echo "::warning::Local dev is behind origin/dev; fast-forwarding before merging main"
+            if ! git merge --ff-only origin/dev; then
+              echo "::error::Could not fast-forward dev onto origin/dev. Resolve manually."
+              exit 1
+            fi
+          fi
+
           if git merge --no-commit --no-ff origin/main; then
             echo "merged=true" >> "$GITHUB_OUTPUT"
           else

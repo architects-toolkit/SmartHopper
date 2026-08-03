@@ -1,8 +1,10 @@
 name: Safe Commit
+
 description: |
-  Commits staged changes and pushes. If the push fails (e.g. protected branch),
-  automatically creates a PR instead. This removes the need to hardcode protected
-  branch patterns in workflows.
+  Commits staged changes, rebases the current branch onto its remote counterpart,
+  and pushes. If the push fails (e.g. protected branch), automatically creates a
+  PR instead. This removes the need to hardcode protected branch patterns in
+  workflows.
 
 inputs:
   commit-message:
@@ -41,6 +43,17 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Resolve current branch
+      id: resolve
+      shell: bash
+      run: |
+        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        if [ "$CURRENT_BRANCH" = "HEAD" ]; then
+          echo "::error::HEAD is detached; cannot determine branch to push to."
+          exit 1
+        fi
+        echo "current_branch=$CURRENT_BRANCH" >> "$GITHUB_OUTPUT"
+
     - name: Check for changes and commit
       id: commit
       shell: bash
@@ -53,12 +66,29 @@ runs:
           echo "changed=true" >> "$GITHUB_OUTPUT"
         fi
 
-    - name: Try direct push
+    - name: Rebase onto remote branch and push
       id: push
       if: steps.commit.outputs.changed == 'true'
       shell: bash
       run: |
-        if git push 2>&1; then
+        CURRENT_BRANCH="${{ steps.resolve.outputs.current_branch }}"
+
+        # Fetch the remote counterpart so we can detect if it has moved forward.
+        git fetch origin "$CURRENT_BRANCH" || true
+
+        # Only rebase if the remote branch exists and is not already an ancestor.
+        if git rev-parse --verify "origin/$CURRENT_BRANCH" >/dev/null 2>&1; then
+          if ! git merge-base --is-ancestor "origin/$CURRENT_BRANCH" HEAD; then
+            echo "Remote $CURRENT_BRANCH has moved forward; rebasing local commit(s) onto origin/$CURRENT_BRANCH"
+            if ! git rebase --autostash "origin/$CURRENT_BRANCH"; then
+              git rebase --abort || true
+              echo "::error::Rebase of $CURRENT_BRANCH onto origin/$CURRENT_BRANCH failed. Resolve conflicts manually."
+              exit 1
+            fi
+          fi
+        fi
+
+        if git push --force-with-lease origin "$CURRENT_BRANCH" 2>&1; then
           echo "push_ok=true" >> "$GITHUB_OUTPUT"
         else
           echo "Direct push failed (branch may be protected), will create PR"
@@ -72,7 +102,7 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.token }}
       run: |
-        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        CURRENT_BRANCH="${{ steps.resolve.outputs.current_branch }}"
         TEMP_BRANCH="chore/auto-$(date +%s)-$(echo "${{ inputs.commit-message }}" | tr ' ' '-' | tr -cd '[:alnum:]-' | head -c 40)"
 
         # Create temp branch and push
@@ -112,11 +142,11 @@ runs:
       id: result
       shell: bash
       run: |
-        if [ "${{ steps.commit.outputs.changed }}" != "true" ]; then
+        if [ "${{ steps.commit.outputs.changed }}" != 'true' ]; then
           echo "method=none" >> "$GITHUB_OUTPUT"
           echo "pr_number=" >> "$GITHUB_OUTPUT"
           echo "pr_url=" >> "$GITHUB_OUTPUT"
-        elif [ "${{ steps.push.outputs.push_ok }}" == "true" ]; then
+        elif [ "${{ steps.push.outputs.push_ok }}" == 'true' ]; then
           echo "method=direct" >> "$GITHUB_OUTPUT"
           echo "pr_number=" >> "$GITHUB_OUTPUT"
           echo "pr_url=" >> "$GITHUB_OUTPUT"

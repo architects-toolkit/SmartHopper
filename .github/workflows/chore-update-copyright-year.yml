@@ -27,6 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: dev
+          fetch-depth: 0
 
       - name: Get current year
         id: year
@@ -55,6 +56,13 @@ jobs:
           } else {
             echo "has-changes=false" >> $env:GITHUB_OUTPUT
           }
+
+      - name: Rebase onto latest dev
+        if: steps.check-changes.outputs.has-changes == 'true'
+        uses: ./.github/actions/utils/rebase-onto-base
+        with:
+          base-ref: dev
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Pull Request
         if: steps.check-changes.outputs.has-changes == 'true'
