@@ -94,6 +94,13 @@ namespace SmartHopper.Providers.Ollama
         public override bool IsEnabled => true;
 
         /// <summary>
+        /// Ollama is configured when a Base URL is available.
+        /// The descriptor supplies a default loopback URL, so the provider is considered
+        /// configured out of the box unless the URL has been explicitly cleared.
+        /// </summary>
+        public override bool IsConfigured => !string.IsNullOrWhiteSpace(this.GetServerUrlSetting());
+
+        /// <summary>
         /// Helper to retrieve the configured API key for this provider.
         /// Exposed to the nested streaming adapter to avoid protected access issues.
         /// </summary>
