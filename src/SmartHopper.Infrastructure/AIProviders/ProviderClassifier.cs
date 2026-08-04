@@ -225,24 +225,21 @@ namespace SmartHopper.Infrastructure.AIProviders
             bool hashOnAllowList = hashStatus == ProviderVerificationStatus.Match;
             bool hashMismatch = hashStatus == ProviderVerificationStatus.Mismatch;
 
-            if (hashOnAllowList && (token is not null && !tokenMatchesHost && tokenMatchesHost == false))
+            if (hashOnAllowList && token is not null && !tokenMatchesHost)
             {
                 // Hash claims official but strong-name token disagrees — tampered.
-                if (token is not null && !tokenMatchesHost)
+                return new ProviderClassificationResult
                 {
-                    return new ProviderClassificationResult
-                    {
-                        Classification = ProviderClassification.OfficialTampered,
-                        Sha256 = sha256,
-                        StrongNameToken = token,
-                        StrongNameMatchesHost = tokenMatchesHost,
-                        AuthenticodeSubject = authSubject,
-                        AuthenticodeThumbprint = authThumb,
-                        AuthenticodeMatchesHost = authMatchesHost,
-                        HashStatus = hashStatus,
-                        Diagnostic = $"Provider '{Path.GetFileName(assemblyPath)}' is listed in the official hash manifest but its strong-name token does not match SmartHopper. The file has been tampered with.",
-                    };
-                }
+                    Classification = ProviderClassification.OfficialTampered,
+                    Sha256 = sha256,
+                    StrongNameToken = token,
+                    StrongNameMatchesHost = tokenMatchesHost,
+                    AuthenticodeSubject = authSubject,
+                    AuthenticodeThumbprint = authThumb,
+                    AuthenticodeMatchesHost = authMatchesHost,
+                    HashStatus = hashStatus,
+                    Diagnostic = $"Provider '{Path.GetFileName(assemblyPath)}' is listed in the official hash manifest but its strong-name token does not match SmartHopper. The file has been tampered with.",
+                };
             }
 
             if (hashMismatch && tokenMatchesHost)
