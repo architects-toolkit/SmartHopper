@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
+# Visual Studio Version 18
+VisualStudioVersion = 18.8.12023.21 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Core", "src\SmartHopper.Core\SmartHopper.Core.csproj", "{D4C6D3D5-2B3A-4B6C-8C3D-57B2D0D3C1E1}"
 EndProject
@@ -244,8 +244,5 @@ Global
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {0D5011CB-B808-41E4-A6FC-C01F3190649C}
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal
