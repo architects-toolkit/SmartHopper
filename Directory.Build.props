@@ -10,6 +10,14 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <!-- ghjson-dotnet can be consumed from a sibling repo or from NuGet packages.
+         Local source is the default for command-line builds, while Visual Studio
+         uses the published packages unless explicitly overridden. -->
+    <UseLocalGhJsonSource Condition="'$(UseLocalGhJsonSource)' == '' and '$(BuildingInsideVisualStudio)' == 'true'">false</UseLocalGhJsonSource>
+    <UseLocalGhJsonSource Condition="'$(UseLocalGhJsonSource)' == ''">true</UseLocalGhJsonSource>
+  </PropertyGroup>
+
+  <PropertyGroup>
     <!-- Use latest C# and enable nullable refs -->
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
