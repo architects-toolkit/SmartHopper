@@ -30,7 +30,7 @@ Get your API key from [Google AI Studio](https://ai.google.dev/):
 - **Model**: Select from available Gemini models (default: `gemini-2.5-flash`)
 - **Enable Streaming**: Allow streaming responses (default: enabled)
 - **Max Tokens**: Maximum output tokens (default: 2000)
-- **Temperature**: Controls randomness (0.0â€“2.0, default: 1.0)
+- **Temperature**: Controls randomness (0.0–2.0, default: 1.0)
 
 ### Extra Parameters
 

@@ -71,7 +71,7 @@ ProviderManager is an internal service that runs when SmartHopper starts. It sca
 ### Visual Guide
 
 <!-- PLACEHOLDER: Screenshot of SmartHopper provider settings panel -->
-<!-- - Location: Rhino â†’ Tools â†’ Options â†’ SmartHopper â†’ Providers -->
+<!-- - Location: Rhino → Tools → Options → SmartHopper → Providers -->
 <!-- - Shows: list of discovered providers with trust status and settings buttons -->
 
 ### Common Questions
@@ -190,8 +190,8 @@ ProviderManager.Instance.UpdateProviderSettings("OpenAI", newSettings);
 ### Data Flow
 
 ```text
-Rhino Startup â†’ RefreshProviders() â†’ Scan Directory â†’ Verify Trust â†’
-InitializeProviderAsync() â†’ Register in Registry â†’ Available to Components
+Rhino Startup → RefreshProviders() → Scan Directory → Verify Trust →
+InitializeProviderAsync() → Register in Registry → Available to Components
 
 ```
 

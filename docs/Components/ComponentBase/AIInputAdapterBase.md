@@ -2,7 +2,7 @@
 
 `src/SmartHopper.Core/ComponentBase/AIInputAdapterBase.cs`
 
-Synchronous, **non-AI** base for components that build an `AIInputPayload` from a single piece of data (text, image, audio, context filter). Sits at the input edge of the AI pipeline â€” adapter components produced by this base feed [AIOutputAdapterBase](./AIOutputAdapterBase.md) components downstream.
+Synchronous, **non-AI** base for components that build an `AIInputPayload` from a single piece of data (text, image, audio, context filter). Sits at the input edge of the AI pipeline — adapter components produced by this base feed [AIOutputAdapterBase](./AIOutputAdapterBase.md) components downstream.
 
 ## Purpose
 
@@ -30,7 +30,7 @@ protected virtual void RegisterAdditionalOutputParams(GH_OutputParamManager pMan
 ## Related
 
 - `AIInputPayload`, `AIInputPayloadParameter`, `GH_AIInputPayload` in `SmartHopper.Core`.
-- [AIOutputAdapterBase](./AIOutputAdapterBase.md) â€” consumer side.
+- [AIOutputAdapterBase](./AIOutputAdapterBase.md) — consumer side.
 
 ## Metadata
 

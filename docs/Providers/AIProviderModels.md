@@ -37,8 +37,8 @@ Expose model lists, capabilities, and defaults to the provider during initializa
 
 ### Key members
 
-- `Task<List<AIModelCapabilities>> RetrieveModels()` â€” asynchronously fetch full model metadata (name, capabilities, defaults, verification, rank) for registration in `ModelManager`.
-- `Task<List<string>> RetrieveApiModels()` â€” asynchronously fetch the raw list of available model identifiers from the provider API (e.g., `/models`). Intended for UI listing (e.g., model pickers) and not for capability registration. Implementations should:
+- `Task<List<AIModelCapabilities>> RetrieveModels()` — asynchronously fetch full model metadata (name, capabilities, defaults, verification, rank) for registration in `ModelManager`.
+- `Task<List<string>> RetrieveApiModels()` — asynchronously fetch the raw list of available model identifiers from the provider API (e.g., `/models`). Intended for UI listing (e.g., model pickers) and not for capability registration. Implementations should:
   - Use provider-authenticated HTTP calls.
   - Return an empty list on any error (network/JSON), enabling silent fallback to static lists.
   - Return distinct, case-insensitive, alphabetically sorted names.

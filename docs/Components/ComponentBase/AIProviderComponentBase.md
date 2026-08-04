@@ -16,10 +16,10 @@ Let the user pick an AI provider per component (or fall back to the system defau
 
 ## Key members
 
-- `string SelectedProviderName` â€” the literal stored value (may be `"Default"`).
-- `string GetActualAIProviderName()` â€” resolves `"Default"` through `ProviderManager`.
-- `AIProvider GetActualAIProvider()` â€” the concrete provider instance, or `null`.
-- `bool HasProviderChanged()` â€” true exactly once after the user changed the selection (clears the previous-selection cache as a side effect).
+- `string SelectedProviderName` — the literal stored value (may be `"Default"`).
+- `string GetActualAIProviderName()` — resolves `"Default"` through `ProviderManager`.
+- `AIProvider GetActualAIProvider()` — the concrete provider instance, or `null`.
+- `bool HasProviderChanged()` — true exactly once after the user changed the selection (clears the previous-selection cache as a side effect).
 - `void SetSelectedProviderName(string name)`.
 
 ## Persistence

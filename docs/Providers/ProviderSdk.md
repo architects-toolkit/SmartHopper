@@ -6,14 +6,14 @@ The Provider SDK (`SmartHopper.ProviderSdk`) is a standalone, MIT-licensed assem
 
 The SDK is **API-connection only**:
 
-- **Contracts** â€” `IAIProvider`, `IAIProviderFactory`, `IAIProviderSettings`, `IAIProviderModels`.
-- **Base classes** â€” `AIProvider`, `AIProvider<T>`, `AIProviderSettings`, `AIProviderModels`, `AIProviderStreamingAdapter`.
-- **Request / response DTOs** â€” `AICall.Core.{Base, Interactions, Requests, Returns}`, `AICall.Metrics`, minimal `AICall.JsonSchemas` types referenced by request bodies.
-- **Model capabilities** â€” `AIModels.*`, `AIExtraDescriptor`, `AIModelCapabilityRegistry` singleton.
-- **Settings descriptors** â€” `SettingDescriptor`, secret flags, validation result types.
-- **Streaming** â€” `IStreamingAdapter` and provider-facing delta/result types.
-- **Tool DTOs** â€” structures required to encode/decode tool calls and tool results inside a provider response (no `ToolManager`, no tool registration).
-- **Compatibility metadata** â€” `SmartHopperProviderSdkVersionAttribute`, `BuiltAgainstSdkAttribute`, `MinHostSdkAttribute`, `SmartHopperProviderIdAttribute`.
+- **Contracts** — `IAIProvider`, `IAIProviderFactory`, `IAIProviderSettings`, `IAIProviderModels`.
+- **Base classes** — `AIProvider`, `AIProvider<T>`, `AIProviderSettings`, `AIProviderModels`, `AIProviderStreamingAdapter`.
+- **Request / response DTOs** — `AICall.Core.{Base, Interactions, Requests, Returns}`, `AICall.Metrics`, minimal `AICall.JsonSchemas` types referenced by request bodies.
+- **Model capabilities** — `AIModels.*`, `AIExtraDescriptor`, `AIModelCapabilityRegistry` singleton.
+- **Settings descriptors** — `SettingDescriptor`, secret flags, validation result types.
+- **Streaming** — `IStreamingAdapter` and provider-facing delta/result types.
+- **Tool DTOs** — structures required to encode/decode tool calls and tool results inside a provider response (no `ToolManager`, no tool registration).
+- **Compatibility metadata** — `SmartHopperProviderSdkVersionAttribute`, `BuiltAgainstSdkAttribute`, `MinHostSdkAttribute`, `SmartHopperProviderIdAttribute`.
 
 ## What is NOT in the SDK
 
@@ -40,7 +40,7 @@ Provider assemblies discovered at runtime must match `SmartHopper.Providers.*.dl
 1. The app-local directory (next to `SmartHopper.Infrastructure.dll`).
 2. `%AppData%/SmartHopper/Providers` (Windows) or the platform equivalent under the user's application data folder.
 
-App-local providers win on duplicate-id conflicts (see plan Â§2.2).
+App-local providers win on duplicate-id conflicts (see plan §2.2).
 
 ## Minimal provider
 
@@ -76,7 +76,7 @@ Community providers (those not cryptographically attributable to SmartHopper) ar
 2. `BlockNonOfficialProviders = false`, and
 3. The user accepts the per-provider trust prompt the first time a given community DLL is discovered.
 
-The classification is purely cryptographic â€” strong-name token + Authenticode (Windows) + the SmartHopper hash manifest. File names and provider ids cannot reach `Official` without one of those signals.
+The classification is purely cryptographic — strong-name token + Authenticode (Windows) + the SmartHopper hash manifest. File names and provider ids cannot reach `Official` without one of those signals.
 
 Community/unsigned providers surface warning runtime messages on every AI component that uses them.
 

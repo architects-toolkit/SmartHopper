@@ -31,7 +31,7 @@ public abstract class AsyncWorkerBase
 `AIStatefulAsyncComponentBase` worker implementations follow a stricter contract:
 
 - Non-batch: `DoWorkAsync` calls `parent.FinishResults("Output", tree)` itself; `SetOutput` is a no-op.
-- Batch: `DoWorkAsync` calls `parent.TrySubmitBatchAsync(...)`; result decoding happens later in `OnBatchCompleted` â†’ `ProcessBatchResults` â†’ `FinishResults`.
+- Batch: `DoWorkAsync` calls `parent.TrySubmitBatchAsync(...)`; result decoding happens later in `OnBatchCompleted` → `ProcessBatchResults` → `FinishResults`.
 
 See [AIStatefulAsyncComponentBase](./AIStatefulAsyncComponentBase.md) for the full pattern.
 

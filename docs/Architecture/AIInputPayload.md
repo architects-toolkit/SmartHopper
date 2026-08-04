@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **AIInputPayload** wire type enables a composable input/output architecture for SmartHopper components. Instead of monolithic "Xâ†’AIâ†’Y" components, the new architecture uses:
+The **AIInputPayload** wire type enables a composable input/output architecture for SmartHopper components. Instead of monolithic "X→AI→Y" components, the new architecture uses:
 
 - **Input Adapters**: Synchronous, stateless components that produce `GH_AIInputPayload` outputs
 - **AIInputPayload Wire**: Carries AI interactions between components
@@ -25,25 +25,25 @@ public sealed class AIInputPayload
 ```
 
 **Payload Types:**
-- `Text` â€” Text content interactions
-- `Image` â€” Image content interactions
-- `Audio` â€” Audio content interactions
-- `Context` â€” Context provider filters
-- `Unknown` â€” Mixed or unclassified payloads
+- `Text` — Text content interactions
+- `Image` — Image content interactions
+- `Audio` — Audio content interactions
+- `Context` — Context provider filters
+- `Unknown` — Mixed or unclassified payloads
 
 ### Merging Strategy
 
 When multiple `GH_AIInputPayload` inputs are wired to the same branch path on an output component:
 
-1. **Order matters**: Payloads are merged in wire index order (first received â†’ first interaction)
+1. **Order matters**: Payloads are merged in wire index order (first received → first interaction)
 2. **Context payloads are special**: Context filters are extracted and concatenated with commas
 3. **Result**: A single `AIBody` with all interactions in sequence
 
 Example:
 ```
-Wire 0: Text("Hello") â†’ Interaction 0
-Wire 1: Text("World") â†’ Interaction 1
-Wire 2: Context("time") â†’ Context filter added
+Wire 0: Text("Hello") → Interaction 0
+Wire 1: Text("World") → Interaction 1
+Wire 2: Context("time") → Context filter added
 Result: AIBody with 2 text interactions + context filter "time"
 ```
 
@@ -108,12 +108,12 @@ The `AIContextComponent` is a special input adapter that:
 Example flow:
 
 ```
-AIContextComponent("time") â†’ GH_AIInputPayload(Context("time"))
-                                    â†“
+AIContextComponent("time") → GH_AIInputPayload(Context("time"))
+                                    ↓
                           [Output Component]
-                                    â†“
+                                    ↓
                     Generates filter: "time" (or merged with other contexts)
-                                    â†“
+                                    ↓
                     Passes to AIBodyBuilder.WithContextFilter()
 ```
 
@@ -121,24 +121,24 @@ AIContextComponent("time") â†’ GH_AIInputPayload(Context("time"))
 
 ### Core Types (SmartHopper.Core.Grasshopper/Types/)
 
-- `AIInputPayload.cs` â€” Core payload class and `AIInputPayloadType` enum
-- `GH_AIInputPayload.cs` â€” Grasshopper goo wrapper
-- `AIInputPayloadParameter.cs` â€” Grasshopper parameter type
-- `AIInputPayloadMerger.cs` â€” Branch-aware merging logic
-- `AIInputPayloadRenderer.cs` â€” User-readable rendering
+- `AIInputPayload.cs` — Core payload class and `AIInputPayloadType` enum
+- `GH_AIInputPayload.cs` — Grasshopper goo wrapper
+- `AIInputPayloadParameter.cs` — Grasshopper parameter type
+- `AIInputPayloadMerger.cs` — Branch-aware merging logic
+- `AIInputPayloadRenderer.cs` — User-readable rendering
 
 ### Image Support (SmartHopper.Core.Grasshopper/Types/)
 
-- `VersatileImage.cs` â€” Versatile image source adapter
-- `GH_AIImage.cs` â€” Grasshopper goo wrapper for images
+- `VersatileImage.cs` — Versatile image source adapter
+- `GH_AIImage.cs` — Grasshopper goo wrapper for images
 
 ### Audio Support (SmartHopper.Infrastructure/AICall/Core/Interactions/)
 
-- `AIInteractionAudio.cs` â€” Audio interaction type
+- `AIInteractionAudio.cs` — Audio interaction type
 
 ### Components (SmartHopper.Components/Input/)
 
-- `AIContextComponent.cs` â€” Context provider input adapter
+- `AIContextComponent.cs` — Context provider input adapter
 
 ## Usage Examples
 

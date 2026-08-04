@@ -2,7 +2,7 @@
 
 `src/SmartHopper.Core/ComponentBase/BatchSentinel.cs`
 
-Static helper that owns the `##SH_BATCH:{customId}##` placeholder protocol used by [AIStatefulAsyncComponentBase](./AIStatefulAsyncComponentBase.md) when batch mode is active. Single source of truth for the format â€” no other class should hand-roll the prefix/suffix.
+Static helper that owns the `##SH_BATCH:{customId}##` placeholder protocol used by [AIStatefulAsyncComponentBase](./AIStatefulAsyncComponentBase.md) when batch mode is active. Single source of truth for the format — no other class should hand-roll the prefix/suffix.
 
 ## API
 
