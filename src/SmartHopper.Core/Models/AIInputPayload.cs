@@ -246,16 +246,16 @@ namespace SmartHopper.Core.Models
         }
 
         /// <summary>
-        /// Creates a speech payload from a single audio interaction.
+        /// Creates an audio payload from a single speech/audio interaction.
         /// </summary>
         /// <param name="interaction">The audio interaction containing speech data.</param>
-        /// <returns>A new AIInputPayload containing the speech interaction.</returns>
+        /// <returns>A new AIInputPayload containing the speech/audio interaction.</returns>
         public static AIInputPayload FromSpeech(AIInteractionAudio interaction)
         {
             return new AIInputPayload(
                 new List<IAIInteraction> { interaction },
                 AICapability.SpeechInput,
-                AIInputPayloadType.Speech,
+                AIInputPayloadType.Audio,
                 interaction?.MimeType);
         }
 
@@ -289,11 +289,8 @@ namespace SmartHopper.Core.Models
         /// <summary>Image content payload.</summary>
         Image,
 
-        /// <summary>Audio content payload (music, sound effects, general audio).</summary>
+        /// <summary>Audio content payload (music, sound effects, speech, TTS, STT).</summary>
         Audio,
-
-        /// <summary>Speech content payload (voice, TTS, STT).</summary>
-        Speech,
 
         /// <summary>Context filter payload (not rendered as content).</summary>
         Context,

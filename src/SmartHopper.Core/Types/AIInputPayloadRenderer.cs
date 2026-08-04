@@ -49,7 +49,6 @@ namespace SmartHopper.Core.Types
                 AIInputPayloadType.Text => RenderTextPayload(payload),
                 AIInputPayloadType.Image => RenderImagePayload(payload),
                 AIInputPayloadType.Audio => RenderAudioPayload(payload),
-                AIInputPayloadType.Speech => RenderSpeechPayload(payload),
                 AIInputPayloadType.Context => RenderContextPayload(payload),
                 _ => RenderUnknownPayload(payload),
             };
@@ -119,7 +118,7 @@ namespace SmartHopper.Core.Types
 
         /// <summary>
         /// Renders an audio payload to user-readable format.
-        /// Shows audio file information.
+        /// Shows audio or speech file information.
         /// </summary>
         private static string RenderAudioPayload(AIInputPayload payload)
         {
@@ -150,44 +149,6 @@ namespace SmartHopper.Core.Types
             if (audioCount == 0)
             {
                 sb.AppendLine("(No audio found)");
-            }
-
-            return sb.ToString().TrimEnd();
-        }
-
-        /// <summary>
-        /// Renders a speech payload to user-readable format.
-        /// Shows speech/voice file information.
-        /// </summary>
-        private static string RenderSpeechPayload(AIInputPayload payload)
-        {
-            var sb = new StringBuilder();
-            sb.AppendLine("[Speech Payload]");
-
-            var speechCount = 0;
-            foreach (var interaction in payload.Interactions)
-            {
-                if (interaction is AIInteractionAudio speechInteraction)
-                {
-                    speechCount++;
-                    var source = !string.IsNullOrWhiteSpace(speechInteraction.FilePath)
-                        ? $"File: {speechInteraction.FilePath}"
-                        : speechInteraction.Data != null
-                        ? $"In-memory ({speechInteraction.Data.Length} bytes)"
-                        : "Unknown source";
-
-                    var mime = speechInteraction.MimeType ?? "unknown";
-                    var lang = !string.IsNullOrWhiteSpace(speechInteraction.LanguageHint)
-                        ? $" [{speechInteraction.LanguageHint}]"
-                        : string.Empty;
-
-                    sb.AppendLine($"Speech {speechCount}: {source} ({mime}){lang}");
-                }
-            }
-
-            if (speechCount == 0)
-            {
-                sb.AppendLine("(No speech data found)");
             }
 
             return sb.ToString().TrimEnd();
@@ -269,7 +230,6 @@ namespace SmartHopper.Core.Types
                 AIInputPayloadType.Text => $"Text ({interactionCount})",
                 AIInputPayloadType.Image => $"Image ({interactionCount})",
                 AIInputPayloadType.Audio => $"Audio ({interactionCount})",
-                AIInputPayloadType.Speech => $"Speech ({interactionCount})",
                 AIInputPayloadType.Context => "Context",
                 _ => $"Payload ({interactionCount})",
             };

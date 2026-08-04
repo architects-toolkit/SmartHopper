@@ -73,7 +73,15 @@ namespace SmartHopper.Core.IO.Codecs
             {
                 var json = JObject.Parse(data);
                 var capability = Enum.TryParse<AICapability>(json.Value<string>("capability") ?? string.Empty, out var cap) ? cap : AICapability.None;
-                var payloadType = Enum.TryParse<AIInputPayloadType>(json.Value<string>("payloadType") ?? string.Empty, out var pt) ? pt : AIInputPayloadType.Unknown;
+                var payloadTypeString = json.Value<string>("payloadType") ?? string.Empty;
+
+                // Legacy payloads used "Speech" as a distinct payload type; it is now classified as Audio.
+                if (string.Equals(payloadTypeString, "Speech", StringComparison.OrdinalIgnoreCase))
+                {
+                    payloadTypeString = "Audio";
+                }
+
+                var payloadType = Enum.TryParse<AIInputPayloadType>(payloadTypeString, out var pt) ? pt : AIInputPayloadType.Unknown;
                 var hint = json.Value<string>("hint");
 
                 var interactions = new List<IAIInteraction>();
