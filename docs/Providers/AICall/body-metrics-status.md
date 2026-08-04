@@ -318,5 +318,3 @@ var filter = new MetricsFilter(SessionId: "session-123", EventType: AIMetricsEve
 - Tools: filter with `AIBody.ToolFilter` to avoid unintended tool loading; validate tool args before execution
 - JSON schema: ensure `JsonOutputSchema` is trusted/user-controlled (avoid TOCTOU injections)
 - Context: avoid leaking sensitive data when enabling `ContextFilter`
-
-

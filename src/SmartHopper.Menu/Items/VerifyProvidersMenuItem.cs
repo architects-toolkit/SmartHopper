@@ -24,6 +24,8 @@ using Rhino;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Utils;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Utils;
 
 namespace SmartHopper.Menu.Items
 {

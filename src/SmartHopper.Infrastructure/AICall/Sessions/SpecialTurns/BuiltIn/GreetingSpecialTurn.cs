@@ -19,10 +19,10 @@
 namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns.BuiltIn
 {
     using System.Collections.Generic;
-    using SmartHopper.Infrastructure.AICall.Core.Base;
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
     using SmartHopper.Infrastructure.AIModels;
-
+    using SmartHopper.ProviderSdk.AICall.Core.Base;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+    using SmartHopper.ProviderSdk.AIModels;
     /// <summary>
     /// Factory for creating greeting special turn configurations.
     /// </summary>

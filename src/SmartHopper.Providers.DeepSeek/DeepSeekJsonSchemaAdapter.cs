@@ -20,7 +20,7 @@ using System;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall.JsonSchemas;
+using SmartHopper.ProviderSdk.AICall.JsonSchemas;
 
 namespace SmartHopper.Providers.DeepSeek
 {

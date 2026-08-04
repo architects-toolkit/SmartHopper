@@ -31,12 +31,13 @@ using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Models;
 using SmartHopper.Core.Types;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Validation;
 using SmartHopper.Infrastructure.AIModels;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -244,7 +245,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Internal wrapper for CombineIntoPersistedMetrics, accessible from nested worker class.
         /// </summary>
-        internal void CombineIntoPersistedMetricsInternal(Infrastructure.AICall.Metrics.AIMetrics metrics, string role = null)
+        internal void CombineIntoPersistedMetricsInternal(ProviderSdk.AICall.Metrics.AIMetrics metrics, string role = null)
         {
             this.CombineIntoPersistedMetrics(metrics, role);
         }
@@ -468,7 +469,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             var allInteractions = new List<IAIInteraction>();
-            var customIdToMetrics = new Dictionary<string, List<SmartHopper.Infrastructure.AICall.Metrics.AIMetrics>>();
+            var customIdToMetrics = new Dictionary<string, List<SmartHopper.ProviderSdk.AICall.Metrics.AIMetrics>>();
 
             foreach (var path in primarySentinelTree.Paths)
             {
@@ -490,7 +491,7 @@ namespace SmartHopper.Core.ComponentBase
                     }
 
                     allInteractions.AddRange(interactions);
-                    var metricsList = new List<SmartHopper.Infrastructure.AICall.Metrics.AIMetrics>();
+                    var metricsList = new List<SmartHopper.ProviderSdk.AICall.Metrics.AIMetrics>();
                     foreach (var inter in interactions)
                     {
                         if (inter.Metrics != null) metricsList.Add(inter.Metrics);
@@ -560,7 +561,7 @@ namespace SmartHopper.Core.ComponentBase
             if (allInteractions.Count > 0)
             {
                 var allMetrics = customIdToMetrics.Values.SelectMany(v => v).ToList();
-                this.PersistedMetricsList = new SmartHopper.Infrastructure.AICall.Metrics.AIMetricsList();
+                this.PersistedMetricsList = new SmartHopper.ProviderSdk.AICall.Metrics.AIMetricsList();
                 foreach (var m in allMetrics)
                 {
                     this.PersistedMetricsList.Add(m, "main");
@@ -569,7 +570,7 @@ namespace SmartHopper.Core.ComponentBase
                 var firstEntry = this.PersistedMetricsList.Entries[0];
 
                 var batchReturn = new AIReturn();
-                var batchRequest = new SmartHopper.Infrastructure.AICall.Core.Requests.AIRequestCall();
+                var batchRequest = new SmartHopper.ProviderSdk.AICall.Core.Requests.AIRequestCall();
                 batchRequest.Initialize(
                     firstEntry.Provider,
                     firstEntry.Model,

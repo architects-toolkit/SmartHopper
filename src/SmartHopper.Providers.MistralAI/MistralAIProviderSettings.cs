@@ -23,6 +23,10 @@ using System.Linq;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.MistralAI
 {
@@ -158,7 +162,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     if (showErrorDialogs)
                     {
-                        StyledMessageDialog.ShowError("Max tokens must be a positive number.", "Validation Error");
+                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Max tokens must be a positive number."));
                     }
 
                     return false;
@@ -195,7 +199,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     if (showErrorDialogs)
                     {
-                        StyledMessageDialog.ShowError("Reasoning effort for MistralAI must be 'none' or 'high'.", "Validation Error");
+                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Reasoning effort for MistralAI must be 'none' or 'high'."));
                     }
 
                     return false;

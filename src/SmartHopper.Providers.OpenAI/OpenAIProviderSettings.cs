@@ -23,6 +23,10 @@ using System.Linq;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -168,7 +172,7 @@ namespace SmartHopper.Providers.OpenAI
 
                     if (showErrorDialogs)
                     {
-                        StyledMessageDialog.ShowError("Reasoning effort must be low, medium, or high.", "Validation Error");
+                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Reasoning effort must be low, medium, or high."));
                     }
 
                     return false;
@@ -189,7 +193,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     if (showErrorDialogs)
                     {
-                        StyledMessageDialog.ShowError("Max Tokens must be greater than 0.", "Validation Error");
+                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Max Tokens must be greater than 0."));
                     }
 
                     return false;
@@ -209,7 +213,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     if (showErrorDialogs)
                     {
-                        StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
+                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Temperature must be between 0.0 and 2.0."));
                     }
 
                     return false;

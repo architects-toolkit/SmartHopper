@@ -46,8 +46,8 @@ The `img2text` tool sends an image to a vision-capable AI model and returns a te
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `imageUrl` | string | One of `imageUrl`/`imageBase64` | — | Public HTTP(S) URL of the image to analyze |
-| `imageBase64` | string | One of `imageUrl`/`imageBase64` | — | Base64-encoded image data (no data URI prefix) |
+| `imageUrl` | string | One of `imageUrl`/`imageBase64` | â€” | Public HTTP(S) URL of the image to analyze |
+| `imageBase64` | string | One of `imageUrl`/`imageBase64` | â€” | Base64-encoded image data (no data URI prefix) |
 | `mimeType` | string | No | `image/png` | MIME type when using `imageBase64` (e.g. `image/jpeg`) |
 | `prompt` | string | No | `"Describe this image in detail..."` | Custom instruction for the AI |
 
@@ -101,12 +101,7 @@ public class img_to_text : AITool
 
 ### Key Types
 
-| Type | Purpose |
-| --- | --- |
-| `img_to_text` | Tool implementation |
-| `AITool` | Base class for all SmartHopper AI tools |
-| `AIInteractionImage` | Normalized image representation for providers |
-| `ToolResultEnvelope` | Standard metadata wrapper for tool results |
+When used after `file2md` with `extractImages: true`, pass each image's `base64Data` and `mimeType`:
 
 ### Code Examples
 
@@ -116,78 +111,18 @@ public class img_to_text : AITool
 // Build the tool request
 var toolRequest = new AIToolRequest("img2text")
 {
-    Parameters = new Dictionary<string, object>
-    {
-        { "imageUrl", "<https://example.com/photo.jpg"> },
-        { "prompt", "Describe the architectural style of this building." }
-    }
-};
-
-// Execute via the provider
-var result = await toolManager.ExecuteToolAsync(toolRequest);
-var description = result.Payload["description"].ToString();
-
+  "imageBase64": "<base64 data from file2md images array>",
+  "mimeType": "image/jpeg",
+  "prompt": "Summarize what this diagram shows."
+}
 ```
 
 **Output**: The AI-generated description string.
 
-#### Processing a Base64 Image from file2md
-
-```csharp
-// After file2md extracts images from a document
-foreach (var image in file2mdResult.Images)
-{
-    var toolRequest = new AIToolRequest("img2text")
-    {
-        Parameters = new Dictionary<string, object>
-        {
-            { "imageBase64", image.Base64Data },
-            { "mimeType", image.MimeType },
-            { "prompt", "Summarize what this diagram shows." }
-        }
-    };
-
-    var result = await toolManager.ExecuteToolAsync(toolRequest);
-    descriptions.Add(result.Payload["description"].ToString());
-}
-
-```
-
-### Error Handling
-
-| Error | Cause | Solution |
-| --- | --- | --- |
-| Missing image input | Neither `imageUrl` nor `imageBase64` provided | Supply one image source |
-| Invalid base64 | Corrupted or improperly encoded image data | Verify base64 string is valid |
-| Provider not supported | Selected provider lacks `Image2Text` capability | Switch to OpenAI, Anthropic, or MistralAI |
-| URL unreachable | `imageUrl` returns 404 or is blocked | Verify URL is publicly accessible |
-
----
+- [ToolResultEnvelope.md](./ToolResultEnvelope.md) â€” envelope metadata convention
+- `file2md` `describeImages` parameter calls `img_to_text` automatically for each extracted image â€” see `describeImages`, `imageMode`, and `imageDescriptionPrompt` parameters on the `file2md` tool
+- `AIImgToTextComponent` â€” standalone Grasshopper component that wraps this tool for direct canvas use
 
 ## Architecture & Design
 
-### Design Rationale
-
-**Problem**: Grasshopper workflows need to analyze visual data, but there is no standard way to send images to AI models across different providers.
-
-**Approach**: Provide a unified `img2text` tool that normalizes image inputs into `AIInteractionImage` objects. Each provider then formats the image into its native API shape (OpenAI `image_url`, Anthropic `image` block, etc.).
-
-**Trade-offs**:
-
-- Unified interface (simple for users) vs provider-specific feature loss (some providers support advanced vision features not exposed)
-- Base64 encoding (works everywhere) vs URL references (faster, smaller payloads)
-
-### System Relationships
-
-```text
-Grasshopper Component → AIToolRequest("img2text") → ToolManager → Provider → AI Model
-                                      ↑
-                              AIInteractionImage (normalized)
-
-```
-
-### Related Documentation
-
-- [ToolResultEnvelope](./ToolResultEnvelope.md)
-- `file2md` tool — document conversion that can extract images for analysis
-- `AIImg2TextComponent` — standalone Grasshopper component that wraps this tool for direct canvas use (see Components/AI category)
+Architecture and design notes for img2text.

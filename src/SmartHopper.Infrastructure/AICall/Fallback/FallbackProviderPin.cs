@@ -17,7 +17,6 @@
  */
 
 using Newtonsoft.Json;
-
 namespace SmartHopper.Infrastructure.AICall.Fallback
 {
     /// <summary>

@@ -622,4 +622,129 @@ This ensures identical branch grouping works for mixed-type trees.
   - Pure, stateless logic per logical input unit.
   - No knowledge of data trees or paths.
 
-This schema keeps path and data-tree concerns **out of component implementations**, while still letting each component choose its desired behavior (branch vs item, same path vs grafted). It also supports the new per-item grafted output paths in a consistent way across components.
+This schema keeps path and data-tree concerns **out of component implementations**, while still letting each component choose its desired behavior (branch vs item, same path vs grafted). It also supports the new per‑item grafted output paths in a consistent way across components.
+
+---
+
+## 8. Mixed-Type Data Support (Heterogeneous IGH_Goo)
+
+### 8.1 Overview
+
+Components can now mix different Grasshopper data types in input trees (e.g., `GH_String` for text inputs, `GH_Boolean` for fallback values). This enables:
+
+- **Native type handling**: Store `GH_Boolean` directly without string conversion
+- **Future extensibility**: Foundation for `GH_Integer`, `GH_Number`, `GH_Path`, etc.
+- **Type safety**: Cast to concrete types in `ProcessData` using pattern matching
+
+### 8.2 Infrastructure
+
+#### GHStructureConverter
+
+New centralized utility in `SmartHopper.Core.Grasshopper.Converters`:
+
+```csharp
+public static class GHStructureConverter
+{
+    /// <summary>
+    /// Converts a GH_Structure of a specific type to GH_Structure of IGH_Goo.
+    /// </summary>
+    public static GH_Structure<IGH_Goo> ConvertToGooTree<T>(GH_Structure<T> tree)
+        where T : IGH_Goo
+}
+```
+
+**Usage in GatherInput:**
+```csharp
+this.inputTree["Text"] = GHStructureConverter.ConvertToGooTree(textTree);
+this.inputTree["Question"] = GHStructureConverter.ConvertToGooTree(questionTree);
+
+// Store fallback as native GH_Boolean
+var fallbackStructure = new GH_Structure<IGH_Goo>();
+fallbackStructure.Append(fallbackItem, new GH_Path(0));
+this.inputTree["Fallback"] = fallbackStructure;
+```
+
+#### ProcessingResult<T>
+
+`DataTreeProcessor.RunAsync<T>()` returns `ProcessingResult<T>` containing:
+- `Outputs`: `Dictionary<string, GH_Structure<IGH_Goo>>` (heterogeneous results)
+- `Messages`: `List<AIRuntimeMessage>` (warnings/errors from processing)
+
+**Accessing typed results:**
+```csharp
+this.result = await this.parent.RunProcessingAsync(this.inputTree, ...);
+var resultTree = DataTreeProcessor.ExtractTypedTree<GH_String>(
+    this.result.Outputs, "Result");
+```
+
+### 8.3 Worker Migration Pattern
+
+#### Before (GH_String only)
+```csharp
+private Dictionary<string, GH_Structure<GH_String>> inputTree;
+private Dictionary<string, GH_Structure<GH_String>> stringResult;
+
+// Fallback stored as string (round-trip conversion)
+fallbackStructure.Append(new GH_String(fallbackItem.Value.ToString()), path);
+
+// ProcessData uses concrete types directly
+private static async Task<Dictionary<string, List<GH_String>>> ProcessData(
+    Dictionary<string, List<GH_String>> branches, ...)
+```
+
+#### After (IGH_Goo heterogeneous)
+```csharp
+private Dictionary<string, GH_Structure<IGH_Goo>> inputTree;
+private DataTreeProcessor.ProcessingResult<IGH_Goo> result;
+
+// Fallback stored as native GH_Boolean
+var fallbackStructure = new GH_Structure<IGH_Goo>();
+fallbackStructure.Append(fallbackItem, path);
+
+// ProcessData uses IGH_Goo with pattern matching
+private static async Task<Dictionary<string, List<IGH_Goo>>> ProcessData(
+    Dictionary<string, List<IGH_Goo>> branches, ...)
+{
+    // Cast to concrete types
+    var textBranch = branches["Text"].Cast<GH_String>().ToList();
+    
+    // Read fallback as GH_Boolean
+    if (branches["Fallback"][0] is GH_Boolean ghBool)
+    {
+        fallbackValue = ghBool.Value.ToString();
+    }
+    
+    // Return IGH_Goo wrapped results
+    outputs["Result"].Add(new GH_String(resultValue));
+    return outputs;
+}
+
+// Extract typed tree from heterogeneous result
+var resultTree = DataTreeProcessor.ExtractTypedTree<GH_String>(
+    this.result.Outputs, "Result");
+```
+
+### 8.4 Component Migration Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| AIText2BooleanComponent | ✅ Migrated | Uses `GH_Boolean` fallback natively |
+| AIList2BooleanComponent | ✅ Migrated | Uses `GH_Boolean` fallback natively |
+| AIText2TextComponent | ⏳ Compatible | Still GH_String-only; migrate when needed |
+| AIListFilter | ⏳ Compatible | Still GH_String-only; migrate when needed |
+| Other components | ⏳ Compatible | 9 workers remain GH_String-only |
+
+### 8.5 Type Gate for groupIdenticalBranches
+
+`DataTreeProcessor` now supports `IGH_Goo` in the `groupIdenticalBranches` type gate:
+
+```csharp
+if (groupIdenticalBranches &&
+    (typeof(T) == typeof(IGH_Goo) ||
+     typeof(T) == typeof(GH_String) ||
+     typeof(T) == typeof(GH_Number) ||
+     typeof(T) == typeof(GH_Integer) ||
+     typeof(T) == typeof(GH_Boolean)))
+```
+
+This ensures identical branch grouping works for mixed-type trees.

@@ -16,9 +16,9 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using Grasshopper.Kernel;
 using SmartHopper.Core.Types;
-using System;
 
 namespace SmartHopper.Core.Parameters
 {

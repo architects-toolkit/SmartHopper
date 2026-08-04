@@ -17,7 +17,6 @@
  */
 
 using Newtonsoft.Json.Linq;
-
 namespace SmartHopper.Infrastructure.AICall.Tools
 {
     /// <summary>

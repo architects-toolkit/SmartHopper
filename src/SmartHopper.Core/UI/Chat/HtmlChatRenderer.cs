@@ -25,7 +25,7 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using Markdig;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
 namespace SmartHopper.Core.UI.Chat
 {

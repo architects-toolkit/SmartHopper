@@ -30,6 +30,7 @@ namespace SmartHopper.Infrastructure.Tests
     using Microsoft.CodeAnalysis;
     using Microsoft.CodeAnalysis.CSharp;
     using SmartHopper.Infrastructure.AIProviders;
+    using SmartHopper.ProviderSdk.AIProviders;
     using Xunit;
     using Xunit.Abstractions;
     using Xunit.Sdk;

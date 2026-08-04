@@ -21,10 +21,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns.BuiltIn
     using System.Collections.Generic;
     using System.Linq;
     using System.Text;
-    using SmartHopper.Infrastructure.AICall.Core.Base;
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
     using SmartHopper.Infrastructure.AIModels;
-
+    using SmartHopper.ProviderSdk.AICall.Core.Base;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+    using SmartHopper.ProviderSdk.AIModels;
     /// <summary>
     /// Factory for creating summarization special turn configurations.
     /// Used to compress long conversation histories when approaching context limits.

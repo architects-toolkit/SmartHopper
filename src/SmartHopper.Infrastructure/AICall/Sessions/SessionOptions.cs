@@ -17,7 +17,6 @@
  */
 
 using System.Threading;
-
 namespace SmartHopper.Infrastructure.AICall.Sessions
 {
     /// <summary>

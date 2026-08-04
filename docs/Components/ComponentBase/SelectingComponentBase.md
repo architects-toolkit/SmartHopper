@@ -2,36 +2,7 @@
 
 This page documents the family of bases that add a *Select Components* button to a Grasshopper component for picking other canvas objects as inputs.
 
----
-
-## Metadata
-
-| Property | Value |
-| --- | --- |
-| **Source Code** | `src/SmartHopper.Core.Grasshopper/ComponentBase/SelectingComponentBase.cs` |
-| **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
-| **Documentation Maintainer** | Devin AI |
-
-_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
-
----
-
-## Why Read This?
-
-The SelectingComponent family lets users point at other Grasshopper objects on the canvas and use them as inputs, without explicit wire connections. This is essential for components that need to reference many scattered objects or groups.
-
-**You should read this if you:**
-
-- Are building a component that needs to read or react to other canvas objects (components, params, groups, scribbles, panels).
-- Want to understand how selection persistence works across copy/paste and file re-open.
-- Need to choose between the three selection-enabled base classes.
-
----
-
-## End-User Guide
-
-### The three bases
+## The three bases
 
 | Base | Inherits | Use when |
 | --- | --- | --- |
@@ -41,26 +12,7 @@ The SelectingComponent family lets users point at other Grasshopper objects on t
 
 All three implement `ISelectingComponent` and delegate the actual logic to the shared `SelectingComponentCore` helper. None of them re-implements selection or persistence.
 
-### Custom attributes
-
-- `SelectingComponentAttributes` (used by `SelectingComponentBase` and `SelectingStatefulComponentBase`) extends `GH_ComponentAttributes` and renders the Select button below the component plus a dashed-rectangle highlight around hovered selections.
-- `AISelectingComponentAttributes` (used by `AISelectingStatefulAsyncComponentBase`) extends [`ComponentBadgesAttributes`](#related), so the AI variant keeps provider/model badges and adds the Select button. It also defers tooltip rendering so the tooltip stays above the Select overlay.
-
-Both classes share a 5 s auto-hide timer for the dashed highlight when hovering the Select button.
-
-### Selection pipeline
-
-1. User clicks Select → attributes call `ISelectingComponent.EnableSelectionMode()`.
-2. Core enters selection mode, clears the list, refreshes canvas.
-3. Core reads currently-selected canvas objects, filters and stores them, sets `Message = "N selected"`.
-4. On `Write` the core stores `InstanceGuid`s.
-5. On `Read` and on `OnDocumentAdded` GUIDs are resolved back to live `IGH_DocumentObject` instances; missing ones are skipped.
-
----
-
-## Developer Reference
-
-### `ISelectingComponent`
+## `ISelectingComponent`
 
 ```csharp
 public interface ISelectingComponent
@@ -68,42 +20,41 @@ public interface ISelectingComponent
     List<IGH_DocumentObject> SelectedObjects { get; }
     void EnableSelectionMode();
 }
-
 ```
 
 > `SelectedObjects` exposes `IGH_DocumentObject`, not `IGH_ActiveObject`, so types like scribbles (which do not implement `IGH_ActiveObject`) are supported.
 
-### `SelectingComponentCore` (internal helper)
+## `SelectingComponentCore` (internal helper)
 
 Contains every piece of selection logic. Created by each base in its constructor with a `SubscribeToDocumentEvents()` call:
 
-- `EnableSelectionMode()` — clears `SelectedObjects`, enters selection mode, hides the canvas context menu, refreshes the canvas to consume the current selection.
+- `EnableSelectionMode()` â€” clears `SelectedObjects`, enters selection mode, hides the canvas context menu, refreshes the canvas to consume the current selection.
 - Reads `Instances.ActiveCanvas.Document.SelectedObjects()` and filters to **components**, **params**, **groups**, **scribbles** (type name contains `Scribble`) and **panels** (type name contains `Panel`).
-- `Write(GH_IWriter)` / `Read(GH_IReader)` — persists `SelectedObjectsCount` and `SelectedObject_0..N` as `InstanceGuid`s.
-- `OnDocumentAdded` — restores GUIDs once the document is fully loaded; missing objects are skipped, the message is updated and `ExpireSolution` is called.
-- `PruneDeletedSelections(...)` — invoked from each `SelectedObjects` getter to drop dead references.
-- `RenderSelectButton` / `RenderSelectionOverlay` / `BuildSelectedBounds` / `Restart`+`StopSelectDisplayTimer` — drawing primitives shared between the plain and AI custom-attributes classes.
+- `Write(GH_IWriter)` / `Read(GH_IReader)` â€” persists `SelectedObjectsCount` and `SelectedObject_0..N` as `InstanceGuid`s.
+- `OnDocumentAdded` â€” restores GUIDs once the document is fully loaded; missing objects are skipped, the message is updated and `ExpireSolution` is called.
+- `PruneDeletedSelections(...)` â€” invoked from each `SelectedObjects` getter to drop dead references.
+- `RenderSelectButton` / `RenderSelectionOverlay` / `BuildSelectedBounds` / `Restart`+`StopSelectDisplayTimer` â€” drawing primitives shared between the plain and AI custom-attributes classes.
 
 All canvas/UI work is marshalled to Rhino's UI thread via `RhinoApp.InvokeOnUiThread`.
 
-### Filtering selected objects
+## Custom attributes
 
-```csharp
-// SelectingComponentCore filters the active selection like this:
-var selected = Instances.ActiveCanvas.Document.SelectedObjects();
-var accepted = selected.Where(obj =>
-    obj is IGH_Component ||
-    obj is IGH_Param ||
-    obj is GH_Group ||
-    obj.GetType().Name.Contains("Scribble") ||
-    obj.GetType().Name.Contains("Panel")
-).ToList();
+- `SelectingComponentAttributes` (used by `SelectingComponentBase` and `SelectingStatefulComponentBase`) extends `GH_ComponentAttributes` and renders the Select button below the component plus a dashed-rectangle highlight around hovered selections.
+- `AISelectingComponentAttributes` (used by `AISelectingStatefulAsyncComponentBase`) extends [`ComponentBadgesAttributes`](#related), so the AI variant keeps provider/model badges and adds the Select button. It also defers tooltip rendering so the tooltip stays above the Select overlay.
 
-```
+Both classes share a 5 s auto-hide timer for the dashed highlight when hovering the Select button.
 
----
+- Are building a component that needs to read or react to other canvas objects (components, params, groups, scribbles, panels).
+- Want to understand how selection persistence works across copy/paste and file re-open.
+- Need to choose between the three selection-enabled base classes.
 
-## Architecture & Design
+1. User clicks Select â†’ attributes call `ISelectingComponent.EnableSelectionMode()`.
+2. Core enters selection mode, clears the list, refreshes canvas.
+3. Core reads currently-selected canvas objects, filters and stores them, sets `Message = "N selected"`.
+4. On `Write` the core stores `InstanceGuid`s.
+5. On `Read` and on `OnDocumentAdded` GUIDs are resolved back to live `IGH_DocumentObject` instances; missing ones are skipped.
+
+## Design criteria
 
 - **One source of truth.** All selection logic lives in `SelectingComponentCore`; the three bases are thin pass-throughs.
 - **Persist GUIDs, not objects.** Documents survive copy/paste and re-open without dangling references.
@@ -114,3 +65,48 @@ var accepted = selected.Where(obj =>
 
 - `ISelectingComponent`, `SelectingComponentCore`, `SelectingComponentAttributes`, `AISelectingComponentAttributes` in `src/SmartHopper.Core/ComponentBase/`
 - `ComponentBadgesAttributes` for the AI variant.
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about SelectingComponentBase.
+
+
+## End-User Guide
+
+End-user guidance for SelectingComponentBase.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for SelectingComponentBase.
+
+```csharp
+// Example code for Developer Reference
+```
+
+```csharp
+// Additional example for Developer Reference
+```

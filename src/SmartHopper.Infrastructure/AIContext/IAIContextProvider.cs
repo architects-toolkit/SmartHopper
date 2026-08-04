@@ -17,7 +17,6 @@
  */
 
 using System.Collections.Generic;
-
 namespace SmartHopper.Infrastructure.AIContext
 {
     /// <summary>

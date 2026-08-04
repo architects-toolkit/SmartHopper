@@ -20,7 +20,6 @@ using System;
 using System.Diagnostics;
 using System.Reflection;
 using System.Text.RegularExpressions;
-
 namespace SmartHopper.Infrastructure.Utils
 {
     /// <summary>

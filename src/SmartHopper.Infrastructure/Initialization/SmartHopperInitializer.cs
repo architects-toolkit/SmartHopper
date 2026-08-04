@@ -22,9 +22,13 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Rhino;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Hosting;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Utils;
-
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Settings;
+using SmartHopper.ProviderSdk.Utils;
 namespace SmartHopper.Infrastructure.Initialization
 {
     /// <summary>
@@ -56,6 +60,17 @@ namespace SmartHopper.Infrastructure.Initialization
                 try
                 {
                     Debug.WriteLine("[SmartHopperInitializer] Starting initialization sequence");
+
+                    // Wire Provider SDK host adapters so SDK code paths delegate to SmartHopper infrastructure.
+                    ProviderSdkHost.ProviderTrust = new SmartHopperProviderTrustHost();
+                    ProviderSdkHost.ProviderRegistry = new SmartHopperProviderRegistryHost();
+                    ProviderSdkHost.PolicyPipeline = new SmartHopperPolicyPipelineHost();
+                    ProviderSdkHost.ContextProvider = new SmartHopperContextProviderHost();
+                    ProviderSdkHost.ToolRegistry = new SmartHopperToolRegistryHost();
+                    ProviderSdkHost.Diagnostics = new SmartHopperProviderDiagnosticsHost();
+                    ProviderSdkHost.Logger = new SmartHopperProviderLogger();
+                    ProviderSdkHost.HttpClientFactory = new SmartHopperProviderHttpClientFactory();
+                    ProviderSdkHost.SettingsStoreFactory = SmartHopperProviderSettingsStoreFactory.Create;
 
                     // Step 1: Load settings first (but don't refresh providers yet)
                     var settings = SmartHopperSettings.Instance;

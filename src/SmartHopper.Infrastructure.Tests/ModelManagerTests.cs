@@ -22,6 +22,7 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Globalization;
     using System.Reflection;
     using SmartHopper.Infrastructure.AIModels;
+    using SmartHopper.ProviderSdk.AIModels;
     using Xunit;
 
     /// <summary>

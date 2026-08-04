@@ -20,7 +20,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
 {
     using System.Collections.Generic;
     using Newtonsoft.Json.Linq;
-    using SmartHopper.Infrastructure.AICall.Core;
+    using SmartHopper.ProviderSdk.AICall.Core;
     using Xunit;
 
     public class AIRequestParametersTests

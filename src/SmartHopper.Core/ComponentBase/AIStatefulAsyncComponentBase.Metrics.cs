@@ -25,11 +25,11 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase.Contracts;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AICall.Metrics;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -207,7 +207,7 @@ namespace SmartHopper.Core.ComponentBase
         protected void CombineIntoPersistedMetrics(AIMetrics metrics, string role = null)
         {
             if (metrics == null) return;
-            this._batchState.PersistedMetricsList ??= new Infrastructure.AICall.Metrics.AIMetricsList();
+            this._batchState.PersistedMetricsList ??= new ProviderSdk.AICall.Metrics.AIMetricsList();
             this._batchState.PersistedMetricsList.Add(metrics, role);
             this.AppendMetricToTree(metrics);
         }
@@ -226,7 +226,7 @@ namespace SmartHopper.Core.ComponentBase
         protected void CombineIntoPersistedMetricsAtPath(AIMetrics metrics, GH_Path path, string role = null)
         {
             if (metrics == null || path == null) return;
-            this._batchState.PersistedMetricsList ??= new Infrastructure.AICall.Metrics.AIMetricsList();
+            this._batchState.PersistedMetricsList ??= new ProviderSdk.AICall.Metrics.AIMetricsList();
             this._batchState.PersistedMetricsList.Add(metrics, role);
             this.AppendMetricToTree(metrics, path);
         }

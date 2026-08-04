@@ -20,7 +20,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AITools;
-
 namespace SmartHopper.Infrastructure.Mcp
 {
     /// <summary>

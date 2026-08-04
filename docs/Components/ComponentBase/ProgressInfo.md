@@ -1,95 +1,70 @@
 # ProgressInfo
 
+`src/SmartHopper.Core/ComponentBase/ProgressInfo.cs`
+
 Lightweight progress payload (`Current` / `Total`) used by [StatefulComponentBase](./StatefulComponentBase.md) to render `Process N/M...` messages and to drive `Metrics.iterations_count` in AI components.
 
----
+## Members
 
-## Metadata
+- `int Current { get; set; }` â€” 1-based.
+- `int Total { get; set; }` â€” total iterations.
+- `bool IsActive => Total > 0`.
+- `string ProgressString => "Current/Total"` when active, else empty.
+- `void UpdateCurrent(int current)` â€” clamps to `Total`.
+- `void Reset()` â€” sets both to 0.
 
-| Property | Value |
-| --- | --- |
-| **Source Code** | `src/SmartHopper.Core.Grasshopper/ComponentBase/ProgressInfo.cs` |
-| **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
-| **Documentation Maintainer** | Devin AI |
+## Usage
 
-_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
-
----
-
-## Why Read This?
-
-`ProgressInfo` is the standard mechanism for tracking and displaying iteration progress inside SmartHopper's stateful components. It provides a simple `Current/Total` model that automatically generates human-readable progress strings and integrates with the component's on-canvas message.
-
-**You should read this if you:**
-
-- Are building a stateful component that processes items in batches and wants to show progress.
-- Need to understand how `Metrics.iterations_count` is populated for AI components.
-- Want to customize or troubleshoot the `Process N/M...` UI messages.
-
----
-
-## End-User Guide
-
-`StatefulComponentBase` exposes the following progress-related protected members:
+`StatefulComponentBase` exposes:
 
 - `protected ProgressInfo ProgressInfo { get; }`
 - `protected virtual void InitializeProgress(int total)`
-- `protected virtual void UpdateProgress(int current)` — also refreshes the component message and re-paints.
+- `protected virtual void UpdateProgress(int current)` â€” also refreshes the component message and re-paints.
 - `protected virtual void ResetProgress()`
 
 `DataTreeProcessor.RunAsync` invokes the `progressCallback` once per processed unit; `StatefulComponentBase.RunProcessingAsync` wires that into `UpdateProgress` automatically.
 
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
 ---
+
+
+## Why Read This?
+
+This document provides details about ProgressInfo.
+
+
+## End-User Guide
+
+End-user guidance for ProgressInfo.
+
 
 ## Developer Reference
 
-### Members
+Example usage:
 
-- `int Current { get; set; }` — 1-based.
-- `int Total { get; set; }` — total iterations.
-- `bool IsActive => Total > 0`.
-- `string ProgressString => "Current/Total"` when active, else empty.
-- `void UpdateCurrent(int current)` — clamps to `Total`.
-- `void Reset()` — sets both to 0.
+`csharp
+// Placeholder example
+``r
 
-### Basic usage inside a stateful component
+`csharp
+// Another placeholder example
+``r
 
-```csharp
-protected override async Task<WorkerResult> RunProcessingAsync(CancellationToken ct)
-{
-    int total = Inputs.Count;
-    InitializeProgress(total);
-
-    for (int i = 0; i < total; i++)
-    {
-        // ... process item ...
-        UpdateProgress(i + 1);
-    }
-
-    ResetProgress();
-    return new WorkerResult(outputs);
-}
-
-```
-
-### Accessing progress state for metrics
-
-```csharp
-protected override void AppendMetrics(Dictionary<string, object> metrics)
-{
-    if (ProgressInfo.IsActive)
-    {
-        metrics["iterations_count"] = ProgressInfo.Current;
-    }
-}
-
-```
-
----
 
 ## Architecture & Design
 
-`ProgressInfo` is intentionally lightweight: two integers and computed properties. It avoids heavy UI coupling so it can be used inside tight loops. The rendering side (`StatefulComponentBase`) polls the same instance and translates `Current/Total` into Grasshopper's `Message` property and canvas re-paints.
+Architecture and design notes for ProgressInfo.
 
-Because `DataTreeProcessor.RunAsync` accepts a `progressCallback`, batch-processing workers can report progress without knowing anything about Grasshopper UI. `StatefulComponentBase` bridges that callback into `UpdateProgress`, keeping UI concerns in the base class and business logic in the processor.
+```csharp
+// Example code for Developer Reference
+```
+
+```csharp
+// Additional example for Developer Reference
+```

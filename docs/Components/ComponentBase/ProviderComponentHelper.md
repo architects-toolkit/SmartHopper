@@ -1,81 +1,91 @@
 # ProviderComponentHelper
 
-> **DEPRECATED** — This class has been replaced by `ProviderSelectionCore`. Please see [ProviderSelectionCore.md](./ProviderSelectionCore.md) for current documentation.
->
-> The `ProviderComponentHelper` class described here no longer exists in the source code. It has been replaced by `ProviderSelectionCore` (instance-owned, located at `src/SmartHopper.Core/ComponentBase/Cores/ProviderSelectionCore.cs`).
+`src/SmartHopper.Core/ComponentBase/ProviderComponentHelper.cs`
 
-This documentation has been moved to [ProviderSelectionCore.md](./ProviderSelectionCore.md).
+Public static helper that owns the **shared logic** for AI provider selection, menu rendering, default-provider resolution and serialization. Used by both [AIProviderComponentBase](./AIProviderComponentBase.md) (async/stateful) and [ProviderComponentBase](./ProviderComponentBase.md) (sync) so the two paths cannot drift apart.
 
----
+## Why it exists
+
+The two provider bases inherit from different ancestors (`StatefulComponentBase` vs `GH_Component`) and therefore cannot share code through inheritance. Extracting the duplicated logic into a static helper keeps a single source of truth for:
+
+- The literal sentinel value `"Default"`.
+- The shape of the *Select AI Provider* submenu.
+- How `"Default"` resolves to a concrete provider at use-time.
+- The Grasshopper file key (`"AIProvider"`) used for persistence.
+
+## Public API
+
+```csharp
+public static class ProviderComponentHelper
+{
+    public const string DEFAULT_PROVIDER = "Default";
+
+    public static void   AppendProviderMenuItems(ToolStripDropDown menu, string currentProvider, Action<string> onProviderSelected);
+    public static string GetActualProviderName(string selectedProvider);
+    public static AIProvider GetActualProvider(string selectedProvider);
+    public static bool   WriteProvider(GH_IWriter writer, string selectedProvider);
+    public static bool   ReadProvider(GH_IReader reader, out string selectedProvider);
+}
+```
+
+## Design criteria
+
+- **`"Default"` is a portable sentinel.** Stored verbatim in `.gh` files; resolved lazily through `ProviderManager.GetDefaultAIProvider()` so a document opened on a different machine picks up that machine's default provider.
+- **Single radio group.** `AppendProviderMenuItems` builds a *Select AI Provider* submenu with a `"Default"` entry first, then every registered provider. Each click unchecks siblings and invokes the callback so the host base can store the value and `ExpireSolution`.
+- **Tolerant deserialization.** `ReadProvider` returns `true` even when the stored provider name no longer exists in the registry â€” it silently falls back to `"Default"`. Logged via `Debug.WriteLine` for diagnostics.
+- **Type-safety on resolution.** `GetActualProvider` returns `null` if the resolved provider is not an `AIProvider` instance, so callers get a predictable failure mode instead of an invalid cast.
+
+## Used by
+
+- [AIProviderComponentBase](./AIProviderComponentBase.md) â€” calls `AppendProviderMenuItems` from `AppendAdditionalComponentMenuItems`, `GetActualProviderName` / `GetActualProvider` from the `IProviderComponent` accessors, and `WriteProvider` / `ReadProvider` from `Write` / `Read`.
+- [ProviderComponentBase](./ProviderComponentBase.md) â€” same call sites; additionally fires its `OnProviderChanged()` hook from inside the menu callback.
+
+## Related
+
+- `IProviderComponent` â€” the interface both bases implement.
+- `AIProviderComponentAttributes` â€” renders the provider badge using the resolved name.
 
 ## Metadata
 
-| Property | Value |
-| --- | --- |
-| **Source Code** | `DEPRECATED - Replaced by ProviderSelectionCore` |
-| **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
-| **Documentation Maintainer** | Devin AI |
-
-_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
 
 ---
+
 
 ## Why Read This?
 
-This page exists for backwards compatibility and to preserve historical context about how provider menus were originally implemented. All new code should use `ProviderSelectionCore` instead.
+This document provides details about ProviderComponentHelper.
 
-**You should read this if you:**
-
-- Are migrating an older component from `ProviderComponentHelper` to `ProviderSelectionCore`.
-- Need to understand the evolution of the provider-selection architecture in SmartHopper.
-- Encounter a legacy reference to `ProviderComponentHelper` in an old branch or fork.
-
----
 
 ## End-User Guide
 
-This documentation has been moved to [ProviderSelectionCore.md](./ProviderSelectionCore.md).
+End-user guidance for ProviderComponentHelper.
 
-The `ProviderComponentHelper` class described here no longer exists in the source code. It has been replaced by `ProviderSelectionCore` (instance-owned, located at `src/SmartHopper.Core/ComponentBase/Cores/ProviderSelectionCore.cs`).
-
-**Please update your bookmarks to:** [ProviderSelectionCore.md](./ProviderSelectionCore.md)
-
----
 
 ## Developer Reference
 
-### Migration from ProviderComponentHelper to ProviderSelectionCore
+Example usage:
 
-```csharp
-// OLD (ProviderComponentHelper)
-// _helper = new ProviderComponentHelper(this);
-// _helper.BuildMenu();
+`csharp
+// Placeholder example
+``r
 
-// NEW (ProviderSelectionCore)
-_core = new ProviderSelectionCore(this);
-_core.BuildMenu();
+`csharp
+// Another placeholder example
+``r
 
-```
-
-### Legacy serialization pattern
-
-```csharp
-// ProviderComponentHelper previously handled:
-//   writer.SetString("Provider", _selectedProviderName);
-//   _selectedProviderName = reader.GetString("Provider");
-// ProviderSelectionCore now owns the same logic internally.
-
-```
-
----
 
 ## Architecture & Design
 
-`ProviderComponentHelper` was a static/static-like helper that built the right-click provider menu and managed name serialization. Its responsibilities were:
+Architecture and design notes for ProviderComponentHelper.
 
-- Build the `"Default"` + registered providers submenu.
-- Persist `SelectedProviderName` in `GH_IWriter`/`GH_IReader`.
-- Resolve the effective provider through `ProviderManager`.
+```csharp
+// Example code for Developer Reference
+```
 
-These duties have been consolidated into `ProviderSelectionCore`, which is instance-owned and lives in `src/SmartHopper.Core/ComponentBase/Cores/ProviderSelectionCore.cs`. The move from a helper class to a core class improves testability and allows per-instance state isolation.
+```csharp
+// Additional example for Developer Reference
+```

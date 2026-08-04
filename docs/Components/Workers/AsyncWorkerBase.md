@@ -4,7 +4,7 @@ Lightweight worker abstraction that hosts the actual compute logic for async com
 
 ---
 
-## Metadata
+Separate UI/component concerns from the algorithm that runs off the UI thread. Provides thread-safe runtime message collection so that messages generated on background threads are marshalled correctly to Grasshopper.
 
 | Property | Value |
 | --- | --- |
@@ -40,11 +40,21 @@ Separate UI/component concerns from the algorithm that runs off the UI thread. P
 - Runs with a cancellation token provided by the component.
 - Receives an immutable snapshot of inputs.
 - Reports progress via [ProgressInfo](../Helpers/ProgressInfo.md) callback.
-- **Thread-safe message collection** via `CollectMessage` — messages generated during `DoWorkAsync` are queued and flushed to the GH component on the UI thread after `SetOutput`.
+- **Thread-safe message collection** via `CollectMessage` â€” messages generated during `DoWorkAsync` are queued and flushed to the GH component on the UI thread after `SetOutput`.
 - `ResetCollectedMessages()` is called automatically by `AsyncComponentBase` after `GatherInput`; workers do not need to call it manually.
 - Returns results or throws; errors are caught and surfaced by the component.
 
-### Usage
+## Runtime message collection API
+
+| Member | Visibility | Thread | Description |
+|--------|-----------|--------|-------------|
+| `CollectMessage(SHRuntimeMessage)` | `protected` | Any | Enqueues a structured message for later flush. |
+| `CollectMessage(severity, message, origin)` | `protected` | Any | Convenience overload; creates `SHRuntimeMessage` with `SHMessageCode.Unknown`. |
+| `FlushCollectedMessages()` | `internal` | UI | Writes all queued messages to the GH component. Called by `AsyncComponentBase` after `SetOutput`. |
+| `ResetCollectedMessages()` | `internal` | UI | Clears the queue. Called automatically by `AsyncComponentBase` after `GatherInput`. |
+| `PromoteCollectedToPersistent(Action<â€¦>)` | `internal` | UI | Iterates queued messages and calls the provided callback for each surfaceable one. Used by `StatefulComponentBase` to persist messages across Error-state transitions. |
+
+## Usage
 
 - Derive a sealed inner worker class per component.
 - Implement `GatherInput`, `DoWorkAsync`, and `SetOutput`.
@@ -53,9 +63,9 @@ Separate UI/component concerns from the algorithm that runs off the UI thread. P
 
 ### Related
 
-- [AsyncComponentBase](../ComponentBase/AsyncComponentBase.md) – calls `ResetCollectedMessages` and `FlushCollectedMessages` automatically.
-- [StatefulComponentBase](../ComponentBase/StatefulComponentBase.md) – calls `PromoteCollectedToPersistent` on Error transitions.
-- [ProgressInfo](../Helpers/ProgressInfo.md) – progress payload.
+- [AsyncComponentBase](../ComponentBase/AsyncComponentBase.md) â€“ calls `ResetCollectedMessages` and `FlushCollectedMessages` automatically.
+- [StatefulComponentBase](../ComponentBase/StatefulComponentBase.md) â€“ calls `PromoteCollectedToPersistent` on Error transitions.
+- [ProgressInfo](../Helpers/ProgressInfo.md) â€“ progress payload.
 
 ---
 
@@ -69,7 +79,7 @@ Separate UI/component concerns from the algorithm that runs off the UI thread. P
 | `CollectMessage(severity, message, origin)` | `protected` | Any | Convenience overload; creates `SHRuntimeMessage` with `SHMessageCode.Unknown`. |
 | `FlushCollectedMessages()` | `internal` | UI | Writes all queued messages to the GH component. Called by `AsyncComponentBase` after `SetOutput`. |
 | `ResetCollectedMessages()` | `internal` | UI | Clears the queue. Called automatically by `AsyncComponentBase` after `GatherInput`. |
-| `PromoteCollectedToPersistent(Action<…>)` | `internal` | UI | Iterates queued messages and calls the provided callback for each surfaceable one. Used by `StatefulComponentBase` to persist messages across Error-state transitions. |
+| `PromoteCollectedToPersistent(Action<â€¦>)` | `internal` | UI | Iterates queued messages and calls the provided callback for each surfaceable one. Used by `StatefulComponentBase` to persist messages across Error-state transitions. |
 
 ### Implementing a Worker
 
@@ -142,3 +152,12 @@ private void ValidateInput(GeometryBase geo)
 ## Architecture & Design
 
 `AsyncWorkerBase` enforces a strict separation between the Grasshopper UI thread and background computation. By receiving an immutable snapshot of inputs during `GatherInput`, the worker ensures that `DoWorkAsync` never races with the canvas. All messages emitted on background threads are queued internally and flushed to the component only when the component is back on the UI thread. This design prevents cross-thread access exceptions and guarantees that `SetOutput` always runs synchronously with the Grasshopper solution.
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
