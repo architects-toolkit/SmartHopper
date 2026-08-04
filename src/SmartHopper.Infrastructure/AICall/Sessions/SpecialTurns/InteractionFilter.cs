@@ -19,9 +19,8 @@
 namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns
 {
     using System.Collections.Generic;
-    using SmartHopper.Infrastructure.AICall.Core.Base;
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
-
+    using SmartHopper.ProviderSdk.AICall.Core.Base;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     /// <summary>
     /// Filter to control which interaction types are included/excluded during persistence.
     /// Uses an allowlist/blocklist approach for flexible filtering.

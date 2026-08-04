@@ -45,6 +45,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.AITools;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.Utils;
+using SmartHopper.ProviderSdk.Utils;
 
 namespace SmartHopper.Core.Grasshopper.Converters.Formats
 {

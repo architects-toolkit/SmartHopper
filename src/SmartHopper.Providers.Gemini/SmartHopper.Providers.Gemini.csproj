@@ -42,7 +42,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj" />
+    <ProjectReference Include="..\SmartHopper.ProviderSdk\SmartHopper.ProviderSdk.csproj" />
   </ItemGroup>
 
   <!-- For Windows only builds -->

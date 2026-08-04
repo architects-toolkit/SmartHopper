@@ -21,7 +21,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Core.ComponentBase
 {

@@ -26,13 +26,13 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
     using DocumentFormat.OpenXml.Packaging;
     using SmartHopper.Core.Grasshopper.Converters;
     using SmartHopper.Core.Grasshopper.Converters.Formats;
+    using Xunit;
     using A = DocumentFormat.OpenXml.Drawing;
     using M = DocumentFormat.OpenXml.Math;
     using P = DocumentFormat.OpenXml.Presentation;
     using S = DocumentFormat.OpenXml.Spreadsheet;
     using V = DocumentFormat.OpenXml.Vml;
     using W = DocumentFormat.OpenXml.Wordprocessing;
-    using Xunit;
 
     /// <summary>
     /// Tests for DOCX, PPTX, and XLSX converters and the shared <see cref="OpenXmlMarkdownHelper"/>.

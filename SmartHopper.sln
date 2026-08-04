@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
+# Visual Studio Version 18
+VisualStudioVersion = 18.8.12023.21 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Core", "src\SmartHopper.Core\SmartHopper.Core.csproj", "{D4C6D3D5-2B3A-4B6C-8C3D-57B2D0D3C1E1}"
 EndProject
@@ -34,6 +34,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Core.Grasshopper.Tests", "src\SmartHopper.Core.Grasshopper.Tests\SmartHopper.Core.Grasshopper.Tests.csproj", "{56E24C95-ADF6-4DBA-BDB7-73CFB1291052}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Core.Tests", "src\SmartHopper.Core.Tests\SmartHopper.Core.Tests.csproj", "{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.ProviderSdk", "src\SmartHopper.ProviderSdk\SmartHopper.ProviderSdk.csproj", "{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -224,6 +226,18 @@ Global
 		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Release|x64.Build.0 = Release|Any CPU
 		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Release|x86.ActiveCfg = Release|Any CPU
 		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Release|x86.Build.0 = Release|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Debug|x64.Build.0 = Debug|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Debug|x86.Build.0 = Debug|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Release|x64.ActiveCfg = Release|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Release|x64.Build.0 = Release|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Release|x86.ActiveCfg = Release|Any CPU
+		{F59F33CC-DCD6-4EEE-9766-6E3C08E8AD43}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

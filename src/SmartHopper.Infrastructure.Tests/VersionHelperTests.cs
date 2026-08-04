@@ -19,6 +19,7 @@
 namespace SmartHopper.Infrastructure.Tests
 {
     using SmartHopper.Infrastructure.Utils;
+    using SmartHopper.ProviderSdk.Utils;
     using Xunit;
 
     public class VersionHelperTests

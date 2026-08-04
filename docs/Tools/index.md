@@ -34,7 +34,14 @@ SmartHopper's tool system extends Grasshopper components with AI-powered capabil
 
 ### What Are Tools?
 
-Tools are discrete operations with JSON-schema-defined inputs that the AI can invoke during a conversation. They are also exposed as standalone utilities in Grasshopper components. For example, `text2text` generates text, `gh_tidy_up` organizes the canvas, and `img2text` analyzes images.
+| Tool | Description |
+|------|-------------|
+| text2text | Generates text based on a prompt with optional instructions |
+| text2boolean | Evaluates text against criteria and returns boolean assessments |
+| text2textlist | Generates a list of items based on a prompt, count, and type (text/number/integer/boolean) |
+| text2json | Generates a JSON object from a prompt, conforming strictly to a provided JSON Schema |
+| list_filter | Filters list items based on criteria |
+| textlist2boolean | Evaluates list items against criteria and returns boolean results |
 
 ### When to Use Them
 

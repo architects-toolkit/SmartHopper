@@ -24,13 +24,16 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Threading.Tasks;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
-    using SmartHopper.Infrastructure.AICall.Core.Requests;
-    using SmartHopper.Infrastructure.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AIModels;
     using SmartHopper.Infrastructure.AIProviders;
     using SmartHopper.Infrastructure.Settings;
-    using SmartHopper.Infrastructure.Streaming;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+    using SmartHopper.ProviderSdk.AICall.Core.Requests;
+    using SmartHopper.ProviderSdk.AICall.Core.Returns;
+    using SmartHopper.ProviderSdk.AIModels;
+    using SmartHopper.ProviderSdk.AIProviders;
+    using SmartHopper.ProviderSdk.Settings;
+    using SmartHopper.ProviderSdk.Streaming;
     using Xunit;
 
     public class AdvancedConfigTests

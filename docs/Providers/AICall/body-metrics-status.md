@@ -48,9 +48,10 @@ This page documents the core data types that carry conversation state, performan
 ### AIMetrics
 
 - File: `AIMetrics.cs`
-- Fields: `Provider`, `Model`, token counters (input/output), `CompletionTime`, `FinishReason`
+- Fields: `Provider`, `Model`, token counters (input/output), `CompletionTime`, `FinishReason`, `EstimatedCost`
+- `EstimatedCost` is computed from provider/model pricing and token buckets (prompt, cached, cache-write, output generation, reasoning). Missing or negative prices contribute `0`; estimated tokens are used as a fallback when actual tokens are `0`.
 - Validation: non-empty `Provider`, `Model`, `FinishReason`; non-negative counters and time
-- `Combine(other)` merges providers/models/reason and adds counters/time
+- `Combine(other)` merges providers/models/reason and adds counters/time/cost
 
 ### AICallStatus
 
@@ -318,5 +319,3 @@ var filter = new MetricsFilter(SessionId: "session-123", EventType: AIMetricsEve
 - Tools: filter with `AIBody.ToolFilter` to avoid unintended tool loading; validate tool args before execution
 - JSON schema: ensure `JsonOutputSchema` is trusted/user-controlled (avoid TOCTOU injections)
 - Context: avoid leaking sensitive data when enabling `ContextFilter`
-
-

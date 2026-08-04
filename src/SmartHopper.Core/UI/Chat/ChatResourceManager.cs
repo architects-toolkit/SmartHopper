@@ -34,8 +34,8 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Markdig;
 using Markdig.Parsers;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
 namespace SmartHopper.Core.UI.Chat
 {

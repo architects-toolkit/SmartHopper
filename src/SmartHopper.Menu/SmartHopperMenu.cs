@@ -26,6 +26,7 @@ using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Initialization;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Menu.Items;
+using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Menu
 {

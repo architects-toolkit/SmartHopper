@@ -62,6 +62,7 @@ namespace SmartHopper.Components.Misc
             pManager.AddIntegerParameter("Data Count", "DC", "The number of data items that were processed by the component. This may not match the total number of items in your input lists. If the component is configured to process data in batches, this value indicates how many batches (or groups) of results the component needs to process.", GH_ParamAccess.tree);
             pManager.AddIntegerParameter("Iterations Count", "IC", "The number of times the component ran its calculation. If the component was set to recognize and group identical combinations of input items, it only processed each unique combination once and applied the results to all matching outputs. As a result, the iteration count may be less than the total data count.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Role", "R", "Role label for each metrics entry (e.g. main, fallback:ImageToText, tool:img2text). Null for the primary call.", GH_ParamAccess.tree);
+            pManager.AddNumberParameter("Estimated Cost", "C", "Estimated cost in USD based on model pricing and token usage.", GH_ParamAccess.tree);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -82,6 +83,7 @@ namespace SmartHopper.Components.Misc
             var dataCounts = new GH_Structure<GH_Integer>();
             var iterationsCounts = new GH_Structure<GH_Integer>();
             var roles = new GH_Structure<GH_String>();
+            var estimatedCosts = new GH_Structure<GH_Number>();
 
             foreach (var path in metricsTree.Paths)
             {
@@ -122,6 +124,9 @@ namespace SmartHopper.Components.Misc
                             dataCounts.Append(new GH_Integer(metricsObject["data_count"]?.Value<int>() ?? 0), path);
                             iterationsCounts.Append(new GH_Integer(metricsObject["iterations_count"]?.Value<int>() ?? 0), path);
                             roles.Append(new GH_String(metricsObject["role"]?.Value<string>()), path);
+
+                            var estimatedCost = metricsObject["estimated_cost"]?.Value<double?>() ?? 0.0;
+                            estimatedCosts.Append(new GH_Number(estimatedCost), path);
                         }
                     }
                     catch (Exception ex)
@@ -141,6 +146,7 @@ namespace SmartHopper.Components.Misc
             DA.SetDataTree(7, dataCounts);
             DA.SetDataTree(8, iterationsCounts);
             DA.SetDataTree(9, roles);
+            DA.SetDataTree(10, estimatedCosts);
         }
     }
 }

@@ -21,6 +21,7 @@ namespace SmartHopper.Infrastructure.Tests
     using System.IO;
     using System.Text;
     using SmartHopper.Infrastructure.AIProviders;
+    using SmartHopper.ProviderSdk.AIProviders;
     using Xunit;
 
     public class ProviderHashVerifierTests

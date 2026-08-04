@@ -22,7 +22,7 @@ using System.Collections.ObjectModel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall.Core;
+using SmartHopper.ProviderSdk.AICall.Core;
 
 namespace SmartHopper.Core.Types
 {

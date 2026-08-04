@@ -24,17 +24,18 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
-    using SmartHopper.Infrastructure.AICall.Core.Base;
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
-    using SmartHopper.Infrastructure.AICall.Core.Requests;
-    using SmartHopper.Infrastructure.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AICall.Execution;
     using SmartHopper.Infrastructure.AICall.Policies;
     using SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns;
     using SmartHopper.Infrastructure.AICall.Utilities;
     using SmartHopper.Infrastructure.AIModels;
-    using SmartHopper.Infrastructure.Streaming;
-
+    using SmartHopper.ProviderSdk.AICall.Core.Base;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+    using SmartHopper.ProviderSdk.AICall.Core.Requests;
+    using SmartHopper.ProviderSdk.AICall.Core.Returns;
+    using SmartHopper.ProviderSdk.AICall.Utilities;
+    using SmartHopper.ProviderSdk.AIModels;
+    using SmartHopper.ProviderSdk.Streaming;
     /// <summary>
     /// ConversationSession partial class containing special turn execution logic.
     /// </summary>
@@ -78,21 +79,19 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 // - session cancel token (this.cts.Token)
                 // - external token passed to this method
                 // - timeout via CancelAfter
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(this.cts.Token, cancellationToken);
-                if (config.TimeoutMs.HasValue)
+                using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(this.cts.Token, cancellationToken))
                 {
                     linkedCts.CancelAfter(config.TimeoutMs.Value);
-                }
+                    var effectiveCt = linkedCts.Token;
 
-                var effectiveCt = linkedCts.Token;
-
-                if (useStreaming)
-                {
-                    result = await this.ExecuteStreamingSpecialTurnAsync(specialRequest, config, turnId, effectiveCt).ConfigureAwait(false);
-                }
-                else
-                {
-                    result = await this.ExecuteNonStreamingSpecialTurnAsync(specialRequest, config, turnId, effectiveCt).ConfigureAwait(false);
+                    if (useStreaming)
+                    {
+                        result = await this.ExecuteStreamingSpecialTurnAsync(specialRequest, config, turnId, effectiveCt).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        result = await this.ExecuteNonStreamingSpecialTurnAsync(specialRequest, config, turnId, effectiveCt).ConfigureAwait(false);
+                    }
                 }
 
                 // Apply persistence strategy to main conversation (this is where observers get notified)

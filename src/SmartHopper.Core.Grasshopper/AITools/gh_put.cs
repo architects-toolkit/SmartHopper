@@ -33,12 +33,12 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
-using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Dialogs;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
