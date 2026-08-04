@@ -35,7 +35,7 @@ The Miscellaneous components category collects small but important utility compo
 
 | Component Class | Nickname | Category | Description |
 | --- | --- | --- | --- |
-| `DeconstructMetricsComponent` | Deconstruct Metrics | Diagnostics | Deconstructs AI metrics into individual components (tokens, time, provider, model) |
+| `DeconstructMetricsComponent` | Deconstruct Metrics | Diagnostics | Deconstructs AI metrics into individual components (tokens, time, provider, model, estimated cost) |
 
 ---
 

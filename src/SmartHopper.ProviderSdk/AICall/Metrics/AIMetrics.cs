@@ -136,6 +136,29 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
 
         public int LastEffectiveTotalTokens { get; set; }
 
+        private decimal? _estimatedCost;
+
+        /// <summary>
+        /// Gets the estimated cost of the AI call in USD.
+        /// Calculated using provider/model pricing from <see cref="AIModelCapabilityRegistry"/>
+        /// and the token buckets tracked by this metrics instance.
+        /// Returns <c>0</c> when pricing is unknown, free, negative, or no tokens are present.
+        /// </summary>
+        [JsonProperty("estimated_cost")]
+        public decimal EstimatedCost
+        {
+            get
+            {
+                if (!this._estimatedCost.HasValue)
+                {
+                    this._estimatedCost = AICostCalculator.Calculate(this);
+                }
+
+                return this._estimatedCost.Value;
+            }
+            private set => this._estimatedCost = value;
+        }
+
         /// <summary>
         /// Gets the context usage percentage (0.0 to 1.0) based on EffectiveTotalTokens and the model's context limit.
         /// Calculated using provider/model from this metrics instance.
@@ -237,8 +260,10 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
 
             if (!skipLog)
             {
-                Debug.WriteLine($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nInputTokensPrompt: {this.InputTokensPrompt} -> {this.InputTokensPrompt + other.InputTokensPrompt}\nInputTokensCached: {this.InputTokensCached} -> {this.InputTokensCached + other.InputTokensCached}\nInputTokensCacheWrite: {this.InputTokensCacheWrite} -> {this.InputTokensCacheWrite + other.InputTokensCacheWrite}\nOutputTokensReasoning: {this.OutputTokensReasoning} -> {this.OutputTokensReasoning + other.OutputTokensReasoning}\nOutputTokensGeneration: {this.OutputTokensGeneration} -> {this.OutputTokensGeneration + other.OutputTokensGeneration}\nEstimatedInputTokens: {this.EstimatedInputTokens} -> {this.EstimatedInputTokens + other.EstimatedInputTokens}\nEstimatedOutputTokens: {this.EstimatedOutputTokens} -> {this.EstimatedOutputTokens + other.EstimatedOutputTokens}\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
+                Debug.WriteLine($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nInputTokensPrompt: {this.InputTokensPrompt} -> {this.InputTokensPrompt + other.InputTokensPrompt}\nInputTokensCached: {this.InputTokensCached} -> {this.InputTokensCached + other.InputTokensCached}\nInputTokensCacheWrite: {this.InputTokensCacheWrite} -> {this.InputTokensCacheWrite + other.InputTokensCacheWrite}\nOutputTokensReasoning: {this.OutputTokensReasoning} -> {this.OutputTokensReasoning + other.OutputTokensReasoning}\nOutputTokensGeneration: {this.OutputTokensGeneration} -> {this.OutputTokensGeneration + other.OutputTokensGeneration}\nEstimatedInputTokens: {this.EstimatedInputTokens} -> {this.EstimatedInputTokens + other.EstimatedInputTokens}\nEstimatedOutputTokens: {this.EstimatedOutputTokens} -> {this.EstimatedOutputTokens + other.EstimatedOutputTokens}\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nEstimatedCost: {this.EstimatedCost} -> {this.EstimatedCost + other.EstimatedCost}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
             }
+
+            this.EstimatedCost += other.EstimatedCost;
 
             this.Provider = CombineCommaSeparated(this.Provider, other.Provider, "Unknown");
             this.Model = CombineCommaSeparated(this.Model, other.Model);

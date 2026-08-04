@@ -139,7 +139,8 @@ namespace SmartHopper.Core.ComponentBase
                 new JProperty("tokens_output_generation", metrics.OutputTokensGeneration),
                 new JProperty("finish_reason", metrics.FinishReason),
                 new JProperty("completion_time", metrics.CompletionTime),
-                new JProperty("context_usage_percent", metrics.ContextUsagePercent));
+                new JProperty("context_usage_percent", metrics.ContextUsagePercent),
+                new JProperty("estimated_cost", metrics.EstimatedCost));
 
             if (metrics.Role != null)
             {
