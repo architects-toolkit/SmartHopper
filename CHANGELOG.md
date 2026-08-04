@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added centralized `AIMetrics.EstimatedCost` (USD) and `AICostCalculator` that derive estimated call cost from provider/model pricing and token buckets (input prompt, cached, cache-write, output generation, reasoning). Falls back to `EstimatedInputTokens`/`EstimatedOutputTokens` when actual token counts are zero; free, negative, or missing prices contribute `0`.
 - Added `Estimated Cost` output to `Deconstruct SmartHopper Metrics` and `estimated_cost` field to metrics JSON.
-- Added `SmartHopper.ProviderSdk.Tests` xUnit project with initial coverage for `AICostCalculator`, `AIMetrics`, `AIModelCapabilityRegistry`, and `AIBody`.
+- Added `SmartHopper.ProviderSdk.Tests` xUnit project with coverage for `AICostCalculator`, `AIMetrics`, `AIModelCapabilityRegistry`, `AIBody`/`AIBodyBuilder`, `AIRequestBase`/`AIRequestCall`, `AIReturn`, all `AIInteraction*` types, `AICallStatus`/`AIAgent`/`AIRequestKind`, `AICapability`/`AIModelCapabilities`, and `SHRuntimeMessage`.
 - Added `.github/workflows/pr-linear-history.yml` to enforce that pull requests targeting `main` (and release/hotfix branches) are rebased and contain no merge commits.
 - Added `.github/workflows/sync-dev-from-main.yml` to automatically rebase `dev` onto `main` and force-push; if the rebase fails, the workflow run fails so it surfaces in GitHub Actions.
 - Added `.github/actions/utils/rebase-onto-base` composite action to centralize rebase/base-management operations for GitHub Actions workflows.
