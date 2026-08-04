@@ -102,7 +102,7 @@ namespace SmartHopper.Providers.Ollama
                     Type = typeof(string),
                     DefaultValue = "0.5",
                     DisplayName = "Temperature",
-                    Description = "Controls randomness (0.0–2.0). Higher values produce more diverse output; lower values are more focused and deterministic.",
+                    Description = "Controls randomness (0.0-2.0). Higher values produce more diverse output; lower values are more focused and deterministic.",
                 },
             };
         }

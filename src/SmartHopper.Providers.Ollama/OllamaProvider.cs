@@ -553,7 +553,7 @@ namespace SmartHopper.Providers.Ollama
                 new AIExtraDescriptor(
                     "top_p",
                     "Top P",
-                    "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use the model default.",
+                    "Nucleus sampling parameter (0.0-1.0). Lower values make output more focused; higher values more diverse. Leave empty to use the model default.",
                     typeof(double),
                     null),
                 new AIExtraDescriptor(

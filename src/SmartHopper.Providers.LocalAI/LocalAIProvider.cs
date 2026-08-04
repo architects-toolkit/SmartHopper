@@ -547,7 +547,7 @@ namespace SmartHopper.Providers.LocalAI
                 new AIExtraDescriptor(
                     "top_p",
                     "Top P",
-                    "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use the backend default.",
+                    "Nucleus sampling parameter (0.0-1.0). Lower values make output more focused; higher values more diverse. Leave empty to use the backend default.",
                     typeof(double),
                     null),
                 new AIExtraDescriptor(
