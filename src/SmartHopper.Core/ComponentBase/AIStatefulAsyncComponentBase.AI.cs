@@ -130,7 +130,6 @@ namespace SmartHopper.Core.ComponentBase
                     var metrics = result.Metrics;
                     metrics.DataCount = 1; // One AI call = one processing unit
                     this.CombineIntoPersistedMetrics(metrics, "main");
-                    this.AppendMetricToTree(metrics);
                 }
             }
 
