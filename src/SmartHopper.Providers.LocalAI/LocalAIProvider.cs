@@ -464,16 +464,24 @@ namespace SmartHopper.Providers.LocalAI
                 // LocalAI may also surface reasoning text via reasoning_content (see openai-functions docs)
                 var reasoning = message["reasoning_content"]?.ToString();
 
-                var interaction = new AIInteractionText();
-                interaction.SetResult(
-                    agent: AIAgent.Assistant,
-                    content: content,
-                    reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
-                interaction.Metrics = this.DecodeMetrics(response);
-                interactions.Add(interaction);
+                var tcs = message["tool_calls"] as JArray;
+
+                // Avoid emitting an empty assistant text interaction for pure tool-call responses
+                if (!string.IsNullOrEmpty(content)
+                    || !string.IsNullOrEmpty(reasoning)
+                    || (tcs != null && tcs.Count > 0))
+                {
+                    var interaction = new AIInteractionText();
+                    interaction.SetResult(
+                        agent: AIAgent.Assistant,
+                        content: content,
+                        reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
+                    interaction.Metrics = this.DecodeMetrics(response);
+                    interactions.Add(interaction);
+                }
 
                 // Add an AIInteractionToolCall for each tool call
-                if (message["tool_calls"] is JArray tcs && tcs.Count > 0)
+                if (tcs != null && tcs.Count > 0)
                 {
                     foreach (JObject tc in tcs.OfType<JObject>())
                     {
