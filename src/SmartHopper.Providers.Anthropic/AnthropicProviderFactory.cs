@@ -16,7 +16,6 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Providers.Anthropic

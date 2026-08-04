@@ -27,8 +27,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AIModels;
-using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AICall.Batch;
 using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -401,7 +399,7 @@ namespace SmartHopper.Providers.MistralAI
                 }
 
                 // Only send for models that support reasoning, or when the user explicitly requests it per-request.
-                var supportsReasoning = ModelManager.Instance?.GetCapabilities(this.Name, request.Model)?.HasCapability(AICapability.Reasoning) == true;
+                var supportsReasoning = AIModelCapabilityRegistry.Instance?.GetCapabilities(this.Name, request.Model)?.HasCapability(AICapability.Reasoning) == true;
                 if (hasExplicitReasoningEffort || supportsReasoning)
                 {
                     requestBody["reasoning_effort"] = reasoningEffort;
