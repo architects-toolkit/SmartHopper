@@ -29,9 +29,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AIModels;
-using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Utils;
 using SmartHopper.ProviderSdk.AICall.Batch;
 using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -1315,7 +1312,7 @@ namespace SmartHopper.Providers.Anthropic
                 return false;
             }
 
-            var caps = ModelManager.Instance.GetCapabilities("Anthropic", model);
+            var caps = AIModelCapabilityRegistry.Instance.GetCapabilities("Anthropic", model);
             return caps?.HasCapability(AICapability.Text2Json) == true;
         }
 
