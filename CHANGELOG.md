@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **LocalAI provider** (`SmartHopper.Providers.LocalAI`): new built-in provider for self-hosted [LocalAI](https://localai.io/) instances. Talks to the standard OpenAI-compatible `/v1/chat/completions` endpoint, with full support for tools/function calling, streaming, JSON Schema structured outputs, and an `Authorization: Bearer` API key when one is configured. Settings include a required **Base URL** (default `http://localhost:8080/v1`) plus optional API Key, Model, Streaming, Max Tokens, and Temperature. The provider does not auto-discover models — users list whatever models they have installed locally.
+- **Ollama provider** (`SmartHopper.Providers.Ollama`): new built-in provider for [Ollama](https://ollama.com/) running locally via its [OpenAI-compatible endpoint](https://ollama.com/blog/openai-compatibility). Mirrors the LocalAI capabilities (tools, streaming, JSON Schema, optional bearer token for reverse-proxy setups) plus an extra `seed` extra-descriptor for reproducible sampling. Settings include a required **Base URL** (default `http://localhost:11434/v1`) plus optional API Key, Model (e.g. `llama3.1`, `qwen2.5:14b`, `mistral:7b-instruct` — install with `ollama pull <model>`), Streaming, Max Tokens, and Temperature.
 - Added reusable model-level batch metadata: `AIModelCapabilities.SupportsBatch` and `AIModelCapabilities.BatchPricing` for provider-agnostic batch compatibility and discounted batch pricing.
 - Implemented full `IAIBatchProvider` contract on `OpenRouterProvider`, including batch submission, status polling, cancellation, result downloading, and JSONL result parsing.
 - Added `OpenRouterBatchProviderTests` to `SmartHopper.ProviderSdk.Tests` covering `:batch` alias canonicalization, generated model metadata, registry alias resolution, and batch result parsing.
 - Added batch support gating in `AIStatefulAsyncComponentBase` so a request is only routed to batch mode when the selected model declares `SupportsBatch`.
-
 - Added centralized `AIMetrics.EstimatedCost` (USD) and `AICostCalculator` that derive estimated call cost from provider/model pricing and token buckets (input prompt, cached, cache-write, output generation, reasoning). Falls back to `EstimatedInputTokens`/`EstimatedOutputTokens` when actual token counts are zero; free, negative, or missing prices contribute `0`.
 - Added `Estimated Cost` output to `Deconstruct SmartHopper Metrics` and `estimated_cost` field to metrics JSON.
 - Added `SmartHopper.ProviderSdk.Tests` xUnit project with coverage for `AICostCalculator`, `AIMetrics`, `AIModelCapabilityRegistry`, `AIBody`/`AIBodyBuilder`, `AIRequestBase`/`AIRequestCall`, `AIReturn`, all `AIInteraction*` types, `AICallStatus`/`AIAgent`/`AIRequestKind`, `AICapability`/`AIModelCapabilities`, and `SHRuntimeMessage`.
@@ -32,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `safe-commit` and `code-style` now rebase (`git pull --rebase --autostash`) before pushing, falling back to a PR if the branch is protected.
 - Automated workflows that open PRs to `main`/`main-*`/`release/**`/`hotfix/**` now fetch full history and rebase onto the target base before calling `create-pull-request`.
 - `pr-block-dev-to-main.yml` is now `Warn Dev Release to Main`: it emits a warning and a PR comment instead of exiting with an error when a `-dev` version is merged into a protected branch.
+- Updated `SmartHopper.Providers.Ollama` and `SmartHopper.Providers.LocalAI` resource icons to their official brand marks (Ollama from `@lobehub/icons`, LocalAI from the official `mudler/LocalAI` logo).
 
 ## [2.0.0-dev.260802] - 2026-08-02
 
