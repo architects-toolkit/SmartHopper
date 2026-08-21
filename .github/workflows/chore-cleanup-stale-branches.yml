@@ -1,10 +1,11 @@
-name: 🧹 Cleanup stale chore branches
+name: 🧹 Cleanup stale chore/cascade/devin branches
 
-# Description: Scheduled weekly cleanup that removes chore/* branches with no
+# Description: Scheduled weekly cleanup that removes stale branches with no
 # open pull requests.  A branch is deleted only when ALL of these are true:
-#   1. Its name starts with "chore/".
+#   1. Its name starts with one of the watched prefixes (chore/, cascade/, devin/).
 #   2. It has zero open PRs (merged/closed PRs are fine).
 #   3. It is not a base (protected) branch.
+#   4. Its last commit is older than the configured age threshold.
 #
 # Triggers:
 #   - schedule: every Monday 4:00 UTC
@@ -12,30 +13,48 @@ name: 🧹 Cleanup stale chore branches
 #
 # Permissions:
 #   - contents: write  - Required to delete branches
+#   - pull-requests: read - Required to check for open PRs
 
 on:
   schedule:
     - cron: '0 4 * * 1'
   workflow_dispatch:
+    inputs:
+      max-age-days:
+        description: 'Delete branches whose last commit is older than this many days'
+        required: false
+        type: string
+        default: '7'
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   cleanup:
-    name: Delete orphaned chore branches
+    name: Delete orphaned chore/cascade/devin branches
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Find and delete stale chore branches
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find and delete stale branches
         uses: actions/github-script@v7
+        env:
+          MAX_AGE_DAYS: ${{ github.event.inputs.max-age-days || '7' }}
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const prefix = 'chore/';
-            let deleted = 0;
-            let skipped = 0;
+            const maxAgeDays = parseInt(process.env.MAX_AGE_DAYS, 10);
+            const prefixes = ['chore/', 'cascade/', 'devin/'];
+            const protectedBranches = new Set(['main', 'dev']);
+
+            const now = new Date();
+            const cutoff = new Date(now.getTime() - maxAgeDays * 24 * 60 * 60 * 1000);
 
             // Paginate through all branches
             const branches = await github.paginate(
@@ -43,10 +62,15 @@ jobs:
               { owner, repo, per_page: 100 },
             );
 
-            const choreBranches = branches.filter(b => b.name.startsWith(prefix));
-            core.info(`Found ${choreBranches.length} chore/* branch(es).`);
+            const watchedBranches = branches.filter(b =>
+              prefixes.some(p => b.name.startsWith(p)) && !protectedBranches.has(b.name)
+            );
 
-            for (const branch of choreBranches) {
+            let deleted = 0;
+            let skipped = 0;
+            let tooNew = 0;
+
+            for (const branch of watchedBranches) {
               // Check for open PRs from this branch
               const { data: openPrs } = await github.rest.pulls.list({
                 owner,
@@ -62,7 +86,21 @@ jobs:
                 continue;
               }
 
-              // No open PRs — safe to delete
+              // Get the commit date for the branch tip
+              const { data: commit } = await github.rest.git.getCommit({
+                owner,
+                repo,
+                commit_sha: branch.commit.sha,
+              });
+
+              const commitDate = new Date(commit.committer.date);
+              if (commitDate > cutoff) {
+                core.info(`⏭️  ${branch.name} — last commit ${commitDate.toISOString()} is newer than ${maxAgeDays} days, skipping.`);
+                tooNew++;
+                continue;
+              }
+
+              // No open PRs and old enough — safe to delete
               try {
                 await github.rest.git.deleteRef({
                   owner,
@@ -77,13 +115,14 @@ jobs:
             }
 
             core.summary
-              .addHeading('Stale chore branch cleanup', 3)
+              .addHeading('Stale branch cleanup', 3)
               .addTable([
                 [{ data: 'Metric', header: true }, { data: 'Count', header: true }],
-                ['Chore branches found', `${choreBranches.length}`],
+                ['Watched branches found', `${watchedBranches.length}`],
                 ['Deleted', `${deleted}`],
                 ['Skipped (open PRs)', `${skipped}`],
+                ['Skipped (too new)', `${tooNew}`],
               ])
               .write();
 
-            core.info(`Done. Deleted ${deleted}, skipped ${skipped}.`);
+            core.info(`Done. Deleted ${deleted}, skipped ${skipped}, too new ${tooNew}.`);

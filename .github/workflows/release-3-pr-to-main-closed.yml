@@ -151,6 +151,36 @@ jobs:
           suffix: ${{ steps.release_info.outputs.suffix }}
           mistral-api-key: ${{ secrets.MISTRAL_API_KEY }}
 
+      - name: Configure git
+        if: steps.dev_check.outputs.skip != 'true'
+        run: |
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
+
+      - name: Create annotated release tag
+        if: steps.dev_check.outputs.skip != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.release_info.outputs.version }}"
+
+          # Fetch existing tags so we can tell whether the tag already exists.
+          git fetch --tags
+
+          if git ls-remote --tags origin "$VERSION" | grep -q "refs/tags/$VERSION"; then
+            echo "Tag $VERSION already exists on origin. Skipping tag creation."
+            exit 0
+          fi
+
+          MERGE_SHA="${{ github.event.pull_request.merge_commit_sha }}"
+          if [ -n "$MERGE_SHA" ]; then
+            git tag -a "$VERSION" -m "Release $VERSION" "$MERGE_SHA"
+          else
+            git tag -a "$VERSION" -m "Release $VERSION"
+          fi
+          git push origin "$VERSION"
+          echo "Created annotated tag $VERSION."
+
       - name: Create Release
         if: steps.dev_check.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
