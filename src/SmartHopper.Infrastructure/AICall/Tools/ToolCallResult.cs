@@ -19,11 +19,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.Diagnostics;
-
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.Diagnostics;
 namespace SmartHopper.Infrastructure.AICall.Tools
 {
     /// <summary>
@@ -205,9 +204,16 @@ namespace SmartHopper.Infrastructure.AICall.Tools
         }
 
         /// <summary>
-        /// Returns the JSON representation of <see cref="Result"/>, or an empty
-        /// string when the payload is <c>null</c>.
+        /// Allows a <see cref="ToolCallResult"/> to be used wherever a <see cref="JObject"/> is expected,
+        /// delegating to <see cref="Result"/> so legacy callers (e.g. <c>RuntimeMessageUtility.ExtractMessages(toolResult)</c>)
+        /// continue to compile against the Provider SDK surface.
         /// </summary>
+        /// <param name="result">The tool result to unwrap.</param>
+        public static implicit operator JObject?(ToolCallResult? result)
+        {
+            return result?.Result;
+        }
+
         /// <returns>The serialized payload.</returns>
         public override string ToString()
         {

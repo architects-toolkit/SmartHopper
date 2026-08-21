@@ -325,6 +325,8 @@ function ConvertFrom-ModelBlock($blockText) {
         Deprecated          = $null
         SupportsStreaming   = $null
         SupportsPromptCaching = $null
+        SupportsBatch       = $null
+        BatchPricing        = $null
         Rank                = $null
         ContextLimit        = $null
         Created             = $null
@@ -343,6 +345,7 @@ function ConvertFrom-ModelBlock($blockText) {
         Deprecated          = 'Deprecated\s*=\s*(true|false)'
         SupportsStreaming   = 'SupportsStreaming\s*=\s*(true|false)'
         SupportsPromptCaching = 'SupportsPromptCaching\s*=\s*(true|false)'
+        SupportsBatch       = 'SupportsBatch\s*=\s*(true|false)'
         Rank                = 'Rank\s*=\s*(\d+)'
         ContextLimit        = 'ContextLimit\s*=\s*(\d+)'
         CacheKeyStrategy    = 'CacheKeyStrategy\s*=\s*"([^"]*)"'
@@ -376,6 +379,17 @@ function ConvertFrom-ModelBlock($blockText) {
             $pricing[$pm.Groups[1].Value] = $pm.Groups[2].Value
         }
         if ($pricing.Count -gt 0) { $result.Pricing = [pscustomobject]$pricing }
+    }
+
+    # BatchPricing = new AIModelPricing { ... }
+    $batchPricingRx = [regex]::Match($blockText, 'BatchPricing\s*=\s*new\s+AIModelPricing\s*\{\s*([^}]*)\s*\}')
+    if ($batchPricingRx.Success) {
+        $batchPriceBody = $batchPricingRx.Groups[1].Value
+        $batchPricing = [ordered]@{}
+        foreach ($pm in [regex]::Matches($batchPriceBody, '(\w+)\s*=\s*([0-9]*\.?[0-9]+(?:[eE][-+]?\d+)?)m?')) {
+            $batchPricing[$pm.Groups[1].Value] = $pm.Groups[2].Value
+        }
+        if ($batchPricing.Count -gt 0) { $result.BatchPricing = [pscustomobject]$batchPricing }
     }
 
     # Aliases
@@ -418,6 +432,9 @@ function Format-ModelBlock($model, $providerVar) {
     if ($model.SupportsPromptCaching -eq 'true')  { $lines.Add('                    SupportsPromptCaching = true,') }
     if ($model.SupportsPromptCaching -eq 'false') { $lines.Add('                    SupportsPromptCaching = false,') }
 
+    if ($model.SupportsBatch -eq 'true')  { $lines.Add('                    SupportsBatch = true,') }
+    if ($model.SupportsBatch -eq 'false') { $lines.Add('                    SupportsBatch = false,') }
+
     if ($model.Verified -eq 'true')  { $lines.Add('                    Verified = true,') }
     if ($model.Verified -eq 'false') { $lines.Add('                    Verified = false,') }
 
@@ -457,6 +474,24 @@ function Format-ModelBlock($model, $providerVar) {
             $lines.Add('                    Pricing = new AIModelPricing')
             $lines.Add('                    {')
             foreach ($pp in $priceProps) { $lines.Add($pp) }
+            $lines.Add('                    },')
+        }
+    }
+
+    if ($model.BatchPricing) {
+        $batchPriceProps = [System.Collections.Generic.List[string]]::new()
+        foreach ($p in @('Prompt','Completion','Request','Image','ImageOutput','ImageToken','Audio','AudioOutput','InputAudioCache','InputCacheRead','InputCacheWrite','InternalReasoning','WebSearch','Discount')) {
+            $v = $model.BatchPricing.$p
+            if ($null -ne $v -and -not [string]::IsNullOrWhiteSpace([string]$v)) {
+                $num = [string]$v
+                $num = $num.TrimEnd('m','M')
+                [void]$batchPriceProps.Add("                        $p = ${num}m,")
+            }
+        }
+        if ($batchPriceProps.Count -gt 0) {
+            $lines.Add('                    BatchPricing = new AIModelPricing')
+            $lines.Add('                    {')
+            foreach ($pp in $batchPriceProps) { $lines.Add($pp) }
             $lines.Add('                    },')
         }
     }
@@ -753,7 +788,10 @@ if ($ValidateOnly) {
 # ---------------------------------------------------------------------------
 # 2. Query OpenRouter
 # ---------------------------------------------------------------------------
-$headers = @{ Authorization = "Bearer $OpenRouterApiKey" }
+$headers = @{}
+if (-not [string]::IsNullOrWhiteSpace($OpenRouterApiKey)) {
+    $headers['Authorization'] = "Bearer $OpenRouterApiKey"
+}
 
 try {
     $response = Invoke-RestMethod -Uri $OpenRouterUrl -Headers $headers -Method GET -TimeoutSec 60
@@ -787,7 +825,7 @@ function Get-LogicalModelKey($modelName) {
     return ([string]$modelName).ToLowerInvariant() -replace '(?<=\d)[\.-](?=\d)', '.'
 }
 
-$openRouterModels = [System.Collections.Generic.List[psobject]]::new()
+$rawOpenRouterModels = [System.Collections.Generic.List[psobject]]::new()
 foreach ($item in $response.data) {
     $fullId = $item.id
     if ([string]::IsNullOrWhiteSpace($fullId)) { continue }
@@ -797,17 +835,48 @@ foreach ($item in $response.data) {
 
     if ($isOpenRouterProvider) {
         # OpenRouter provider: keep every model verbatim (full "vendor/model" id).
-        $openRouterModels.Add($item)
+        $rawOpenRouterModels.Add($item)
     }
     elseif ($fullId.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
         # Strip provider prefix: "openai/gpt-4o" -> "gpt-4o".
         if (-not [string]::IsNullOrWhiteSpace($fullId.Substring($prefix.Length))) {
-            $openRouterModels.Add($item)
+            $rawOpenRouterModels.Add($item)
         }
     }
 }
 
-Write-Host "[$Provider] OpenRouter returned $($openRouterModels.Count) model(s) for prefix '$prefix'."
+# Separate :batch variants. They are not standalone chat models; they are used
+# to flag batch support and capture discounted BatchPricing on the base model.
+$batchVariantsByBase = [ordered]@{}
+$openRouterModels = [System.Collections.Generic.List[psobject]]::new()
+foreach ($orm in $rawOpenRouterModels) {
+    $fullId = $orm.id
+    if ($fullId -match ':batch$') {
+        $baseKey = if ($isOpenRouterProvider) { $fullId -replace ':batch$','' } else { Get-ModelName $fullId }
+        $batchVariantsByBase[$baseKey] = $orm
+    }
+    else {
+        $openRouterModels.Add($orm)
+    }
+}
+
+# For OpenRouter, a :batch variant may appear without its base. Synthesize a
+# base entry from the batch variant so the model is not dropped.
+if ($isOpenRouterProvider) {
+    $knownBaseIds = [System.Collections.Generic.HashSet[string]]::new(
+        [string[]]($openRouterModels | ForEach-Object { $_.id }),
+        [System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($kvp in $batchVariantsByBase.GetEnumerator()) {
+        $baseKey = $kvp.Key
+        if (-not $knownBaseIds.Contains($baseKey)) {
+            $synthetic = $kvp.Value | Select-Object *
+            $synthetic.id = $baseKey
+            $openRouterModels.Add($synthetic)
+        }
+    }
+}
+
+Write-Host "[$Provider] OpenRouter returned $($openRouterModels.Count) base model(s) for prefix '$prefix' ($($batchVariantsByBase.Count) batch variant(s) merged into base models)."
 
 # For non-OpenRouter providers, deduplicate models that differ only by
 # OpenRouter pricing-tier suffix (e.g. "model:free" vs "model").
@@ -1477,6 +1546,46 @@ else {
                 DiscouragedForTools   = if (Test-LiveOrRealtimeModelName $modelName) { @('*') } else { $null }
                 CacheKeyStrategy      = $null
             }
+        }
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Merge :batch variant metadata into the base model.
+#
+# OpenRouter returns :batch variants as separate models. They are not standalone
+# chat models; they are used to flag batch support and to capture the discounted
+# BatchPricing on the base model. The original :batch slug is kept as an alias.
+# ---------------------------------------------------------------------------
+foreach ($kvp in $batchVariantsByBase.GetEnumerator()) {
+    $baseKey = $kvp.Key
+    $batchVariant = $kvp.Value
+    if (-not $mergedModels.Contains($baseKey)) { continue }
+
+    $model = $mergedModels[$baseKey]
+    $batchEnrichment = Get-OpenRouterEnrichment -orm $batchVariant
+    if ($batchEnrichment -and $batchEnrichment.Pricing) {
+        $model | Add-Member -NotePropertyName 'BatchPricing' -NotePropertyValue $batchEnrichment.Pricing -Force
+    }
+    $model | Add-Member -NotePropertyName 'SupportsBatch' -NotePropertyValue 'true' -Force
+
+    $batchAlias = if ($isOpenRouterProvider) { $batchVariant.id } else { $batchVariant.id.Substring($prefix.Length) }
+    if (-not [string]::IsNullOrWhiteSpace($batchAlias)) {
+        $aliases = [System.Collections.Generic.List[string]]::new()
+        if ($model.Aliases) { foreach ($a in @($model.Aliases)) { [void]$aliases.Add($a) } }
+        $already = $aliases | Where-Object { [string]::Equals($_, $batchAlias, 'OrdinalIgnoreCase') } | Select-Object -First 1
+        if (-not $already) { [void]$aliases.Add($batchAlias) }
+        $model.Aliases = $aliases.ToArray()
+    }
+}
+
+# For the OpenRouter provider, any base model without a :batch variant is
+# explicitly not batch-compatible. Other providers leave SupportsBatch as null
+# (unknown/try) unless a :batch variant was found above.
+if ($isOpenRouterProvider) {
+    foreach ($m in $mergedModels.Values) {
+        if ($m.SupportsBatch -ne 'true') {
+            $m | Add-Member -NotePropertyName 'SupportsBatch' -NotePropertyValue 'false' -Force
         }
     }
 }

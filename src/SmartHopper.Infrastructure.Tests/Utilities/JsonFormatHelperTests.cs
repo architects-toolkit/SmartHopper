@@ -20,7 +20,7 @@ namespace SmartHopper.Infrastructure.Tests.Utilities
 {
     using System.Linq;
     using Newtonsoft.Json.Linq;
-    using SmartHopper.Infrastructure.Utilities;
+    using SmartHopper.ProviderSdk.Utilities;
     using Xunit;
 
     /// <summary>

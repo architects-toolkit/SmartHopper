@@ -31,14 +31,15 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.ComponentBase.Cores;
-using SmartHopper.Infrastructure.AICall.Batch;
-using SmartHopper.Infrastructure.AICall.Core;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.AICall.Batch;
+using SmartHopper.ProviderSdk.AICall.Core;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -222,7 +223,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Gets or sets the authoritative metrics list for multi-provider support.
         /// Use <see cref="CombineIntoPersistedMetrics(AIMetrics, string)"/> to add entries.
         /// </summary>
-        protected Infrastructure.AICall.Metrics.AIMetricsList PersistedMetricsList
+        protected ProviderSdk.AICall.Metrics.AIMetricsList PersistedMetricsList
         {
             get => this._batchState.PersistedMetricsList;
             set => this._batchState.PersistedMetricsList = value;

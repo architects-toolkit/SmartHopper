@@ -22,8 +22,8 @@ using System.Diagnostics;
 using System.Linq;
 using Grasshopper.Kernel.Data;
 using SmartHopper.Core.Models;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
 namespace SmartHopper.Core.Types
 {

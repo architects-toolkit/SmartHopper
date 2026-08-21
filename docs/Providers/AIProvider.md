@@ -10,7 +10,7 @@ Abstract base class implementing `IAIProvider` with shared initialization, setti
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Infrastructure/Providers/AIProvider.cs` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
+| **Last Updated** | 2026-08-21 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -55,6 +55,8 @@ Offer a template-method style pipeline for providers: register models, load sett
 - HTTP/API orchestration
   - `Call(request)` handles PreCall, validation, `CallApi`, metrics, PostCall.
   - `CallApi` supports GET, POST, DELETE, PATCH, Bearer auth, JSON content.
+- Batch API support
+  - Providers can implement `IAIBatchProvider` to expose multi-item submission, status polling, cancellation, result download, and JSONL parsing.
 - Tools formatting
   - `GetFormattedTools(toolFilter)` converts registered AITools to function definitions for provider APIs.
   - Disabled tools (`AITool.Enabled == false`) are filtered out before the category filter is applied.

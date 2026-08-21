@@ -23,11 +23,13 @@ using System.Linq;
 using SmartHopper.Core.ComponentBase.Attributes;
 using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.ComponentBase.State;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AIModels;
-using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -88,7 +90,7 @@ namespace SmartHopper.Core.ComponentBase
                     new AIInteractionText { Agent = AIAgent.System, Content = "badge-check" },
                 };
 
-                var req = new SmartHopper.Infrastructure.AICall.Core.Requests.AIRequestCall();
+                var req = new SmartHopper.ProviderSdk.AICall.Core.Requests.AIRequestCall();
                 req.Initialize(providerName, configuredModel ?? string.Empty, interactions, endpoint: "badge_check", capability: this.RequiredCapability, toolFilter: null);
 
                 // This triggers provider-scoped selection/fallback based on capability

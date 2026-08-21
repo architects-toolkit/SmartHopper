@@ -28,12 +28,15 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Core.ComponentBase.State;
-using SmartHopper.Infrastructure.AICall.Batch;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.ProviderSdk.AICall.Batch;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -81,6 +84,23 @@ namespace SmartHopper.Core.ComponentBase
                         false);
 
                     return false;
+                }
+
+                // Also check if the selected model explicitly does not support batch.
+                var model = this.GetModel();
+                if (!string.IsNullOrWhiteSpace(model))
+                {
+                    var capabilities = AIModelCapabilityRegistry.Instance.GetCapabilities(providerName, model);
+                    if (capabilities?.SupportsBatch == false)
+                    {
+                        this.SetPersistentRuntimeMessage(
+                            "batch_model_unsupported",
+                            GH_RuntimeMessageLevel.Remark,
+                            $"Model '{model}' does not support batch processing with provider '{providerName}'. Processing in regular mode.",
+                            false);
+
+                        return false;
+                    }
                 }
             }
 

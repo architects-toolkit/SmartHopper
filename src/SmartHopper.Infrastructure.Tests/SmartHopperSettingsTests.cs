@@ -22,6 +22,7 @@ namespace SmartHopper.Infrastructure.Tests
     using System.IO;
     using Newtonsoft.Json;
     using SmartHopper.Infrastructure.Settings;
+    using SmartHopper.ProviderSdk.Settings;
     using Xunit;
 
     /// <summary>

@@ -29,16 +29,17 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall.Core;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.JsonSchemas;
-using SmartHopper.Infrastructure.AICall.Metrics;
-using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Diagnostics;
-using SmartHopper.Infrastructure.Streaming;
+using SmartHopper.ProviderSdk.AICall.Batch;
+using SmartHopper.ProviderSdk.AICall.Core;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AICall.JsonSchemas;
+using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Streaming;
 
 namespace SmartHopper.Providers.OpenRouter
 {
@@ -47,7 +48,7 @@ namespace SmartHopper.Providers.OpenRouter
     /// Provides access to multiple AI models through a unified interface.
     /// Supports text and vision input; image generation is handled via the img_generate tool.
     /// </summary>
-    public sealed class OpenRouterProvider : AIProvider<OpenRouterProvider>
+    public sealed partial class OpenRouterProvider : AIProvider<OpenRouterProvider>, IAIBatchProvider
     {
         private OpenRouterProvider()
         {
@@ -115,6 +116,14 @@ namespace SmartHopper.Providers.OpenRouter
         /// <inheritdoc/>
         public override AIRequestCall PreCall(AIRequestCall request)
         {
+            // Normalize :batch aliases to the base model slug before any further processing.
+            if (request == null)
+            {
+                return request!;
+            }
+
+            request.Model = StripBatchSuffix(request.Model);
+
             // Base pipeline first
             request = base.PreCall(request);
 
@@ -643,7 +652,7 @@ namespace SmartHopper.Providers.OpenRouter
                     reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
 
                 // Extract metrics (tokens, model, finish reason) if present
-                var metrics = new Infrastructure.AICall.Metrics.AIMetrics
+                var metrics = new ProviderSdk.AICall.Metrics.AIMetrics
                 {
                     Provider = this.Name,
                     Model = response["model"]?.ToString(),

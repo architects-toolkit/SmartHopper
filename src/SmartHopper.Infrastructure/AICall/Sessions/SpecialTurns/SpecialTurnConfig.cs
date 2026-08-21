@@ -19,9 +19,9 @@
 namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns
 {
     using System.Collections.Generic;
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
     using SmartHopper.Infrastructure.AIModels;
-
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+    using SmartHopper.ProviderSdk.AIModels;
     /// <summary>
     /// Configuration for executing a special turn with custom overrides.
     /// Special turns are executed through the regular conversation flow but can override

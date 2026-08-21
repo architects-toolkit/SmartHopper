@@ -20,9 +20,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Dialogs;
-using SmartHopper.Infrastructure.Settings;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.Anthropic
 {
@@ -149,7 +150,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     if (showErrorDialogs)
                     {
-                        StyledMessageDialog.ShowError("Max Tokens must be greater than 0.", "Validation Error");
+                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Max Tokens must be greater than 0."));
                     }
 
                     return false;
@@ -167,7 +168,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     if (showErrorDialogs)
                     {
-                        StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
+                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Temperature must be between 0.0 and 2.0."));
                     }
 
                     return false;
@@ -182,7 +183,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     if (showErrorDialogs)
                     {
-                        StyledMessageDialog.ShowError("Reasoning effort must be low, medium, high, xhigh, or max.", "Validation Error");
+                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Reasoning effort must be low, medium, high, xhigh, or max."));
                     }
 
                     return false;

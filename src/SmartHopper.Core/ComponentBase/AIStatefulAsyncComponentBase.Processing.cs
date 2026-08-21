@@ -22,13 +22,14 @@ using System.Linq;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Core.ComponentBase.Batch;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIModels;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -211,7 +212,7 @@ namespace SmartHopper.Core.ComponentBase
             {
                 // Build per-item metrics via AIMetricsList for multi-provider support
                 var allMetrics = customIdToMetrics.Values.SelectMany(v => v).ToList();
-                this.PersistedMetricsList = new Infrastructure.AICall.Metrics.AIMetricsList();
+                this.PersistedMetricsList = new ProviderSdk.AICall.Metrics.AIMetricsList();
                 foreach (var m in allMetrics)
                 {
                     this.PersistedMetricsList.Add(m, "main");

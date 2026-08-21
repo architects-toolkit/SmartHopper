@@ -17,7 +17,6 @@
  */
 
 using System.Threading.Tasks;
-
 namespace SmartHopper.Infrastructure.AICall.Policies
 {
     /// <summary>

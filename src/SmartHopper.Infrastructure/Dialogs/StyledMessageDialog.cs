@@ -29,7 +29,6 @@ using Eto.Drawing;
 using Eto.Forms;
 using Rhino.UI;
 using SmartHopper.Infrastructure.Properties;
-
 namespace SmartHopper.Infrastructure.Dialogs
 {
     /// <summary>

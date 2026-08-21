@@ -1,19 +1,27 @@
 name: Sync dev from main
 
-# Description: When `main` moves ahead of `dev`, this workflow rebases `dev` onto
-# `origin/main` and force-pushes the result. `dev` is configured for squash merges
-# only, so a merge commit cannot be used to bring `main` into `dev`.
+# Description: When `main` moves ahead of `dev`, this workflow creates a PR that
+# brings the non-version-specific changes from `main` back into `dev`.
 #
-# The force-push must be allowed for the workflow token. If it is not, the rebase
-# step fails and the whole workflow run fails, surfacing the problem in GitHub
-# Actions instead of opening an issue.
+# Version/changelog/manifest/README files are intentionally kept on the `dev`
+# side so `dev` does not lose its development version.  The resulting PR is
+# opened to `dev` and auto-merge is enabled; a codeowner still has to approve
+# before it merges.
+#
+# Related workflows:
+#   - release-2-pr-to-dev-closed.yml (creates the release PR from dev to main)
+#   - hotfix-backport.yml (backports a hotfix to dev after it merges to main)
+#   - pr-delete-auto-branches.yml (deletes the sync branch after the PR closes)
 #
 # Triggers:
 # - push to main
 # - workflow_dispatch
 #
 # Permissions:
-# - contents: write (to push the rebased dev branch)
+# - contents: write  - Required to create and push the sync branch
+# - pull-requests: write - Required to create the PR and enable auto-merge
+# - actions: write - Required to dispatch required PR checks
+# - issues: read - Required to assign the PR to the current milestone
 
 on:
   push:
@@ -23,43 +31,229 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
+  actions: write
+  issues: read
 
 concurrency:
-  group: "dev-rebase-onto-main"
+  group: sync-dev-from-main
   cancel-in-progress: true
 
 jobs:
-  rebase-dev:
-    name: Rebase dev onto main
+  sync:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout dev
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
           ref: dev
+          fetch-depth: 0
 
-      - name: Fetch main and check sync status
+      - name: Set up Git user
+        run: |
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
+
+      - name: Fetch main
+        run: git fetch origin main
+
+      - name: Check if sync is needed
         id: check
         shell: bash
         run: |
-          git fetch origin main
           if git merge-base --is-ancestor origin/main HEAD; then
-            echo "dev is up to date with main"
-            echo "behind=false" >> "$GITHUB_OUTPUT"
+            echo "dev is already up to date with main"
+            echo "needed=false" >> "$GITHUB_OUTPUT"
           else
-            echo "dev is behind main and will be rebased"
-            echo "behind=true" >> "$GITHUB_OUTPUT"
+            echo "main is ahead of dev; sync needed"
+            echo "needed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Rebase and force-push dev onto main
-        if: steps.check.outputs.behind == 'true'
-        uses: ./.github/actions/utils/rebase-onto-base
+      - name: Determine sync branch name
+        if: steps.check.outputs.needed == 'true'
+        id: branch
+        run: |
+          echo "sync_branch=chore/sync-dev-from-main-$(date +%Y%m%d-%H%M%S)" >> "$GITHUB_OUTPUT"
+
+      - name: Backport main changes to dev
+        if: steps.check.outputs.needed == 'true'
+        id: backport
+        shell: bash
+        run: |
+          set -euo pipefail
+          SYNC_BRANCH="${{ steps.branch.outputs.sync_branch }}"
+          git checkout -b "$SYNC_BRANCH"
+
+          # Files that carry a released version and should be kept on the dev side.
+          SKIP_FILES=(
+            "Solution.props"
+            "CHANGELOG.md"
+            "README.md"
+            "yak-package/manifest.yml"
+          )
+
+          # Commits on main that are not already in dev, in chronological order.
+          mapfile -t DELTA < <(git log --no-merges --cherry-pick --right-only --reverse \
+            --format=%H "origin/dev...origin/main")
+
+          APPLIED=()
+          SKIPPED=()
+          CONFLICTED=()
+
+          for sha in "${DELTA[@]}"; do
+            readarray -t files < <(git diff-tree --no-commit-id --name-only -r "$sha")
+
+            # Skip commits that only touch version/changelog/manifest/readme files.
+            all_skip=true
+            for f in "${files[@]}"; do
+              if [[ ! " ${SKIP_FILES[*]} " =~ " $f " ]]; then
+                all_skip=false
+                break
+              fi
+            done
+
+            if [ "$all_skip" = true ]; then
+              SKIPPED+=("$sha")
+              continue
+            fi
+
+            # Build a patch that omits the version-specific files.
+            patch_file="$(mktemp)"
+            git diff --binary "$sha"^.."$sha" -- . \
+              ':!Solution.props' \
+              ':!CHANGELOG.md' \
+              ':!README.md' \
+              ':!yak-package/manifest.yml' > "$patch_file"
+
+            # Skip if there are no non-version changes (e.g. a release prep on a squashed branch).
+            if [ ! -s "$patch_file" ]; then
+              SKIPPED+=("$sha")
+              rm "$patch_file"
+              continue
+            fi
+
+            if git apply --check "$patch_file" >/dev/null 2>&1; then
+              git apply "$patch_file"
+              git add -A
+
+              # Only commit if there are staged changes.
+              if git diff --cached --quiet; then
+                SKIPPED+=("$sha")
+              else
+                msg_file="$(mktemp)"
+                git log -1 --format='%B' "$sha" > "$msg_file"
+                author="$(git log -1 --format='%an <%ae>' "$sha")"
+                git commit -F "$msg_file" --author "$author"
+                APPLIED+=("$sha")
+                rm "$msg_file"
+              fi
+            else
+              CONFLICTED+=("$sha")
+            fi
+
+            rm "$patch_file"
+          done
+
+          {
+            echo "applied_count=${#APPLIED[@]}"
+            echo "skipped_count=${#SKIPPED[@]}"
+            echo "conflicted_count=${#CONFLICTED[@]}"
+            echo "applied=${APPLIED[*]}"
+            echo "skipped=${SKIPPED[*]}"
+            echo "conflicted=${CONFLICTED[*]}"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "${#APPLIED[@]}" -eq 0 ]; then
+            if [ "${#CONFLICTED[@]}" -gt 0 ]; then
+              echo "::error::All candidate commits conflict with dev."
+              exit 1
+            fi
+            echo "No source changes to sync."
+            exit 0
+          fi
+
+          git push origin "$SYNC_BRANCH"
+
+      - name: Create Pull Request
+        if: steps.check.outputs.needed == 'true' && steps.backport.outputs.applied_count != '0'
+        id: create-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SYNC_BRANCH="${{ steps.branch.outputs.sync_branch }}"
+          BODY_FILE="$(mktemp)"
+          {
+            echo "This PR syncs source changes from \`main\` back into \`dev\`."
+            echo
+            echo "Version, changelog, manifest and README changes are intentionally kept on the \`dev\` side."
+            echo
+            if [ "${{ steps.backport.outputs.applied_count }}" -gt 0 ]; then
+              echo "### Commits applied (${{ steps.backport.outputs.applied_count }})"
+              for sha in ${{ steps.backport.outputs.applied }}; do
+                git log -1 --format='- %h %s' "$sha"
+              done
+            fi
+            if [ "${{ steps.backport.outputs.skipped_count }}" -gt 0 ]; then
+              echo
+              echo "### Skipped (${{ steps.backport.outputs.skipped_count }})"
+              echo "Version/changelog/manifest/README-only commits:"
+              for sha in ${{ steps.backport.outputs.skipped }}; do
+                git log -1 --format='- %h %s' "$sha"
+              done
+            fi
+            if [ "${{ steps.backport.outputs.conflicted_count }}" -gt 0 ]; then
+              echo
+              echo "### ⚠️ Conflicts (${{ steps.backport.outputs.conflicted_count }})"
+              echo "These commits could not be applied automatically and must be handled manually if still relevant:"
+              for sha in ${{ steps.backport.outputs.conflicted }}; do
+                git log -1 --format='- %h %s' "$sha"
+              done
+            fi
+          } > "$BODY_FILE"
+
+          gh pr create \
+            --repo ${{ github.repository }} \
+            --base dev \
+            --head "$SYNC_BRANCH" \
+            --title "chore: sync dev from main" \
+            --body-file "$BODY_FILE" 2>&1 || true
+
+          PR_NUMBER=$(gh pr list --repo ${{ github.repository }} --base dev --head "$SYNC_BRANCH" --json number --jq '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::error::Failed to create or find sync PR"
+            exit 1
+          fi
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Add automated label
+        if: steps.create-pr.outputs.pr_number != ''
+        run: |
+          gh pr edit "${{ steps.create-pr.outputs.pr_number }}" --add-label "automated"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Assign PR to Milestone
+        if: steps.create-pr.outputs.pr_number != ''
+        uses: ./.github/actions/milestone/assign-pr
         with:
-          head-ref: dev
-          base-ref: main
-          push: true
+          pr-number: ${{ steps.create-pr.outputs.pr_number }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
-          bot-email: ${{ vars.SMARTHOPPER_BOT_EMAIL }}
+
+      - name: Dispatch required PR checks
+        if: steps.create-pr.outputs.pr_number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ steps.branch.outputs.sync_branch }}
+          pr-number: ${{ steps.create-pr.outputs.pr_number }}
+          base-ref: dev
+          pr-title: "chore: sync dev from main"
+
+      - name: Enable auto-merge
+        if: steps.create-pr.outputs.pr_number != ''
+        run: |
+          gh pr merge "${{ steps.create-pr.outputs.pr_number }}" --auto --merge \
+            || echo "::warning::Could not enable auto-merge. Please merge manually once approved."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

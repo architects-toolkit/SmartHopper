@@ -202,8 +202,8 @@ SmartHopper currently supports the following AI providers and features:
 | Anthropic | ✅ Supported | Claude Console | Yes | Yes (thinking blocks) | No | Yes | Yes | Yes | No | ✅ Yes |
 | OpenRouter | ✅ Supported | OpenRouter | Yes | No (varies by routed model) | No | Varies | Varies | Varies | Varies | ❌ No |
 | Gemini | 🟠 Testing | Google AI Studio | Yes | Yes (thinking_level) | Yes | Yes | Yes | Yes | ✅ Yes | ✅ Yes |
-| Ollama | ⚪ Planned | Local Ollama server | Planned | Planned | Planned | Planned | Planned | Planned | No | Planned |
-| LocalAI | ⚪ Planned | LocalAI server | Planned | Planned | Planned | Planned | Planned | Planned | Planned | Planned |
+| Ollama | 🟠 Testing | Local Ollama server (OpenAI-compatible) | Yes | Varies by model | Varies | Yes | Yes | Yes | No | ❌ No |
+| LocalAI | 🟠 Testing | LocalAI server (OpenAI-compatible) | Yes | Varies by model | Varies | Yes | Yes | Yes | No | ❌ No |
 | Black Forest Labs | ⚪ Planned | Black Forest Labs API | Planned | No | No | Planned | No | No | Planned | Planned |
 | Stable Diffusion | ⚪ Planned | Local/API Stable Diffusion endpoint | Planned | No | No | Planned | No | No | Planned | Planned |
 
@@ -221,7 +221,9 @@ The following table summarizes the models explicitly registered as defaults or v
 - `src/SmartHopper.Providers.Anthropic/AnthropicProviderModels.cs`
 - `src/SmartHopper.Providers.DeepSeek/DeepSeekProviderModels.cs`
 - `src/SmartHopper.Providers.Gemini/GeminiProviderModels.cs`
+- `src/SmartHopper.Providers.LocalAI/LocalAIProviderModels.cs`
 - `src/SmartHopper.Providers.MistralAI/MistralAIProviderModels.cs`
+- `src/SmartHopper.Providers.Ollama/OllamaProviderModels.cs`
 - `src/SmartHopper.Providers.OpenAI/OpenAIProviderModels.cs`
 - `src/SmartHopper.Providers.OpenRouter/OpenRouterProviderModels.cs`
 
@@ -251,9 +253,9 @@ Notes:
 | OpenAI | `gpt-image-2-2026-04-21` | - | - | - | Image2Image | TextInput, ImageInput, ImageOutput |
 | OpenAI | `whisper-1` | - | - | - | Speech2Text | SpeechInput, TextOutput |
 | OpenRouter | `openai/gpt-5.6-luna` | - | - | - | ToolChat, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| OpenRouter | `google/gemini-3.1-flash-lite` | - | - | - | Speech2Text | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | OpenRouter | `google/gemini-3.1-flash-lite-image` | - | - | - | Text2Image, Image2Image, Image2Text | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | OpenRouter | `google/lyria-3-pro-preview` | - | ✅ | - | Text2Speech | TextInput, ImageInput, TextOutput, AudioOutput, JsonOutput |
+| OpenRouter | `google/gemini-3.1-flash-lite` | - | - | - | Speech2Text | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | OpenRouter | `openai/gpt-5-mini` | - | ✅ | - | Text2Text, Text2Json | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 
 ### Discouraged models for script tools

@@ -19,7 +19,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-
 namespace SmartHopper.Infrastructure.Mcp
 {
     /// <summary>

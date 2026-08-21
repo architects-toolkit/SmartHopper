@@ -24,9 +24,10 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Models;
 using SmartHopper.Core.Types;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AIModels;
 
 namespace SmartHopper.Core.IO.Codecs
 {
@@ -72,7 +73,15 @@ namespace SmartHopper.Core.IO.Codecs
             {
                 var json = JObject.Parse(data);
                 var capability = Enum.TryParse<AICapability>(json.Value<string>("capability") ?? string.Empty, out var cap) ? cap : AICapability.None;
-                var payloadType = Enum.TryParse<AIInputPayloadType>(json.Value<string>("payloadType") ?? string.Empty, out var pt) ? pt : AIInputPayloadType.Unknown;
+                var payloadTypeString = json.Value<string>("payloadType") ?? string.Empty;
+
+                // Legacy payloads used "Speech" as a distinct payload type; it is now classified as Audio.
+                if (string.Equals(payloadTypeString, "Speech", StringComparison.OrdinalIgnoreCase))
+                {
+                    payloadTypeString = "Audio";
+                }
+
+                var payloadType = Enum.TryParse<AIInputPayloadType>(payloadTypeString, out var pt) ? pt : AIInputPayloadType.Unknown;
                 var hint = json.Value<string>("hint");
 
                 var interactions = new List<IAIInteraction>();
@@ -224,9 +233,9 @@ namespace SmartHopper.Core.IO.Codecs
                 },
                 "runtimeMessage" => new AIInteractionRuntimeMessage
                 {
-                    Severity = Enum.TryParse<SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageSeverity>(json.Value<string>("severity") ?? string.Empty, out var sev) ? sev : SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageSeverity.Info,
-                    Code = Enum.TryParse<SmartHopper.Infrastructure.Diagnostics.SHMessageCode>(json.Value<string>("code") ?? string.Empty, out var code) ? code : SmartHopper.Infrastructure.Diagnostics.SHMessageCode.Unknown,
-                    Origin = Enum.TryParse<SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageOrigin>(json.Value<string>("origin") ?? string.Empty, out var orig) ? orig : SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageOrigin.Worker,
+                    Severity = Enum.TryParse<SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageSeverity>(json.Value<string>("severity") ?? string.Empty, out var sev) ? sev : SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageSeverity.Info,
+                    Code = Enum.TryParse<SmartHopper.ProviderSdk.Diagnostics.SHMessageCode>(json.Value<string>("code") ?? string.Empty, out var code) ? code : SmartHopper.ProviderSdk.Diagnostics.SHMessageCode.Unknown,
+                    Origin = Enum.TryParse<SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageOrigin>(json.Value<string>("origin") ?? string.Empty, out var orig) ? orig : SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageOrigin.Worker,
                     Surfaceable = json.Value<bool>("surfaceable"),
                     Content = json.Value<string>("content")
                 },

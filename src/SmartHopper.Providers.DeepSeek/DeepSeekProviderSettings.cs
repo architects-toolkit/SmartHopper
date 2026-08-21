@@ -20,9 +20,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Dialogs;
-using SmartHopper.Infrastructure.Settings;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.DeepSeek
 {
@@ -174,7 +175,7 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     if (showErrorDialogs)
                     {
-                        StyledMessageDialog.ShowError("Max tokens must be a positive number.", "Validation Error");
+                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Max tokens must be a positive number."));
                     }
 
                     return false;
@@ -194,7 +195,7 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     if (showErrorDialogs)
                     {
-                        StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
+                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Temperature must be between 0.0 and 2.0."));
                     }
 
                     return false;
@@ -214,7 +215,7 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     if (showErrorDialogs)
                     {
-                        StyledMessageDialog.ShowError("Top P must be between 0.0 and 1.0.", "Validation Error");
+                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Top P must be between 0.0 and 1.0."));
                     }
 
                     return false;
@@ -230,7 +231,7 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     if (showErrorDialogs)
                     {
-                        StyledMessageDialog.ShowError("Reasoning Effort must be 'none', 'high', or 'max'.", "Validation Error");
+                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Reasoning Effort must be 'none', 'high', or 'max'."));
                     }
 
                     return false;

@@ -24,13 +24,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
-    using SmartHopper.Infrastructure.AICall.Core.Base;
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
-    using SmartHopper.Infrastructure.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns;
     using SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns.BuiltIn;
     using SmartHopper.Infrastructure.AIModels;
-
+    using SmartHopper.ProviderSdk.AICall.Core.Base;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+    using SmartHopper.ProviderSdk.AICall.Core.Returns;
+    using SmartHopper.ProviderSdk.AIModels;
     /// <summary>
     /// ConversationSession partial class containing context management and auto-summarization logic.
     /// </summary>

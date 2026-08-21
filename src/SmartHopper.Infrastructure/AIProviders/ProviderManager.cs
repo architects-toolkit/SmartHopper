@@ -33,7 +33,10 @@ using Rhino;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Utils;
-
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Settings;
+using SmartHopper.ProviderSdk.Utils;
 namespace SmartHopper.Infrastructure.AIProviders
 {
     /// <summary>
@@ -52,6 +55,8 @@ namespace SmartHopper.Infrastructure.AIProviders
         private readonly ConcurrentDictionary<string, bool> _mismatchedProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers with hash mismatches
         private readonly ConcurrentDictionary<string, bool> _unavailableProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers where hash check was unavailable (network issues)
         private readonly ConcurrentDictionary<string, bool> _unknownProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers not found in hash manifest (custom/third-party)
+        private readonly ConcurrentDictionary<string, bool> _officialProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers classified as official
+        private readonly ConcurrentDictionary<string, bool> _unsignedProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers loaded without a strong-name signature
 
         private ProviderManager()
         {
@@ -193,12 +198,13 @@ namespace SmartHopper.Infrastructure.AIProviders
                 // SHA-256 hash verification (cross-platform)
                 // In DEBUG builds, force soft check mode to allow local development
                 // In RELEASE builds, use the configured integrity check mode
+                ProviderVerificationResult? hashResult = null;
                 try
                 {
                     string platform = VersionHelper.GetPlatform();
                     string version = VersionHelper.GetDisplayVersion();
 
-                    var hashResult = await ProviderHashVerifier.VerifyProviderAsync(assemblyPath, version, platform)
+                    hashResult = await ProviderHashVerifier.VerifyProviderAsync(assemblyPath, version, platform)
                         .ConfigureAwait(false);
 
                     var effectiveMode = SmartHopperSettings.Instance.EffectiveProviderIntegrityCheckMode;
@@ -379,6 +385,24 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                 // Load the assembly
                 var assembly = Assembly.LoadFrom(assemblyPath);
+                var loadedAsmName = assembly.GetName().Name ?? Path.GetFileNameWithoutExtension(assemblyPath);
+
+                // Track official/unsigned state for trust reporting
+                var providerToken = assembly.GetName().GetPublicKeyToken();
+                var hostToken = typeof(ProviderManager).Assembly.GetName().GetPublicKeyToken();
+                bool tokenMatchesHost = providerToken is { Length: > 0 } && hostToken is { Length: > 0 } && providerToken.SequenceEqual(hostToken);
+                bool isOfficial = (hashResult?.Status == ProviderVerificationStatus.Match) || tokenMatchesHost;
+                bool isUnsigned = providerToken is null || providerToken.Length == 0;
+
+                if (isOfficial)
+                {
+                    this._officialProviders[loadedAsmName] = true;
+                }
+
+                if (isUnsigned)
+                {
+                    this._unsignedProviders[loadedAsmName] = true;
+                }
 
                 // Find all types that implement IAIProviderFactory
                 var factoryTypes = assembly.GetTypes()
@@ -664,6 +688,50 @@ namespace SmartHopper.Infrastructure.AIProviders
             {
                 var asmName = assembly.GetName().Name;
                 return this._unknownProviders.ContainsKey(asmName);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Checks if a provider is classified as community / non-official.
+        /// </summary>
+        /// <param name="providerName">The name of the provider to check.</param>
+        /// <returns>True if the provider is valid but not cryptographically attributable to SmartHopper.</returns>
+        public bool IsProviderCommunity(string providerName)
+        {
+            if (string.IsNullOrEmpty(providerName))
+            {
+                return false;
+            }
+
+            if (this._providerAssemblies.TryGetValue(providerName, out var assembly))
+            {
+                var asmName = assembly.GetName().Name;
+                return !this._officialProviders.ContainsKey(asmName)
+                    && !this._mismatchedProviders.ContainsKey(asmName)
+                    && !this.IsProviderUnknown(providerName);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Checks if a provider assembly was loaded without a strong-name signature.
+        /// </summary>
+        /// <param name="providerName">The name of the provider to check.</param>
+        /// <returns>True if the provider assembly has no public key token.</returns>
+        public bool IsProviderUnsigned(string providerName)
+        {
+            if (string.IsNullOrEmpty(providerName))
+            {
+                return false;
+            }
+
+            if (this._providerAssemblies.TryGetValue(providerName, out var assembly))
+            {
+                var asmName = assembly.GetName().Name;
+                return this._unsignedProviders.ContainsKey(asmName);
             }
 
             return false;
