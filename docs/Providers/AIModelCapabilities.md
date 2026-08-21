@@ -10,7 +10,7 @@ This document describes `AIModelCapabilities` and how SmartHopper uses it to dri
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Infrastructure/AIModels/AIModelCapabilities.cs` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
+| **Last Updated** | 2026-08-21 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -66,6 +66,12 @@ _Note: This documentation was written by AI on its own. It may contain some mist
 
 - **SupportsPromptCaching**
   Bool; provider supports prompt caching with this model.
+
+- **SupportsBatch**
+  `bool?` (nullable). When `true`, the model can be used with the provider's batch API for discounted, asynchronous multi-item processing. When `false` or `null`, batch requests are blocked with a runtime diagnostic.
+
+- **BatchPricing**
+  Optional `AIModelPricing` with discounted prompt/completion costs used when the model is executed through a batch provider.
 
 - **CacheKeyStrategy**
   Optional provider-defined cache key hint/strategy name.
@@ -132,6 +138,8 @@ var capabilities = new AIModelCapabilities
     Aliases = new List<string> { "gpt-4o-mini-2024-07-18" },
     SupportsStreaming = true,
     SupportsPromptCaching = false,
+    SupportsBatch = true,
+    BatchPricing = new AIModelPricing { Prompt = 0.000001m, Completion = 0.000002m },
     DiscouragedForTools = new List<string>()
 };
 

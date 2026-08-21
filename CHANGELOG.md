@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added reusable model-level batch metadata: `AIModelCapabilities.SupportsBatch` and `AIModelCapabilities.BatchPricing` for provider-agnostic batch compatibility and discounted batch pricing.
+- Implemented full `IAIBatchProvider` contract on `OpenRouterProvider`, including batch submission, status polling, cancellation, result downloading, and JSONL result parsing.
+- Added `OpenRouterBatchProviderTests` to `SmartHopper.ProviderSdk.Tests` covering `:batch` alias canonicalization, generated model metadata, registry alias resolution, and batch result parsing.
+- Added batch support gating in `AIStatefulAsyncComponentBase` so a request is only routed to batch mode when the selected model declares `SupportsBatch`.
+
 - Added centralized `AIMetrics.EstimatedCost` (USD) and `AICostCalculator` that derive estimated call cost from provider/model pricing and token buckets (input prompt, cached, cache-write, output generation, reasoning). Falls back to `EstimatedInputTokens`/`EstimatedOutputTokens` when actual token counts are zero; free, negative, or missing prices contribute `0`.
 - Added `Estimated Cost` output to `Deconstruct SmartHopper Metrics` and `estimated_cost` field to metrics JSON.
 - Added `SmartHopper.ProviderSdk.Tests` xUnit project with coverage for `AICostCalculator`, `AIMetrics`, `AIModelCapabilityRegistry`, `AIBody`/`AIBodyBuilder`, `AIRequestBase`/`AIRequestCall`, `AIReturn`, all `AIInteraction*` types, `AICallStatus`/`AIAgent`/`AIRequestKind`, `AICapability`/`AIModelCapabilities`, and `SHRuntimeMessage`.
@@ -18,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `tools/Update-ProviderModels.ps1` now detects OpenRouter `:batch` model variants, canonicalizes them to the base slug, and merges `SupportsBatch`/`BatchPricing`/`Aliases` into the base model entry instead of generating separate `:batch` models.
+- OpenRouter `:batch` model aliases are normalized to the base slug in `OpenRouterProvider.PreCall` so both chat and batch endpoints use the same model identifier.
+- `AIStatefulAsyncComponentBase` now verifies `AIModelCapabilities.SupportsBatch` before enabling batch execution; unsupported model requests surface a runtime diagnostic.
 - `release-2-pr-to-dev-closed.yml` now checks `git merge-base --is-ancestor origin/main HEAD` before creating the `dev → main` release PR and rebases/force-pushes `dev` onto `main` when it is behind.
 - `chore-update-model-verification-template.yml` now targets the triggering branch (typically `dev`) instead of `main`, so updates flow through the regular release PR.
 - `chore-update-contributors.yml` and `pr-anonymize-public-key.yml` no longer delete/recreate branches and PRs; they use `peter-evans/create-pull-request` updates.

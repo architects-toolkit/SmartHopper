@@ -6,9 +6,9 @@ The Provider SDK (`SmartHopper.ProviderSdk`) is a standalone, MIT-licensed assem
 
 The SDK is **API-connection only**:
 
-- **Contracts** — `IAIProvider`, `IAIProviderFactory`, `IAIProviderSettings`, `IAIProviderModels`.
+- **Contracts** — `IAIProvider`, `IAIProviderFactory`, `IAIProviderSettings`, `IAIProviderModels`, `IAIBatchProvider`.
 - **Base classes** — `AIProvider`, `AIProvider<T>`, `AIProviderSettings`, `AIProviderModels`, `AIProviderStreamingAdapter`.
-- **Request / response DTOs** — `AICall.Core.{Base, Interactions, Requests, Returns}`, `AICall.Metrics`, minimal `AICall.JsonSchemas` types referenced by request bodies.
+- **Request / response DTOs** — `AICall.Core.{Base, Interactions, Requests, Returns}`, `AICall.Metrics`, minimal `AICall.JsonSchemas` types referenced by request bodies, and `AICall.Batch` contracts.
 - **Model capabilities** — `AIModels.*`, `AIExtraDescriptor`, `AIModelCapabilityRegistry` singleton.
 - **Settings descriptors** — `SettingDescriptor`, secret flags, validation result types.
 - **Streaming** — `IStreamingAdapter` and provider-facing delta/result types.

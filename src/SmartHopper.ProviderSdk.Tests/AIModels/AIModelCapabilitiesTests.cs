@@ -127,5 +127,52 @@ namespace SmartHopper.ProviderSdk.Tests.AIModels
 
             Assert.True(capabilities.IsDiscouragedForAnyTool(new List<string> { "tool-a" }));
         }
+
+        [Fact(DisplayName = nameof(SupportsBatch_DefaultsToNull) + PlatformSuffix)]
+        public void SupportsBatch_DefaultsToNull()
+        {
+            var capabilities = new AIModelCapabilities
+            {
+                Provider = "OpenAI",
+                Model = "gpt-4",
+            };
+
+            Assert.Null(capabilities.SupportsBatch);
+        }
+
+        [Fact(DisplayName = nameof(SupportsBatch_CanBeSetExplicitly) + PlatformSuffix)]
+        public void SupportsBatch_CanBeSetExplicitly()
+        {
+            var capabilities = new AIModelCapabilities
+            {
+                Provider = "OpenAI",
+                Model = "gpt-4",
+                SupportsBatch = true,
+            };
+
+            Assert.True(capabilities.SupportsBatch);
+        }
+
+        [Fact(DisplayName = nameof(BatchPricing_CanBeSetAndRead) + PlatformSuffix)]
+        public void BatchPricing_CanBeSetAndRead()
+        {
+            var batchPricing = new AIModelPricing
+            {
+                Prompt = 0.000001m,
+                Completion = 0.000002m,
+            };
+
+            var capabilities = new AIModelCapabilities
+            {
+                Provider = "OpenRouter",
+                Model = "openai/gpt-5",
+                SupportsBatch = true,
+                BatchPricing = batchPricing,
+            };
+
+            Assert.NotNull(capabilities.BatchPricing);
+            Assert.Equal(0.000001m, capabilities.BatchPricing.Prompt);
+            Assert.Equal(0.000002m, capabilities.BatchPricing.Completion);
+        }
     }
 }

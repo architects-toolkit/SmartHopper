@@ -29,6 +29,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.ProviderSdk.AICall.Batch;
 using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
@@ -47,7 +48,7 @@ namespace SmartHopper.Providers.OpenRouter
     /// Provides access to multiple AI models through a unified interface.
     /// Supports text and vision input; image generation is handled via the img_generate tool.
     /// </summary>
-    public sealed class OpenRouterProvider : AIProvider<OpenRouterProvider>
+    public sealed partial class OpenRouterProvider : AIProvider<OpenRouterProvider>, IAIBatchProvider
     {
         private OpenRouterProvider()
         {
@@ -115,6 +116,14 @@ namespace SmartHopper.Providers.OpenRouter
         /// <inheritdoc/>
         public override AIRequestCall PreCall(AIRequestCall request)
         {
+            // Normalize :batch aliases to the base model slug before any further processing.
+            if (request == null)
+            {
+                return request!;
+            }
+
+            request.Model = StripBatchSuffix(request.Model);
+
             // Base pipeline first
             request = base.PreCall(request);
 
