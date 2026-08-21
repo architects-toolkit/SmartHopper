@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `safe-commit` and `code-style` now rebase (`git pull --rebase --autostash`) before pushing, falling back to a PR if the branch is protected.
 - Automated workflows that open PRs to `main`/`main-*`/`release/**`/`hotfix/**` now fetch full history and rebase onto the target base before calling `create-pull-request`.
 - `pr-block-dev-to-main.yml` is now `Warn Dev Release to Main`: it emits a warning and a PR comment instead of exiting with an error when a `-dev` version is merged into a protected branch.
+- Updated `SmartHopper.Providers.Ollama` and `SmartHopper.Providers.LocalAI` resource icons to their official brand marks (Ollama from `@lobehub/icons`, LocalAI from the official `mudler/LocalAI` logo).
 
 ## [2.0.0-dev.260802] - 2026-08-02
 
