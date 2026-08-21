@@ -216,7 +216,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "glm-5-2",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9960,
@@ -261,7 +261,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "mistral-ocr-4-0",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.ImageOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9940,
