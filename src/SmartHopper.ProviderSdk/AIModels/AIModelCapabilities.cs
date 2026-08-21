@@ -64,6 +64,15 @@ namespace SmartHopper.ProviderSdk.AIModels
         public bool SupportsPromptCaching { get; set; }
 
         /// <summary>
+        /// Whether this model supports asynchronous batch processing.
+        /// <para/>
+        /// <c>null</c> (default/omitted) means unknown: allow batch if the provider implements
+        /// <see cref="AICall.Batch.IAIBatchProvider"/>. <c>true</c> means explicitly supported.
+        /// <c>false</c> means explicitly unsupported and the component will fall back to synchronous.
+        /// </summary>
+        public bool? SupportsBatch { get; set; }
+
+        /// <summary>
         /// Optional ranking to break ties when multiple models match; higher is preferred.
         /// </summary>
         public int Rank { get; set; }
@@ -100,6 +109,13 @@ namespace SmartHopper.ProviderSdk.AIModels
         /// When null no pricing is published by the source of truth.
         /// </summary>
         public AIModelPricing Pricing { get; set; }
+
+        /// <summary>
+        /// Pricing information for asynchronous batch processing, if the provider publishes
+        /// discounted batch rates (e.g. OpenRouter's <c>:batch</c> variant).
+        /// When null, standard <see cref="Pricing"/> is used for batch cost estimates.
+        /// </summary>
+        public AIModelPricing BatchPricing { get; set; }
 
         /// <summary>
         /// List of AI tool names for which this model is discouraged.

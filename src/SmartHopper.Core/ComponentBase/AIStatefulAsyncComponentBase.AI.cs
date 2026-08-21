@@ -35,6 +35,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Core.ComponentBase
@@ -92,6 +93,21 @@ namespace SmartHopper.Core.ComponentBase
         {
             if (!this.IsBatchRequest())
                 return default(T);
+
+            // Per-request safety: if the resolved model is explicitly flagged as
+            // not batch-compatible, fall back to synchronous execution.
+            if (!string.IsNullOrWhiteSpace(request?.Model))
+            {
+                var capabilities = AIModelCapabilityRegistry.Instance.GetCapabilities(
+                    this.GetActualAIProviderName(),
+                    request.Model);
+
+                if (capabilities?.SupportsBatch == false)
+                {
+                    Debug.WriteLine($"[AIStatefulAsync] Batch disabled for model '{request.Model}' (SupportsBatch=false)");
+                    return default(T);
+                }
+            }
 
             try
             {

@@ -42,6 +42,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SmartHopper.ProviderSdk\SmartHopper.ProviderSdk.csproj" />
+    <ProjectReference Include="..\SmartHopper.Providers.OpenRouter\SmartHopper.Providers.OpenRouter.csproj" />
   </ItemGroup>
 
   <!-- For Windows only builds -->

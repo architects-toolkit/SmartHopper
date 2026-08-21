@@ -1,6 +1,6 @@
 # OpenRouter Provider
 
-The OpenRouter provider provides access to multiple AI models through a unified OpenAI-compatible interface, supporting text generation, vision, tool calling, structured outputs, reasoning, and streaming.
+The OpenRouter provider provides access to multiple AI models through a unified OpenAI-compatible interface, supporting text generation, vision, tool calling, structured outputs, reasoning, streaming, and batch processing.
 
 ---
 
@@ -10,7 +10,7 @@ The OpenRouter provider provides access to multiple AI models through a unified 
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Providers.OpenRouter/` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
+| **Last Updated** | 2026-08-21 |
 | **Documentation Maintainer** | Devin AI |
 
 ---
@@ -64,6 +64,14 @@ Get your API key from [OpenRouter](https://openrouter.ai/):
 | **Allow Fallbacks** | Allow fallback to compatible models if preferred is unavailable | true |
 | **Sort Strategy** | Provider selection sort â€” `price`, `throughput`, or `latency` | price |
 | **Data Collection** | Allow or deny provider data collection | deny |
+
+### Batch Processing
+
+OpenRouter exposes a subset of models with a `:batch` catalog variant. SmartHopper detects these variants and maps them to the same base model slug, while recording the discounted batch pricing and marking the model as batch-eligible (`SupportsBatch`).
+
+- When a component requests batch execution, SmartHopper verifies that the selected model has `SupportsBatch = true` before routing the request through `IAIBatchProvider`.
+- The batch request body uses the base model slug (`openai/gpt-5.6-luna`), not the `:batch` alias.
+- Results are polled from OpenRouter's beta batch endpoints and parsed into per-item `AIBatchStatus` results.
 
 ### Common Questions
 
