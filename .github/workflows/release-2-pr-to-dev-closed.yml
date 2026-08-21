@@ -11,10 +11,12 @@ name: 🏁 2 PR Release to Main from Dev
 # Description: This workflow automatically creates a PR to merge a release branch into main (or main-X.Y.Z for stabilization paths).
 # When the release/* branch is merged to dev or dev-X.Y.Z.
 #
-# Before creating the release PR, it verifies that dev is rebased onto main.
-# If dev is behind main, it rebases and force-pushes dev. If the rebase fails
-# (e.g. due to conflicts), the workflow run fails so the problem surfaces in
-# GitHub Actions.
+# Before creating the release PR, it verifies that the source dev branch
+# (dev or dev-X.Y.Z) is rebased onto its matching main branch (main or main-X.Y.Z).
+# If the dev branch is behind, it rebases and force-pushes the matching dev branch.
+# The global `dev` branch is never touched during a stabilization release.
+# If the rebase fails (e.g. due to conflicts), the workflow run fails so the
+# problem surfaces in GitHub Actions.
 #
 # Triggers:
 # - Automatically when a PR to dev or dev-* is closed
@@ -44,7 +46,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: dev-rebase-onto-main
+  group: release-2-${{ github.event.pull_request.base.ref || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -58,36 +60,56 @@ jobs:
       issues: read
       pull-requests: write
     steps:
-      - name: Checkout dev
+      - name: Resolve target branches
+        if: ${{ github.event_name == 'pull_request' }}
+        id: resolve-targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEV_BRANCH="${{ github.event.pull_request.base.ref }}"
+          if [[ "$DEV_BRANCH" == dev-* ]]; then
+            SUFFIX="${DEV_BRANCH#dev-}"
+            TARGET_MAIN="main-${SUFFIX}"
+          else
+            TARGET_MAIN="main"
+          fi
+          echo "dev_branch=$DEV_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "target_main=$TARGET_MAIN" >> "$GITHUB_OUTPUT"
+          echo "Source dev branch: $DEV_BRANCH"
+          echo "Target main branch: $TARGET_MAIN"
+
+      - name: Checkout dev branch
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: ${{ steps.resolve-targets.outputs.dev_branch }}
           fetch-depth: 0
 
-      - name: Ensure dev is rebased onto main
+      - name: Ensure dev branch is rebased onto its matching main
         if: ${{ github.event_name == 'pull_request' }}
         id: sync-check
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin main
+          DEV_BRANCH="${{ steps.resolve-targets.outputs.dev_branch }}"
+          TARGET_MAIN="${{ steps.resolve-targets.outputs.target_main }}"
+          git fetch origin "$TARGET_MAIN"
 
-          if git merge-base --is-ancestor origin/main HEAD; then
-            echo "dev is up to date with main"
+          if git merge-base --is-ancestor "origin/$TARGET_MAIN" HEAD; then
+            echo "$DEV_BRANCH is up to date with $TARGET_MAIN"
             echo "sync_needed=false" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::dev is not a descendant of origin/main. A release PR cannot be created until dev is rebased onto main."
+            echo "::warning::$DEV_BRANCH is not a descendant of origin/$TARGET_MAIN. A release PR cannot be created until it is rebased."
             echo "sync_needed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Rebase and force-push dev onto main
+      - name: Rebase and force-push matching dev branch onto its main
         if: ${{ github.event_name == 'pull_request' && steps.sync-check.outputs.sync_needed == 'true' }}
         id: rebase
         uses: ./.github/actions/utils/rebase-onto-base
         with:
-          head-ref: dev
-          base-ref: main
+          head-ref: ${{ steps.resolve-targets.outputs.dev_branch }}
+          base-ref: ${{ steps.resolve-targets.outputs.target_main }}
           push: true
           token: ${{ secrets.GITHUB_TOKEN }}
           bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
@@ -101,20 +123,13 @@ jobs:
           SOURCE_PR_TITLE: ${{ github.event.pull_request.head.ref }}
           SOURCE_PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          DEV_BRANCH="${{ github.event.pull_request.base.ref }}"
-          # If merging into dev-X.Y.Z, target main-X.Y.Z; otherwise target main
-          if [[ "$DEV_BRANCH" == dev-* ]]; then
-            SUFFIX="${DEV_BRANCH#dev-}"
-            TARGET_BRANCH="main-${SUFFIX}"
-          else
-            TARGET_BRANCH="main"
-          fi
-          MAIN_HEAD="$DEV_BRANCH"
+          DEV_BRANCH="${{ steps.resolve-targets.outputs.dev_branch }}"
+          TARGET_BRANCH="${{ steps.resolve-targets.outputs.target_main }}"
           echo "target_branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
           gh pr create \
             --repo ${{ github.repository }} \
             --base "$TARGET_BRANCH" \
-            --head "$MAIN_HEAD" \
+            --head "$DEV_BRANCH" \
             --title "$SOURCE_PR_TITLE" \
             --body "$SOURCE_PR_BODY" 2>&1 || true
 

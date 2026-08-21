@@ -16,6 +16,7 @@ name: pr-delete-auto-branches
 # - fix/*
 # - hash-update/*
 # - patch/*
+# - cascade/*
 # - devin/*
 # - backport/*
 #
@@ -53,6 +54,7 @@ jobs:
       startsWith(github.event.pull_request.head.ref, 'fix/') ||
       startsWith(github.event.pull_request.head.ref, 'hash-update/') ||
       startsWith(github.event.pull_request.head.ref, 'patch/') ||
+      startsWith(github.event.pull_request.head.ref, 'cascade/') ||
       startsWith(github.event.pull_request.head.ref, 'devin/') ||
       startsWith(github.event.pull_request.head.ref, 'backport/')
     runs-on: ubuntu-latest
