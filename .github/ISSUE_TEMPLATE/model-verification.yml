@@ -70,7 +70,7 @@ body:
         - Anthropic / claude-sonnet-4-5-20250929
         - DeepSeek / deepseek-v4-flash
         - DeepSeek / deepseek-v4-pro
-        - Gemini / gemini-3.1-flash-lite
+        - Gemini / gemini-3.7-flash
         - Gemini / gemini-3.5-flash-lite
         - Gemini / gemini-3.6-flash
         - Gemini / gemini-3.5-flash
@@ -79,8 +79,9 @@ body:
         - Gemini / gemini-3-pro-image
         - Gemini / lyria-3-pro-preview
         - Gemini / lyria-3-clip-preview
-        - Gemini / gemma-4-26b-a4b-it
         - Gemini / gemma-4-31b-it
+        - Gemini / gemma-4-26b-a4b-it
+        - Gemini / gemini-3.1-flash-lite
         - Gemini / gemini-3.1-flash-lite-preview
         - Gemini / gemini-3.1-pro-preview-customtools
         - Gemini / gemini-3.1-pro-preview
@@ -93,10 +94,10 @@ body:
         - Gemini / gemini-2.5-pro
         - Gemini / gemma-3n-e4b-it
         - Gemini / gemini-2.5-pro-preview
-        - Gemini / gemini-2.5-pro-preview-05-06
         - Gemini / gemma-3-4b-it
         - Gemini / gemma-3-12b-it
         - Gemini / gemma-3-27b-it
+        - Gemini / gemini-2.5-pro-preview-05-06
         - Gemini / gemma-2-27b-it
         - MistralAI / mistral-small-2603
         - MistralAI / mistral-medium-latest
@@ -106,9 +107,11 @@ body:
         - MistralAI / mistral-large-2512
         - MistralAI / codestral-2508
         - MistralAI / codestral-embed
+        - MistralAI / glm-5-2
         - MistralAI / labs-leanstral-1-5-1
         - MistralAI / mistral-embed-2312
         - MistralAI / mistral-ocr-2512
+        - MistralAI / mistral-ocr-4-0
         - MistralAI / mistral-ocr-latest
         - MistralAI / voxtral-mini-2602
         - MistralAI / voxtral-mini-tts-2603
@@ -118,26 +121,26 @@ body:
         - OpenAI / gpt-5.6-sol
         - OpenAI / gpt-5.4-nano-2026-03-17
         - OpenAI / gpt-5.4-mini-2026-03-17
-        - OpenAI / gpt-5.3-chat-latest
         - OpenAI / gpt-5.3-codex
         - OpenAI / gpt-5.4-2026-03-05
         - OpenAI / gpt-5.5-2026-04-23
         - OpenAI / gpt-5.5-pro-2026-04-23
         - OpenAI / gpt-5.4-pro-2026-03-05
-        - OpenAI / gpt-5.1-codex-mini
         - OpenAI / gpt-audio-mini-2025-12-15
         - OpenAI / gpt-5.1-codex-max
-        - OpenAI / gpt-5.1-2025-11-13
-        - OpenAI / gpt-5.1-codex
         - OpenAI / gpt-5.2-codex
         - OpenAI / gpt-5.2-chat-latest
         - OpenAI / gpt-5.2-2025-12-11
         - OpenAI / gpt-audio-2025-08-28
         - OpenAI / gpt-5.2-pro-2025-12-11
+        - OpenAI / gpt-5.1-codex-mini
+        - OpenAI / gpt-5-codex
+        - OpenAI / gpt-5.1-2025-11-13
+        - OpenAI / gpt-5.1-codex
+        - OpenAI / gpt-5-pro-2025-10-06
         - OpenAI / gpt-5-mini-2025-08-07
         - OpenAI / gpt-5-nano-2025-08-07
         - OpenAI / gpt-5-2025-08-07
-        - OpenAI / gpt-5-pro-2025-10-06
         - OpenAI / o3-pro-2025-06-10
         - OpenAI / gpt-4.1-nano-2025-04-14
         - OpenAI / gpt-4.1-mini-2025-04-14
@@ -147,10 +150,10 @@ body:
         - OpenAI / o1-pro-2025-03-19
         - OpenAI / o3-mini-2025-01-31
         - OpenAI / o1-2024-12-17
-        - OpenAI / gpt-4o-2024-08-06
         - OpenAI / gpt-4o-mini-2024-07-18
         - OpenAI / gpt-3.5-turbo-instruct
         - OpenAI / gpt-3.5-turbo-16k
+        - OpenAI / gpt-4o-2024-08-06
         - OpenAI / gpt-4o-2024-05-13
         - OpenAI / chat-latest
         - OpenAI / chatgpt-image-latest
@@ -163,9 +166,9 @@ body:
         - OpenAI / gpt-4o-transcribe
         - OpenAI / gpt-4o-transcribe-diarize
         - OpenAI / gpt-5-chat-latest
-        - OpenAI / gpt-5-codex
         - OpenAI / gpt-5-search-api-2025-10-14
         - OpenAI / gpt-5.1-chat-latest
+        - OpenAI / gpt-5.3-chat-latest
         - OpenAI / gpt-audio-1.5
         - OpenAI / gpt-audio-mini-2025-10-06
         - OpenAI / gpt-image-1
