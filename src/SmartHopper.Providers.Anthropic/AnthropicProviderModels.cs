@@ -56,6 +56,7 @@ namespace SmartHopper.Providers.Anthropic
                     Model = "claude-sonnet-5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 10000,
                     ContextLimit = 1000000,
@@ -68,6 +69,15 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Prompt = 0.000001m,
+                        Completion = 0.000005m,
+                        InputCacheRead = 0.0000001m,
+                        InputCacheWrite = 0.00000125m,
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "claude-sonnet-5:batch" },
                 },
 
                 new AIModelCapabilities
@@ -76,6 +86,7 @@ namespace SmartHopper.Providers.Anthropic
                     Model = "claude-opus-5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9995,
                     ContextLimit = 1000000,
@@ -88,6 +99,15 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000025m,
+                        Completion = 0.0000125m,
+                        InputCacheRead = 0.00000025m,
+                        InputCacheWrite = 0.000003125m,
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "claude-opus-5:batch" },
                 },
 
                 new AIModelCapabilities
@@ -116,6 +136,7 @@ namespace SmartHopper.Providers.Anthropic
                     Model = "claude-fable-5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9985,
                     ContextLimit = 1000000,
@@ -128,6 +149,15 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.0000125m,
                         WebSearch = 0.01m,
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Prompt = 0.000005m,
+                        Completion = 0.000025m,
+                        InputCacheRead = 0.0000005m,
+                        InputCacheWrite = 0.00000625m,
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "claude-fable-5:batch" },
                 },
 
 
@@ -137,32 +167,11 @@ namespace SmartHopper.Providers.Anthropic
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-sonnet-4-6",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Json,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9980,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 2, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000003m,
-                        Completion = 0.000015m,
-                        InputCacheRead = 0.0000003m,
-                        InputCacheWrite = 0.00000375m,
-                        WebSearch = 0.01m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
                     Model = "claude-opus-4-7",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9975,
+                    Rank = 9980,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 16),
                     Pricing = new AIModelPricing
@@ -178,6 +187,27 @@ namespace SmartHopper.Providers.Anthropic
 
 
                 // Released between November 2025 and February 2026
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-sonnet-4-6",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Text2Json,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9975,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 2, 17),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000003m,
+                        Completion = 0.000015m,
+                        InputCacheRead = 0.0000003m,
+                        InputCacheWrite = 0.00000375m,
+                        WebSearch = 0.01m,
+                    },
+                },
 
                 new AIModelCapabilities
                 {
@@ -275,34 +305,12 @@ namespace SmartHopper.Providers.Anthropic
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-sonnet-4-20250514",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = 0,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 5, 22),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000003m,
-                        Completion = 0.000015m,
-                        InputCacheRead = 0.0000003m,
-                        InputCacheWrite = 0.00000375m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "claude-sonnet-4", "claude-sonnet-4-latest", "claude-sonnet-4-0", "claude-sonnet-4-0-latest" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
                     Model = "claude-opus-4-1-20250805",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -5,
+                    Rank = 0,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 8, 5),
                     Pricing = new AIModelPricing
@@ -314,6 +322,28 @@ namespace SmartHopper.Providers.Anthropic
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-opus-4-1", "claude-opus-4-1-latest", "claude-opus-4.1", "claude-opus-4.1-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-sonnet-4-20250514",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -5,
+                    ContextLimit = 200000,
+                    Created = new DateTime(2025, 5, 22),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000003m,
+                        Completion = 0.000015m,
+                        InputCacheRead = 0.0000003m,
+                        InputCacheWrite = 0.00000375m,
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "claude-sonnet-4", "claude-sonnet-4-latest", "claude-sonnet-4-0", "claude-sonnet-4-0-latest" },
                 },
 
                 new AIModelCapabilities
