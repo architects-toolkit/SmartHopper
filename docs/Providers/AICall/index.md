@@ -123,5 +123,3 @@ var result = await session.RunToStableResult(options);
 Notes:
 
 - UI consumers (e.g., WebChat) use `IAIRenderInteraction` to render messages and `IAIKeyedInteraction` to aggregate streaming deltas by `GetStreamKey()` and persist final items by `GetDedupKey()` (see Streaming for re-keying details).
-
-

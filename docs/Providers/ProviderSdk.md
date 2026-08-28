@@ -103,29 +103,25 @@ Trusting a community provider grants it full SmartHopper process privileges. The
 
 ---
 
-
 ## Why Read This?
 
 This document provides details about ProviderSdk.
-
 
 ## End-User Guide
 
 End-user guidance for ProviderSdk.
 
-
 ## Developer Reference
 
 Example usage:
 
-`csharp
+```csharp
 // Placeholder example
-``r
+```
 
-`csharp
+```csharp
 // Another placeholder example
-``r
-
+```
 
 ## Architecture & Design
 
