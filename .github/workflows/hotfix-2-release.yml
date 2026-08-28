@@ -1,0 +1,407 @@
+name: Hotfix 2 - Release Hotfix
+
+on:
+  workflow_dispatch:
+    inputs:
+      hotfix-branch:
+        description: Hotfix branch to release
+        required: true
+        default: ${{ github.ref_name }}
+        type: string
+      bump:
+        description: Version bump from the hotfix base tag
+        required: true
+        default: patch
+        type: choice
+        options:
+          - none
+          - patch
+      target-branch:
+        description: Branch to receive the release preparation PR
+        required: true
+        default: main
+        type: string
+      backport:
+        description: Backport fix commits to older active release lines
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: hotfix-release-${{ inputs.hotfix-branch }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.next-version.outputs.new-version }}
+      base-tag: ${{ steps.parse.outputs.base-tag }}
+      hotfix-branch: ${{ steps.parse.outputs.hotfix-branch }}
+      target-branch: ${{ steps.inputs.outputs.target-branch }}
+    steps:
+      - name: Checkout hotfix branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.hotfix-branch }}
+          fetch-depth: 0
+
+      # The hotfix content can come from an older stable tag, but the
+      # composite actions must match this workflow definition.
+      - name: Check out CI tooling from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .ci-tooling
+          fetch-depth: 1
+      - name: Sync composite actions from workflow ref
+        run: |
+          rm -rf .github/actions
+          cp -R .ci-tooling/.github/actions .github/actions
+          rm -rf .ci-tooling
+
+      - name: Resolve workflow inputs
+        id: inputs
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+          HOTFIX_BRANCH: ${{ inputs.hotfix-branch }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$HOTFIX_BRANCH" =~ ^hotfix/ ]]; then
+            echo "::error::Hotfix branch must use the hotfix/<tag>-<slug> format." >&2
+            exit 1
+          fi
+          echo "target-branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Parse and validate hotfix base tag
+        id: parse
+        shell: bash
+        env:
+          HOTFIX_BRANCH: ${{ inputs.hotfix-branch }}
+        run: |
+          set -euo pipefail
+          git fetch --all --tags
+          if [[ ! "$HOTFIX_BRANCH" =~ ^hotfix/([0-9]+\.[0-9]+\.[0-9]+)-(.+)$ ]]; then
+            echo "::error::Could not derive a stable base tag from '$HOTFIX_BRANCH'." >&2
+            exit 1
+          fi
+          BASE_TAG="${BASH_REMATCH[1]}"
+          if ! git rev-parse --verify "refs/tags/$BASE_TAG^{commit}" >/dev/null 2>&1; then
+            echo "::error::Base tag '$BASE_TAG' does not exist." >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "refs/tags/$BASE_TAG^{commit}" "origin/$HOTFIX_BRANCH"; then
+            echo "::error::Base tag '$BASE_TAG' is not an ancestor of '$HOTFIX_BRANCH'." >&2
+            exit 1
+          fi
+          {
+            echo "base-tag=$BASE_TAG"
+            echo "hotfix-branch=$HOTFIX_BRANCH"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Calculate hotfix release version
+        id: next-version
+        uses: ./.github/actions/versioning/next-release-version
+        with:
+          current-version: ${{ steps.parse.outputs.base-tag }}
+          bump: ${{ inputs.bump }}
+          stage: stable
+
+      - name: Create release preparation branch
+        id: cherry-pick
+        uses: ./.github/actions/utils/cherry-pick-range
+        with:
+          base-branch: ${{ inputs.target-branch }}
+          new-branch: release-prep/${{ steps.next-version.outputs.new-version }}
+          source-ref: origin/${{ inputs.hotfix-branch }}
+          from-ref: ${{ steps.parse.outputs.base-tag }}
+          exclude-paths: |
+            Solution.props
+            README.md
+          push: 'true'
+          bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
+          bot-email: ${{ vars.SMARTHOPPER_BOT_EMAIL }}
+
+      - name: Report hotfix cherry-pick conflict
+        if: steps.cherry-pick.outputs.conflict == 'true'
+        uses: actions/github-script@v7
+        env:
+          VERSION: ${{ steps.next-version.outputs.new-version }}
+          BASE_TAG: ${{ steps.parse.outputs.base-tag }}
+          HOTFIX_BRANCH: ${{ inputs.hotfix-branch }}
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const title = `⛔ Hotfix needs manual rebase: ${process.env.VERSION}`;
+            const body = [
+              `The hotfix changes could not be cherry-picked into \`${process.env.TARGET_BRANCH}\` for release \`${process.env.VERSION}\`.`,
+              '',
+              'Run these commands locally, resolve each conflict, and continue the release preparation:',
+              '```bash',
+              `git fetch origin ${process.env.TARGET_BRANCH} ${process.env.HOTFIX_BRANCH} --tags`,
+              `git checkout -B release-prep/${process.env.VERSION} origin/${process.env.TARGET_BRANCH}`,
+              `git cherry-pick ${process.env.BASE_TAG}..origin/${process.env.HOTFIX_BRANCH}`,
+              'git cherry-pick --continue',
+              `git push origin release-prep/${process.env.VERSION}`,
+              '```',
+              '',
+              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            ].join('\n');
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const existing = issues.find(issue => issue.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['automated', 'status: needs attention'],
+              });
+            }
+
+      - name: Fail after hotfix conflict
+        if: steps.cherry-pick.outputs.conflict == 'true'
+        shell: bash
+        run: |
+          echo "::error::Hotfix release preparation requires manual conflict resolution." >&2
+          exit 1
+
+      - name: Set release version and refresh badges
+        uses: ./.github/actions/versioning/version-manager
+        with:
+          mode: set-version
+          new-version: ${{ steps.next-version.outputs.new-version }}
+
+      - name: Include missing issues in changelog
+        uses: ./.github/actions/documentation/update-changelog-issues
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          days-lookback: 90
+
+      - name: Move unreleased changelog content to release
+        uses: ./.github/actions/documentation/update-changelog
+        with:
+          action: create-release
+          version: ${{ steps.next-version.outputs.new-version }}
+
+      - name: Update Ready badge to YES
+        uses: ./.github/actions/documentation/update-ready-badge
+        with:
+          status: YES
+          color: brightgreen
+          file: README.md
+
+      - name: Create or get release milestone
+        uses: ./.github/actions/milestone/create-or-get
+        with:
+          title: ${{ steps.next-version.outputs.new-version }}
+          description: Release metadata for ${{ steps.next-version.outputs.new-version }}
+          state: open
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and push release preparation
+        shell: bash
+        env:
+          VERSION: ${{ steps.next-version.outputs.new-version }}
+        run: |
+          set -euo pipefail
+          git add Solution.props README.md CHANGELOG.md
+          git commit -m "release: $VERSION"
+          git push origin "release-prep/$VERSION"
+
+      - name: Open release preparation pull request
+        id: create-pr
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+          VERSION: ${{ steps.next-version.outputs.new-version }}
+        run: |
+          set -euo pipefail
+          CHANGELOG_URL="https://github.com/${{ github.repository }}/blob/release-prep/$VERSION/CHANGELOG.md"
+          PR_URL=$(gh pr create \
+            --base "$TARGET_BRANCH" \
+            --head "release-prep/$VERSION" \
+            --title "release: $VERSION" \
+            --body "$(cat <<EOF
+          ## Release preparation
+
+          - Version: \`$VERSION\`
+          - Target branch: \`$TARGET_BRANCH\`
+          - Changelog: $CHANGELOG_URL
+
+          When merged:
+          - [ ] Create the annotated \`$VERSION\` tag
+          - [ ] Create a draft GitHub Release
+          - [ ] Open and auto-merge the post-release development bump PR
+          EOF
+          )")
+          echo "url=$PR_URL" >> "$GITHUB_OUTPUT"
+
+  discover-backports:
+    needs: prepare
+    if: inputs.backport == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      lines: ${{ steps.discover.outputs.lines }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Discover older active release lines
+        id: discover
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          LINES=$(git ls-remote --heads origin 'refs/heads/release/*.x' |
+            sed -n 's#.*refs/heads/release/\([0-9]\+\.[0-9]\+\)\.x$#\1#p' | sort -V)
+          LINES_JSON=$(VERSION="$VERSION" LINES="$LINES" python3 - <<'PY'
+          import json
+          import os
+          import re
+
+          match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:-.+)?", os.environ["VERSION"])
+          if not match:
+              raise SystemExit(f"Invalid release version: {os.environ['VERSION']}")
+          target = tuple(map(int, match.groups()))
+          lines = []
+          for line in os.environ.get("LINES", "").splitlines():
+              major, minor = map(int, line.split("."))
+              if (major, minor, 0) < target:
+                  lines.append(line)
+          print(json.dumps(lines))
+          PY
+          )
+          echo "lines=$LINES_JSON" >> "$GITHUB_OUTPUT"
+
+  backport:
+    needs: [prepare, discover-backports]
+    if: inputs.backport == true && needs.discover-backports.outputs.lines != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        line: ${{ fromJSON(needs.discover-backports.outputs.lines) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Create backport branch
+        id: cherry-pick
+        uses: ./.github/actions/utils/cherry-pick-range
+        with:
+          base-branch: release/${{ matrix.line }}.x
+          new-branch: backport/${{ needs.prepare.outputs.version }}-to-${{ matrix.line }}
+          source-ref: origin/${{ needs.prepare.outputs.hotfix-branch }}
+          from-ref: ${{ needs.prepare.outputs.base-tag }}
+          exclude-paths: |
+            Solution.props
+            README.md
+            CHANGELOG.md
+            yak-package/manifest.yml
+          push: 'true'
+          bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
+          bot-email: ${{ vars.SMARTHOPPER_BOT_EMAIL }}
+
+      - name: Report backport conflict
+        if: steps.cherry-pick.outputs.conflict == 'true'
+        uses: actions/github-script@v7
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          LINE: ${{ matrix.line }}
+          BASE_TAG: ${{ needs.prepare.outputs.base-tag }}
+          HOTFIX_BRANCH: ${{ needs.prepare.outputs.hotfix-branch }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const title = `⛔ Hotfix backport needs manual work: ${process.env.VERSION} to ${process.env.LINE}`;
+            const body = [
+              `The hotfix fix commits could not be backported to \`release/${process.env.LINE}.x\`.`,
+              '',
+              'Run these commands locally, resolve conflicts, and open the backport PR:',
+              '```bash',
+              `git fetch origin release/${process.env.LINE}.x ${process.env.HOTFIX_BRANCH} --tags`,
+              `git checkout -B backport/${process.env.VERSION}-to-${process.env.LINE} origin/release/${process.env.LINE}.x`,
+              `git cherry-pick ${process.env.BASE_TAG}..origin/${process.env.HOTFIX_BRANCH}`,
+              'git cherry-pick --continue',
+              `git push origin backport/${process.env.VERSION}-to-${process.env.LINE}`,
+              '```',
+              '',
+              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            ].join('\n');
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const existing = issues.find(issue => issue.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['automated', 'status: needs attention'],
+              });
+            }
+
+      - name: Fail after backport conflict
+        if: steps.cherry-pick.outputs.conflict == 'true'
+        shell: bash
+        run: |
+          echo "::error::Hotfix backport requires manual conflict resolution." >&2
+          exit 1
+
+      - name: Open backport pull request
+        if: steps.cherry-pick.outputs.conflict != 'true' && steps.cherry-pick.outputs.picked-count != '0'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          LINE: ${{ matrix.line }}
+        run: |
+          set -euo pipefail
+          PR_URL=$(gh pr create \
+            --base "release/$LINE.x" \
+            --head "backport/$VERSION-to-$LINE" \
+            --title "chore: backport hotfix $VERSION to release/$LINE.x" \
+            --body "Backports the hotfix fix commits for \`$VERSION\` to \`release/$LINE.x\` without release metadata changes.")
+          gh pr view "$PR_URL" --json number --jq '.number' >/dev/null

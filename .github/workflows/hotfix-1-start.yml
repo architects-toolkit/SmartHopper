@@ -1,0 +1,96 @@
+name: Hotfix 1 - Start Hotfix Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Stable tag to fix (empty uses the newest stable tag)
+        required: false
+        default: ''
+        type: string
+      description:
+        description: Short description of the hotfix
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hotfix-start-${{ inputs.tag || 'latest' }}
+  cancel-in-progress: false
+
+jobs:
+  start:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Resolve tag and create hotfix branch
+        id: create
+        shell: bash
+        env:
+          REQUESTED_TAG: ${{ inputs.tag }}
+          DESCRIPTION: ${{ inputs.description }}
+        run: |
+          set -euo pipefail
+          git fetch --all --tags
+
+          TAG="$REQUESTED_TAG"
+          if [[ -z "$TAG" ]]; then
+            TAG=$(git tag --sort=-v:refname |
+              grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)
+          fi
+          if [[ -z "$TAG" ]]; then
+            echo "::error::No stable release tag was found." >&2
+            exit 1
+          fi
+          if [[ ! "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+            ! git rev-parse --verify "refs/tags/$TAG^{commit}" >/dev/null 2>&1; then
+            echo "::error::Stable release tag '$TAG' does not exist." >&2
+            exit 1
+          fi
+
+          SLUG=$(printf '%s' "$DESCRIPTION" |
+            tr '[:upper:]' '[:lower:]' |
+            sed 's/[^a-z0-9]/-/g; s/--*/-/g; s/^-//; s/-$//')
+          SLUG="${SLUG:0:40}"
+          SLUG="${SLUG%-}"
+          if [[ -z "$SLUG" ]]; then
+            echo "::error::Description must contain at least one alphanumeric character." >&2
+            exit 1
+          fi
+
+          BRANCH="hotfix/${TAG}-${SLUG}"
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "::error::Hotfix branch '$BRANCH' already exists." >&2
+            exit 1
+          fi
+          git checkout -b "$BRANCH" "refs/tags/$TAG"
+          git push origin "$BRANCH"
+          {
+            echo "tag=$TAG"
+            echo "branch=$BRANCH"
+            echo "slug=$SLUG"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Write hotfix summary
+        shell: bash
+        env:
+          TAG: ${{ steps.create.outputs.tag }}
+          BRANCH: ${{ steps.create.outputs.branch }}
+        run: |
+          {
+            echo "## Hotfix branch started"
+            echo
+            echo "- **Branch:** \`$BRANCH\`"
+            echo "- **Base tag:** \`$TAG\`"
+            echo
+            echo "Put the fix on this branch and add a \`[Unreleased]\` changelog entry."
+            echo "The fix ships through \`hotfix-2-release.yml\`."
+          } >> "$GITHUB_STEP_SUMMARY"
