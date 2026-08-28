@@ -1,0 +1,440 @@
+name: Stabilization 2 - Promote Release Line
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      line:
+        description: Optional X.Y release line to process
+        required: false
+        default: ''
+        type: string
+      force-promote:
+        description: Promote without eligibility checks
+        required: false
+        default: false
+        type: boolean
+      promotion-age-days:
+        description: Optional promotion age threshold override
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: stabilization-promotion
+  cancel-in-progress: false
+
+jobs:
+  discover-lines:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      lines: ${{ steps.discover.outputs.lines }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Discover active release lines
+        id: discover
+        shell: bash
+        env:
+          REQUESTED_LINE: ${{ inputs.line }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$REQUESTED_LINE" && ! "$REQUESTED_LINE" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid release line '$REQUESTED_LINE'; expected X.Y." >&2
+            exit 1
+          fi
+
+          if [[ -n "$REQUESTED_LINE" ]]; then
+            branches="$REQUESTED_LINE"
+            if ! git ls-remote --exit-code --heads origin "release/${branches}.x" >/dev/null 2>&1; then
+              echo "::error::Release branch 'release/${branches}.x' does not exist." >&2
+              exit 1
+            fi
+          else
+            branches=$(git ls-remote --heads origin 'refs/heads/release/*.x' |
+              sed -n 's#.*refs/heads/release/\([0-9]\+\.[0-9]\+\)\.x$#\1#p' | sort -V)
+          fi
+
+          LINES_JSON=$(BRANCHES="$branches" python3 - <<'PY'
+          import json
+          import os
+
+          print(json.dumps([line for line in os.environ["BRANCHES"].splitlines() if line]))
+          PY
+          )
+          echo "lines=$LINES_JSON" >> "$GITHUB_OUTPUT"
+
+  promote:
+    needs: discover-lines
+    if: needs.discover-lines.outputs.lines != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        line: ${{ fromJSON(needs.discover-lines.outputs.lines) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: stabilization-promotion-${{ matrix.line }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout release line
+        uses: actions/checkout@v4
+        with:
+          ref: release/${{ matrix.line }}.x
+          fetch-depth: 0
+
+      # The release line may predate the composite actions used by this
+      # workflow, so use the actions from the workflow's main branch.
+      - name: Check out CI tooling from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .ci-tooling
+          fetch-depth: 1
+      - name: Sync composite actions from main
+        run: |
+          rm -rf .github/actions
+          cp -R .ci-tooling/.github/actions .github/actions
+          rm -rf .ci-tooling
+
+      - name: Determine promotion threshold
+        id: threshold
+        shell: bash
+        env:
+          INPUT_AGE: ${{ inputs.promotion-age-days }}
+          CONFIGURED_AGE: ${{ vars.PROMOTION_AGE_DAYS }}
+        run: |
+          set -euo pipefail
+          AGE="${INPUT_AGE:-${CONFIGURED_AGE:-15}}"
+          if [[ ! "$AGE" =~ ^[0-9]+$ ]]; then
+            echo "::error::Promotion age '$AGE' is not a non-negative integer." >&2
+            exit 1
+          fi
+          echo "days=$AGE" >> "$GITHUB_OUTPUT"
+
+      - name: Find newest release tag on line
+        id: tag
+        shell: bash
+        env:
+          LINE: ${{ matrix.line }}
+        run: |
+          set -euo pipefail
+          git fetch --tags origin
+          BRANCH="origin/release/${LINE}.x"
+          mapfile -t TAGS < <(git tag --merged "$BRANCH")
+          CURRENT_TAG=$(python3 - "${LINE}" "${TAGS[@]}" <<'PY'
+          import re
+          import sys
+
+          line = sys.argv[1]
+          pattern = re.compile(
+              rf"^{re.escape(line)}\.(\d+)(?:-(alpha|beta|rc)(?:\.(\d+))?)?$"
+          )
+          rank = {"alpha": 0, "beta": 1, "rc": 2, None: 3}
+          candidates = []
+          for tag in sys.argv[2:]:
+              match = pattern.fullmatch(tag)
+              if not match:
+                  continue
+              patch = int(match.group(1))
+              stage = match.group(2)
+              number = int(match.group(3) or (1 if stage else 0))
+              candidates.append(((patch, rank[stage], number), tag))
+          print(max(candidates)[1] if candidates else "")
+          PY
+          )
+
+          if [[ -z "$CURRENT_TAG" ]]; then
+            CORE="${LINE}.0"
+            CURRENT_STAGE=""
+            NEXT_STAGE="alpha"
+            NEXT_MILESTONE="${CORE}-alpha"
+          else
+            CORE="${CURRENT_TAG%%-*}"
+            if [[ "$CURRENT_TAG" == *-* ]]; then
+              CURRENT_STAGE="${CURRENT_TAG#*-}"
+              CURRENT_STAGE="${CURRENT_STAGE%%.*}"
+            else
+              CURRENT_STAGE="stable"
+            fi
+            case "$CURRENT_STAGE" in
+              alpha) NEXT_STAGE=beta ;;
+              beta) NEXT_STAGE=rc ;;
+              rc) NEXT_STAGE=stable ;;
+              stable) NEXT_STAGE="" ;;
+              *) echo "::error::Unsupported release stage in '$CURRENT_TAG'." >&2; exit 1 ;;
+            esac
+            if [[ "$NEXT_STAGE" == stable ]]; then
+              NEXT_MILESTONE="$CORE"
+            elif [[ -n "$NEXT_STAGE" ]]; then
+              NEXT_MILESTONE="$CORE-$NEXT_STAGE"
+            else
+              NEXT_MILESTONE=""
+            fi
+          fi
+
+          {
+            echo "current-tag=$CURRENT_TAG"
+            echo "current-stage=$CURRENT_STAGE"
+            echo "core=$CORE"
+            echo "next-stage=$NEXT_STAGE"
+            echo "next-milestone=$NEXT_MILESTONE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check issues and release age
+        id: check-issues
+        if: steps.tag.outputs.current-tag != ''
+        uses: ./.github/actions/versioning/check-issues-for-version
+        with:
+          version: ${{ steps.tag.outputs.current-tag }}
+          days-lookback: ${{ steps.threshold.outputs.days }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check open pull requests
+        id: check-prs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_BRANCH: release/${{ matrix.line }}.x
+        run: |
+          set -euo pipefail
+          COUNT=$(gh pr list --base "$RELEASE_BRANCH" --state open --json number --jq 'length')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Check promotion freeze
+        id: check-freeze
+        uses: actions/github-script@v7
+        env:
+          CORE: ${{ steps.tag.outputs.core }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const label = `version: ${process.env.CORE}`;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'promotion: freeze',
+              state: 'open',
+              per_page: 100,
+            });
+            const frozen = issues.some(issue =>
+              issue.labels.some(item => item.name === label)
+            );
+            core.setOutput('frozen', String(frozen));
+
+      - name: Determine promotion eligibility
+        id: evaluate
+        shell: bash
+        env:
+          CURRENT_TAG: ${{ steps.tag.outputs.current-tag }}
+          NEXT_STAGE: ${{ steps.tag.outputs.next-stage }}
+          ISSUE_COUNT: ${{ steps.check-issues.outputs.issue-count }}
+          HAS_ISSUES: ${{ steps.check-issues.outputs.has-issues }}
+          RELEASE_OLD_ENOUGH: ${{ steps.check-issues.outputs.release-old-enough }}
+          RELEASE_AGE: ${{ steps.check-issues.outputs.release-age-days }}
+          LAST_CLOSED_OLD_ENOUGH: ${{ steps.check-issues.outputs.last-closed-old-enough }}
+          LAST_CLOSED_AGE: ${{ steps.check-issues.outputs.last-closed-age-days }}
+          BLOCKING_REASON: ${{ steps.check-issues.outputs.blocking-reason }}
+          OPEN_PR_COUNT: ${{ steps.check-prs.outputs.count }}
+          FROZEN: ${{ steps.check-freeze.outputs.frozen }}
+          FORCE_PROMOTE: ${{ inputs.force-promote }}
+        run: |
+          set -euo pipefail
+          ELIGIBLE=true
+          PAST_THRESHOLD=false
+          REASONS=()
+
+          if [[ -z "$NEXT_STAGE" ]]; then
+            ELIGIBLE=false
+            REASONS+=("stable release already exists")
+          elif [[ -z "$CURRENT_TAG" ]]; then
+            REASONS+=("no staged release exists; starting alpha")
+          elif [[ "$RELEASE_OLD_ENOUGH" == true ]]; then
+            PAST_THRESHOLD=true
+          else
+            REASONS+=("staged release age is ${RELEASE_AGE:-unknown} days")
+          fi
+
+          if [[ "$FORCE_PROMOTE" == true ]]; then
+            ELIGIBLE=true
+            REASONS=("force-promote enabled")
+          elif [[ -n "$NEXT_STAGE" && -n "$CURRENT_TAG" ]]; then
+            if [[ "$HAS_ISSUES" == true ]]; then
+              ELIGIBLE=false
+              REASONS+=("${ISSUE_COUNT:-unknown} open issue(s) for this version")
+            fi
+            if [[ "$RELEASE_OLD_ENOUGH" != true ]]; then
+              ELIGIBLE=false
+              REASONS+=("release is younger than the promotion threshold")
+            fi
+            if [[ "$LAST_CLOSED_OLD_ENOUGH" != true ]]; then
+              ELIGIBLE=false
+              REASONS+=("most recently closed issue is ${LAST_CLOSED_AGE:-unknown} days old")
+            fi
+            if [[ "${OPEN_PR_COUNT:-0}" != 0 ]]; then
+              ELIGIBLE=false
+              REASONS+=("${OPEN_PR_COUNT} open PR(s) target the release branch")
+            fi
+            if [[ "$FROZEN" == true ]]; then
+              ELIGIBLE=false
+              REASONS+=("promotion: freeze is active for ${CURRENT_TAG%%-*}")
+            fi
+            if [[ -n "$BLOCKING_REASON" && "$HAS_ISSUES" != true ]]; then
+              REASONS+=("$BLOCKING_REASON")
+            fi
+          elif [[ -n "$NEXT_STAGE" && "${OPEN_PR_COUNT:-0}" != 0 ]]; then
+            ELIGIBLE=false
+            REASONS+=("${OPEN_PR_COUNT} open PR(s) target the release branch")
+          elif [[ -n "$NEXT_STAGE" && "$FROZEN" == true ]]; then
+            ELIGIBLE=false
+            REASONS+=("promotion: freeze is active for the release line")
+          fi
+
+          if [[ "${#REASONS[@]}" -eq 0 ]]; then
+            REASONS+=("all promotion conditions are satisfied")
+          fi
+          REASON=$(IFS='; '; echo "${REASONS[*]}")
+          echo "eligible=$ELIGIBLE" >> "$GITHUB_OUTPUT"
+          echo "past-threshold=$PAST_THRESHOLD" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+
+      - name: Create next-stage milestone
+        if: steps.evaluate.outputs.eligible == 'true' && steps.tag.outputs.next-milestone != ''
+        uses: ./.github/actions/milestone/create-or-get
+        with:
+          title: ${{ steps.tag.outputs.next-milestone }}
+          description: Stabilization metadata for ${{ steps.tag.outputs.next-milestone }}
+          state: open
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Move milestone items and close previous stage
+        if: steps.evaluate.outputs.eligible == 'true' && steps.tag.outputs.current-tag != ''
+        uses: actions/github-script@v7
+        env:
+          CORE: ${{ steps.tag.outputs.core }}
+          CURRENT_STAGE: ${{ steps.tag.outputs.current-stage }}
+          NEXT_MILESTONE: ${{ steps.tag.outputs.next-milestone }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const currentTitle = `${process.env.CORE}-${process.env.CURRENT_STAGE}`;
+            const nextTitle = process.env.NEXT_MILESTONE;
+            const milestones = await github.paginate(github.rest.issues.listMilestones, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              per_page: 100,
+            });
+            const current = milestones.find(item => item.title === currentTitle && item.state === 'open');
+            const next = milestones.find(item => item.title === nextTitle && item.state === 'open');
+            if (!current || !next) {
+              core.warning(`Milestone bookkeeping skipped: ${currentTitle} or ${nextTitle} was not found.`);
+              return;
+            }
+            const items = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              milestone: current.number,
+              state: 'open',
+              per_page: 100,
+            });
+            for (const item of items) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: item.number,
+                milestone: next.number,
+              });
+            }
+            await github.rest.issues.updateMilestone({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              milestone_number: current.number,
+              state: 'closed',
+            });
+
+      - name: Dispatch next-stage preparation
+        if: steps.evaluate.outputs.eligible == 'true' && steps.tag.outputs.next-stage != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_BRANCH: release/${{ matrix.line }}.x
+          NEXT_STAGE: ${{ steps.tag.outputs.next-stage }}
+        run: |
+          set -euo pipefail
+          gh workflow run release-1-prepare.yml \
+            --ref main \
+            -f bump=none \
+            -f stage="$NEXT_STAGE" \
+            -f target-branch="$RELEASE_BRANCH"
+
+      - name: Create or update blocked promotion issue
+        if: steps.evaluate.outputs.eligible != 'true' && steps.evaluate.outputs.past-threshold == 'true' && steps.tag.outputs.current-tag != ''
+        uses: actions/github-script@v7
+        env:
+          VERSION: ${{ steps.tag.outputs.current-tag }}
+          REASON: ${{ steps.evaluate.outputs.reason }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const title = `⛔ Promotion blocked: ${process.env.VERSION}`;
+            const body = [
+              `Promotion of \`${process.env.VERSION}\` is blocked.`,
+              '',
+              `**Condition:** ${process.env.REASON}`,
+              '',
+              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            ].join('\n');
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const existing = issues.find(issue => issue.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['automated', 'status: needs attention'],
+              });
+            }
+
+      - name: Write promotion summary
+        if: always()
+        shell: bash
+        env:
+          LINE: ${{ matrix.line }}
+          CURRENT_TAG: ${{ steps.tag.outputs.current-tag || 'none' }}
+          NEXT_STAGE: ${{ steps.tag.outputs.next-stage || 'none' }}
+          ELIGIBLE: ${{ steps.evaluate.outputs.eligible || 'no' }}
+          REASON: ${{ steps.evaluate.outputs.reason || 'workflow failed before eligibility was evaluated' }}
+        run: |
+          {
+            echo "## Stabilization promotion"
+            echo
+            echo "| Line | Current tag | Next stage | Eligible | Reason |"
+            echo "| --- | --- | --- | --- | --- |"
+            echo "| $LINE | $CURRENT_TAG | $NEXT_STAGE | $ELIGIBLE | $REASON |"
+          } >> "$GITHUB_STEP_SUMMARY"

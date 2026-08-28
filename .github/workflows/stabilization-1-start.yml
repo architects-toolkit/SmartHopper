@@ -1,0 +1,153 @@
+name: Stabilization 1 - Start Release Line
+
+on:
+  workflow_dispatch:
+    inputs:
+      line:
+        description: Release line in X.Y format
+        required: true
+        type: string
+      source:
+        description: Branch or tag from which to create the release line
+        required: true
+        default: main
+        type: string
+      milestone-title:
+        description: Optional milestone to create or verify
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: stabilization-start-${{ inputs.line }}
+  cancel-in-progress: false
+
+jobs:
+  start:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate release line
+        shell: bash
+        env:
+          LINE: ${{ inputs.line }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$LINE" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid release line '$LINE'; expected X.Y." >&2
+            exit 1
+          fi
+
+      - name: Resolve source and create release line
+        id: create-line
+        shell: bash
+        env:
+          LINE: ${{ inputs.line }}
+          SOURCE: ${{ inputs.source }}
+        run: |
+          set -euo pipefail
+          RELEASE_BRANCH="release/${LINE}.x"
+          git fetch --all --tags
+
+          if git ls-remote --exit-code --heads origin "$RELEASE_BRANCH" >/dev/null 2>&1; then
+            echo "::error::Release branch '$RELEASE_BRANCH' already exists." >&2
+            exit 1
+          fi
+
+          SOURCE_SHA=""
+          if git rev-parse --verify "refs/remotes/origin/$SOURCE^{commit}" >/dev/null 2>&1; then
+            SOURCE_SHA=$(git rev-parse "refs/remotes/origin/$SOURCE^{commit}")
+          elif git rev-parse --verify "refs/tags/$SOURCE^{commit}" >/dev/null 2>&1; then
+            SOURCE_SHA=$(git rev-parse "refs/tags/$SOURCE^{commit}")
+          elif git rev-parse --verify "$SOURCE^{commit}" >/dev/null 2>&1; then
+            SOURCE_SHA=$(git rev-parse "$SOURCE^{commit}")
+          else
+            echo "::error::Source branch or tag '$SOURCE' could not be resolved." >&2
+            exit 1
+          fi
+
+          git push origin "$SOURCE_SHA:refs/heads/$RELEASE_BRANCH"
+          echo "release-branch=$RELEASE_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "source-sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Create stabilization milestone
+        if: inputs.milestone-title != ''
+        uses: ./.github/actions/milestone/create-or-get
+        with:
+          title: ${{ inputs.milestone-title }}
+          description: Stabilization metadata for release line ${{ inputs.line }}
+          state: open
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Write summary
+        shell: bash
+        env:
+          LINE: ${{ inputs.line }}
+          RELEASE_BRANCH: ${{ steps.create-line.outputs.release-branch }}
+          SOURCE_SHA: ${{ steps.create-line.outputs.source-sha }}
+        run: |
+          {
+            echo "## Stabilization line started"
+            echo
+            echo "- **Branch:** \`$RELEASE_BRANCH\`"
+            echo "- **Source SHA:** \`$SOURCE_SHA\`"
+            echo
+            echo "The maintainer must add this branch to the repository ruleset if branch protection is desired."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  notify-on-failure:
+    needs: [start]
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open or update stabilization failure issue
+        uses: actions/github-script@v7
+        env:
+          LINE: ${{ inputs.line || 'unknown' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const line = process.env.LINE;
+            const title = `⛔ Stabilization start failed: ${line}`;
+            const body = [
+              `The stabilization line workflow failed for \`release/${line}.x\`.`,
+              '',
+              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              `**Triggered by:** ${context.actor}`,
+              '',
+              'Inspect the failed step and retry after resolving the underlying problem.',
+            ].join('\n');
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const existing = issues.find(issue => issue.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['automated', 'status: needs attention'],
+              });
+            }

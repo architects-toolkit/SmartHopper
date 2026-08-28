@@ -1,0 +1,138 @@
+name: Cherry-pick Range
+description: Create a branch from a base and cherry-pick an ordered commit range onto it.
+
+inputs:
+  base-branch:
+    description: Branch to build on top of
+    required: true
+  new-branch:
+    description: Branch to create and push
+    required: true
+  source-ref:
+    description: Branch or ref containing the commits
+    required: true
+  from-ref:
+    description: Exclusive lower-bound ref for the commit range
+    required: true
+  exclude-paths:
+    description: Newline-separated paths whose only changes should be skipped
+    required: false
+    default: ''
+  push:
+    description: Whether to push the new branch
+    required: false
+    default: 'true'
+  bot-name:
+    description: Git user.name for cherry-picked commits
+    required: false
+    default: ''
+  bot-email:
+    description: Git user.email for cherry-picked commits
+    required: false
+    default: ''
+
+outputs:
+  branch:
+    description: Created branch name
+    value: ${{ steps.cherry-pick.outputs.branch }}
+  conflict:
+    description: Whether a cherry-pick conflict occurred
+    value: ${{ steps.cherry-pick.outputs.conflict }}
+  picked-count:
+    description: Number of commits cherry-picked
+    value: ${{ steps.cherry-pick.outputs.picked-count }}
+
+runs:
+  using: composite
+  steps:
+    - name: Cherry-pick commit range
+      id: cherry-pick
+      shell: bash
+      env:
+        BASE_BRANCH: ${{ inputs.base-branch }}
+        NEW_BRANCH: ${{ inputs.new-branch }}
+        SOURCE_REF: ${{ inputs.source-ref }}
+        FROM_REF: ${{ inputs.from-ref }}
+        EXCLUDE_PATHS: ${{ inputs.exclude-paths }}
+        SHOULD_PUSH: ${{ inputs.push }}
+        BOT_NAME: ${{ inputs.bot-name }}
+        BOT_EMAIL: ${{ inputs.bot-email }}
+      run: |
+        set -euo pipefail
+
+        if [[ -z "$BOT_NAME" ]]; then
+          BOT_NAME="github-actions"
+        fi
+        if [[ -z "$BOT_EMAIL" ]]; then
+          BOT_EMAIL="github-actions@users.noreply.github.com"
+        fi
+        git config user.name "$BOT_NAME"
+        git config user.email "$BOT_EMAIL"
+
+        git fetch --tags origin
+        git fetch origin "$BASE_BRANCH" || true
+        git fetch origin "$SOURCE_REF" || true
+
+        if ! git rev-parse --verify "origin/$BASE_BRANCH^{commit}" >/dev/null 2>&1; then
+          echo "::error::Base branch 'origin/$BASE_BRANCH' was not found." >&2
+          exit 1
+        fi
+        git checkout -B "$NEW_BRANCH" "origin/$BASE_BRANCH"
+
+        mapfile -t COMMITS < <(git rev-list --reverse --no-merges "$FROM_REF..$SOURCE_REF")
+        PICKED_COUNT=0
+        CONFLICT=false
+
+        is_excluded_only() {
+          local commit="$1"
+          local path
+          local has_paths=false
+          mapfile -t paths < <(git diff-tree --root --no-commit-id --name-only -r "$commit")
+          if [[ "${#paths[@]}" -eq 0 ]]; then
+            return 0
+          fi
+          for path in "${paths[@]}"; do
+            has_paths=true
+            if ! grep -Fxq "$path" <<< "$EXCLUDE_PATHS"; then
+              return 1
+            fi
+          done
+          [[ "$has_paths" == true ]]
+        }
+
+        for commit in "${COMMITS[@]}"; do
+          if is_excluded_only "$commit"; then
+            echo "Skipping metadata-only commit $commit."
+            continue
+          fi
+
+          if git cherry-pick -x "$commit"; then
+            PICKED_COUNT=$((PICKED_COUNT + 1))
+            continue
+          fi
+
+          if git status --porcelain | grep -Eq '^(AA|AU|DD|DU|UA|UD|UU) '; then
+            git cherry-pick --abort || true
+            echo "::warning::Cherry-pick conflict while applying $commit. No branch was pushed; resolve it manually." >&2
+            CONFLICT=true
+            break
+          fi
+
+          git cherry-pick --abort || true
+          echo "Skipping empty commit $commit."
+        done
+
+        if [[ "$CONFLICT" == true ]]; then
+          echo "branch=$NEW_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "conflict=true" >> "$GITHUB_OUTPUT"
+          echo "picked-count=$PICKED_COUNT" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        if [[ "$SHOULD_PUSH" == true ]]; then
+          git push origin "$NEW_BRANCH"
+        fi
+
+        echo "branch=$NEW_BRANCH" >> "$GITHUB_OUTPUT"
+        echo "conflict=false" >> "$GITHUB_OUTPUT"
+        echo "picked-count=$PICKED_COUNT" >> "$GITHUB_OUTPUT"
