@@ -35,13 +35,12 @@ on:
         default: ''
 
 permissions:
-  actions: write
   contents: write
   issues: read
   pull-requests: write
 
 concurrency:
-  group: release-${{ inputs.milestone-title }}
+  group: release-prepare-${{ inputs.target-branch }}
   cancel-in-progress: false
 
 jobs:
@@ -54,6 +53,26 @@ jobs:
         with:
           ref: ${{ inputs.target-branch }}
           fetch-depth: 0
+
+      # The release content is taken from the target branch, but the composite
+      # actions used below must match THIS workflow definition, which runs from
+      # the dispatched ref. When CI tooling has been refactored on main after a
+      # stabilization branch was cut, the checked-out target branch would not
+      # contain the referenced local action, breaking the run.
+      # Sync `.github/actions` from the workflow ref so `uses: ./...` always
+      # resolves the expected versions. These files are CI-only and are never
+      # staged by the commit step below, so release content is unaffected.
+      - name: Check out CI tooling from workflow ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: .ci-tooling
+          fetch-depth: 1
+      - name: Sync composite actions from workflow ref
+        run: |
+          rm -rf .github/actions
+          cp -R .ci-tooling/.github/actions .github/actions
+          rm -rf .ci-tooling
 
       - name: Get current version
         id: current-version
@@ -84,6 +103,8 @@ jobs:
           mode: set-version
           new-version: ${{ steps.next-version.outputs.new-version }}
 
+      # Keep yak-package/manifest.yml placeholders in the repository. They are
+      # resolved only when release-6-upload-yak.yml builds the Yak package.
       - name: Include missing issues in changelog
         uses: ./.github/actions/documentation/update-changelog-issues
         with:
@@ -127,6 +148,12 @@ jobs:
           VERSION: ${{ steps.next-version.outputs.new-version }}
         run: |
           set -euo pipefail
+          unexpected=$(git status --porcelain | awk '{print $2}' | grep -vE '^(Solution.props|README.md|CHANGELOG.md)$' || true)
+          if [[ -n "$unexpected" ]]; then
+            echo "::error::Unexpected files changed by release preparation:" >&2
+            printf '%s\n' "$unexpected" >&2
+            exit 1
+          fi
           git add Solution.props README.md CHANGELOG.md
           git commit -m "release: $VERSION"
           git push origin "release-prep/$VERSION"
@@ -139,7 +166,7 @@ jobs:
           VERSION: ${{ steps.next-version.outputs.new-version }}
         run: |
           set -euo pipefail
-          CHANGELOG_URL="https://github.com/${{ github.repository }}/blob/release-prep/$VERSION/CHANGELOG.md#$VERSION"
+          CHANGELOG_URL="https://github.com/${{ github.repository }}/blob/release-prep/$VERSION/CHANGELOG.md"
           gh pr create \
             --base "$TARGET_BRANCH" \
             --head "release-prep/$VERSION" \

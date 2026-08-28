@@ -1,9 +1,8 @@
 name: 🚀 6 Upload to Yak Rhino Server
 
 # Related workflows (release pipeline — execute in numbered order):
-#   - release-1-milestone.yml (creates milestone and branches)
-#   - release-2-pr-to-dev-closed.yml (creates PR from dev→main on release merge)
-#   - release-3-pr-to-main-closed.yml (creates GitHub Release on main merge)
+#   - release-1-prepare.yml (prepares the release branch)
+#   - release-2-tag-on-merge.yml (creates the tag and draft GitHub Release)
 #   - release-4-build.yml (builds platform artifacts on release publish)
 #   - release-5-deploy-pages.yml (deploys documentation pages)
 #   - release-6-upload-yak.yml (uploads to Yak package manager)
@@ -29,7 +28,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to upload (leave empty to use version from main branch)'
+        description: 'Version to upload (leave empty to use the latest release tag)'
         required: false
         type: string
         default: ''
@@ -69,12 +68,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get version from branch
-        id: get_version_from_branch
+      - name: Get latest release tag
+        id: get_latest_release
         if: inputs.version == ''
-        uses: ./.github/actions/versioning/get-version
-        with:
-          branch: main
+        shell: pwsh
+        run: |
+          # Get all tags and sort them by version number
+          $tags = git tag -l --sort=-v:refname
+          if (-not $tags) {
+            # Fail if no tags exist
+            Write-Host "##[error] No tags found in the repository."
+            exit 1
+          }
+
+          # Get the latest tag (first in sorted list)
+          $latestTag = $tags[0]
+          Write-Host "Latest tag: $latestTag"
+          echo "LATEST_TAG=$latestTag" >> $env:GITHUB_OUTPUT
 
       - name: Set version
         id: get_version
@@ -84,8 +94,8 @@ jobs:
             $version = "${{ inputs.version }}"
             Write-Host "Using manually specified version: $version"
           } else {
-            $version = "${{ steps.get_version_from_branch.outputs.version }}"
-            Write-Host "Using version from main branch: $version"
+            $version = "${{ steps.get_latest_release.outputs.LATEST_TAG }}"
+            Write-Host "Using latest release tag: $version"
           }
           echo "version=$version" >> $env:GITHUB_OUTPUT
 

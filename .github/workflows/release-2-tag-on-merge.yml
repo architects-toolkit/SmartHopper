@@ -181,6 +181,12 @@ jobs:
           VERSION: ${{ steps.next-dev-version.outputs.new-version }}
         run: |
           set -euo pipefail
+          unexpected=$(git status --porcelain | awk '{print $2}' | grep -vE '^(Solution.props|README.md)$' || true)
+          if [[ -n "$unexpected" ]]; then
+            echo "::error::Unexpected files changed by post-release version bump:" >&2
+            printf '%s\n' "$unexpected" >&2
+            exit 1
+          fi
           git add Solution.props README.md
           git commit -m "chore: bump version to $VERSION"
           git push origin "chore/bump-$VERSION"
