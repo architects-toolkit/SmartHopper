@@ -18,22 +18,30 @@
 
 using System;
 using Newtonsoft.Json.Linq;
-using SmartHopper.ProviderSdk.AICall.JsonSchemas;
 
-namespace SmartHopper.Providers.Ollama
+namespace SmartHopper.ProviderSdk.AICall.JsonSchemas
 {
     /// <summary>
-    /// JSON schema adapter for Ollama.
-    /// Ollama's OpenAI-compatible endpoint accepts a JSON object response_format;
-    /// non-object root schemas are wrapped into an object to remain compatible.
+    /// Shared JSON schema adapter for OpenAI-compatible providers.
+    /// Wraps non-object root schemas into an object root so providers that require
+    /// object-root schemas for structured outputs can consume them.
     /// </summary>
-    internal sealed class OllamaJsonSchemaAdapter : IJsonSchemaAdapter
+    public class OpenAICompatibleJsonSchemaAdapter : IJsonSchemaAdapter
     {
-        /// <inheritdoc/>
-        public string ProviderName => OllamaProvider.NameValue;
+        /// <summary>
+        /// Initializes a new instance of the <see cref="OpenAICompatibleJsonSchemaAdapter"/> class.
+        /// </summary>
+        /// <param name="providerName">The provider name this adapter applies to.</param>
+        public OpenAICompatibleJsonSchemaAdapter(string providerName)
+        {
+            this.ProviderName = providerName ?? throw new ArgumentNullException(nameof(providerName));
+        }
 
         /// <inheritdoc/>
-        public (JObject wrapped, SchemaWrapperInfo info) Wrap(JObject schema)
+        public string ProviderName { get; }
+
+        /// <inheritdoc/>
+        public virtual (JObject wrapped, SchemaWrapperInfo info) Wrap(JObject schema)
         {
             if (schema is null)
             {
@@ -42,11 +50,17 @@ namespace SmartHopper.Providers.Ollama
 
             var schemaType = schema["type"]?.ToString();
 
+            // Object-root schemas are sent as-is
             if (string.Equals(schemaType, "object", StringComparison.OrdinalIgnoreCase))
             {
-                return (schema, new SchemaWrapperInfo { IsWrapped = false, ProviderName = this.ProviderName });
+                return (schema, new SchemaWrapperInfo
+                {
+                    IsWrapped = false,
+                    ProviderName = this.ProviderName,
+                });
             }
 
+            // Arrays are wrapped under an "items" property
             if (string.Equals(schemaType, "array", StringComparison.OrdinalIgnoreCase))
             {
                 var wrapped = new JObject
@@ -56,9 +70,17 @@ namespace SmartHopper.Providers.Ollama
                     ["required"] = new JArray { "items" },
                     ["additionalProperties"] = false,
                 };
-                return (wrapped, new SchemaWrapperInfo { IsWrapped = true, WrapperType = "array", PropertyName = "items", ProviderName = this.ProviderName });
+
+                return (wrapped, new SchemaWrapperInfo
+                {
+                    IsWrapped = true,
+                    WrapperType = "array",
+                    PropertyName = "items",
+                    ProviderName = this.ProviderName,
+                });
             }
 
+            // Primitive types are wrapped under a "value" property
             if (schemaType == "string" || schemaType == "number" || schemaType == "integer" || schemaType == "boolean")
             {
                 var wrapped = new JObject
@@ -68,9 +90,17 @@ namespace SmartHopper.Providers.Ollama
                     ["required"] = new JArray { "value" },
                     ["additionalProperties"] = false,
                 };
-                return (wrapped, new SchemaWrapperInfo { IsWrapped = true, WrapperType = schemaType ?? "primitive", PropertyName = "value", ProviderName = this.ProviderName });
+
+                return (wrapped, new SchemaWrapperInfo
+                {
+                    IsWrapped = true,
+                    WrapperType = schemaType,
+                    PropertyName = "value",
+                    ProviderName = this.ProviderName,
+                });
             }
 
+            // Unknown or missing type: wrap under a generic "data" property
             var generic = new JObject
             {
                 ["type"] = "object",
@@ -78,13 +108,20 @@ namespace SmartHopper.Providers.Ollama
                 ["required"] = new JArray { "data" },
                 ["additionalProperties"] = false,
             };
-            return (generic, new SchemaWrapperInfo { IsWrapped = true, WrapperType = "unknown", PropertyName = "data", ProviderName = this.ProviderName });
+
+            return (generic, new SchemaWrapperInfo
+            {
+                IsWrapped = true,
+                WrapperType = "unknown",
+                PropertyName = "data",
+                ProviderName = this.ProviderName,
+            });
         }
 
         /// <inheritdoc/>
-        public string Unwrap(string content, SchemaWrapperInfo info)
+        public virtual string Unwrap(string content, SchemaWrapperInfo info)
         {
-            // Default service logic handles unwrap for object-root payloads
+            // Default service logic is sufficient for most OpenAI-compatible providers.
             return content;
         }
     }

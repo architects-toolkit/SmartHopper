@@ -75,7 +75,7 @@ namespace SmartHopper.Providers.OpenAI
             this.Models = new OpenAIProviderModels(this);
 
             // Register provider-specific JSON schema adapter
-            JsonSchemaAdapterRegistry.Register(new OpenAIJsonSchemaAdapter());
+            JsonSchemaAdapterRegistry.Register(new OpenAICompatibleJsonSchemaAdapter(this.Name));
         }
 
         /// <summary>

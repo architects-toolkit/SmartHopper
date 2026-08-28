@@ -55,7 +55,7 @@ namespace SmartHopper.ProviderSdk.AICall.JsonSchemas
     {
         private static readonly ConcurrentDictionary<string, IJsonSchemaAdapter> _adapters = new ConcurrentDictionary<string, IJsonSchemaAdapter>(StringComparer.OrdinalIgnoreCase);
 
-        public static IJsonSchemaAdapter Default { get; } = new DefaultJsonSchemaAdapter();
+        public static IJsonSchemaAdapter Default { get; } = new OpenAICompatibleJsonSchemaAdapter("__default__");
 
         public static void Register(IJsonSchemaAdapter adapter)
         {
@@ -72,67 +72,5 @@ namespace SmartHopper.ProviderSdk.AICall.JsonSchemas
         }
     }
 
-    /// <summary>
-    /// Default adapter implementing the current wrapping convention:
-    /// - Providers require object root for structured output
-    /// - Arrays are wrapped under { "items": [...] }
-    /// - Primitives wrapped under { "value": ... }
-    /// - Unknown root types wrapped under { "data": ... }
-    /// </summary>
-    internal sealed class DefaultJsonSchemaAdapter : IJsonSchemaAdapter
-    {
-        public string ProviderName => "__default__";
 
-        public (JObject wrapped, SchemaWrapperInfo info) Wrap(JObject schema)
-        {
-            if (schema is null) throw new ArgumentNullException(nameof(schema));
-            var schemaType = schema["type"]?.ToString();
-
-            // If already an object, no wrapping is needed
-            if (string.Equals(schemaType, "object", StringComparison.OrdinalIgnoreCase))
-            {
-                return (schema, new SchemaWrapperInfo { IsWrapped = false });
-            }
-
-            if (string.Equals(schemaType, "array", StringComparison.OrdinalIgnoreCase))
-            {
-                var wrapped = new JObject
-                {
-                    ["type"] = "object",
-                    ["properties"] = new JObject { ["items"] = schema },
-                    ["required"] = new JArray { "items" },
-                    ["additionalProperties"] = false,
-                };
-                return (wrapped, new SchemaWrapperInfo { IsWrapped = true, WrapperType = "array", PropertyName = "items" });
-            }
-
-            if (schemaType == "string" || schemaType == "number" || schemaType == "integer" || schemaType == "boolean")
-            {
-                var wrapped = new JObject
-                {
-                    ["type"] = "object",
-                    ["properties"] = new JObject { ["value"] = schema },
-                    ["required"] = new JArray { "value" },
-                    ["additionalProperties"] = false,
-                };
-                return (wrapped, new SchemaWrapperInfo { IsWrapped = true, WrapperType = schemaType, PropertyName = "value" });
-            }
-
-            // Unknown type: wrap under data
-            var generic = new JObject
-            {
-                ["type"] = "object",
-                ["properties"] = new JObject { ["data"] = schema },
-                ["required"] = new JArray { "data" },
-                ["additionalProperties"] = false,
-            };
-            return (generic, new SchemaWrapperInfo { IsWrapped = true, WrapperType = "unknown", PropertyName = "data" });
-        }
-
-        public string Unwrap(string content, SchemaWrapperInfo info)
-        {
-            // Defer to JsonSchemaService default unwrapping in most cases; keep method for extensibility
-            return content;
-        }
-    }
 }

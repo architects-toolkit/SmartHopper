@@ -8,12 +8,22 @@ The SDK is **API-connection only**:
 
 - **Contracts** — `IAIProvider`, `IAIProviderFactory`, `IAIProviderSettings`, `IAIProviderModels`, `IAIBatchProvider`.
 - **Base classes** — `AIProvider`, `AIProvider<T>`, `AIProviderSettings`, `AIProviderModels`, `AIProviderStreamingAdapter`.
-- **Request / response DTOs** — `AICall.Core.{Base, Interactions, Requests, Returns}`, `AICall.Metrics`, minimal `AICall.JsonSchemas` types referenced by request bodies, and `AICall.Batch` contracts.
+- **Request / response DTOs** — `AICall.Core.{Base, Interactions, Requests, Returns}`, `AICall.Metrics`, `AICall.JsonSchemas` (`JsonSchemaService`, `IJsonSchemaAdapter`, `OpenAICompatibleJsonSchemaAdapter`), and `AICall.Batch` contracts.
 - **Model capabilities** — `AIModels.*`, `AIExtraDescriptor`, `AIModelCapabilityRegistry` singleton.
 - **Settings descriptors** — `SettingDescriptor`, secret flags, validation result types.
 - **Streaming** — `IStreamingAdapter` and provider-facing delta/result types.
 - **Tool DTOs** — structures required to encode/decode tool calls and tool results inside a provider response (no `ToolManager`, no tool registration).
 - **Compatibility metadata** — `SmartHopperProviderSdkVersionAttribute`, `BuiltAgainstSdkAttribute`, `MinHostSdkAttribute`, `SmartHopperProviderIdAttribute`.
+
+## JSON schema adapters
+
+OpenAI-compatible providers can register `OpenAICompatibleJsonSchemaAdapter` directly:
+
+```csharp
+JsonSchemaAdapterRegistry.Register(new OpenAICompatibleJsonSchemaAdapter(this.Name));
+```
+
+This shared adapter wraps non-object root schemas into an object root (`array` → `items`, primitives → `value`, unknown → `data`) so providers that require object-root structured-output schemas can consume them. See [AICall/JsonSchemaAdapters.md](./AICall/JsonSchemaAdapters.md) for the full contract.
 
 ## What is NOT in the SDK
 

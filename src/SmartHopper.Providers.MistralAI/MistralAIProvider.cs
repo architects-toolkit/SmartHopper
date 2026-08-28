@@ -50,7 +50,7 @@ namespace SmartHopper.Providers.MistralAI
             this.Models = new MistralAIProviderModels(this);
 
             // Register provider-specific JSON schema adapter
-            JsonSchemaAdapterRegistry.Register(new MistralAIJsonSchemaAdapter());
+            JsonSchemaAdapterRegistry.Register(new OpenAICompatibleJsonSchemaAdapter(this.Name));
         }
 
         /// <summary>
