@@ -1,0 +1,190 @@
+name: Release 1 - Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump to apply
+        required: true
+        type: choice
+        options:
+          - none
+          - patch
+          - minor
+          - major
+        default: none
+      stage:
+        description: Release stage
+        required: true
+        type: choice
+        options:
+          - stable
+          - alpha
+          - beta
+          - rc
+        default: stable
+      target-branch:
+        description: Branch to prepare the release on
+        required: true
+        type: string
+        default: main
+      milestone-title:
+        description: Optional milestone title
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  actions: write
+  contents: write
+  issues: read
+  pull-requests: write
+
+concurrency:
+  group: release-${{ inputs.milestone-title }}
+  cancel-in-progress: false
+
+jobs:
+  release-preparation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target-branch }}
+          fetch-depth: 0
+
+      - name: Get current version
+        id: current-version
+        uses: ./.github/actions/versioning/get-version
+
+      - name: Calculate release version
+        id: next-version
+        uses: ./.github/actions/versioning/next-release-version
+        with:
+          current-version: ${{ steps.current-version.outputs.version }}
+          bump: ${{ inputs.bump }}
+          stage: ${{ inputs.stage }}
+
+      - name: Reject development version
+        shell: bash
+        env:
+          NEW_VERSION: ${{ steps.next-version.outputs.new-version }}
+        run: |
+          set -euo pipefail
+          if [[ "$NEW_VERSION" == *-dev.* ]]; then
+            echo "::error::Release version '$NEW_VERSION' still contains a -dev. suffix." >&2
+            exit 1
+          fi
+
+      - name: Set version and refresh badges
+        uses: ./.github/actions/versioning/version-manager
+        with:
+          mode: set-version
+          new-version: ${{ steps.next-version.outputs.new-version }}
+
+      - name: Include missing issues in changelog
+        uses: ./.github/actions/documentation/update-changelog-issues
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          days-lookback: 90
+
+      # TODO(phase-3): Insert the LLM changelog review here.
+      - name: Move unreleased changelog content to release
+        uses: ./.github/actions/documentation/update-changelog
+        with:
+          action: create-release
+          version: ${{ steps.next-version.outputs.new-version }}
+
+      - name: Update Ready badge
+        uses: ./.github/actions/documentation/update-ready-badge
+        with:
+          status: YES
+          color: brightgreen
+          file: README.md
+
+      - name: Create or get release milestone
+        uses: ./.github/actions/milestone/create-or-get
+        with:
+          title: ${{ inputs.milestone-title || steps.next-version.outputs.new-version }}
+          description: "Release milestone for ${{ steps.next-version.outputs.new-version }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release preparation branch
+        shell: bash
+        env:
+          VERSION: ${{ steps.next-version.outputs.new-version }}
+        run: |
+          set -euo pipefail
+          git checkout -b "release-prep/$VERSION"
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
+
+      - name: Commit and push release preparation
+        shell: bash
+        env:
+          VERSION: ${{ steps.next-version.outputs.new-version }}
+        run: |
+          set -euo pipefail
+          git add Solution.props README.md CHANGELOG.md
+          git commit -m "release: $VERSION"
+          git push origin "release-prep/$VERSION"
+
+      - name: Open release preparation pull request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+          VERSION: ${{ steps.next-version.outputs.new-version }}
+        run: |
+          set -euo pipefail
+          CHANGELOG_URL="https://github.com/${{ github.repository }}/blob/release-prep/$VERSION/CHANGELOG.md#$VERSION"
+          gh pr create \
+            --base "$TARGET_BRANCH" \
+            --head "release-prep/$VERSION" \
+            --title "release: $VERSION" \
+            --body "$(cat <<EOF
+          ## Release preparation
+
+          - Version: \`$VERSION\`
+          - Target branch: \`$TARGET_BRANCH\`
+          - Changelog: $CHANGELOG_URL
+
+          When merged:
+          - [ ] Create the annotated \`$VERSION\` tag
+          - [ ] Create a draft GitHub Release
+          - [ ] Open and auto-merge the post-release development bump PR
+          EOF
+          )"
+
+  notify-on-failure:
+    needs: [release-preparation]
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Create failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const inputVersion = context.payload.inputs?.['milestone-title'] || 'calculated version';
+            const title = `🔴 release-1 (Prepare Release) failed for ${inputVersion} (run #${context.runNumber})`;
+            const body = [
+              'The **Release 1 - Prepare Release** workflow failed.',
+              '',
+              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              `**Target branch:** \`${context.payload.inputs?.['target-branch'] || 'main'}\``,
+              `**Triggered by:** ${context.actor}`,
+              '',
+              'This is a critical release pipeline failure. Please investigate immediately.',
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['automated', 'status: needs attention'],
+            });
