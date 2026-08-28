@@ -1,0 +1,248 @@
+name: Release 2 - Tag on Release Preparation Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+      - 'release/**'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release from the checked-out ref
+        required: true
+        type: string
+
+concurrency:
+  group: release-tag-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  release:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+      startsWith(github.head_ref, 'release-prep/'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.release-info.outputs.version }}
+    steps:
+      - name: Checkout release merge commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Read release version
+        id: release-info
+        uses: ./.github/actions/versioning/get-version
+
+      - name: Validate manual version
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          ACTUAL_VERSION: ${{ steps.release-info.outputs.version }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$ACTUAL_VERSION" != "$REQUESTED_VERSION" ]]; then
+            echo "::error::Solution.props contains '$ACTUAL_VERSION', not requested version '$REQUESTED_VERSION'." >&2
+            exit 1
+          fi
+
+      - name: Reject development version and existing tag
+        shell: bash
+        env:
+          VERSION: ${{ steps.release-info.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$VERSION" == *-dev.* ]]; then
+            echo "::error::Cannot release development version '$VERSION'." >&2
+            exit 1
+          fi
+
+          git fetch --tags
+          if git tag --list "$VERSION" | grep -Fxq "$VERSION" ||
+            git ls-remote --exit-code --refs origin "refs/tags/$VERSION" >/dev/null 2>&1; then
+            echo "::error::Release tag '$VERSION' already exists." >&2
+            exit 1
+          fi
+
+      - name: Create annotated release tag
+        shell: bash
+        env:
+          VERSION: ${{ steps.release-info.outputs.version }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
+          git tag -a "$VERSION" -m "Release $VERSION" "$MERGE_SHA"
+          git push origin "$VERSION"
+
+      - name: Determine prerelease status
+        id: prerelease
+        shell: bash
+        env:
+          VERSION: ${{ steps.release-info.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$VERSION" == *-* ]]; then
+            echo "is-prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is-prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate GitHub release notes
+        id: github-release-notes
+        uses: actions/github-script@v7
+        env:
+          RELEASE_VERSION: ${{ steps.release-info.outputs.version }}
+          TARGET_COMMIT: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+        with:
+          script: |
+            const releaseNotes = await github.rest.repos.generateReleaseNotes({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: process.env.RELEASE_VERSION,
+              target_commitish: process.env.TARGET_COMMIT,
+            });
+            core.setOutput('changelog', releaseNotes.data.body);
+
+      - name: Generate release notes
+        id: release-notes
+        uses: ./.github/actions/documentation/generate-release-notes
+        with:
+          version: ${{ steps.release-info.outputs.version }}
+          major: ${{ steps.release-info.outputs.major }}
+          minor: ${{ steps.release-info.outputs.minor }}
+          patch: ${{ steps.release-info.outputs.patch }}
+          suffix: ${{ steps.release-info.outputs.suffix }}
+          mistral-api-key: ${{ secrets.MISTRAL_API_KEY }}
+
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.release-info.outputs.version }}
+          name: ${{ steps.release-notes.outputs.title }}
+          body: |
+            ${{ steps.release-notes.outputs.body }}
+
+            ---
+
+            <details><summary>Auto-generated release notes</summary>
+
+            ${{ steps.github-release-notes.outputs.changelog }}
+
+            </details>
+          draft: true
+          prerelease: ${{ steps.prerelease.outputs.is-prerelease }}
+          target_commitish: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - name: Calculate post-release development version
+        if: github.base_ref == 'main' && !contains(steps.release-info.outputs.version, '-dev.')
+        id: next-dev-version
+        uses: ./.github/actions/versioning/next-release-version
+        with:
+          current-version: ${{ steps.release-info.outputs.version }}
+          bump: ${{ contains(steps.release-info.outputs.version, '-') && 'none' || 'patch' }}
+          stage: dev
+
+      - name: Create post-release bump branch
+        if: github.base_ref == 'main' && !contains(steps.release-info.outputs.version, '-dev.')
+        shell: bash
+        env:
+          VERSION: ${{ steps.next-dev-version.outputs.new-version }}
+        run: |
+          set -euo pipefail
+          git checkout -b "chore/bump-$VERSION"
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
+
+      - name: Set post-release development version
+        if: github.base_ref == 'main' && !contains(steps.release-info.outputs.version, '-dev.')
+        uses: ./.github/actions/versioning/version-manager
+        with:
+          mode: set-version
+          new-version: ${{ steps.next-dev-version.outputs.new-version }}
+
+      - name: Commit and push post-release bump
+        if: github.base_ref == 'main' && !contains(steps.release-info.outputs.version, '-dev.')
+        shell: bash
+        env:
+          VERSION: ${{ steps.next-dev-version.outputs.new-version }}
+        run: |
+          set -euo pipefail
+          git add Solution.props README.md
+          git commit -m "chore: bump version to $VERSION"
+          git push origin "chore/bump-$VERSION"
+
+      - name: Open post-release bump pull request
+        if: github.base_ref == 'main' && !contains(steps.release-info.outputs.version, '-dev.')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.next-dev-version.outputs.new-version }}
+        run: |
+          set -euo pipefail
+          PR_URL=$(gh pr create \
+            --base main \
+            --head "chore/bump-$VERSION" \
+            --title "chore: bump version to $VERSION" \
+            --body "Returns \`main\` to dated development version \`$VERSION\` after releasing \`${{ steps.release-info.outputs.version }}\`.")
+          PR_NUMBER=$(gh pr view "$PR_URL" --json number --jq '.number')
+          gh pr merge "$PR_NUMBER" --auto --rebase
+
+  notify-on-failure:
+    needs: [release]
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open or update release failure issue
+        uses: actions/github-script@v7
+        env:
+          RELEASE_VERSION: ${{ needs.release.outputs.version || inputs.version || 'unknown' }}
+        with:
+          script: |
+            const version = process.env.RELEASE_VERSION;
+            const title = `⛔ Release failed: ${version}`;
+            const body = [
+              `The release workflow failed for version \`${version}\`.`,
+              '',
+              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              `**Triggered by:** ${context.actor}`,
+              '',
+              'Inspect the failed step and retry only after resolving the underlying problem.',
+            ].join('\n');
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const existing = issues.find(issue => issue.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['automated', 'status: needs attention'],
+              });
+            }
