@@ -99,7 +99,7 @@ the threshold but blocked, automation opens/updates an issue
 `⛔ Promotion blocked: X.Y.Z-stage` with the current reason.
 
 When the line reaches **stable**, `stabilization-3-complete.yml` opens a backport PR
-`release/X.Y.x` → `main`, closes the milestone, and the line branch is deleted after that PR merges.
+`release/X.Y.x` → `main` and closes the milestone. The release line is retained for maintenance.
 
 ### 5.3 Hotfix
 
