@@ -35,7 +35,6 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;

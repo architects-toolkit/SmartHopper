@@ -24,7 +24,7 @@ description: Information about the Provider Manager (AIProvider)
   - AIProviderModels: Base for provider model operations (`IAIProviderModels` is in `AIModels`).
     - Retrieves provider model metadata and concrete API-ready model names.
     - GetModel(requestedModel) chooses user-requested or provider default.
-  - Initialization path registers capabilities/defaults with `ModelManager`.
+  - Initialization path registers capabilities/defaults with `AIModelCapabilityRegistry`.
 
 - **Discovery, Registration & Trust**
   - ProviderManager (ProviderManager.cs)
@@ -55,6 +55,6 @@ description: Information about the Provider Manager (AIProvider)
   - Keep InitializeProviderAsync() non-blocking; register capabilities before resolving defaults.
   - Use GetSettingDescriptors() to describe required keys and mark secrets.
   - Use concrete model names for API calls and model metadata. No wildcard resolution.
-  - Do not call `ModelManager.SelectBestModel()` directly from requests or components; go through `IAIProvider.SelectModel(...)`.
+  - Do not call `AIModelCapabilityRegistry.SelectBestModel()` directly from requests or components; go through `IAIProvider.SelectModel(...)`. Internal fallback resolvers may call the registry directly when settings must not influence the choice.
   - `CallApi()` should not be overridden by AIProvider implementations; use the base class. Override PreCall and PostCall if needed.
   - Keep `Decode()` resilient to provider payload variations; include tool calls and metrics where applicable.

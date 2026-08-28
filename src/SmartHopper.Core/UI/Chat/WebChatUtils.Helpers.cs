@@ -19,7 +19,6 @@
 using System;
 using System.Threading.Tasks;
 using Eto.Forms;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;

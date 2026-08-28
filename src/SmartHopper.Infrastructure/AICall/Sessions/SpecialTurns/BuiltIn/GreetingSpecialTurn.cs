@@ -19,7 +19,6 @@
 namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns.BuiltIn
 {
     using System.Collections.Generic;
-    using SmartHopper.Infrastructure.AIModels;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AIModels;
@@ -37,7 +36,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns.BuiltIn
         public static SpecialTurnConfig Create(string providerName, string? systemPrompt = null)
         {
             var greetingInteractions = BuildGreetingInteractions(systemPrompt);
-            var defaultModel = ModelManager.Instance.GetDefaultModel(providerName, AICapability.Text2Text);
+            var defaultModel = AIModelCapabilityRegistry.Instance.GetDefaultModel(providerName, AICapability.Text2Text);
 
             return new SpecialTurnConfig
             {

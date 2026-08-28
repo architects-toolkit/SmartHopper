@@ -133,7 +133,7 @@ public class MyAIOuputComponent : AIStatefulAsyncComponentBase
     {
         var request = new AIRequestParameters
         {
-            Model = ModelManager.SelectBestModel(SelectedProvider, RequiredCapability),
+            Model = AIModelCapabilityRegistry.Instance.SelectBestModel(SelectedProvider, null, RequiredCapability),
             Messages = input.ToMessages()
         };
 
@@ -146,23 +146,21 @@ public class MyAIOuputComponent : AIStatefulAsyncComponentBase
 
 ### Querying the Model Registry
 
-Developers can inspect and select models programmatically via the `ModelManager`:
+Developers can inspect and select models programmatically via the `AIModelCapabilityRegistry`:
 
 ```csharp
 // List all models for a provider that support image generation
-var provider = ProviderManager.GetProvider("OpenAI");
-var models = ModelManager.GetModels(provider)
-    .Where(m => m.Capabilities.HasFlag(AICapability.ImageGeneration))
+var models = AIModelCapabilityRegistry.Instance.GetProviderModels("openai")
+    .Where(m => m.HasCapability(AICapability.Text2Image))
     .OrderByDescending(m => m.Rank);
 
 // Resolve the best model with fallback logic
-var bestModel = ModelManager.SelectBestModel(
-    providerName: "OpenAI",
-    requiredCapability: AICapability.TextGeneration,
-    preferredModel: "gpt-4o",
-    allowDeprecated: false);
+var bestModel = AIModelCapabilityRegistry.Instance.SelectBestModel(
+    providerName: "openai",
+    userModel: null,
+    requiredCapability: AICapability.Text2Text);
 
-Console.WriteLine($"Selected model: {bestModel.Name}");
+Console.WriteLine($"Selected model: {bestModel}");
 
 ```
 

@@ -21,7 +21,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
@@ -54,9 +53,9 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
         /// <inheritdoc/>
         public bool IsAvailable(string providerName)
         {
-            return ModelManager.Instance.ValidateCapabilities(
+            return AIModelCapabilityRegistry.Instance.ValidateCapabilities(
                 providerName,
-                ModelManager.Instance.SelectBestModel(providerName, null, this.RequiresCapability),
+                AIModelCapabilityRegistry.Instance.SelectBestModel(providerName, null, this.RequiresCapability),
                 this.RequiresCapability);
         }
 

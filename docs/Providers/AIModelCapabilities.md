@@ -8,9 +8,9 @@ This document describes `AIModelCapabilities` and how SmartHopper uses it to dri
 
 | Property | Value |
 | --- | --- |
-| **Source Code** | `src/SmartHopper.Infrastructure/AIModels/AIModelCapabilities.cs` |
+| **Source Code** | `src/SmartHopper.ProviderSdk/AIModels/AIModelCapabilities.cs` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-08-21 |
+| **Last Updated** | 2026-08-28 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -35,7 +35,7 @@ _Note: This documentation was written by AI on its own. It may contain some mist
 
 - **Provider**
   Provider id (e.g., "openai", "mistralai").
-  Normalized to lower-case by `ModelManager` when registering capabilities.
+  Normalized to lower-case by `AIModelCapabilityRegistry` when registering capabilities.
 
 - **Model**
   Concrete API-ready model name (e.g., "gpt-4o-mini", "mistral-small-latest").
@@ -85,7 +85,7 @@ _Note: This documentation was written by AI on its own. It may contain some mist
 
 - **Defaults per capability**
   Mark at most one default per capability per provider.
-  Use `ModelManager.SetDefault(...)` with `exclusive = true` to enforce this.
+  Use `AIModelCapabilityRegistry.SetDefault(...)` with `exclusive = true` to enforce this.
 
 - **Concrete models only**
   Keep `Model` concrete (no wildcards). Use `Aliases` for alternative names;
@@ -93,7 +93,7 @@ _Note: This documentation was written by AI on its own. It may contain some mist
 
 - **Ranking and metadata**
   Use `Verified`, `Deprecated`, and `Rank` sparingly but deliberately.
-  `ModelManager.SelectBestModel(...)` uses these to choose between candidates
+  `AIModelCapabilityRegistry.SelectBestModel(...)` uses these to choose between candidates
   that satisfy the required capability.
 
 - **Tool-specific guidance**
@@ -122,7 +122,7 @@ _Note: This documentation was written by AI on its own. It may contain some mist
 
 ## Developer Reference
 
-`AIModelCapabilities` is typically populated by a provider's `AIProviderModels` implementation and registered with `ModelManager` during initialization.
+`AIModelCapabilities` is typically populated by a provider's `AIProviderModels` implementation and registered with `AIModelCapabilityRegistry` during initialization.
 
 ```csharp
 // Declaring capabilities for a model
@@ -143,16 +143,16 @@ var capabilities = new AIModelCapabilities
     DiscouragedForTools = new List<string>()
 };
 
-ModelManager.RegisterCapabilities(capabilities);
+AIModelCapabilityRegistry.RegisterCapabilities(capabilities);
 
 ```
 
 ```csharp
 // Registering a default with exclusivity
-ModelManager.SetDefault(
+AIModelCapabilityRegistry.SetDefault(
     provider: "openai",
-    capability: AICapability.Text2Text,
     model: "gpt-4o-mini",
+    caps: AICapability.Text2Text,
     exclusive: true);
 
 ```
@@ -161,8 +161,8 @@ ModelManager.SetDefault(
 
 ## Architecture & Design
 
-`AIModelCapabilities` acts as the bridge between provider-specific model knowledge and SmartHopper's centralized model selection policy. Each provider declares what it knows; `ModelManager` consumes these declarations as the single source of truth.
+`AIModelCapabilities` acts as the bridge between provider-specific model knowledge and SmartHopper's centralized model selection policy. Each provider declares what it knows; `AIModelCapabilityRegistry` consumes these declarations as the single source of truth.
 
-The design uses bitmasks for capabilities and defaults so that a single model can serve multiple roles, while still having a clear default for each role. The `Verified`, `Deprecated`, and `Rank` fields create a simple scoring system that `ModelManager.SelectBestModel` uses when multiple models satisfy the requested capability.
+The design uses bitmasks for capabilities and defaults so that a single model can serve multiple roles, while still having a clear default for each role. The `Verified`, `Deprecated`, and `Rank` fields create a simple scoring system that `AIModelCapabilityRegistry.SelectBestModel` uses when multiple models satisfy the requested capability.
 
 `DiscouragedForTools` is intentionally non-blocking: it feeds UI badges rather than hard restrictions, keeping the system flexible while still guiding users toward better choices.

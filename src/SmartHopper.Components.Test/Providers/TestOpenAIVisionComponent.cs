@@ -25,7 +25,6 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Providers.OpenAI;
 using SmartHopper.ProviderSdk.AICall.Core.Base;

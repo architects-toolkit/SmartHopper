@@ -20,7 +20,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AIModels;
@@ -81,7 +80,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
             EnsureInitialized();
             if (mode == ModalityFallbackMode.Disabled) return null;
 
-            var modelCaps = ModelManager.Instance.GetCapabilities(providerName, modelName);
+            var modelCaps = AIModelCapabilityRegistry.Instance.GetCapabilities(providerName, modelName);
             if (modelCaps != null && modelCaps.HasCapability(required))
             {
                 return null; // model already supports everything
@@ -163,7 +162,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
 
                     resolvedProvider = pin.Provider;
                     resolvedModel = pin.Model
-                        ?? ModelManager.Instance.SelectBestModel(pin.Provider, null, fb.RequiresCapability);
+                        ?? AIModelCapabilityRegistry.Instance.SelectBestModel(pin.Provider, null, fb.RequiresCapability);
                     return fb;
                 }
 
@@ -173,7 +172,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                     if (fb.IsAvailable(componentProvider))
                     {
                         resolvedProvider = componentProvider;
-                        resolvedModel = ModelManager.Instance.SelectBestModel(componentProvider, null, fb.RequiresCapability);
+                        resolvedModel = AIModelCapabilityRegistry.Instance.SelectBestModel(componentProvider, null, fb.RequiresCapability);
                         return fb;
                     }
                 }
@@ -183,7 +182,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                     if (fb.IsAvailable(componentProvider))
                     {
                         resolvedProvider = componentProvider;
-                        resolvedModel = ModelManager.Instance.SelectBestModel(componentProvider, null, fb.RequiresCapability);
+                        resolvedModel = AIModelCapabilityRegistry.Instance.SelectBestModel(componentProvider, null, fb.RequiresCapability);
                         return fb;
                     }
 
@@ -194,7 +193,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                         if (fb.IsAvailable(provider.Name))
                         {
                             resolvedProvider = provider.Name;
-                            resolvedModel = ModelManager.Instance.SelectBestModel(provider.Name, null, fb.RequiresCapability);
+                            resolvedModel = AIModelCapabilityRegistry.Instance.SelectBestModel(provider.Name, null, fb.RequiresCapability);
                             return fb;
                         }
                     }

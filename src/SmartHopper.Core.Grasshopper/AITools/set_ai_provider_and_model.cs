@@ -30,7 +30,6 @@ using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Tools;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;

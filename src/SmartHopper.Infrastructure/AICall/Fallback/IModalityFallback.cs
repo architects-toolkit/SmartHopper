@@ -18,7 +18,6 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AIModels;
 namespace SmartHopper.Infrastructure.AICall.Fallback

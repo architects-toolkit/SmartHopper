@@ -40,7 +40,7 @@ Offer a template-method style pipeline for providers: register models, load sett
 
 - Initialization (`InitializeProviderAsync`)
   - Retrieves `Models.RetrieveModels()`.
-  - Registers provider models and capabilities with `ModelManager` (single source of truth).
+  - Registers provider models and capabilities with `AIModelCapabilityRegistry` (single source of truth).
   - Loads default setting values from descriptors and merges with stored settings.
 - Settings helpers
   - `GetSetting<T>(key)` with type conversion and recursion guard.
@@ -48,10 +48,10 @@ Offer a template-method style pipeline for providers: register models, load sett
   - `RefreshCachedSettings(settings)` merges external updates into the cached dictionary.
   - `IEnumerable<SettingDescriptor> GetSettingDescriptors()` via `ProviderManager.GetProviderSettings(Name)`.
 - Default model resolution
-  - `GetDefaultModel(requiredCapability, useSettings)` validates capability with `ModelManager`.
+  - `GetDefaultModel(requiredCapability, useSettings)` validates capability with `AIModelCapabilityRegistry`.
 - Provider-scoped model selection
   - `SelectModel(requiredCapability, requestedModel)` resolves the concrete API-ready model.
-  - Default implementation delegates to centralized `ModelManager.SelectBestModel` to keep policy consistent while hiding the singleton behind the provider interface. Providers may override.
+  - Default implementation delegates to centralized `AIModelCapabilityRegistry.SelectBestModel` to keep policy consistent while hiding the singleton behind the provider interface. Providers may override.
 - HTTP/API orchestration
   - `Call(request)` handles PreCall, validation, `CallApi`, metrics, PostCall.
   - `CallApi` supports GET, POST, DELETE, PATCH, Bearer auth, JSON content.
@@ -144,6 +144,6 @@ The lifecycle is:
 4. **PostCall** — provider-specific response cleanup or logging
 5. **Decode** — convert raw response into `AIReturn<T>`
 
-Settings are cached per-provider to avoid repeated deserialization, and `ModelManager` is used as the single source of truth so that model selection policy lives in one place rather than being duplicated in every provider.
+Settings are cached per-provider to avoid repeated deserialization, and `AIModelCapabilityRegistry` is used as the single source of truth so that model selection policy lives in one place rather than being duplicated in every provider.
 
 The generic singleton variant (`AIProvider<T>`) is a convenience for providers that are naturally singletons, avoiding DI container complexity in plugin-loaded assemblies.

@@ -17,7 +17,6 @@
  */
 
 using System.Collections.Generic;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;

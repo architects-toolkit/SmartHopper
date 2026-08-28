@@ -24,7 +24,6 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Models;
 using SmartHopper.Core.Types;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AIModels;

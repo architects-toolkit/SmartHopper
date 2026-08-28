@@ -24,7 +24,6 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Threading.Tasks;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
-    using SmartHopper.Infrastructure.AIModels;
     using SmartHopper.Infrastructure.AIProviders;
     using SmartHopper.Infrastructure.Settings;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
@@ -52,11 +51,11 @@ namespace SmartHopper.Infrastructure.Tests
 
             public async Task InitializeProviderAsync()
             {
-                // Register dummy models into ModelManager following the new unified flow
+                // Register dummy models into the global capability registry
                 var models = await this.Models.RetrieveModels().ConfigureAwait(false);
                 foreach (var m in models)
                 {
-                    ModelManager.Instance.SetCapabilities(m);
+                    AIModelCapabilityRegistry.Instance.SetCapabilities(m);
                 }
             }
 

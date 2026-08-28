@@ -8,9 +8,9 @@ Base class for provider-side model retrieval and capability resolution.
 
 | Property | Value |
 | --- | --- |
-| **Source Code** | `src/SmartHopper.Infrastructure/Providers/AIProviderModels.cs` |
+| **Source Code** | `src/SmartHopper.ProviderSdk/AIProviders/AIProviderModels.cs` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
+| **Last Updated** | 2026-08-28 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -37,7 +37,7 @@ Expose model lists, capabilities, and defaults to the provider during initializa
 
 ### Key members
 
-- `Task<List<AIModelCapabilities>> RetrieveModels()` — asynchronously fetch full model metadata (name, capabilities, defaults, verification, rank) for registration in `ModelManager`.
+- `Task<List<AIModelCapabilities>> RetrieveModels()` — asynchronously fetch full model metadata (name, capabilities, defaults, verification, rank) for registration in `AIModelCapabilityRegistry`.
 - `Task<List<string>> RetrieveApiModels()` — asynchronously fetch the raw list of available model identifiers from the provider API (e.g., `/models`). Intended for UI listing (e.g., model pickers) and not for capability registration. Implementations should:
   - Use provider-authenticated HTTP calls.
   - Return an empty list on any error (network/JSON), enabling silent fallback to static lists.
@@ -45,13 +45,13 @@ Expose model lists, capabilities, and defaults to the provider during initializa
 
 ### Relationships
 
-- Used by `AIProvider.InitializeProviderAsync()` to retrieve and register provider models with `ModelManager` via `RetrieveModels()`.
+- Used by `AIProvider.InitializeProviderAsync()` to retrieve and register provider models with `AIModelCapabilityRegistry` via `RetrieveModels()`.
 - `RetrieveApiModels()` is used by UI components like `AIModelsComponent` to populate dynamic model dropdowns/lists. When the API list is unavailable, components fall back to `RetrieveModels()` results.
-- Works with `AIModelCapabilities` and `ModelManager` as the single source of truth for capabilities and defaults.
+- Works with `AIModelCapabilities` and `AIModelCapabilityRegistry` as the single source of truth for capabilities and defaults.
 
 ### Notes
 
-- Implementations should fetch concrete models and metadata from provider APIs. Registration is handled centrally by `ModelManager`.
+- Implementations should fetch concrete models and metadata from provider APIs. Registration is handled centrally by `AIModelCapabilityRegistry`.
 - For `RetrieveApiModels()`, prefer simple, resilient parsing (e.g., extract `id` or `name` from `data[]`). Handle exceptions internally and return `[]`.
 - Example providers with dynamic lists: `OpenAIProviderModels`, `MistralAIProviderModels`, `GeminiProviderModels`.
 

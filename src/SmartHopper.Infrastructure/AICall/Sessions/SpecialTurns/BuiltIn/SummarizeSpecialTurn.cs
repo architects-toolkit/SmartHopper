@@ -21,7 +21,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns.BuiltIn
     using System.Collections.Generic;
     using System.Linq;
     using System.Text;
-    using SmartHopper.Infrastructure.AIModels;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AIModels;
@@ -47,7 +46,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns.BuiltIn
             IAIInteraction lastUserMessage = null)
         {
             var summarizeInteractions = BuildSummarizeInteractions(conversationHistory, lastUserMessage);
-            var defaultModel = ModelManager.Instance.GetDefaultModel(providerName, AICapability.Text2Text);
+            var defaultModel = AIModelCapabilityRegistry.Instance.GetDefaultModel(providerName, AICapability.Text2Text);
             var effectiveModel = !string.IsNullOrWhiteSpace(conversationModel) ? conversationModel : defaultModel;
 
             return new SpecialTurnConfig

@@ -23,7 +23,6 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Tools;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AICall.Core;
