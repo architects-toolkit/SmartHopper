@@ -850,36 +850,34 @@ namespace SmartHopper.Providers.Anthropic
                         }
                         else if (string.Equals(type, "tool_result", StringComparison.OrdinalIgnoreCase))
                         {
-                            // Each new interaction gets a fresh DateTime.UtcNow from AIInteractionBase
-                            var tr = new AIInteractionToolResult
-                            {
-                                Id = block["tool_use_id"]?.ToString() ?? block["id"]?.ToString(),
-                                Agent = AIAgent.ToolResult,
-                            };
-
-                            // Attempt to map back the tool name/args from a prior tool_use in the same message
-                            if (!string.IsNullOrEmpty(tr.Id))
-                            {
-                                var matchingCall = toolCalls.FirstOrDefault(c => string.Equals(c.Id, tr.Id, StringComparison.Ordinal));
-                                if (matchingCall != null)
-                                {
-                                    tr.Name = matchingCall.Name;
-                                    tr.Arguments = matchingCall.Arguments;
-                                }
-                            }
-
                             // Extract result content; it can be string or array of text blocks
                             var resultText = ExtractToolResultText(block["content"]);
 
                             // Convert to JObject; if not JSON, wrap as { "value": "..." }
+                            JObject resultObj;
                             try
                             {
-                                tr.Result = string.IsNullOrWhiteSpace(resultText) ? new JObject() : JObject.Parse(resultText);
+                                resultObj = string.IsNullOrWhiteSpace(resultText) ? new JObject() : JObject.Parse(resultText);
                             }
                             catch
                             {
-                                tr.Result = new JObject { ["value"] = resultText ?? string.Empty };
+                                resultObj = new JObject { ["value"] = resultText ?? string.Empty };
                             }
+
+                            var toolId = block["tool_use_id"]?.ToString() ?? block["id"]?.ToString();
+                            var matchingCall = !string.IsNullOrEmpty(toolId)
+                                ? toolCalls.FirstOrDefault(c => string.Equals(c.Id, toolId, StringComparison.Ordinal))
+                                : null;
+
+                            // Each new interaction gets a fresh DateTime.UtcNow from AIInteractionBase
+                            var tr = new AIInteractionToolResult
+                            {
+                                Id = toolId,
+                                Name = matchingCall?.Name,
+                                Arguments = matchingCall?.Arguments,
+                                Agent = AIAgent.ToolResult,
+                                Result = resultObj,
+                            };
 
                             toolResults.Add(tr);
                         }
@@ -897,9 +895,13 @@ namespace SmartHopper.Providers.Anthropic
                 }
 
                 // Each new interaction gets a fresh DateTime.UtcNow from AIInteractionBase
-                var interaction = new AIInteractionText();
-                interaction.SetResult(agent: AIAgent.Assistant, content: contentText, reasoning: reasoningText);
-                interaction.Metrics = this.DecodeMetrics(response);
+                var interaction = new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = contentText,
+                    Reasoning = reasoningText,
+                    Metrics = this.DecodeMetrics(response),
+                };
 
                 Debug.WriteLine($"[Anthropic] Decode creating text interaction: content='{contentText.Substring(0, Math.Min(50, contentText.Length))}...', toolCalls={toolCalls.Count}, toolResults={toolResults.Count}");
 
@@ -929,30 +931,41 @@ namespace SmartHopper.Providers.Anthropic
 
         private AIMetrics DecodeMetrics(JObject response)
         {
-            var m = new AIMetrics();
             if (response == null)
             {
-                return m;
+                return new AIMetrics();
             }
 
             try
             {
-                if (response["usage"] is JObject usage)
-                {
-                    m.InputTokensPrompt = usage["input_tokens"]?.Value<int>() ?? m.InputTokensPrompt;
-                    m.OutputTokensGeneration = usage["output_tokens"]?.Value<int>() ?? m.OutputTokensGeneration;
-                    m.InputTokensCached = usage["cache_read_input_tokens"]?.Value<int>() ?? m.InputTokensCached;
-                    m.InputTokensCacheWrite = usage["cache_creation_input_tokens"]?.Value<int>() ?? m.InputTokensCacheWrite;
-                }
+                var inputTokensPrompt = response["usage"] is JObject usage
+                    ? usage["input_tokens"]?.Value<int>() ?? 0
+                    : 0;
+                var outputTokensGeneration = response["usage"] is JObject usage2
+                    ? usage2["output_tokens"]?.Value<int>() ?? 0
+                    : 0;
+                var inputTokensCached = response["usage"] is JObject usage3
+                    ? usage3["cache_read_input_tokens"]?.Value<int>() ?? 0
+                    : 0;
+                var inputTokensCacheWrite = response["usage"] is JObject usage4
+                    ? usage4["cache_creation_input_tokens"]?.Value<int>() ?? 0
+                    : 0;
 
-                m.FinishReason = response["stop_reason"]?.ToString() ?? m.FinishReason;
+                return new AIMetrics
+                {
+                    InputTokensPrompt = inputTokensPrompt,
+                    OutputTokensGeneration = outputTokensGeneration,
+                    InputTokensCached = inputTokensCached,
+                    InputTokensCacheWrite = inputTokensCacheWrite,
+                    FinishReason = response["stop_reason"]?.ToString() ?? string.Empty,
+                };
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[Anthropic] DecodeMetrics error: {ex.Message}");
             }
 
-            return m;
+            return new AIMetrics();
         }
 
         /// <summary>
@@ -1175,15 +1188,18 @@ namespace SmartHopper.Providers.Anthropic
                             var argsJson = toolArgsBuffer.ToString();
                             Debug.WriteLine($"[Anthropic] Tool arguments complete: {argsJson}");
 
+                            JObject args;
                             try
                             {
-                                currentToolCall.Arguments = string.IsNullOrEmpty(argsJson) ? new JObject() : JObject.Parse(argsJson);
+                                args = string.IsNullOrEmpty(argsJson) ? new JObject() : JObject.Parse(argsJson);
                             }
                             catch (Exception ex)
                             {
                                 Debug.WriteLine($"[Anthropic] Failed to parse tool arguments: {ex.Message}");
-                                currentToolCall.Arguments = new JObject();
+                                args = new JObject();
                             }
+
+                            currentToolCall = currentToolCall with { Arguments = args };
 
                             toolCalls.Add(currentToolCall);
                             Debug.WriteLine($"[Anthropic] Added tool call to list: id={currentToolCall.Id}, name={currentToolCall.Name}, args={currentToolCall.Arguments}");
@@ -1207,10 +1223,18 @@ namespace SmartHopper.Providers.Anthropic
 
                         if (parsed["usage"] is JObject usage)
                         {
-                            streamMetrics.InputTokensPrompt = usage["input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt;
-                            streamMetrics.OutputTokensGeneration = usage["output_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration;
-                            streamMetrics.InputTokensCached = usage["cache_read_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCached;
-                            streamMetrics.InputTokensCacheWrite = usage["cache_creation_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCacheWrite;
+                            var inputTokensPrompt = usage["input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt;
+                            var outputTokensGeneration = usage["output_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration;
+                            var inputTokensCached = usage["cache_read_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCached;
+                            var inputTokensCacheWrite = usage["cache_creation_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCacheWrite;
+
+                            streamMetrics = streamMetrics with
+                            {
+                                InputTokensPrompt = inputTokensPrompt,
+                                OutputTokensGeneration = outputTokensGeneration,
+                                InputTokensCached = inputTokensCached,
+                                InputTokensCacheWrite = inputTokensCacheWrite,
+                            };
                         }
 
                         // The stop_reason is nested under "delta" in message_delta events
@@ -1239,7 +1263,7 @@ namespace SmartHopper.Providers.Anthropic
                     : AICallStatus.Finished;
 
                 var final = new AIReturn { Request = request, Status = finalStatus };
-                streamMetrics.FinishReason = lastFinishReason ?? streamMetrics.FinishReason;
+                streamMetrics = streamMetrics with { FinishReason = lastFinishReason ?? streamMetrics.FinishReason };
 
                 Debug.WriteLine($"[Anthropic] Stream complete: textLen={textBuffer.Length}, toolCalls={toolCalls.Count}, finishReason={streamMetrics.FinishReason}, in={streamMetrics.InputTokensPrompt}, out={streamMetrics.OutputTokensGeneration}");
 

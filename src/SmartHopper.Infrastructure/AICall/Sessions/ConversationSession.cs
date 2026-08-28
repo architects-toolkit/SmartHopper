@@ -611,7 +611,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 if (interaction?.Metrics != null)
                 {
-                    combined.Combine(interaction.Metrics);
+                    combined = combined.WithCombined(interaction.Metrics);
                 }
             }
 
@@ -709,11 +709,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             // Attach completion time to the last interaction in the result
             if (res?.Body != null)
             {
-                var lastInteraction = res.Body.GetLastInteraction();
-                if (lastInteraction?.Metrics != null)
-                {
-                    lastInteraction.Metrics.CompletionTime = stopwatch.Elapsed.TotalSeconds;
-                }
+                res.SetCompletionTime(stopwatch.Elapsed.TotalSeconds);
             }
 
             return res;
@@ -739,7 +735,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var newInteractions = callResult.Body?.GetNewInteractions();
 
             // Apply unified TurnId to all new interactions for this provider turn
-            InteractionUtility.EnsureTurnId(newInteractions, turnId);
+            newInteractions = InteractionUtility.EnsureTurnId(newInteractions, turnId).ToList();
             this.MergeNewToSessionBody(newInteractions, toolsOnly: false);
 #if DEBUG
             // Debug: observe tool_call ids after provider merge
@@ -790,7 +786,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     var delta = adapter.NormalizeDelta(rawDelta);
 
                     var newInteractions = delta.Body?.GetNewInteractions();
-                    InteractionUtility.EnsureTurnId(newInteractions, turnId);
+                    newInteractions = InteractionUtility.EnsureTurnId(newInteractions, turnId).ToList();
 
                     if (newInteractions != null && newInteractions.Count > 0)
                     {

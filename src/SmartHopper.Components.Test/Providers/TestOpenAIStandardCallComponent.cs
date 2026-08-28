@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override string TestProviderName => "OpenAI";
 
-        pub        public TestOpenAIStandardCallComponent()
+        public TestOpenAIStandardCallComponent()
             : base("Test OpenAI Standard Call", "TEST-OPENAI-CALL", "Tests OpenAI standard API call and metrics validation")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

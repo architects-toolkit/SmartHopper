@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override string TestProviderName => "MistralAI";
 
-        pub        public TestMistralAICancellationComponent()
+        public TestMistralAICancellationComponent()
             : base("Test MistralAI Cancellation", "TEST-MISTRAL-CANCEL", "Tests MistralAI cancellation across all async operations")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

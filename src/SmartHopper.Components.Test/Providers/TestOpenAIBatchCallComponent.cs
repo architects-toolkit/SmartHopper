@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override string TestProviderName => "OpenAI";
 
-        pub        public TestOpenAIBatchCallComponent()
+        public TestOpenAIBatchCallComponent()
             : base("Test OpenAI Batch Call", "TEST-OPENAI-BATCH", "Tests OpenAI batch API call with service_tier=batch and metrics validation")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

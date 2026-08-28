@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override string TestProviderName => "OpenAI";
 
-        pub        public TestOpenAICancellationComponent()
+        public TestOpenAICancellationComponent()
             : base("Test OpenAI Cancellation", "TEST-OPENAI-CANCEL", "Tests OpenAI cancellation across all async operations")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

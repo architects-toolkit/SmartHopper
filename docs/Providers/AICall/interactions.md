@@ -8,9 +8,9 @@ Covers `IAIInteraction` and concrete message types.
 
 | Property | Value |
 | --- | --- |
-| **Source Code** | `src/SmartHopper.Infrastructure/AICall/Core/Interactions/` |
+| **Source Code** | `src/SmartHopper.ProviderSdk/AICall/Core/Interactions/` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
+| **Last Updated** | 2026-08-28 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -46,20 +46,24 @@ This section provides an overview of all interaction types available in the AICa
 
 - File: `AIInteractionText.cs`
 - Purpose: text output with optional reasoning.
-- Fields: `Content`, `Reasoning`
-- Methods: `SetResult(AIAgent agent, string content, string? reasoning)`; `ToString()` formats `reasoning content`.
+- Fields: `Content`, `Reasoning` (both `init`-only).
+- Copy-returning methods:
+  - `WithResult(AIAgent agent, string content, string? reasoning)` — returns a new interaction with the given content and reasoning.
+  - `WithDeltaMetrics(AIMetrics metricsDelta)` — returns a new interaction with metrics combined into the existing metrics.
+- `ToString()` formats `reasoning\n\ncontent`.
+- Streaming: use the nested `AIInteractionText.Builder` to accumulate deltas, then call `Build()` to emit the immutable snapshot.
 
 ### AIInteractionImage
 
 - File: `AIInteractionImage.cs`
 - Purpose: image generation results, prompts, and vision input (image understanding)
-- Fields: `ImageUrl`, `ImageData`, `RevisedPrompt`, `OriginalPrompt`, `ImageSize` (default `1024x1024`), `ImageQuality` (default `standard`), `ImageStyle` (default `vivid`), `MimeType` (for vision base64 input)
-- Methods:
-  - `CreateRequest(prompt, size?, quality?, style?)` records desired image generation parameters
-  - `SetResult(imageUrl?, imageData?, revisedPrompt?)` (one of url/data required)
-  - `CreateVisionInput(Uri imageUrl)` creates a vision input from a URL
-  - `CreateVisionInput(string imageUrl)` creates a vision input from a URL string
-  - `CreateVisionInputFromBase64(string base64Data, string mimeType = "image/png")` creates a vision input from base64-encoded image data
+- Fields: `ImageUrl`, `ImageData`, `RevisedPrompt`, `OriginalPrompt`, `ImageSize` (default `1024x1024`), `ImageQuality` (default `standard`), `ImageStyle` (default `vivid`), `AspectRatio`, `MimeType` (for vision base64 input)
+- Copy-returning methods:
+  - `WithRequest(prompt, size?, quality?, style?, aspectRatio?)` records desired image generation parameters.
+  - `WithResult(imageUrl?, imageData?, revisedPrompt?)` (one of url/data required).
+  - `WithVisionInput(Uri imageUrl)` creates a vision input from a URL.
+  - `WithVisionInput(string imageUrl)` creates a vision input from a URL string.
+  - `WithVisionInputFromBase64(string base64Data, string mimeType = "image/png")` creates a vision input from base64-encoded image data.
 
 ### AIInteractionToolCall
 
@@ -92,10 +96,10 @@ This section provides an overview of all interaction types available in the AICa
   - `Surfaceable` (bool) — whether this diagnostic should be surfaced to end users; defaults to true for Info/Warning/Error, false for Debug
   - `Content` (string) — human-readable diagnostic text
 - Methods:
-  - `SetResult(string content, AIMetrics metrics)` — set the diagnostic content and optional metrics
-  - `ToRuntimeMessage()` — project into an equivalent SHRuntimeMessage
-  - `FromRuntimeMessage(SHRuntimeMessage message)` — create from an SHRuntimeMessage
-  - `CreateDebug(string content, AIMetrics metrics)` — factory for debug-level diagnostic (non-surfaceable by default)
+  - `WithResult(string content, AIMetrics? metrics = null)` — returns a new diagnostic interaction with the given content and metrics.
+  - `ToRuntimeMessage()` — project into an equivalent `SHRuntimeMessage`.
+  - `FromRuntimeMessage(SHRuntimeMessage message)` — static factory creating an interaction from a runtime message.
+  - `CreateDebug(string content, AIMetrics? metrics = null)` — static factory for a debug-level diagnostic (non-surfaceable by default).
   - `GetRoleClassForRender()` — returns CSS role class based on severity
   - `GetDisplayNameForRender()` — returns display label for UI
   - `GetRawContentForRender()` — returns diagnostic content for rendering
@@ -132,7 +136,7 @@ This section provides an overview of all interaction types available in the AICa
 
 ### IAIRenderInteraction
 
-- File: `src/SmartHopper.Infrastructure/AICall/Core/Interactions/IAIRenderInteraction.cs`
+- File: `src/SmartHopper.ProviderSdk/AICall/Core/Interactions/IAIRenderInteraction.cs`
 - Purpose: eliminate type switches in UI rendering by letting each interaction define how it should be displayed.
 - Methods:
   - `GetRoleClassForRender()` → returns the CSS role class (e.g., `assistant`, `user`, `tool`, `error`).
@@ -146,7 +150,7 @@ Consumption:
 
 ### IAIKeyedInteraction
 
-- File: `src/SmartHopper.Infrastructure/AICall/Core/Interactions/IAIKeyedInteraction.cs`
+- File: `src/SmartHopper.ProviderSdk/AICall/Core/Interactions/IAIKeyedInteraction.cs`
 - Purpose: provide stable identity keys to aggregate streaming updates and to de-duplicate persisted messages.
 - Methods:
   - `GetStreamKey()` → stable grouping key for streaming (multiple deltas update a single bubble in UI).
@@ -162,8 +166,22 @@ Consumption:
 
 ```csharp
 // Creating a text interaction
-var textInteraction = new AIInteractionText();
-textInteraction.SetResult(AIAgent.Assistant, "Hello, world!", "Reasoning text here");
+var textInteraction = new AIInteractionText
+{
+    Agent = AIAgent.Assistant,
+    Content = "Hello, world!",
+    Reasoning = "Reasoning text here",
+};
+
+// Or copy from a blank instance
+textInteraction = new AIInteractionText().WithResult(AIAgent.Assistant, "Hello, world!", "Reasoning text here");
+
+// Building a streamed text interaction
+var builder = new AIInteractionText.Builder();
+builder.WithResult(AIAgent.Assistant, string.Empty)
+       .AppendContent("Hello")
+       .AppendContent(", world!");
+var streamedText = builder.Build();
 
 // Creating a tool call interaction
 var toolCall = new AIInteractionToolCall
@@ -177,18 +195,30 @@ var toolCall = new AIInteractionToolCall
 
 ```csharp
 // Creating a vision input from a URL
-var visionInput = AIInteractionImage.CreateVisionInput("<https://example.com/image.png">);
+var visionInput = new AIInteractionImage().WithVisionInput("<https://example.com/image.png">);
 
 // Creating a runtime message for diagnostics
 var runtimeMsg = AIInteractionRuntimeMessage.FromRuntimeMessage(
     new SHRuntimeMessage { Content = "Connection restored", Severity = SHRuntimeMessageSeverity.Info }
 );
 
+// Updating an image generation request
+var imageRequest = new AIInteractionImage().WithRequest(
+    prompt: "A futuristic building in Barcelona",
+    size: "1024x1024");
+
 ```
 
 ---
 
 ## Architecture & Design
+
+### Immutability
+
+- All interaction records are immutable after construction.
+- Use object initializers, `with` expressions, or the copy-returning `With...` helpers to create variants.
+- Streaming and incremental aggregation use the nested `Builder` classes (for example, `AIInteractionText.Builder`) to accumulate mutable local state and then emit an immutable snapshot with `Build()`.
+- `AIBody` and `AIReturn` are immutable snapshots of a request/response turn; they contain `IReadOnlyList<T>` collections and have no post-construction mutation methods.
 
 ### Provider Encoding
 

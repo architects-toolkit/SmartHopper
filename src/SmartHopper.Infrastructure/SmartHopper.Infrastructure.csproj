@@ -90,20 +90,22 @@
   -->
   <PropertyGroup>
     <SmartHopperPublicKey>This value is automatically replaced by the build tooling before official builds.</SmartHopperPublicKey>
+    <!-- Only emit a strong-name public key for InternalsVisibleTo when the assembly is actually signed. -->
+    <SmartHopperPublicKeyForIvt Condition="'$(SignAssembly)' != 'false'">$(SmartHopperPublicKey)</SmartHopperPublicKeyForIvt>
   </PropertyGroup>
   <ItemGroup>
     <!-- Core assemblies -->
-    <InternalsVisibleTo Include="SmartHopper.Core, PublicKey=$(SmartHopperPublicKey)" />
-    <InternalsVisibleTo Include="SmartHopper.Core.Grasshopper, PublicKey=$(SmartHopperPublicKey)" />
-    <InternalsVisibleTo Include="SmartHopper.Components, PublicKey=$(SmartHopperPublicKey)" />
-    <InternalsVisibleTo Include="SmartHopper.Menu, PublicKey=$(SmartHopperPublicKey)" />
+    <InternalsVisibleTo Include="SmartHopper.Core" Key="$(SmartHopperPublicKeyForIvt)" />
+    <InternalsVisibleTo Include="SmartHopper.Core.Grasshopper" Key="$(SmartHopperPublicKeyForIvt)" />
+    <InternalsVisibleTo Include="SmartHopper.Components" Key="$(SmartHopperPublicKeyForIvt)" />
+    <InternalsVisibleTo Include="SmartHopper.Menu" Key="$(SmartHopperPublicKeyForIvt)" />
     <!--
       Provider IVTs were intentionally removed in 2.0.0 — see Provider SDK plan §4.3.
       All providers, including first-party ones, must compile against the
       SmartHopper.ProviderSdk public surface only.
     -->
     <!-- Test assemblies -->
-    <InternalsVisibleTo Include="SmartHopper.Infrastructure.Tests, PublicKey=$(SmartHopperPublicKey)" />
-    <InternalsVisibleTo Include="SmartHopper.Components.Test, PublicKey=$(SmartHopperPublicKey)" />
+    <InternalsVisibleTo Include="SmartHopper.Infrastructure.Tests" Key="$(SmartHopperPublicKeyForIvt)" />
+    <InternalsVisibleTo Include="SmartHopper.Components.Test" Key="$(SmartHopperPublicKeyForIvt)" />
   </ItemGroup>
 </Project>

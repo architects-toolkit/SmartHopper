@@ -559,15 +559,15 @@ namespace SmartHopper.Providers.MistralAI
                     content = JsonSchemaService.Instance.Unwrap(content, wrapperInfo);
                 }
 
-                var interaction = new AIInteractionText();
-                interaction.SetResult(
-                    agent: AIAgent.Assistant,
-                    content: content,
-                    reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
-
                 var metrics = this.DecodeMetrics(response);
 
-                interaction.Metrics = metrics;
+                var interaction = new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = content,
+                    Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
+                    Metrics = metrics,
+                };
 
                 interactions.Add(interaction);
 
@@ -627,10 +627,9 @@ namespace SmartHopper.Providers.MistralAI
         /// <inheritdoc/>
         private AIMetrics DecodeMetrics(JObject response)
         {
-            var metrics = new AIMetrics();
             if (response == null)
             {
-                return metrics;
+                return new AIMetrics();
             }
 
             try
@@ -639,16 +638,19 @@ namespace SmartHopper.Providers.MistralAI
                 var firstChoice = choices?.FirstOrDefault() as JObject;
                 var usage = response["usage"] as JObject;
 
-                metrics.FinishReason = firstChoice?["finish_reason"]?.ToString() ?? metrics.FinishReason;
-                metrics.InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
-                metrics.OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
+                return new AIMetrics
+                {
+                    FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
+                    InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? 0,
+                    OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? 0,
+                };
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[MistralAI] DecodeMetrics error: {ex.Message}");
             }
 
-            return metrics;
+            return new AIMetrics();
         }
 
         /// <summary>
@@ -784,7 +786,7 @@ namespace SmartHopper.Providers.MistralAI
                 string? lastFinishReason = null;
 
                 // Provider-local aggregate of assistant text
-                var assistantAggregate = new AIInteractionText
+                var assistantBuilder = new AIInteractionText.Builder
                 {
                     Agent = AIAgent.Assistant,
                     Content = string.Empty,
@@ -828,17 +830,20 @@ namespace SmartHopper.Providers.MistralAI
                     var modelVal = parsed["model"]?.ToString();
                     if (!string.IsNullOrEmpty(modelVal))
                     {
-                        streamMetrics.Model = modelVal;
+                        streamMetrics = streamMetrics with { Model = modelVal };
                     }
 
                     // Capture usage metrics if present (Mistral returns usage in the last chunk)
                     if (parsed["usage"] is JObject usageObj)
                     {
-                        streamMetrics.InputTokensPrompt = usageObj["prompt_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt;
-                        streamMetrics.OutputTokensGeneration = usageObj["completion_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration;
+                        streamMetrics = streamMetrics with
+                        {
+                            InputTokensPrompt = usageObj["prompt_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt,
+                            OutputTokensGeneration = usageObj["completion_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration,
+                        };
 
                         // Update aggregate metrics as they become available
-                        assistantAggregate.AppendDelta(metricsDelta: new AIMetrics
+                        assistantBuilder.CombineMetrics(new AIMetrics
                         {
                             Provider = this.provider.Name,
                             Model = streamMetrics.Model,
@@ -975,7 +980,7 @@ namespace SmartHopper.Providers.MistralAI
 
                     if (!string.IsNullOrEmpty(newReasoning))
                     {
-                        assistantAggregate.AppendDelta(reasoningDelta: newReasoning);
+                        assistantBuilder.AppendReasoning(newReasoning);
                         hasReasoningUpdate = true;
                         Debug.WriteLine($"[MistralAI] Streaming reasoning chunk: {newReasoning.Substring(0, Math.Min(50, newReasoning.Length))}...");
                     }
@@ -985,7 +990,7 @@ namespace SmartHopper.Providers.MistralAI
                         textBuffer.Append(newText);
 
                         // Append to provider-local aggregate and emit a snapshot
-                        assistantAggregate.AppendDelta(contentDelta: newText);
+                        assistantBuilder.AppendContent(newText);
                         hasContentUpdate = true;
                     }
 
@@ -997,15 +1002,15 @@ namespace SmartHopper.Providers.MistralAI
                             // Emit completed reasoning-only interaction to set boundary flag
                             var reasoningComplete = new AIInteractionText
                             {
-                                Agent = assistantAggregate.Agent,
+                                Agent = assistantBuilder.Agent,
                                 Content = string.Empty,
-                                Reasoning = assistantAggregate.Reasoning,
+                                Reasoning = assistantBuilder.Reasoning,
                                 Time = DateTime.UtcNow,
                                 Metrics = new AIMetrics
                                 {
-                                    Provider = assistantAggregate.Metrics.Provider,
-                                    Model = assistantAggregate.Metrics.Model,
-                                    OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                    Provider = assistantBuilder.Metrics.Provider,
+                                    Model = assistantBuilder.Metrics.Model,
+                                    OutputTokensReasoning = assistantBuilder.Metrics.OutputTokensReasoning,
                                 },
                             };
 
@@ -1024,19 +1029,19 @@ namespace SmartHopper.Providers.MistralAI
 
                         var snapshot = new AIInteractionText
                         {
-                            Agent = assistantAggregate.Agent,
-                            Content = assistantAggregate.Content,
-                            Reasoning = assistantAggregate.Reasoning,
+                            Agent = assistantBuilder.Agent,
+                            Content = assistantBuilder.Content,
+                            Reasoning = assistantBuilder.Reasoning,
                             Metrics = new AIMetrics
                             {
-                                Provider = assistantAggregate.Metrics.Provider,
-                                Model = assistantAggregate.Metrics.Model,
-                                FinishReason = assistantAggregate.Metrics.FinishReason,
-                                InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                                InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                                OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                                OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                                CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                                Provider = assistantBuilder.Metrics.Provider,
+                                Model = assistantBuilder.Metrics.Model,
+                                FinishReason = assistantBuilder.Metrics.FinishReason,
+                                InputTokensCached = assistantBuilder.Metrics.InputTokensCached,
+                                InputTokensPrompt = assistantBuilder.Metrics.InputTokensPrompt,
+                                OutputTokensReasoning = assistantBuilder.Metrics.OutputTokensReasoning,
+                                OutputTokensGeneration = assistantBuilder.Metrics.OutputTokensGeneration,
+                                CompletionTime = assistantBuilder.Metrics.CompletionTime,
                             },
                         };
 
@@ -1054,19 +1059,19 @@ namespace SmartHopper.Providers.MistralAI
                         // Emit reasoning-only snapshot (no text content yet)
                         var snapshot = new AIInteractionText
                         {
-                            Agent = assistantAggregate.Agent,
-                            Content = assistantAggregate.Content,
-                            Reasoning = assistantAggregate.Reasoning,
+                            Agent = assistantBuilder.Agent,
+                            Content = assistantBuilder.Content,
+                            Reasoning = assistantBuilder.Reasoning,
                             Metrics = new AIMetrics
                             {
-                                Provider = assistantAggregate.Metrics.Provider,
-                                Model = assistantAggregate.Metrics.Model,
-                                FinishReason = assistantAggregate.Metrics.FinishReason,
-                                InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                                InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                                OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                                OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                                CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                                Provider = assistantBuilder.Metrics.Provider,
+                                Model = assistantBuilder.Metrics.Model,
+                                FinishReason = assistantBuilder.Metrics.FinishReason,
+                                InputTokensCached = assistantBuilder.Metrics.InputTokensCached,
+                                InputTokensPrompt = assistantBuilder.Metrics.InputTokensPrompt,
+                                OutputTokensReasoning = assistantBuilder.Metrics.OutputTokensReasoning,
+                                OutputTokensGeneration = assistantBuilder.Metrics.OutputTokensGeneration,
+                                CompletionTime = assistantBuilder.Metrics.CompletionTime,
                             },
                         };
 
@@ -1147,32 +1152,32 @@ namespace SmartHopper.Providers.MistralAI
                 };
 
                 // Attach metrics so UI can display usage after streaming completes
-                streamMetrics.FinishReason = lastFinishReason ?? (haveStreamedAny ? "stop" : streamMetrics.FinishReason);
+                streamMetrics = streamMetrics with { FinishReason = lastFinishReason ?? (haveStreamedAny ? "stop" : streamMetrics.FinishReason) };
 
                 // Align aggregate finish reason
-                assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = streamMetrics.FinishReason });
+                assistantBuilder.CombineMetrics(new AIMetrics { FinishReason = streamMetrics.FinishReason });
 
                 // Build final body with text and tool calls
                 var finalBuilder = AIBodyBuilder.Create();
 
                 // Add text interaction if present
-                if (!string.IsNullOrEmpty(assistantAggregate.Content) || !string.IsNullOrEmpty(assistantAggregate.Reasoning))
+                if (!string.IsNullOrEmpty(assistantBuilder.Content) || !string.IsNullOrEmpty(assistantBuilder.Reasoning))
                 {
                     var finalSnapshot = new AIInteractionText
                     {
-                        Agent = assistantAggregate.Agent,
-                        Content = assistantAggregate.Content,
-                        Reasoning = assistantAggregate.Reasoning,
+                        Agent = assistantBuilder.Agent,
+                        Content = assistantBuilder.Content,
+                        Reasoning = assistantBuilder.Reasoning,
                         Metrics = new AIMetrics
                         {
-                            Provider = assistantAggregate.Metrics.Provider,
-                            Model = assistantAggregate.Metrics.Model,
-                            FinishReason = assistantAggregate.Metrics.FinishReason,
-                            InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                            InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                            OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                            OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                            CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                            Provider = assistantBuilder.Metrics.Provider,
+                            Model = assistantBuilder.Metrics.Model,
+                            FinishReason = assistantBuilder.Metrics.FinishReason,
+                            InputTokensCached = assistantBuilder.Metrics.InputTokensCached,
+                            InputTokensPrompt = assistantBuilder.Metrics.InputTokensPrompt,
+                            OutputTokensReasoning = assistantBuilder.Metrics.OutputTokensReasoning,
+                            OutputTokensGeneration = assistantBuilder.Metrics.OutputTokensGeneration,
+                            CompletionTime = assistantBuilder.Metrics.CompletionTime,
                         },
                     };
                     finalBuilder.Add(finalSnapshot, markAsNew: false);

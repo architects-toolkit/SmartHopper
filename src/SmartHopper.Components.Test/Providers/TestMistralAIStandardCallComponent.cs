@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override string TestProviderName => "MistralAI";
 
-        pub        public TestMistralAIStandardCallComponent()
+        public TestMistralAIStandardCallComponent()
             : base("Test MistralAI Standard Call", "TEST-MISTRAL-CALL", "Tests MistralAI standard API call and metrics validation")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
-        pub        public TestGeminiDecodeComponent()
+        public TestGeminiDecodeComponent()
             : base("Test Gemini Decode", "TEST-GEMINI-DEC", "Tests Gemini comprehensive response decoding")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

@@ -47,7 +47,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
-        pub        public TestGeminiEncodeComponent()
+        public TestGeminiEncodeComponent()
             : base("Test Gemini Encode", "TEST-GEMINI-ENC", "Tests Gemini message encoding from AIRequestCall")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

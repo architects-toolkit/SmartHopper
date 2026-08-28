@@ -79,9 +79,9 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Utilities
                 new AIInteractionText { Agent = AIAgent.Assistant, Content = "hi" },
             };
 
-            InteractionUtility.EnsureTurnId(interactions, "turn-123");
+            var updated = InteractionUtility.EnsureTurnId(interactions, "turn-123").ToList();
 
-            Assert.All(interactions, i => Assert.Equal("turn-123", i.TurnId));
+            Assert.All(updated, i => Assert.Equal("turn-123", i.TurnId));
         }
 
 #if NET7_WINDOWS
@@ -92,7 +92,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Utilities
         public void EnsureTurnId_NullCollection_IsNoOp()
         {
             // Should not throw
-            InteractionUtility.EnsureTurnId(null, "turn-123");
+            var _ = InteractionUtility.EnsureTurnId(null, "turn-123");
         }
 
 #if NET7_WINDOWS
@@ -105,7 +105,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Utilities
             var interaction = new AIInteractionText { Agent = AIAgent.User, Content = "test" };
             var interactions = new List<IAIInteraction> { interaction };
 
-            InteractionUtility.EnsureTurnId(interactions, null);
+            var _ = InteractionUtility.EnsureTurnId(interactions, null);
 
             Assert.True(string.IsNullOrEmpty(interaction.TurnId));
         }
@@ -120,9 +120,9 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Utilities
             var valid = new AIInteractionText { Agent = AIAgent.User, Content = "test" };
             var interactions = new List<IAIInteraction> { valid, null };
 
-            InteractionUtility.EnsureTurnId(interactions, "turn-123");
+            var updated = InteractionUtility.EnsureTurnId(interactions, "turn-123").ToList();
 
-            Assert.Equal("turn-123", valid.TurnId);
+            Assert.Equal("turn-123", updated[0].TurnId);
         }
 
         #endregion

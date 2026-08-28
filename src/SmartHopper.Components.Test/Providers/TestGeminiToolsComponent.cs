@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
-        pub        public TestGeminiToolsComponent()
+        public TestGeminiToolsComponent()
             : base("Test Gemini Tools", "TEST-GEMINI-TOOLS", "Tests Gemini tool encoding and response parsing")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

@@ -41,7 +41,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override string TestProviderName => "OpenAI";
 
-        pub        public TestOpenAIEncodeComponent()
+        public TestOpenAIEncodeComponent()
             : base("Test OpenAI Encode", "TEST-OPENAI-ENC", "Tests OpenAI message encoding from AIRequestCall")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

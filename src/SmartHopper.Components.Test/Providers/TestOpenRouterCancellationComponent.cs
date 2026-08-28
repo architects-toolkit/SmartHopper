@@ -44,7 +44,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
-        pub        public TestOpenRouterCancellationComponent()
+        public TestOpenRouterCancellationComponent()
             : base("Test OpenRouter Cancellation", "TEST-OPENROUTER-CANCEL", "Tests OpenRouter cancellation across all async operations")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

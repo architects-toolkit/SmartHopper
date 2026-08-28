@@ -268,7 +268,7 @@ namespace SmartHopper.Core.UI.Chat
                     state.Aggregated = TextStreamCoalescer.Coalesce(null, incoming, incoming?.TurnId, preserveMetrics: true);
                     if (state.Aggregated is AIInteractionText agg)
                     {
-                        agg.Metrics = null; // Hide metrics while streaming
+                        state.Aggregated = agg with { Metrics = null }; // Hide metrics while streaming
                     }
 
                     return;
@@ -544,9 +544,13 @@ namespace SmartHopper.Core.UI.Chat
                                     // Streaming completion: update the existing committed aggregate (only if no boundary)
                                     if (existingState.Aggregated is AIInteractionText agg)
                                     {
-                                        agg.Content = tt.Content;
-                                        agg.Reasoning = tt.Reasoning;
-                                        agg.Time = tt.Time;
+                                        agg = agg with
+                                        {
+                                            Content = tt.Content,
+                                            Reasoning = tt.Reasoning,
+                                            Time = tt.Time,
+                                        };
+                                        existingState.Aggregated = agg;
                                         this._dialog.UpsertMessageByKey(activeSegKey, agg, source: "OnInteractionCompletedStreamingFinal");
 
                                         // Mark boundary: next text in this turn gets a new segment
@@ -559,9 +563,13 @@ namespace SmartHopper.Core.UI.Chat
                                     // Had pre-commit aggregate but never rendered (empty deltas): commit now
                                     if (existingState.Aggregated is AIInteractionText agg)
                                     {
-                                        agg.Content = tt.Content;
-                                        agg.Reasoning = tt.Reasoning;
-                                        agg.Time = tt.Time;
+                                        agg = agg with
+                                        {
+                                            Content = tt.Content,
+                                            Reasoning = tt.Reasoning,
+                                            Time = tt.Time,
+                                        };
+                                        existingState.Aggregated = agg;
 
                                         // Commit segment and move to committed storage
                                         this.CommitSegment(baseKey, turnKey);
@@ -732,20 +740,24 @@ namespace SmartHopper.Core.UI.Chat
                         {
                             if (!string.IsNullOrWhiteSpace(finalText.Content))
                             {
-                                aggregatedText.Content = finalText.Content;
+                                aggregatedText = aggregatedText with { Content = finalText.Content };
                             }
 
                             var turnId = finalText.TurnId;
-                            aggregatedText.Metrics = !string.IsNullOrWhiteSpace(turnId)
-                                ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalText.Metrics
-                                : finalText.Metrics;
-
-                            aggregatedText.Time = finalText.Time != default ? finalText.Time : aggregatedText.Time;
+                            aggregatedText = aggregatedText with
+                            {
+                                Metrics = !string.IsNullOrWhiteSpace(turnId)
+                                    ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalText.Metrics
+                                    : finalText.Metrics,
+                                Time = finalText.Time != default ? finalText.Time : aggregatedText.Time,
+                            };
 
                             if (!string.IsNullOrWhiteSpace(finalText.Reasoning))
                             {
-                                aggregatedText.Reasoning = finalText.Reasoning;
+                                aggregatedText = aggregatedText with { Reasoning = finalText.Reasoning };
                             }
+
+                            aggregated = aggregatedText;
                         }
 
                         var toRender = aggregated ?? finalRenderable;
@@ -754,9 +766,13 @@ namespace SmartHopper.Core.UI.Chat
                         if (toRender is AIInteractionText toRenderText && aggregated == null && toRenderText.Agent == AIAgent.Assistant)
                         {
                             var turnId = toRenderText.TurnId;
-                            toRenderText.Metrics = !string.IsNullOrWhiteSpace(turnId)
-                                ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? toRenderText.Metrics
-                                : toRenderText.Metrics;
+                            toRenderText = toRenderText with
+                            {
+                                Metrics = !string.IsNullOrWhiteSpace(turnId)
+                                    ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? toRenderText.Metrics
+                                    : toRenderText.Metrics,
+                            };
+                            toRender = toRenderText;
                         }
 
                         if (toRender != null)

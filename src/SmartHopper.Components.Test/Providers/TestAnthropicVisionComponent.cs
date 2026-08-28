@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
-        pub        public TestAnthropicVisionComponent()
+        public TestAnthropicVisionComponent()
             : base("Test Anthropic Vision", "TEST-ANTHROPIC-VISION", "Tests Anthropic vision API call with image input")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

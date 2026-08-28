@@ -160,18 +160,41 @@ namespace SmartHopper.Infrastructure.AITools
                 // Ensure tool result interactions carry the original tool call id/name/TurnId for provider schemas (e.g., OpenAI tool_call_id)
                 try
                 {
-                    var results = result?.Body?.Interactions?
-                        .OfType<SmartHopper.ProviderSdk.AICall.Core.Interactions.AIInteractionToolResult>()
-                        .ToList();
-                    if (results != null && results.Count > 0)
+                    var originalBody = result?.Body;
+                    if (originalBody != null)
                     {
-                        foreach (var r in results)
+                        var correctedInteractions = new List<SmartHopper.ProviderSdk.AICall.Core.Interactions.IAIInteraction>(originalBody.Interactions);
+                        bool changed = false;
+                        for (int i = 0; i < correctedInteractions.Count; i++)
                         {
-                            if (string.IsNullOrWhiteSpace(r.Id)) r.Id = toolInfo.Id;
-                            if (string.IsNullOrWhiteSpace(r.Name)) r.Name = toolInfo.Name;
+                            if (correctedInteractions[i] is SmartHopper.ProviderSdk.AICall.Core.Interactions.AIInteractionToolResult r)
+                            {
+                                var id = string.IsNullOrWhiteSpace(r.Id) ? toolInfo.Id : r.Id;
+                                var name = string.IsNullOrWhiteSpace(r.Name) ? toolInfo.Name : r.Name;
+                                var turnId = string.IsNullOrWhiteSpace(r.TurnId) ? toolInfo.TurnId : r.TurnId;
+                                if (id != r.Id || name != r.Name || string.IsNullOrWhiteSpace(r.TurnId))
+                                {
+                                    correctedInteractions[i] = r with
+                                    {
+                                        Id = id,
+                                        Name = name,
+                                        Agent = SmartHopper.ProviderSdk.AICall.Core.Base.AIAgent.ToolResult,
+                                        TurnId = turnId,
+                                    };
+                                    changed = true;
+                                }
+                            }
+                        }
 
-                            // Propagate TurnId from tool call to tool result so they belong to the same turn
-                            if (string.IsNullOrWhiteSpace(r.TurnId)) r.TurnId = toolInfo.TurnId;
+                        if (changed)
+                        {
+                            var correctedBody = new SmartHopper.ProviderSdk.AICall.Core.Interactions.AIBody(
+                                correctedInteractions,
+                                originalBody.ToolFilter,
+                                originalBody.ContextFilter,
+                                originalBody.JsonOutputSchema,
+                                originalBody.InteractionsNew);
+                            result.SetBody(correctedBody);
                         }
                     }
                 }

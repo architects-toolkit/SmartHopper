@@ -40,7 +40,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override string TestProviderName => "OpenAI";
 
-        pub        public TestOpenAIDecodeComponent()
+        public TestOpenAIDecodeComponent()
             : base("Test OpenAI Decode", "TEST-OPENAI-DEC", "Tests OpenAI comprehensive response decoding")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

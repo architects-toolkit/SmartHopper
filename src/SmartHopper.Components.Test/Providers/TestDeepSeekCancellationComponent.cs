@@ -44,7 +44,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
-        pub        public TestDeepSeekCancellationComponent()
+        public TestDeepSeekCancellationComponent()
             : base("Test DeepSeek Cancellation", "TEST-DEEPSEEK-CANCEL", "Tests DeepSeek cancellation across all async operations")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

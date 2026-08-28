@@ -44,7 +44,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override string TestProviderName => "OpenAI";
 
-        pub        public TestOpenAIVisionComponent()
+        public TestOpenAIVisionComponent()
             : base("Test OpenAI Vision", "TEST-OPENAI-VISION", "Tests OpenAI vision API call with image input")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

@@ -129,7 +129,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         public void AIInteractionText_Constructor_SetsProperties()
         {
             var interaction = new AIInteractionText();
-            interaction.SetResult(AIAgent.Assistant, "Test content");
+            interaction = interaction.WithResult(AIAgent.Assistant, "Test content");
             Assert.Equal(AIAgent.Assistant, interaction.Agent);
             Assert.Equal("Test content", interaction.Content);
         }
@@ -183,7 +183,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
             returnValue.SkipRequestValidation = true;
             returnValue.SkipMetricsValidation = true;
             var interaction = new AIInteractionText();
-            interaction.SetResult(AIAgent.Assistant, "Response");
+            interaction = interaction.WithResult(AIAgent.Assistant, "Response");
             var interactions = new List<IAIInteraction> { interaction };
             var request = new AIRequestCall { Provider = "TestProvider", Model = "TestModel" };
             var metrics = new AIMetrics { Provider = "TestProvider", Model = "TestModel", FinishReason = "stop" };

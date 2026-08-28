@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
-        pub        public TestDeepSeekStandardCallComponent()
+        public TestDeepSeekStandardCallComponent()
             : base("Test DeepSeek Standard Call", "TEST-DEEPSEEK-CALL", "Tests DeepSeek standard API call and metrics validation")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

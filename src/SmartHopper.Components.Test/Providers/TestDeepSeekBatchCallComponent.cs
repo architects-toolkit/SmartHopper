@@ -44,7 +44,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
-        pub        public TestDeepSeekBatchCallComponent()
+        public TestDeepSeekBatchCallComponent()
             : base("Test DeepSeek Batch Call", "TEST-DEEPSEEK-BATCH", "Tests DeepSeek batch API call with service_tier=batch and metrics validation", "SmartHopper", "Test/Providers")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

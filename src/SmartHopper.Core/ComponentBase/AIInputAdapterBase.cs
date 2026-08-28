@@ -98,7 +98,7 @@ namespace SmartHopper.Core.ComponentBase
                 throw new ArgumentNullException(nameof(interaction));
             }
 
-            interaction.Agent = agent;
+            interaction = interaction with { Agent = agent };
             return AIInputPayload.FromAudio(interaction);
         }
 

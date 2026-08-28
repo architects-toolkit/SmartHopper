@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override string TestProviderName => "MistralAI";
 
-        pub        public TestMistralAIBatchCallComponent()
+        public TestMistralAIBatchCallComponent()
             : base("Test MistralAI Batch Call", "TEST-MISTRAL-BATCH", "Tests MistralAI batch API call with service_tier=batch and metrics validation")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

@@ -178,15 +178,18 @@ namespace SmartHopper.Components.Input
                         {
                             if (assistantText?.Metrics != null && slotSentinelId != representativeSentinelId)
                             {
-                                if (string.IsNullOrEmpty(assistantText.Metrics.Provider))
+                                var metrics = assistantText.Metrics;
+                                if (string.IsNullOrEmpty(metrics.Provider))
                                 {
-                                    assistantText.Metrics.Provider = this.GetActualAIProviderName();
+                                    metrics = metrics with { Provider = this.GetActualAIProviderName() };
                                 }
 
-                                if (string.IsNullOrEmpty(assistantText.Metrics.Model))
+                                if (string.IsNullOrEmpty(metrics.Model))
                                 {
-                                    assistantText.Metrics.Model = this.GetModel();
+                                    metrics = metrics with { Model = this.GetModel() };
                                 }
+
+                                assistantText = assistantText with { Metrics = metrics };
 
                                 if (!slotMetricsByPath.TryGetValue(representativePath, out var list))
                                 {

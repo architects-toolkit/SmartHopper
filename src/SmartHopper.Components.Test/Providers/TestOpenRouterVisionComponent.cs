@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
-        pub        public TestOpenRouterVisionComponent()
+        public TestOpenRouterVisionComponent()
             : base("Test OpenRouter Vision", "TEST-OPENROUTER-VISION", "Tests OpenRouter vision API call with image input")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

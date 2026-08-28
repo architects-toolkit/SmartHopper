@@ -18,6 +18,7 @@
 
 namespace SmartHopper.Infrastructure.Tests
 {
+    using System.Reflection;
     using System.Threading.Tasks;
     using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.AICall.Tools;
@@ -44,7 +45,7 @@ namespace SmartHopper.Infrastructure.Tests
 #endif
         public async Task ExecuteTool_InvalidToolCall_ReturnsError()
         {
-            AIToolManager.ResetTools();
+            this.ResetTools();
 
             // A tool call with a pending tool but missing provider/endpoint fails base validation.
             var toolCall = new AIToolCall
@@ -79,7 +80,7 @@ namespace SmartHopper.Infrastructure.Tests
 #endif
         public async Task ExecuteTool_RegisteredTool_ExecutesAndReturnsResult()
         {
-            AIToolManager.ResetTools();
+            this.ResetTools();
 
             var tool = new AITool("test_echo", "Echo tool", "test", "{}", async request =>
             {
@@ -126,7 +127,7 @@ namespace SmartHopper.Infrastructure.Tests
 #endif
         public async Task ExecuteTool_UnknownTool_ReturnsError()
         {
-            AIToolManager.ResetTools();
+            this.ResetTools();
 
             var toolCall = new AIToolCall
             {
@@ -147,6 +148,11 @@ namespace SmartHopper.Infrastructure.Tests
 
             Assert.NotNull(result);
             Assert.True(result.Messages.Exists(m => m.Severity == SHRuntimeMessageSeverity.Error));
+        }
+
+        private void ResetTools()
+        {
+            typeof(AIToolManager).GetMethod("ResetTools", BindingFlags.Static | BindingFlags.NonPublic)?.Invoke(null, null);
         }
 
         #endregion
