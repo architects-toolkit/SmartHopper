@@ -18,8 +18,10 @@ There is no `dev` branch, and no `dev-X.Y.Z` / `main-X.Y.Z` pairs.
 
 ## 2. Versions
 
-The canonical version is `SolutionVersion` in `Solution.props`. README badges, the Yak manifest and
-the changelog heading are **derived** from it; nothing else writes it except version automation.
+The canonical version is `SolutionVersion` in `Solution.props`. README badges and the changelog
+heading are **derived** from it; `yak-package/manifest.yml` keeps its `{{VERSION}}` and
+`{{NOTE_TEXT}}` placeholders and is resolved only when the Yak package is uploaded. Nothing else
+writes the version except version automation.
 
 | Situation | Version format | Example |
 | --- | --- | --- |
