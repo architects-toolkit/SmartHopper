@@ -24,34 +24,34 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
     /// <summary>
     /// Represents an AI-generated tool call with associated metadata.
     /// </summary>
-    public class AIInteractionToolCall : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
+    public record AIInteractionToolCall : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
     {
         /// <inheritdoc/>
-        public override AIAgent Agent { get; set; } = AIAgent.ToolCall;
+        public override AIAgent Agent { get; init; } = AIAgent.ToolCall;
 
         /// <summary>
-        /// Gets or sets the id of the tool call.
+        /// Gets the id of the tool call.
         /// </summary>
-        public string Id { get; set; }
+        public string Id { get; init; }
 
         /// <summary>
-        /// Gets or sets the name of the tool to call.
+        /// Gets the name of the tool to call.
         /// </summary>
-        public string Name { get; set; }
+        public string Name { get; init; }
 
         /// <summary>
-        /// Gets or sets the arguments of the tool call.
+        /// Gets the arguments of the tool call.
         /// </summary>
-        public JObject Arguments { get; set; }
+        public JObject Arguments { get; init; }
 
         /// <summary>
-        /// Gets or sets the reasoning content associated with this tool call.
+        /// Gets the reasoning content associated with this tool call.
         /// Used by providers like DeepSeek that include reasoning_content with tool calls.
         /// </summary>
-        public string Reasoning { get; set; }
+        public string Reasoning { get; init; }
 
         /// <summary>
-        /// Returns a string representation of the AIInteractionToolCall.
+        /// Returns a string representation of the <see cref="AIInteractionToolCall"/>.
         /// </summary>
         /// <returns>A formatted string containing tool call metadata.</returns>
         public override string ToString()

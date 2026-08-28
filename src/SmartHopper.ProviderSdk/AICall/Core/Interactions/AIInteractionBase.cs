@@ -22,21 +22,37 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 {
     /// <summary>
-    /// Base class for all interactions, centralizing common properties and defaults.
+    /// Base record for all interactions, centralizing common properties and defaults.
     /// Provides a unified TurnId used to identify a logical turn across streaming and finalization.
     /// </summary>
-    public abstract class AIInteractionBase : IAIInteraction
+    public abstract record AIInteractionBase : IAIInteraction
     {
         /// <inheritdoc />
-        public virtual string TurnId { get; set; }
+        public virtual string TurnId { get; init; }
 
         /// <inheritdoc />
-        public virtual DateTime Time { get; set; } = DateTime.UtcNow;
+        public virtual DateTime Time { get; init; } = DateTime.UtcNow;
 
         /// <inheritdoc />
-        public virtual AIAgent Agent { get; set; }
+        public virtual AIAgent Agent { get; init; }
 
         /// <inheritdoc />
-        public virtual AIMetrics Metrics { get; set; } = new AIMetrics();
+        public virtual AIMetrics Metrics { get; init; } = new AIMetrics();
+
+        /// <inheritdoc />
+        public virtual IAIInteraction WithTurnId(string turnId)
+            => this with { TurnId = turnId };
+
+        /// <inheritdoc />
+        public virtual IAIInteraction WithTime(DateTime time)
+            => this with { Time = time };
+
+        /// <inheritdoc />
+        public virtual IAIInteraction WithAgent(AIAgent agent)
+            => this with { Agent = agent };
+
+        /// <inheritdoc />
+        public virtual IAIInteraction WithMetrics(AIMetrics metrics)
+            => this with { Metrics = metrics };
     }
 }

@@ -26,7 +26,7 @@ using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 namespace SmartHopper.ProviderSdk.AICall.Metrics
 {
-    public class AIMetrics
+    public record AIMetrics
     {
         /// <summary>
         /// Optional human-readable label for this metrics entry, e.g.
@@ -34,55 +34,55 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
         /// Null for the primary call (serialized as absent, not null).
         /// </summary>
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-        public string Role { get; set; }
+        public string Role { get; init; }
 
         /// <summary>
         /// Per-role data item count set by the caller. Null when not applicable.
         /// </summary>
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-        public int? DataCount { get; set; }
+        public int? DataCount { get; init; }
 
         /// <summary>
         /// Per-role iteration count set by the caller. Null when not applicable.
         /// </summary>
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-        public int? IterationsCount { get; set; }
+        public int? IterationsCount { get; init; }
 
         /// <summary>
         /// Gets or sets the reason for the finish of the AI call.
         /// </summary>
-        public string FinishReason { get; set; }
+        public string FinishReason { get; init; }
 
         /// <summary>
         /// Gets or sets the completion time of the AI call.
         /// </summary>
-        public double CompletionTime { get; set; }
+        public double CompletionTime { get; init; }
 
         /// <summary>
         /// Gets or sets the provider used for the AI call.
         /// </summary>
-        public string Provider { get; set; }
+        public string Provider { get; init; }
 
         /// <summary>
         /// Gets or sets the model used for the AI call.
         /// </summary>
-        public string Model { get; set; }
+        public string Model { get; init; }
 
         /// <summary>
         /// Gets or sets the number of cached input tokens used by the AI call.
         /// </summary>
-        public int InputTokensCached { get; set; }
+        public int InputTokensCached { get; init; }
 
         /// <summary>
         /// Gets or sets the number of input tokens written to the cache by the AI call (Anthropic: cache_creation_input_tokens).
         /// These are billed at a higher rate than normal input tokens on first write.
         /// </summary>
-        public int InputTokensCacheWrite { get; set; }
+        public int InputTokensCacheWrite { get; init; }
 
         /// <summary>
         /// Gets or sets the number of input tokens from the prompt that were used by the AI call.
         /// </summary>
-        public int InputTokensPrompt { get; set; }
+        public int InputTokensPrompt { get; init; }
 
         /// <summary>
         /// Gets the number of input tokens used by the AI call.
@@ -92,12 +92,12 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
         /// <summary>
         /// Gets or sets the number of output tokens for reasoning that were used by the AI call.
         /// </summary>
-        public int OutputTokensReasoning { get; set; }
+        public int OutputTokensReasoning { get; init; }
 
         /// <summary>
         /// Gets or sets the number of output tokens for response generation that were used by the AI call.
         /// </summary>
-        public int OutputTokensGeneration { get; set; }
+        public int OutputTokensGeneration { get; init; }
 
         /// <summary>
         /// Gets the number of output tokens used by the AI call.
@@ -114,14 +114,14 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
         /// Only populated when actual InputTokens are not provided by the AI provider.
         /// Uses character-length approximation (~3.5 chars/token).
         /// </summary>
-        public int EstimatedInputTokens { get; set; }
+        public int EstimatedInputTokens { get; init; }
 
         /// <summary>
         /// Gets or sets the estimated number of output tokens (heuristic-based).
         /// Only populated when actual OutputTokens are not provided by the AI provider.
         /// Uses character-length approximation (~3.5 chars/token).
         /// </summary>
-        public int EstimatedOutputTokens { get; set; }
+        public int EstimatedOutputTokens { get; init; }
 
         /// <summary>
         /// Gets the total estimated tokens (input + output).
@@ -134,7 +134,7 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
         /// </summary>
         public int EffectiveTotalTokens => System.Math.Max(this.TotalTokens, this.TotalEstimatedTokens);
 
-        public int LastEffectiveTotalTokens { get; set; }
+        public int LastEffectiveTotalTokens { get; init; }
 
         private decimal? _estimatedCost;
 
@@ -156,7 +156,7 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
 
                 return this._estimatedCost.Value;
             }
-            private set => this._estimatedCost = value;
+            init => this._estimatedCost = value;
         }
 
         /// <summary>
@@ -247,11 +247,18 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
         }
 
         /// <summary>
-        /// Combines the metrics of another AIMetrics object into this one.
+        /// Returns a new <see cref="AIMetrics"/> that combines the values of this
+        /// metrics object with another one, without mutating either instance.
         /// </summary>
-        /// <param name="other">The AIMetrics object to combine with.</param>
-        public void Combine(AIMetrics other)
+        /// <param name="other">The <see cref="AIMetrics"/> to combine with.</param>
+        /// <returns>A new combined <see cref="AIMetrics"/>.</returns>
+        public AIMetrics WithCombined(AIMetrics? other)
         {
+            if (other == null)
+            {
+                return this;
+            }
+
             var skipLog = IsDefault(this) && IsDefault(other);
 
             var otherLast = other.LastEffectiveTotalTokens > 0
@@ -263,36 +270,37 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
                 Debug.WriteLine($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nInputTokensPrompt: {this.InputTokensPrompt} -> {this.InputTokensPrompt + other.InputTokensPrompt}\nInputTokensCached: {this.InputTokensCached} -> {this.InputTokensCached + other.InputTokensCached}\nInputTokensCacheWrite: {this.InputTokensCacheWrite} -> {this.InputTokensCacheWrite + other.InputTokensCacheWrite}\nOutputTokensReasoning: {this.OutputTokensReasoning} -> {this.OutputTokensReasoning + other.OutputTokensReasoning}\nOutputTokensGeneration: {this.OutputTokensGeneration} -> {this.OutputTokensGeneration + other.OutputTokensGeneration}\nEstimatedInputTokens: {this.EstimatedInputTokens} -> {this.EstimatedInputTokens + other.EstimatedInputTokens}\nEstimatedOutputTokens: {this.EstimatedOutputTokens} -> {this.EstimatedOutputTokens + other.EstimatedOutputTokens}\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nEstimatedCost: {this.EstimatedCost} -> {this.EstimatedCost + other.EstimatedCost}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
             }
 
-            this.EstimatedCost += other.EstimatedCost;
-
-            this.Provider = CombineCommaSeparated(this.Provider, other.Provider, "Unknown");
-            this.Model = CombineCommaSeparated(this.Model, other.Model);
-            this.Role = CombineCommaSeparated(this.Role, other.Role);
-
-            if (other.FinishReason != null)
-            {
-                this.FinishReason = other.FinishReason;
-            }
-
-            this.InputTokensPrompt += other.InputTokensPrompt;
-            this.InputTokensCached += other.InputTokensCached;
-            this.InputTokensCacheWrite += other.InputTokensCacheWrite;
-            this.OutputTokensReasoning += other.OutputTokensReasoning;
-            this.OutputTokensGeneration += other.OutputTokensGeneration;
-            this.EstimatedInputTokens += other.EstimatedInputTokens;
-            this.EstimatedOutputTokens += other.EstimatedOutputTokens;
-            this.CompletionTime += other.CompletionTime;
-            this.LastEffectiveTotalTokens = otherLast;
-
+            var dataCount = this.DataCount ?? other.DataCount;
             if (this.DataCount.HasValue || other.DataCount.HasValue)
             {
-                this.DataCount = (this.DataCount ?? 0) + (other.DataCount ?? 0);
+                dataCount = (this.DataCount ?? 0) + (other.DataCount ?? 0);
             }
 
+            var iterationsCount = this.IterationsCount ?? other.IterationsCount;
             if (this.IterationsCount.HasValue || other.IterationsCount.HasValue)
             {
-                this.IterationsCount = (this.IterationsCount ?? 0) + (other.IterationsCount ?? 0);
+                iterationsCount = (this.IterationsCount ?? 0) + (other.IterationsCount ?? 0);
             }
+
+            return this with
+            {
+                EstimatedCost = this.EstimatedCost + other.EstimatedCost,
+                Provider = CombineCommaSeparated(this.Provider, other.Provider, "Unknown"),
+                Model = CombineCommaSeparated(this.Model, other.Model),
+                Role = CombineCommaSeparated(this.Role, other.Role),
+                FinishReason = other.FinishReason ?? this.FinishReason,
+                InputTokensPrompt = this.InputTokensPrompt + other.InputTokensPrompt,
+                InputTokensCached = this.InputTokensCached + other.InputTokensCached,
+                InputTokensCacheWrite = this.InputTokensCacheWrite + other.InputTokensCacheWrite,
+                OutputTokensReasoning = this.OutputTokensReasoning + other.OutputTokensReasoning,
+                OutputTokensGeneration = this.OutputTokensGeneration + other.OutputTokensGeneration,
+                EstimatedInputTokens = this.EstimatedInputTokens + other.EstimatedInputTokens,
+                EstimatedOutputTokens = this.EstimatedOutputTokens + other.EstimatedOutputTokens,
+                CompletionTime = this.CompletionTime + other.CompletionTime,
+                LastEffectiveTotalTokens = otherLast,
+                DataCount = dataCount,
+                IterationsCount = iterationsCount,
+            };
         }
 
         /// <summary>

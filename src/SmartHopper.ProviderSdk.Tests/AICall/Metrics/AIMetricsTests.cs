@@ -155,7 +155,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
                 OutputTokensGeneration = 25,
             };
 
-            first.Combine(second);
+            first = first.WithCombined(second);
 
             Assert.Equal(150, first.InputTokensPrompt);
             Assert.Equal(75, first.OutputTokensGeneration);
@@ -191,7 +191,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
             var firstCost = first.EstimatedCost;
             var secondCost = second.EstimatedCost;
 
-            first.Combine(second);
+            first = first.WithCombined(second);
 
             Assert.Equal(firstCost + secondCost, first.EstimatedCost);
         }

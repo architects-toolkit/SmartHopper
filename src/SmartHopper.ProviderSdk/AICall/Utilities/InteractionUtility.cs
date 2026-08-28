@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 namespace SmartHopper.ProviderSdk.AICall.Utilities
 {
@@ -33,27 +34,34 @@ namespace SmartHopper.ProviderSdk.AICall.Utilities
         public static string GenerateTurnId() => Guid.NewGuid().ToString("N");
 
         /// <summary>
-        /// Ensures all interactions in a collection share the same turn identifier.
+        /// Returns a new sequence where any interaction that is missing a turn identifier has been
+        /// replaced with a copy carrying the supplied <paramref name="turnId"/>.
         /// Skips null interactions and does nothing if the turnId is null or empty.
         /// </summary>
         /// <param name="interactions">The interactions to update.</param>
         /// <param name="turnId">The turn ID to assign to all interactions.</param>
-        public static void EnsureTurnId(IEnumerable<IAIInteraction> interactions, string turnId)
+        /// <returns>A sequence of interactions with assigned turn identifiers.</returns>
+        public static IEnumerable<IAIInteraction> EnsureTurnId(IEnumerable<IAIInteraction> interactions, string turnId)
         {
             if (string.IsNullOrWhiteSpace(turnId) || interactions == null)
             {
-                return;
+                return interactions;
             }
 
-            foreach (var interaction in interactions)
+            return interactions.Select(interaction =>
             {
                 if (interaction == null)
                 {
-                    continue;
+                    return null;
                 }
 
-                interaction.TurnId = turnId;
-            }
+                if (string.IsNullOrWhiteSpace(interaction.TurnId))
+                {
+                    return interaction.WithTurnId(turnId);
+                }
+
+                return interaction;
+            });
         }
     }
 }

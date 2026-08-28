@@ -613,19 +613,11 @@ namespace SmartHopper.Providers.OpenRouter
                     }
                 }
 
-                var result = new AIInteractionText();
-                result.SetResult(
-                    agent: AIAgent.Assistant,
-                    content: content,
-                    reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
+                var inputTokensCached = 0;
+                var inputTokensPrompt = 0;
+                var outputTokensGeneration = 0;
 
                 // Extract metrics (tokens, model, finish reason) if present
-                var metrics = new ProviderSdk.AICall.Metrics.AIMetrics
-                {
-                    Provider = this.Name,
-                    Model = response["model"]?.ToString(),
-                };
-
                 var usage = response["usage"] as JObject;
                 if (usage != null)
                 {
@@ -633,19 +625,29 @@ namespace SmartHopper.Providers.OpenRouter
 
                     // Extract cached tokens from nested prompt_tokens_details object
                     var promptDetails = usage["prompt_tokens_details"] as JObject;
-                    metrics.InputTokensCached = promptDetails?["cached_tokens"]?.Value<int>() ?? 0;
-                    metrics.InputTokensPrompt = totalPromptTokens - metrics.InputTokensCached;
+                    inputTokensCached = promptDetails?["cached_tokens"]?.Value<int>() ?? 0;
+                    inputTokensPrompt = totalPromptTokens - inputTokensCached;
 
-                    metrics.OutputTokensGeneration = usage["completion_tokens"]?.Value<int>() ?? 0;
+                    outputTokensGeneration = usage["completion_tokens"]?.Value<int>() ?? 0;
                 }
 
                 var finishReason = firstChoice?["finish_reason"]?.ToString();
-                if (!string.IsNullOrWhiteSpace(finishReason))
-                {
-                    metrics.FinishReason = finishReason;
-                }
 
-                result.Metrics = metrics;
+                var result = new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = content,
+                    Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
+                    Metrics = new AIMetrics
+                    {
+                        Provider = this.Name,
+                        Model = response["model"]?.ToString(),
+                        InputTokensCached = inputTokensCached,
+                        InputTokensPrompt = inputTokensPrompt,
+                        OutputTokensGeneration = outputTokensGeneration,
+                        FinishReason = finishReason,
+                    },
+                };
 
                 interactions.Add(result);
 
@@ -824,7 +826,7 @@ namespace SmartHopper.Providers.OpenRouter
                 int completionTokens = 0;
 
                 // Provider-local aggregate of assistant text
-                var assistantAggregate = new AIInteractionText
+                var assistantAggregate = new AIInteractionText.Builder
                 {
                     Agent = AIAgent.Assistant,
                     Content = string.Empty,
@@ -840,25 +842,10 @@ namespace SmartHopper.Providers.OpenRouter
                     if (string.IsNullOrEmpty(text)) yield break;
 
                     // Append to provider-local aggregate
-                    assistantAggregate.AppendDelta(contentDelta: text);
+                    assistantAggregate.AppendContent(text);
 
                     // Emit a snapshot copy to avoid aliasing across yields
-                    var snapshot = new AIInteractionText
-                    {
-                        Agent = assistantAggregate.Agent,
-                        Content = assistantAggregate.Content,
-                        Metrics = new AIMetrics
-                        {
-                            Provider = assistantAggregate.Metrics.Provider,
-                            Model = assistantAggregate.Metrics.Model,
-                            FinishReason = assistantAggregate.Metrics.FinishReason,
-                            InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                            InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                            OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                            OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                            CompletionTime = assistantAggregate.Metrics.CompletionTime,
-                        },
-                    };
+                    var snapshot = assistantAggregate.Build();
 
                     var delta = new AIReturn
                     {
@@ -933,7 +920,7 @@ namespace SmartHopper.Providers.OpenRouter
                         if (ct.HasValue) completionTokens = ct.Value;
 
                         // Update aggregate metrics
-                        assistantAggregate.AppendDelta(metricsDelta: new AIMetrics
+                        assistantAggregate.CombineMetrics(new AIMetrics
                         {
                             Provider = this.Provider.Name,
                             Model = request.Model,
@@ -1055,7 +1042,7 @@ namespace SmartHopper.Providers.OpenRouter
                 };
 
                 // Align aggregate metrics finish reason as well
-                assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = finalMetrics.FinishReason });
+                assistantAggregate.CombineMetrics(new AIMetrics { FinishReason = finalMetrics.FinishReason });
 
                 // Build final body with text and tool calls
                 var finalBuilder = AIBodyBuilder.Create();
@@ -1063,22 +1050,7 @@ namespace SmartHopper.Providers.OpenRouter
                 // Add text interaction if present
                 if (!string.IsNullOrEmpty(assistantAggregate.Content))
                 {
-                    var finalSnapshot = new AIInteractionText
-                    {
-                        Agent = assistantAggregate.Agent,
-                        Content = assistantAggregate.Content,
-                        Metrics = new AIMetrics
-                        {
-                            Provider = assistantAggregate.Metrics.Provider,
-                            Model = assistantAggregate.Metrics.Model,
-                            FinishReason = assistantAggregate.Metrics.FinishReason,
-                            InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                            InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                            OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                            OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                            CompletionTime = assistantAggregate.Metrics.CompletionTime,
-                        },
-                    };
+                    var finalSnapshot = assistantAggregate.Build();
                     finalBuilder.Add(finalSnapshot, markAsNew: false);
                 }
 

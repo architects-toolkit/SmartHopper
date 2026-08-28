@@ -195,7 +195,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         {
             if (interaction != null)
             {
-                this.EnsureTurnId(interaction);
+                interaction = this.EnsureTurnId(interaction);
                 this.interactions.Add(interaction);
                 if (markAsNew)
                 {
@@ -241,7 +241,6 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
             {
                 foreach (var i in items)
                 {
-                    this.EnsureTurnId(i);
                     this.Add(i, this.defaultMarkAsNew);
                 }
             }
@@ -260,7 +259,6 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
             {
                 foreach (var (interaction, isNew) in items)
                 {
-                    this.EnsureTurnId(interaction);
                     this.Add(interaction, isNew);
                 }
             }
@@ -368,8 +366,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// <returns>The same builder instance.</returns>
         public AIBodyBuilder AddImageRequest(string prompt, string size = null, string quality = null, string style = null, string aspectRatio = null)
         {
-            var img = new AIInteractionImage { Agent = AIAgent.User };
-            img.CreateRequest(prompt, size, quality, style, aspectRatio);
+            var img = new AIInteractionImage { Agent = AIAgent.User }.WithRequest(prompt, size, quality, style, aspectRatio);
             return this.Add(img, this.defaultMarkAsNew);
         }
 
@@ -385,8 +382,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// <returns>The same builder instance for fluent chaining.</returns>
         public AIBodyBuilder AddImageRequest(string prompt, bool markAsNew, string size = null, string quality = null, string style = null, string aspectRatio = null)
         {
-            var img = new AIInteractionImage { Agent = AIAgent.User };
-            img.CreateRequest(prompt, size, quality, style, aspectRatio);
+            var img = new AIInteractionImage { Agent = AIAgent.User }.WithRequest(prompt, size, quality, style, aspectRatio);
             return this.Add(img, markAsNew);
         }
 
@@ -398,8 +394,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// <returns>The same builder instance.</returns>
         public AIBodyBuilder AddImageInput(Uri imageUrl)
         {
-            var img = new AIInteractionImage { Agent = AIAgent.User };
-            img.CreateVisionInput(imageUrl);
+            var img = new AIInteractionImage { Agent = AIAgent.User }.WithVisionInput(imageUrl);
             return this.Add(img, this.defaultMarkAsNew);
         }
 
@@ -411,8 +406,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// <returns>The same builder instance.</returns>
         public AIBodyBuilder AddImageInput(string imageUrl)
         {
-            var img = new AIInteractionImage { Agent = AIAgent.User };
-            img.CreateVisionInput(imageUrl);
+            var img = new AIInteractionImage { Agent = AIAgent.User }.WithVisionInput(imageUrl);
             return this.Add(img, this.defaultMarkAsNew);
         }
 
@@ -424,8 +418,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// <returns>The same builder instance.</returns>
         public AIBodyBuilder AddImageInputFromBase64(string base64Data, string mimeType = "image/png")
         {
-            var img = new AIInteractionImage { Agent = AIAgent.User };
-            img.CreateVisionInputFromBase64(base64Data, mimeType);
+            var img = new AIInteractionImage { Agent = AIAgent.User }.WithVisionInputFromBase64(base64Data, mimeType);
             return this.Add(img, this.defaultMarkAsNew);
         }
 
@@ -650,12 +643,11 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
             // Ergonomics: if there is no last item, treat replace as add.
             if (this.interactions.Count == 0)
             {
-                this.EnsureTurnId(interaction);
                 return this.Add(interaction, markAsNew);
             }
 
             int idx = this.interactions.Count - 1;
-            this.EnsureTurnId(interaction);
+            interaction = this.EnsureTurnId(interaction);
             this.interactions[idx] = interaction;
             if (markAsNew)
             {
@@ -727,7 +719,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 // All positions from 0 to items.Count-1 are considered new
                 for (int i = 0; i < items.Count; i++)
                 {
-                    this.EnsureTurnId(items[i]);
+                    items[i] = this.EnsureTurnId(items[i]);
                     if (markAsNew)
                     {
                         this.interactionsNew.Add(i);
@@ -750,7 +742,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 this.interactions.RemoveRange(startIndex, removeCount);
                 for (int i = 0; i < items.Count; i++)
                 {
-                    this.EnsureTurnId(items[i]);
+                    items[i] = this.EnsureTurnId(items[i]);
                     if (markAsNew)
                     {
                         this.interactionsNew.Add(startIndex + i);
@@ -798,7 +790,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 this.interactions.Clear();
                 for (int i = 0; i < items.Count; i++)
                 {
-                    this.EnsureTurnId(items[i].interaction);
+                    items[i] = (this.EnsureTurnId(items[i].interaction), items[i].isNew);
                     if (items[i].isNew)
                     {
                         this.interactionsNew.Add(i);
@@ -821,7 +813,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 this.interactions.RemoveRange(startIndex, removeCount);
                 for (int i = 0; i < items.Count; i++)
                 {
-                    this.EnsureTurnId(items[i].interaction);
+                    items[i] = (this.EnsureTurnId(items[i].interaction), items[i].isNew);
                     if (items[i].isNew)
                     {
                         this.interactionsNew.Add(startIndex + i);
@@ -862,12 +854,10 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 return this;
             }
 
-            if (last.Metrics == null)
-            {
-                last.Metrics = new AIMetrics();
-            }
+            var metrics = (last.Metrics ?? new AIMetrics()) with { CompletionTime = completionTime };
+            var updated = last.WithMetrics(metrics);
+            this.interactions[this.interactions.Count - 1] = updated;
 
-            last.Metrics.CompletionTime = completionTime;
             try
             {
                 Debug.WriteLine($"[AIBodyBuilder.SetCompletionTime] interactions={this.interactions.Count}, new={string.Join(",", this.interactionsNew)} completionTime={completionTime:F3}");
@@ -949,7 +939,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
             // Final pass: ensure all interactions have a TurnId
             for (int i = 0; i < snapshot.Length; i++)
             {
-                this.EnsureTurnId(snapshot[i]);
+                snapshot[i] = this.EnsureTurnId(snapshot[i]);
             }
 
             // Create a copy of indices to ensure immutability of AIBody
@@ -971,16 +961,23 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 /* logging only */
             }
 
-            return new AIBody(snapshot, this.toolFilter, this.contextFilter, this.jsonOutputSchema, newIndices);
+            return new AIBody(snapshot, this.toolFilter, this.contextFilter, this.jsonOutputSchema, newIndices.AsReadOnly());
         }
 
-        private void EnsureTurnId(IAIInteraction interaction)
+        private IAIInteraction EnsureTurnId(IAIInteraction interaction)
         {
-            if (interaction == null) return;
+            if (interaction == null)
+            {
+                return null;
+            }
+
             if (string.IsNullOrWhiteSpace(interaction.TurnId))
             {
-                interaction.TurnId = string.IsNullOrWhiteSpace(this.defaultTurnId) ? InteractionUtility.GenerateTurnId() : this.defaultTurnId;
+                var turnId = string.IsNullOrWhiteSpace(this.defaultTurnId) ? InteractionUtility.GenerateTurnId() : this.defaultTurnId;
+                return interaction.WithTurnId(turnId);
             }
+
+            return interaction;
         }
     }
 }

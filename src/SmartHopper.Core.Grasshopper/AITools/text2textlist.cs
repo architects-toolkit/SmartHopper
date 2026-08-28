@@ -299,7 +299,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     // Accumulate metrics from this iteration
                     if (result.Metrics != null)
                     {
-                        accumulatedMetrics.Combine(result.Metrics);
+                        accumulatedMetrics = accumulatedMetrics.WithCombined(result.Metrics);
                         Debug.WriteLine($"[ListTools] Iteration {iteration} metrics: Tokens In={result.Metrics.InputTokensPrompt}, Out={result.Metrics.OutputTokensGeneration}, Time={result.Metrics.CompletionTime:F2}s");
                     }
 

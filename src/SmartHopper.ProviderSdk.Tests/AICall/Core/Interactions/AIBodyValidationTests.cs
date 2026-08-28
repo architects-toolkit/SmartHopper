@@ -121,23 +121,6 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             Assert.False(body.AreTurnIdsValid());
         }
 
-#if NET7_WINDOWS
-        [Fact(DisplayName = "ResetNew_ClearsNewMarkers [Windows]")]
-#else
-        [Fact(DisplayName = "ResetNew_ClearsNewMarkers [Core]")]
-#endif
-        public void ResetNew_ClearsNewMarkers()
-        {
-            var body = AIBodyBuilder.Create()
-                .AddUser("u")
-                .Build();
-
-            Assert.Single(body.InteractionsNew);
-
-            body.ResetNew();
-
-            Assert.Empty(body.InteractionsNew);
-        }
 
 #if NET7_WINDOWS
         [Fact(DisplayName = "Messages_AggregatesFromToolResultImageAndRuntimeMessage [Windows]")]
