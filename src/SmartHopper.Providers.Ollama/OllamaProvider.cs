@@ -101,15 +101,6 @@ namespace SmartHopper.Providers.Ollama
         public override bool IsConfigured => !string.IsNullOrWhiteSpace(this.GetServerUrlSetting());
 
         /// <summary>
-        /// Helper to retrieve the configured API key for this provider.
-        /// Exposed to the nested streaming adapter to avoid protected access issues.
-        /// </summary>
-        internal string GetApiKey()
-        {
-            return this.GetSetting<string>("ApiKey");
-        }
-
-        /// <summary>
         /// Helper to retrieve the configured Base URL setting (raw string).
         /// </summary>
         internal string GetServerUrlSetting()
@@ -118,17 +109,7 @@ namespace SmartHopper.Providers.Ollama
         }
 
         /// <inheritdoc/>
-        public override Image Icon
-        {
-            get
-            {
-                var iconBytes = Properties.Resources.ollama_icon;
-                using (var ms = new MemoryStream(iconBytes))
-                {
-                    return new Bitmap(ms);
-                }
-            }
-        }
+        public override Image Icon => this.LoadIconFromResources(Properties.Resources.ollama_icon);
 
         /// <inheritdoc/>
         public override AIRequestCall PreCall(AIRequestCall request)

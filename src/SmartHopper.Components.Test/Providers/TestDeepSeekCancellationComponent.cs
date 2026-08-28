@@ -36,20 +36,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for DeepSeek cancellation across all async operations.
     /// </summary>
-    public class TestDeepSeekCancellationComponent : AIStatefulAsyncComponentBase
+    public class TestDeepSeekCancellationComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("E6B02D63-FAF8-43F5-AAD6-71A3BA70A79A");
 
+        protected override string TestProviderName => "DeepSeek";
+
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
-        public TestDeepSeekCancellationComponent()
-            : base("Test DeepSeek Cancellation", "TEST-DEEPSEEK-CANCEL", "Tests DeepSeek cancellation across all async operations", "SmartHopper Tests", "Testing Providers")
+        pub        public TestDeepSeekCancellationComponent()
+            : base("Test DeepSeek Cancellation", "TEST-DEEPSEEK-CANCEL", "Tests DeepSeek cancellation across all async operations")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("DeepSeek");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

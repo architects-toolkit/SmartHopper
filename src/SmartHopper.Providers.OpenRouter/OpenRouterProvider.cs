@@ -72,15 +72,6 @@ namespace SmartHopper.Providers.OpenRouter
         public override bool IsConfigured => this.IsSettingConfigured("ApiKey");
 
         /// <summary>
-        /// Helper to retrieve the configured API key for this provider.
-        /// Exposed to nested streaming adapter to avoid protected access issues.
-        /// </summary>
-        internal string GetApiKey()
-        {
-            return this.GetSetting<string>("ApiKey");
-        }
-
-        /// <summary>
         /// <inheritdoc/>
         protected override IStreamingAdapter CreateStreamingAdapter()
         {
@@ -88,30 +79,7 @@ namespace SmartHopper.Providers.OpenRouter
         }
 
         /// <inheritdoc/>
-        public override Image Icon
-        {
-            get
-            {
-                try
-                {
-                    var bytes = Properties.Resources.openrouter_icon;
-                    if (bytes != null && bytes.Length > 0)
-                    {
-                        using (var ms = new MemoryStream(bytes))
-                        using (var img = Image.FromStream(ms))
-                        {
-                            return new Bitmap(img);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[OpenRouter] Icon load error: {ex.Message}");
-                }
-
-                return new Bitmap(1, 1);
-            }
-        }
+        public override Image Icon => this.LoadIconFromResources(Properties.Resources.openrouter_icon);
 
         /// <inheritdoc/>
         public override AIRequestCall PreCall(AIRequestCall request)

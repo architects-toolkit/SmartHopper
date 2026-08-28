@@ -36,20 +36,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for OpenRouter batch API call.
     /// </summary>
-    public class TestOpenRouterBatchCallComponent : AIStatefulAsyncComponentBase
+    public class TestOpenRouterBatchCallComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("D16711BF-CB36-4E28-A12C-6A81AB8550B4");
 
+        protected override string TestProviderName => "OpenRouter";
+
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
-        public TestOpenRouterBatchCallComponent()
+        pub        public TestOpenRouterBatchCallComponent()
             : base("Test OpenRouter Batch Call", "TEST-OPENROUTER-BATCH", "Tests OpenRouter batch API call with service_tier=batch and metrics validation", "SmartHopper", "Test/Providers")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("OpenRouter");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

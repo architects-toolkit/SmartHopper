@@ -138,34 +138,14 @@ namespace SmartHopper.Providers.Ollama
                 }
             }
 
-            // MaxTokens must be a positive integer
-            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
+            if (!this.ValidateMaxTokens(settings, showErrorDialogs, "Max tokens must be a positive number."))
             {
-                if (!int.TryParse(maxTokensObj.ToString(), out var parsedMaxTokens) || parsedMaxTokens <= 0)
-                {
-                    if (showErrorDialogs)
-                    {
-                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Max tokens must be a positive number."));
-                    }
-
-                    return false;
-                }
+                return false;
             }
 
-            // Temperature must be in [0.0, 2.0]
-            if (settings.TryGetValue("Temperature", out var temperatureObj) && temperatureObj != null)
+            if (!this.ValidateTemperature(settings, showErrorDialogs))
             {
-                if (!double.TryParse(temperatureObj.ToString(), out var parsedTemperature)
-                    || parsedTemperature < 0.0
-                    || parsedTemperature > 2.0)
-                {
-                    if (showErrorDialogs)
-                    {
-                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Temperature must be between 0.0 and 2.0."));
-                    }
-
-                    return false;
-                }
+                return false;
             }
 
             return true;

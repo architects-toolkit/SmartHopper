@@ -121,8 +121,6 @@ namespace SmartHopper.Providers.Gemini
 
             string apiKey = null;
             string model = null;
-            int? maxTokens = null;
-            double? temperature = null;
 
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
@@ -134,35 +132,17 @@ namespace SmartHopper.Providers.Gemini
                 model = modelObj.ToString();
             }
 
-            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
+            if (!this.ValidateMaxTokens(settings, showErrorDialogs))
             {
-                if (int.TryParse(maxTokensObj.ToString(), out int parsed))
-                {
-                    maxTokens = parsed;
-                }
-
-                if (maxTokens <= 0)
-                {
-                    if (showErrorDialogs) ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Max Tokens must be greater than 0."));
-                    return false;
-                }
+                return false;
             }
 
-            if (settings.TryGetValue("Temperature", out var temperatureObj) && temperatureObj != null)
+            if (!this.ValidateTemperature(settings, showErrorDialogs))
             {
-                if (double.TryParse(temperatureObj.ToString(), out double parsed))
-                {
-                    temperature = parsed;
-                }
-
-                if (temperature < 0.0 || temperature > 2.0)
-                {
-                    if (showErrorDialogs) ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Temperature must be between 0.0 and 2.0."));
-                    return false;
-                }
+                return false;
             }
 
-            Debug.WriteLine($"Validating Gemini settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}, Max Tokens: {maxTokens}");
+            Debug.WriteLine($"Validating Gemini settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
             return true;
         }
     }

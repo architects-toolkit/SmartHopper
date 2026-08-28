@@ -37,20 +37,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for Anthropic vision input handling.
     /// </summary>
-    public class TestAnthropicVisionComponent : AIStatefulAsyncComponentBase
+    public class TestAnthropicVisionComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("B13ECB85-AFE7-496C-AF1D-D3F874F4556D");
 
+        protected override string TestProviderName => "Anthropic";
+
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
-        public TestAnthropicVisionComponent()
-            : base("Test Anthropic Vision", "TEST-ANTHROPIC-VISION", "Tests Anthropic vision API call with image input", "SmartHopper Tests", "Testing Providers")
+        pub        public TestAnthropicVisionComponent()
+            : base("Test Anthropic Vision", "TEST-ANTHROPIC-VISION", "Tests Anthropic vision API call with image input")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("Anthropic");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

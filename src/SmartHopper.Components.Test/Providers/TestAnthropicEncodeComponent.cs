@@ -35,21 +35,19 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for Anthropic message encoding.
     /// </summary>
-    public class TestAnthropicEncodeComponent : AIStatefulAsyncComponentBase
+    public class TestAnthropicEncodeComponent : ProviderTestComponentBase
     {
 
         public override Guid ComponentGuid => new Guid("817E8806-0DE0-4104-A650-1D28D7763E93");
 
+        protected override string TestProviderName => "Anthropic";
+
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
-        public TestAnthropicEncodeComponent()
-            : base("Test Anthropic Encode", "TEST-ANTHROPIC-ENC", "Tests Anthropic message encoding from AIRequestCall", "SmartHopper Tests", "Testing Providers")
+        pub        public TestAnthropicEncodeComponent()
+            : base("Test Anthropic Encode", "TEST-ANTHROPIC-ENC", "Tests Anthropic message encoding from AIRequestCall")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("Anthropic");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

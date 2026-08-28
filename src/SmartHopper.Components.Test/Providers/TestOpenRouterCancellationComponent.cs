@@ -36,20 +36,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for OpenRouter cancellation across all async operations.
     /// </summary>
-    public class TestOpenRouterCancellationComponent : AIStatefulAsyncComponentBase
+    public class TestOpenRouterCancellationComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("35D8D280-7901-475E-BF45-86814ABD6266");
 
+        protected override string TestProviderName => "OpenRouter";
+
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
-        public TestOpenRouterCancellationComponent()
-            : base("Test OpenRouter Cancellation", "TEST-OPENROUTER-CANCEL", "Tests OpenRouter cancellation across all async operations", "SmartHopper Tests", "Testing Providers")
+        pub        public TestOpenRouterCancellationComponent()
+            : base("Test OpenRouter Cancellation", "TEST-OPENROUTER-CANCEL", "Tests OpenRouter cancellation across all async operations")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("OpenRouter");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

@@ -35,21 +35,19 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for Anthropic tool encoding and parsing.
     /// </summary>
-    public class TestAnthropicToolsComponent : AIStatefulAsyncComponentBase
+    public class TestAnthropicToolsComponent : ProviderTestComponentBase
     {
 
         public override Guid ComponentGuid => new Guid("8C2D73B5-34DA-41A9-BECB-3F7F33766FAF");
 
+        protected override string TestProviderName => "Anthropic";
+
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
-        public TestAnthropicToolsComponent()
-            : base("Test Anthropic Tools", "TEST-ANTHROPIC-TOOLS", "Tests Anthropic tool encoding and response parsing", "SmartHopper Tests", "Testing Providers")
+        pub        public TestAnthropicToolsComponent()
+            : base("Test Anthropic Tools", "TEST-ANTHROPIC-TOOLS", "Tests Anthropic tool encoding and response parsing")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("Anthropic");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

@@ -37,18 +37,16 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for MistralAI standard API call.
     /// </summary>
-    public class TestMistralAIStandardCallComponent : AIStatefulAsyncComponentBase
+    public class TestMistralAIStandardCallComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("17302B7A-B89E-480B-AE4D-11006CED1DF9");
 
-        public TestMistralAIStandardCallComponent()
-            : base("Test MistralAI Standard Call", "TEST-MISTRAL-CALL", "Tests MistralAI standard API call and metrics validation", "SmartHopper Tests", "Testing Providers")
-        {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("MistralAI");
-        }
+        protected override string TestProviderName => "MistralAI";
 
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        pub        public TestMistralAIStandardCallComponent()
+            : base("Test MistralAI Standard Call", "TEST-MISTRAL-CALL", "Tests MistralAI standard API call and metrics validation")
+        {
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

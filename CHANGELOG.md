@@ -35,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pr-block-dev-to-main.yml` is now `Warn Dev Release to Main`: it emits a warning and a PR comment instead of exiting with an error when a `-dev` version is merged into a protected branch.
 - Updated `SmartHopper.Providers.Ollama` and `SmartHopper.Providers.LocalAI` resource icons to their official brand marks (Ollama from `@lobehub/icons`, LocalAI from the official `mudler/LocalAI` logo).
 - Consolidated OpenAI-compatible JSON schema wrapping into `SmartHopper.ProviderSdk.AICall.JsonSchemas.OpenAICompatibleJsonSchemaAdapter`. `OpenAI`, `MistralAI`, `Ollama`, and `LocalAI` now register the shared adapter directly; `DeepSeek` inherits it and only overrides `Unwrap`.
+- Added `AIProvider.GetApiKey()` and `AIProvider.LoadIconFromResources(...)` helpers in `SmartHopper.ProviderSdk.AIProviders`. All built-in providers now use these shared helpers, removing the duplicated per-provider `GetApiKey()` methods and icon-loading code.
+- Added `AIProviderSettings.ValidateMaxTokens(...)` and `AIProviderSettings.ValidateTemperature(...)` helpers. All built-in provider settings classes now delegate `MaxTokens` and `Temperature` validation to the shared helpers, using stricter parsing that fails on unparseable values.
+
+### Added
+
+- Added `ProviderTestComponentBase` to `SmartHopper.Components.Test/Providers` and converted all ~43 `Test{Provider}{Feature}Component` classes to inherit from it. The base centralizes common setup/teardown (provider selection, `RunOnlyOnInputChanges`, category/exposure) while each component remains an independent per-provider test runner.
 
 ### Removed
 

@@ -32,21 +32,19 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for Google Gemini function calling.
     /// </summary>
-    public class TestGeminiFunctionCallingComponent : AIStatefulAsyncComponentBase
+    public class TestGeminiFunctionCallingComponent : ProviderTestComponentBase
     {
 
         public override Guid ComponentGuid => new Guid("A12F1236-3B3B-498D-9DB9-DC94FEFB0660");
 
+        protected override string TestProviderName => "Gemini";
+
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
-        public TestGeminiFunctionCallingComponent()
+        pub        public TestGeminiFunctionCallingComponent()
             : base("Test Gemini Function Calling", "TEST-GEMINI-FUNC", "Tests Gemini function calling and response parsing", "SmartHopper", "Test/Providers")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("Gemini");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

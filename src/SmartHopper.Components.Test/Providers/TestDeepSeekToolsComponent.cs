@@ -35,20 +35,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for DeepSeek tool encoding and parsing.
     /// </summary>
-    public class TestDeepSeekToolsComponent : AIStatefulAsyncComponentBase
+    public class TestDeepSeekToolsComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("9CD3C815-439A-4F4B-B9E4-998833232858");
 
+        protected override string TestProviderName => "DeepSeek";
+
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
-        public TestDeepSeekToolsComponent()
-            : base("Test DeepSeek Tools", "TEST-DEEPSEEK-TOOLS", "Tests DeepSeek tool encoding and response parsing", "SmartHopper Tests", "Testing Providers")
+        pub        public TestDeepSeekToolsComponent()
+            : base("Test DeepSeek Tools", "TEST-DEEPSEEK-TOOLS", "Tests DeepSeek tool encoding and response parsing")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("DeepSeek");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

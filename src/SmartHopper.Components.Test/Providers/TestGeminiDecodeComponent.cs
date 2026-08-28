@@ -34,21 +34,19 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for Gemini comprehensive response decoding.
     /// </summary>
-    public class TestGeminiDecodeComponent : AIStatefulAsyncComponentBase
+    public class TestGeminiDecodeComponent : ProviderTestComponentBase
     {
 
         public override Guid ComponentGuid => new Guid("BA230457-1318-4346-A6F3-453F32EDBD38");
 
+        protected override string TestProviderName => "Gemini";
+
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
-        public TestGeminiDecodeComponent()
-            : base("Test Gemini Decode", "TEST-GEMINI-DEC", "Tests Gemini comprehensive response decoding", "SmartHopper Tests", "Testing Providers")
+        pub        public TestGeminiDecodeComponent()
+            : base("Test Gemini Decode", "TEST-GEMINI-DEC", "Tests Gemini comprehensive response decoding")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("Gemini");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

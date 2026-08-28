@@ -34,20 +34,16 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for OpenAI comprehensive response decoding.
     /// </summary>
-    public class TestOpenAIDecodeComponent : AIStatefulAsyncComponentBase
+    public class TestOpenAIDecodeComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("6FBC99E6-AF7B-4390-B1EA-5B7F65E2C7EA");
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        protected override string TestProviderName => "OpenAI";
 
-        public TestOpenAIDecodeComponent()
-            : base("Test OpenAI Decode", "TEST-OPENAI-DEC", "Tests OpenAI comprehensive response decoding", "SmartHopper Tests", "Testing Providers")
+        pub        public TestOpenAIDecodeComponent()
+            : base("Test OpenAI Decode", "TEST-OPENAI-DEC", "Tests OpenAI comprehensive response decoding")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("OpenAI");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

@@ -38,18 +38,16 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for MistralAI tool encoding and parsing.
     /// </summary>
-    public class TestMistralAIToolsComponent : AIStatefulAsyncComponentBase
+    public class TestMistralAIToolsComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("5160C10D-CB11-48EA-9CAB-099F56D560AC");
 
-        public TestMistralAIToolsComponent()
-            : base("Test MistralAI Tools", "TEST-MISTRAL-TOOLS", "Tests MistralAI tool encoding and response parsing", "SmartHopper Tests", "Testing Providers")
-        {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("MistralAI");
-        }
+        protected override string TestProviderName => "MistralAI";
 
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        pub        public TestMistralAIToolsComponent()
+            : base("Test MistralAI Tools", "TEST-MISTRAL-TOOLS", "Tests MistralAI tool encoding and response parsing")
+        {
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

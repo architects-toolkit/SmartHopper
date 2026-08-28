@@ -39,20 +39,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for Google Gemini batch API call.
     /// </summary>
-    public class TestGeminiBatchCallComponent : AIStatefulAsyncComponentBase
+    public class TestGeminiBatchCallComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("C352A91F-366B-4E84-853F-7EFB928B5388");
 
+        protected override string TestProviderName => "Gemini";
+
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
-        public TestGeminiBatchCallComponent()
-            : base("Test Gemini Batch Call", "TEST-GEMINI-BATCH", "Tests Gemini batch API call with service_tier=batch and metrics validation", "SmartHopper Tests", "Testing Providers")
+        pub        public TestGeminiBatchCallComponent()
+            : base("Test Gemini Batch Call", "TEST-GEMINI-BATCH", "Tests Gemini batch API call with service_tier=batch and metrics validation")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("Gemini");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

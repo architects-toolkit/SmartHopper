@@ -36,20 +36,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for DeepSeek batch API call.
     /// </summary>
-    public class TestDeepSeekBatchCallComponent : AIStatefulAsyncComponentBase
+    public class TestDeepSeekBatchCallComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("9D264C28-E309-47BA-894C-7571AA3CBE3F");
 
+        protected override string TestProviderName => "DeepSeek";
+
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
-        public TestDeepSeekBatchCallComponent()
+        pub        public TestDeepSeekBatchCallComponent()
             : base("Test DeepSeek Batch Call", "TEST-DEEPSEEK-BATCH", "Tests DeepSeek batch API call with service_tier=batch and metrics validation", "SmartHopper", "Test/Providers")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("DeepSeek");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

@@ -34,20 +34,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for DeepSeek standard API call.
     /// </summary>
-    public class TestDeepSeekStandardCallComponent : AIStatefulAsyncComponentBase
+    public class TestDeepSeekStandardCallComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("67D39B8C-9DCB-4E81-8FBA-BD74FF2A2B1F");
 
+        protected override string TestProviderName => "DeepSeek";
+
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
-        public TestDeepSeekStandardCallComponent()
-            : base("Test DeepSeek Standard Call", "TEST-DEEPSEEK-CALL", "Tests DeepSeek standard API call and metrics validation", "SmartHopper Tests", "Testing Providers")
+        pub        public TestDeepSeekStandardCallComponent()
+            : base("Test DeepSeek Standard Call", "TEST-DEEPSEEK-CALL", "Tests DeepSeek standard API call and metrics validation")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("DeepSeek");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

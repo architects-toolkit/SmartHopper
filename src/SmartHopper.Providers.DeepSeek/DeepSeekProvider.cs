@@ -98,15 +98,6 @@ namespace SmartHopper.Providers.DeepSeek
         public override bool IsConfigured => this.IsSettingConfigured("ApiKey");
 
         /// <summary>
-        /// Helper to retrieve the configured API key for this provider.
-        /// Exposed to nested streaming adapter to avoid protected access issues.
-        /// </summary>
-        internal string GetApiKey()
-        {
-            return this.GetSetting<string>("ApiKey");
-        }
-
-        /// <summary>
         /// <inheritdoc/>
         protected override IStreamingAdapter CreateStreamingAdapter()
         {
@@ -116,17 +107,7 @@ namespace SmartHopper.Providers.DeepSeek
         /// <summary>
         /// Gets the provider's icon.
         /// </summary>
-        public override Image Icon
-        {
-            get
-            {
-                var iconBytes = Properties.Resources.deepseek_icon;
-                using (var ms = new MemoryStream(iconBytes))
-                {
-                    return new Bitmap(ms);
-                }
-            }
-        }
+        public override Image Icon => this.LoadIconFromResources(Properties.Resources.deepseek_icon);
 
         /// <inheritdoc/>
         public override AIRequestCall PreCall(AIRequestCall request)

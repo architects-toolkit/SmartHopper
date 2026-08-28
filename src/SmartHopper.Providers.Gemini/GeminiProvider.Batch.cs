@@ -119,7 +119,7 @@ namespace SmartHopper.Providers.Gemini
         private async Task<JObject> PostBatchRequestAsync(string endpoint, string requestBody, CancellationToken cancellationToken)
         {
             using var client = new HttpClient();
-            var apiKey = this.GetSetting<string>("ApiKey");
+            var apiKey = this.GetApiKey();
             if (string.IsNullOrWhiteSpace(apiKey))
             {
                 throw new InvalidOperationException($"{this.Name} API key is not configured or is invalid.");
@@ -143,7 +143,7 @@ namespace SmartHopper.Providers.Gemini
         private async Task<JObject> SendBatchRequestAsync(HttpMethod method, string endpoint, CancellationToken cancellationToken)
         {
             using var client = new HttpClient();
-            var apiKey = this.GetSetting<string>("ApiKey");
+            var apiKey = this.GetApiKey();
             if (string.IsNullOrWhiteSpace(apiKey))
             {
                 throw new InvalidOperationException($"{this.Name} API key is not configured or is invalid.");

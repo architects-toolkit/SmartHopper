@@ -35,20 +35,16 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for OpenAI tool encoding and parsing.
     /// </summary>
-    public class TestOpenAIToolsComponent : AIStatefulAsyncComponentBase
+    public class TestOpenAIToolsComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("63FEAE05-B951-4642-8BC4-8D5F1A1FAAD5");
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        protected override string TestProviderName => "OpenAI";
 
-        public TestOpenAIToolsComponent()
-            : base("Test OpenAI Tools", "TEST-OPENAI-TOOLS", "Tests OpenAI tool encoding and response parsing", "SmartHopper Tests", "Testing Providers")
+        pub        public TestOpenAIToolsComponent()
+            : base("Test OpenAI Tools", "TEST-OPENAI-TOOLS", "Tests OpenAI tool encoding and response parsing")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("OpenAI");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

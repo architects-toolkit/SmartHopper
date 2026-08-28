@@ -135,8 +135,6 @@ namespace SmartHopper.Providers.OpenAI
             string? apiKey = null;
             string? model = null;
             string? reasoningEffort = null;
-            int? maxTokens = null;
-            double? temperature = null;
 
             // Get API key if present
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
@@ -176,48 +174,17 @@ namespace SmartHopper.Providers.OpenAI
                 }
             }
 
-            // Check max tokens if present - must be a positive number
-            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
+            if (!this.ValidateMaxTokens(settings, showErrorDialogs))
             {
-                // Try to parse as integer
-                if (int.TryParse(maxTokensObj.ToString(), out int parsedMaxTokens))
-                {
-                    maxTokens = parsedMaxTokens;
-                }
-
-                // Ensure max tokens is greater than 0
-                if (maxTokens <= 0)
-                {
-                    if (showErrorDialogs)
-                    {
-                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Max Tokens must be greater than 0."));
-                    }
-
-                    return false;
-                }
+                return false;
             }
 
-            if (settings.TryGetValue("Temperature", out var temperatureObj) && temperatureObj != null)
+            if (!this.ValidateTemperature(settings, showErrorDialogs))
             {
-                // Try to parse as double
-                if (double.TryParse(temperatureObj.ToString(), out double parsedTemperature))
-                {
-                    temperature = parsedTemperature;
-                }
-
-                // Ensure temperature is between 0.0 and 2.0 (both included)
-                if (temperature < 0.0 || temperature > 2.0)
-                {
-                    if (showErrorDialogs)
-                    {
-                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Temperature must be between 0.0 and 2.0."));
-                    }
-
-                    return false;
-                }
+                return false;
             }
 
-            Debug.WriteLine($"Validating OpenAI settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}, Reasoning Effort: {reasoningEffort}");
+            Debug.WriteLine($"Validating OpenAI settings: API Key: {apiKey}, Model: {model}, Reasoning Effort: {reasoningEffort}");
 
             return true;
         }

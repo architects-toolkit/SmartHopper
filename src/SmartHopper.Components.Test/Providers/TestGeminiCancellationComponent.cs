@@ -37,20 +37,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for Gemini cancellation across all async operations.
     /// </summary>
-    public class TestGeminiCancellationComponent : AIStatefulAsyncComponentBase
+    public class TestGeminiCancellationComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("67A7822D-BEC2-4920-90DC-E4FA3A113F96");
 
+        protected override string TestProviderName => "Gemini";
+
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
-        public TestGeminiCancellationComponent()
-            : base("Test Gemini Cancellation", "TEST-GEMINI-CANCEL", "Tests Gemini cancellation across all async operations", "SmartHopper Tests", "Testing Providers")
+        pub        public TestGeminiCancellationComponent()
+            : base("Test Gemini Cancellation", "TEST-GEMINI-CANCEL", "Tests Gemini cancellation across all async operations")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("Gemini");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

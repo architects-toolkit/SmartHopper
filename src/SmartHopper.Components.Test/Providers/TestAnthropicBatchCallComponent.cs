@@ -39,20 +39,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for Anthropic batch API call.
     /// </summary>
-    public class TestAnthropicBatchCallComponent : AIStatefulAsyncComponentBase
+    public class TestAnthropicBatchCallComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("963561E5-8242-4B9F-AF16-16635E173401");
 
+        protected override string TestProviderName => "Anthropic";
+
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
-        public TestAnthropicBatchCallComponent()
-            : base("Test Anthropic Batch Call", "TEST-ANTHROPIC-BATCH", "Tests Anthropic batch API call with service_tier=batch and metrics validation", "SmartHopper Tests", "Testing Providers")
+        pub        public TestAnthropicBatchCallComponent()
+            : base("Test Anthropic Batch Call", "TEST-ANTHROPIC-BATCH", "Tests Anthropic batch API call with service_tier=batch and metrics validation")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("Anthropic");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

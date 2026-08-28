@@ -38,20 +38,16 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for OpenAI vision input handling.
     /// </summary>
-    public class TestOpenAIVisionComponent : AIStatefulAsyncComponentBase
+    public class TestOpenAIVisionComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("D4E5F6A7-5678-4DEF-A012-345678901234");
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        protected override string TestProviderName => "OpenAI";
 
-        public TestOpenAIVisionComponent()
-            : base("Test OpenAI Vision", "TEST-OPENAI-VISION", "Tests OpenAI vision API call with image input", "SmartHopper Tests", "Testing Providers")
+        pub        public TestOpenAIVisionComponent()
+            : base("Test OpenAI Vision", "TEST-OPENAI-VISION", "Tests OpenAI vision API call with image input")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("OpenAI");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

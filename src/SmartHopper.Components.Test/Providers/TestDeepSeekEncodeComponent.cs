@@ -35,20 +35,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for DeepSeek message encoding.
     /// </summary>
-    public class TestDeepSeekEncodeComponent : AIStatefulAsyncComponentBase
+    public class TestDeepSeekEncodeComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("BC0FB82E-85A6-4706-AFFA-69A740D173E4");
 
+        protected override string TestProviderName => "DeepSeek";
+
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
-        public TestDeepSeekEncodeComponent()
-            : base("Test DeepSeek Encode", "TEST-DEEPSEEK-ENC", "Tests DeepSeek message encoding from AIRequestCall", "SmartHopper Tests", "Testing Providers")
+        pub        public TestDeepSeekEncodeComponent()
+            : base("Test DeepSeek Encode", "TEST-DEEPSEEK-ENC", "Tests DeepSeek message encoding from AIRequestCall")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("DeepSeek");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

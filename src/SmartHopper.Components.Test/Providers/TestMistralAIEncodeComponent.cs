@@ -35,18 +35,16 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for MistralAI message encoding.
     /// </summary>
-    public class TestMistralAIEncodeComponent : AIStatefulAsyncComponentBase
+    public class TestMistralAIEncodeComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("495A06B5-DE3F-4860-AC3B-E97A34921C29");
 
-        public TestMistralAIEncodeComponent()
-            : base("Test MistralAI Encode", "TEST-MISTRAL-ENC", "Tests MistralAI message encoding from AIRequestCall", "SmartHopper Tests", "Testing Providers")
-        {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("MistralAI");
-        }
+        protected override string TestProviderName => "MistralAI";
 
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        pub        public TestMistralAIEncodeComponent()
+            : base("Test MistralAI Encode", "TEST-MISTRAL-ENC", "Tests MistralAI message encoding from AIRequestCall")
+        {
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

@@ -34,20 +34,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for DeepSeek vision input handling.
     /// </summary>
-    public class TestDeepSeekVisionComponent : AIStatefulAsyncComponentBase
+    public class TestDeepSeekVisionComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("43A8D588-79AD-4F81-B92A-2FC8CEA04682");
 
+        protected override string TestProviderName => "DeepSeek";
+
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
-        public TestDeepSeekVisionComponent()
+        pub        public TestDeepSeekVisionComponent()
             : base("Test DeepSeek Vision", "TEST-DEEPSEEK-VISION", "Tests DeepSeek vision API call with image input", "SmartHopper", "Test/Providers")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("DeepSeek");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

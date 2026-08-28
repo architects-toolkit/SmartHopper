@@ -37,21 +37,19 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for Google Gemini vision input handling.
     /// </summary>
-    public class TestGeminiVisionComponent : AIStatefulAsyncComponentBase
+    public class TestGeminiVisionComponent : ProviderTestComponentBase
     {
 
         public override Guid ComponentGuid => new Guid("06FB22C2-2C27-4117-8330-56904038A513");
 
+        protected override string TestProviderName => "Gemini";
+
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
-        public TestGeminiVisionComponent()
-            : base("Test Gemini Vision", "TEST-GEMINI-VISION", "Tests Gemini vision API call with image input", "SmartHopper Tests", "Testing Providers")
+        pub        public TestGeminiVisionComponent()
+            : base("Test Gemini Vision", "TEST-GEMINI-VISION", "Tests Gemini vision API call with image input")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("Gemini");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

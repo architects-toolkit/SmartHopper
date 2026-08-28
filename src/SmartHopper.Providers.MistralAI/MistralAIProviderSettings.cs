@@ -124,8 +124,6 @@ namespace SmartHopper.Providers.MistralAI
             // Extract values from settings dictionary
             string? apiKey = null;
             string? model = null;
-            int? maxTokens = null;
-            double? temperature = null;
 
             // Get API key if present
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
@@ -145,51 +143,14 @@ namespace SmartHopper.Providers.MistralAI
                 // Skip model validation since any value is valid
             }
 
-            // Check max tokens if present - must be a positive number
-            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
+            if (!this.ValidateMaxTokens(settings, showErrorDialogs, "Max tokens must be a positive number."))
             {
-                // Try to parse as integer
-                if (int.TryParse(maxTokensObj.ToString(), out int parsedMaxTokens))
-                {
-                    maxTokens = parsedMaxTokens;
-                }
-
-                // Ensure max tokens is greater than 0
-                if (maxTokens.HasValue && maxTokens.Value <= 0)
-                {
-                    if (showErrorDialogs)
-                    {
-                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Max tokens must be a positive number."));
-                    }
-
-                    return false;
-                }
+                return false;
             }
 
-            if (settings.TryGetValue("Temperature", out var temperatureObj) && temperatureObj != null)
+            if (!this.ValidateTemperature(settings, showErrorDialogs, "Temperature for MistralAI models must be between 0.0 and 3.0.", max: 3.0))
             {
-                // Try to parse as double
-                if (double.TryParse(temperatureObj.ToString(), out double parsedTemperature))
-                {
-                    temperature = parsedTemperature;
-                }
-
-                // Ensure temperature is between 0.0 and 3.0 (both included)
-                if (temperature < 0.0 || temperature > 3.0)
-                {
-                    if (showErrorDialogs)
-                    {
-                        ProviderSdkHost.Diagnostics.Report(
-                            this.GetType().Name,
-                            new SHRuntimeMessage(
-                                SHRuntimeMessageSeverity.Error,
-                                SHRuntimeMessageOrigin.Validation,
-                                SHMessageCode.InputInvalid,
-                                "Temperature for MistralAI models must be between 0.0 and 3.0."));
-                    }
-
-                    return false;
-                }
+                return false;
             }
 
             if (settings.TryGetValue("ReasoningEffort", out var reasoningEffortObj) && reasoningEffortObj != null)
@@ -207,7 +168,7 @@ namespace SmartHopper.Providers.MistralAI
                 }
             }
 
-            Debug.WriteLine($"Validating MistralAI settings: API Key: {apiKey}, Model: {model}, Max Tokens: {maxTokens}");
+            Debug.WriteLine($"Validating MistralAI settings: API Key: {apiKey}, Model: {model}");
 
             return true;
         }
