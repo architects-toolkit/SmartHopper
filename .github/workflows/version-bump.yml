@@ -95,6 +95,12 @@ jobs:
           NEW_VERSION: ${{ steps.next-version.outputs.new-version }}
         run: |
           set -euo pipefail
+          unexpected=$(git status --porcelain | awk '{print $2}' | grep -vE '^(Solution.props|README.md|CHANGELOG.md)$' || true)
+          if [[ -n "$unexpected" ]]; then
+            echo "::error::Unexpected files changed by version bump:" >&2
+            printf '%s\n' "$unexpected" >&2
+            exit 1
+          fi
           git add Solution.props README.md CHANGELOG.md
           git commit -m "chore: bump version to $NEW_VERSION"
           git push origin "chore/bump-$NEW_VERSION"
@@ -108,19 +114,20 @@ jobs:
           NEW_VERSION: ${{ steps.next-version.outputs.new-version }}
         run: |
           set -euo pipefail
-          gh pr create \
+          PR_URL=$(gh pr create \
             --base "$BASE_BRANCH" \
             --head "chore/bump-$NEW_VERSION" \
             --title "chore: bump version to $NEW_VERSION" \
-            --body "Updates the canonical version to \`$NEW_VERSION\` and refreshes the README badges."
+            --body "Updates the canonical version to \`$NEW_VERSION\` and refreshes the README badges.")
+          echo "pr-url=$PR_URL" >> "$GITHUB_OUTPUT"
 
       - name: Enable rebase auto-merge
         if: inputs.auto-merge == true
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEW_VERSION: ${{ steps.next-version.outputs.new-version }}
+          PR_URL: ${{ steps.create-pr.outputs.pr-url }}
         run: |
           set -euo pipefail
-          PR_NUMBER=$(gh pr list --head "chore/bump-$NEW_VERSION" --json number --jq '.[0].number')
+          PR_NUMBER=$(gh pr view "$PR_URL" --json number --jq '.number')
           gh pr merge "$PR_NUMBER" --auto --rebase
