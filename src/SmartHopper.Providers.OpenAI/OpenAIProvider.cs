@@ -1158,16 +1158,19 @@ namespace SmartHopper.Providers.OpenAI
         /// </summary>
         private AIMetrics DecodeMetrics(JObject response)
         {
-            var metrics = new AIMetrics();
-
             if (response == null)
             {
-                return metrics;
+                return new AIMetrics();
             }
 
             try
             {
                 var usage = response["usage"] as JObject;
+
+                int inputTokensCached = 0;
+                int inputTokensPrompt = 0;
+                int outputTokensGeneration = 0;
+                int outputTokensReasoning = 0;
 
                 if (usage != null)
                 {
@@ -1179,38 +1182,43 @@ namespace SmartHopper.Providers.OpenAI
                     // Extract cached tokens from nested details object
                     var promptDetails = usage["prompt_tokens_details"] as JObject;
                     var inputDetails = usage["input_tokens_details"] as JObject;
-                    metrics.InputTokensCached = promptDetails?["cached_tokens"]?.Value<int>()
+                    inputTokensCached = promptDetails?["cached_tokens"]?.Value<int>()
                         ?? inputDetails?["cached_tokens"]?.Value<int>()
                         ?? 0;
-                    metrics.InputTokensPrompt = totalPromptTokens - metrics.InputTokensCached;
+                    inputTokensPrompt = totalPromptTokens - inputTokensCached;
 
-                    metrics.OutputTokensGeneration = usage["completion_tokens"]?.Value<int>()
+                    outputTokensGeneration = usage["completion_tokens"]?.Value<int>()
                         ?? usage["output_tokens"]?.Value<int>()
-                        ?? metrics.OutputTokensGeneration;
+                        ?? 0;
 
                     // Extract reasoning tokens from nested completion/output token details (o1/o3/GPT-5 models)
                     var completionDetails = usage["completion_tokens_details"] as JObject;
                     var outputDetails = usage["output_tokens_details"] as JObject;
-                    var reasoningTokens = completionDetails?["reasoning_tokens"]?.Value<int>()
+                    outputTokensReasoning = completionDetails?["reasoning_tokens"]?.Value<int>()
                         ?? outputDetails?["reasoning_tokens"]?.Value<int>()
                         ?? 0;
-                    metrics.OutputTokensReasoning = reasoningTokens;
                 }
 
                 // Handle finish reason for chat completions
                 var choices = response["choices"] as JArray;
                 var firstChoice = choices?.FirstOrDefault() as JObject;
-                if (firstChoice != null)
+                var finishReason = firstChoice?["finish_reason"]?.ToString();
+
+                return new AIMetrics
                 {
-                    metrics.FinishReason = firstChoice["finish_reason"]?.ToString() ?? metrics.FinishReason;
-                }
+                    InputTokensCached = inputTokensCached,
+                    InputTokensPrompt = inputTokensPrompt,
+                    OutputTokensGeneration = outputTokensGeneration,
+                    OutputTokensReasoning = outputTokensReasoning,
+                    FinishReason = finishReason,
+                };
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[OpenAI] DecodeMetrics error: {ex.Message}");
             }
 
-            return metrics;
+            return new AIMetrics();
         }
 
         /// <summary>
@@ -1278,15 +1286,15 @@ namespace SmartHopper.Providers.OpenAI
                     Debug.WriteLine($"[OpenAI] Content after unwrapping: {content.Substring(0, Math.Min(100, content.Length))}...");
                 }
 
-                var interaction = new AIInteractionText();
-                interaction.SetResult(
-                    agent: AIAgent.Assistant,
-                    content: content,
-                    reasoning: null);
-
                 var metrics = this.DecodeMetrics(responseJson);
 
-                interaction.Metrics = metrics;
+                var interaction = new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = content,
+                    Reasoning = null,
+                    Metrics = metrics,
+                };
 
                 interactions.Add(interaction);
 
@@ -1479,22 +1487,25 @@ namespace SmartHopper.Providers.OpenAI
 
                 if (!string.IsNullOrEmpty(content) || !string.IsNullOrEmpty(reasoning) || toolCalls.Count > 0)
                 {
-                    var interaction = new AIInteractionText();
-                    interaction.SetResult(
-                        agent: AIAgent.Assistant,
-                        content: content,
-                        reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
-
                     var metrics = this.DecodeMetrics(responseJson);
-                    interaction.Metrics = metrics;
+
+                    var interaction = new AIInteractionText
+                    {
+                        Agent = AIAgent.Assistant,
+                        Content = content,
+                        Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
+                        Metrics = metrics,
+                    };
 
                     interactions.Add(interaction);
                 }
 
                 foreach (var toolCall in toolCalls)
                 {
-                    toolCall.Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning;
-                    interactions.Add(toolCall);
+                    interactions.Add(toolCall with
+                    {
+                        Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
+                    });
                 }
             }
             catch (Exception ex)
@@ -1538,7 +1549,7 @@ namespace SmartHopper.Providers.OpenAI
                 };
 
                 // Set the result data from the API response
-                resultInteraction.SetResult(
+                resultInteraction = resultInteraction.WithResult(
                     imageUrl: imageUrl,
                     revisedPrompt: revisedPrompt);
 
@@ -1574,10 +1585,11 @@ namespace SmartHopper.Providers.OpenAI
                     return interactions;
                 }
 
-                var interaction = new AIInteractionText();
-                interaction.SetResult(
-                    agent: AIAgent.Assistant,
-                    content: text);
+                var interaction = new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = text,
+                };
 
                 interactions.Add(interaction);
 
@@ -1724,13 +1736,9 @@ namespace SmartHopper.Providers.OpenAI
                 int completionTokens = 0;
 
                 // Provider-local aggregate of assistant text
-                var assistantAggregate = new AIInteractionText
-                {
-                    Agent = AIAgent.Assistant,
-                    Content = string.Empty,
-                    Reasoning = string.Empty,
-                    Metrics = new AIMetrics { Provider = this.Provider.Name, Model = request.Model },
-                };
+                var assistantAggregate = new AIInteractionText.Builder()
+                    .WithResult(AIAgent.Assistant, string.Empty, string.Empty)
+                    .CombineMetrics(new AIMetrics { Provider = this.Provider.Name, Model = request.Model });
 
                 // Tool call accumulation (index -> partial)
                 var toolCalls = new Dictionary<int, (string Id, string Name, StringBuilder Args)>();
@@ -1745,26 +1753,10 @@ namespace SmartHopper.Providers.OpenAI
                     if (string.IsNullOrEmpty(text)) yield break;
 
                     // Append to provider-local aggregate
-                    assistantAggregate.AppendDelta(contentDelta: text);
+                    assistantAggregate.AppendContent(text);
 
                     // Emit a snapshot copy to avoid aliasing across yields
-                    var snapshot = new AIInteractionText
-                    {
-                        Agent = assistantAggregate.Agent,
-                        Content = assistantAggregate.Content,
-                        Reasoning = assistantAggregate.Reasoning,
-                        Metrics = new AIMetrics
-                        {
-                            Provider = assistantAggregate.Metrics.Provider,
-                            Model = assistantAggregate.Metrics.Model,
-                            FinishReason = assistantAggregate.Metrics.FinishReason,
-                            InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                            InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                            OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                            OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                            CompletionTime = assistantAggregate.Metrics.CompletionTime,
-                        },
-                    };
+                    var snapshot = assistantAggregate.Build();
 
                     var delta = new AIReturn
                     {
@@ -1896,24 +1888,7 @@ namespace SmartHopper.Providers.OpenAI
                             if (!responsesTextSegmentClosed &&
                                 (!string.IsNullOrEmpty(assistantAggregate.Content) || !string.IsNullOrEmpty(assistantAggregate.Reasoning)))
                             {
-                                var completeSnapshot = new AIInteractionText
-                                {
-                                    Agent = assistantAggregate.Agent,
-                                    Content = assistantAggregate.Content,
-                                    Reasoning = assistantAggregate.Reasoning,
-                                    Time = DateTime.UtcNow,
-                                    Metrics = new AIMetrics
-                                    {
-                                        Provider = assistantAggregate.Metrics.Provider,
-                                        Model = assistantAggregate.Metrics.Model,
-                                        FinishReason = assistantAggregate.Metrics.FinishReason,
-                                        InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                                        InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                                        OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                                        CompletionTime = assistantAggregate.Metrics.CompletionTime,
-                                    },
-                                };
+                                var completeSnapshot = assistantAggregate.Build() with { Time = DateTime.UtcNow };
 
                                 var completeDelta = new AIReturn
                                 {
@@ -1976,24 +1951,7 @@ namespace SmartHopper.Providers.OpenAI
                             if (!responsesTextSegmentClosed &&
                                 (!string.IsNullOrEmpty(assistantAggregate.Content) || !string.IsNullOrEmpty(assistantAggregate.Reasoning)))
                             {
-                                var completeSnapshot = new AIInteractionText
-                                {
-                                    Agent = assistantAggregate.Agent,
-                                    Content = assistantAggregate.Content,
-                                    Reasoning = assistantAggregate.Reasoning,
-                                    Time = DateTime.UtcNow,
-                                    Metrics = new AIMetrics
-                                    {
-                                        Provider = assistantAggregate.Metrics.Provider,
-                                        Model = assistantAggregate.Metrics.Model,
-                                        FinishReason = assistantAggregate.Metrics.FinishReason,
-                                        InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                                        InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                                        OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                                        CompletionTime = assistantAggregate.Metrics.CompletionTime,
-                                    },
-                                };
+                                var completeSnapshot = assistantAggregate.Build() with { Time = DateTime.UtcNow };
 
                                 var completeDelta = new AIReturn
                                 {
@@ -2016,7 +1974,7 @@ namespace SmartHopper.Providers.OpenAI
                                 var ct = respUsage["output_tokens"]?.Value<int?>();
                                 if (pt.HasValue) promptTokens = pt.Value;
                                 if (ct.HasValue) completionTokens = ct.Value;
-                                assistantAggregate.AppendDelta(metricsDelta: new AIMetrics
+                                assistantAggregate.CombineMetrics( new AIMetrics
                                 {
                                     Provider = this.Provider.Name,
                                     Model = request.Model,
@@ -2218,7 +2176,7 @@ namespace SmartHopper.Providers.OpenAI
                         var rt = completionDetails?["reasoning_tokens"]?.Value<int?>() ?? 0;
 
                         // Update aggregate metrics
-                        assistantAggregate.AppendDelta(metricsDelta: new AIMetrics
+                        assistantAggregate.CombineMetrics( new AIMetrics
                         {
                             Provider = this.Provider.Name,
                             Model = request.Model,
@@ -2249,7 +2207,7 @@ namespace SmartHopper.Providers.OpenAI
                                     var reasoningText = part["text"]?.ToString() ?? part["content"]?.ToString();
                                     if (!string.IsNullOrEmpty(reasoningText))
                                     {
-                                        assistantAggregate.AppendDelta(reasoningDelta: reasoningText);
+                                        assistantAggregate.AppendReasoning( reasoningText);
                                         hasReasoningUpdate = true;
                                         Debug.WriteLine($"[OpenAI] Streaming reasoning chunk: {reasoningText.Substring(0, Math.Min(50, reasoningText.Length))}...");
                                     }
@@ -2285,18 +2243,10 @@ namespace SmartHopper.Providers.OpenAI
                             if (hadReasoningOnlySegment)
                             {
                                 // Emit completed reasoning-only interaction to set boundary flag
-                                var reasoningComplete = new AIInteractionText
+                                var reasoningComplete = assistantAggregate.Build() with
                                 {
-                                    Agent = assistantAggregate.Agent,
                                     Content = string.Empty,
-                                    Reasoning = assistantAggregate.Reasoning,
                                     Time = DateTime.UtcNow,
-                                    Metrics = new AIMetrics
-                                    {
-                                        Provider = assistantAggregate.Metrics.Provider,
-                                        Model = assistantAggregate.Metrics.Model,
-                                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                                    },
                                 };
 
                                 var completeDelta = new AIReturn
@@ -2334,23 +2284,7 @@ namespace SmartHopper.Providers.OpenAI
                         else if (hasReasoningUpdate)
                         {
                             // Emit reasoning-only snapshot (no text content yet)
-                            var snapshot = new AIInteractionText
-                            {
-                                Agent = assistantAggregate.Agent,
-                                Content = assistantAggregate.Content,
-                                Reasoning = assistantAggregate.Reasoning,
-                                Metrics = new AIMetrics
-                                {
-                                    Provider = assistantAggregate.Metrics.Provider,
-                                    Model = assistantAggregate.Metrics.Model,
-                                    FinishReason = assistantAggregate.Metrics.FinishReason,
-                                    InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                                    InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                                    OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                                    OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                                    CompletionTime = assistantAggregate.Metrics.CompletionTime,
-                                },
-                            };
+                            var snapshot = assistantAggregate.Build();
 
                             var reasoningDelta = new AIReturn
                             {
@@ -2452,7 +2386,7 @@ namespace SmartHopper.Providers.OpenAI
                 };
 
                 // Align aggregate metrics finish reason as well
-                assistantAggregate.AppendDelta(metricsDelta: new AIMetrics { FinishReason = finalMetrics.FinishReason });
+                assistantAggregate.CombineMetrics( new AIMetrics { FinishReason = finalMetrics.FinishReason });
 
                 // Build final body with text and tool calls
                 var finalBuilder = AIBodyBuilder.Create();
@@ -2460,23 +2394,7 @@ namespace SmartHopper.Providers.OpenAI
                 // Add text interaction if present
                 if (!string.IsNullOrEmpty(assistantAggregate.Content) || !string.IsNullOrEmpty(assistantAggregate.Reasoning))
                 {
-                    var finalSnapshot = new AIInteractionText
-                    {
-                        Agent = assistantAggregate.Agent,
-                        Content = assistantAggregate.Content,
-                        Reasoning = assistantAggregate.Reasoning,
-                        Metrics = new AIMetrics
-                        {
-                            Provider = assistantAggregate.Metrics.Provider,
-                            Model = assistantAggregate.Metrics.Model,
-                            FinishReason = assistantAggregate.Metrics.FinishReason,
-                            InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                            InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                            OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                            OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                            CompletionTime = assistantAggregate.Metrics.CompletionTime,
-                        },
-                    };
+                    var finalSnapshot = assistantAggregate.Build();
                     finalBuilder.Add(finalSnapshot, markAsNew: false);
                 }
 

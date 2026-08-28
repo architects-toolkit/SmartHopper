@@ -41,7 +41,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override string TestProviderName => "MistralAI";
 
-        pub        public TestMistralAIEncodeComponent()
+        public TestMistralAIEncodeComponent()
             : base("Test MistralAI Encode", "TEST-MISTRAL-ENC", "Tests MistralAI message encoding from AIRequestCall")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

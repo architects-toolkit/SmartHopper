@@ -94,7 +94,7 @@ namespace SmartHopper.Components.Misc
                     }
                     else
                     {
-                        combined.Combine(metric);
+                        combined = combined.WithCombined(metric);
                     }
                 }
 
@@ -137,15 +137,15 @@ namespace SmartHopper.Components.Misc
                 };
 
                 var dataCount = obj["data_count"]?.Value<int?>();
-                if (dataCount.HasValue)
-                {
-                    metric.DataCount = dataCount.Value;
-                }
-
                 var iterationsCount = obj["iterations_count"]?.Value<int?>();
-                if (iterationsCount.HasValue)
+
+                if (dataCount.HasValue || iterationsCount.HasValue)
                 {
-                    metric.IterationsCount = iterationsCount.Value;
+                    metric = metric with
+                    {
+                        DataCount = dataCount,
+                        IterationsCount = iterationsCount,
+                    };
                 }
 
                 // ContextUsagePercent is computed, but we can seed LastEffectiveTotalTokens

@@ -210,20 +210,20 @@ namespace SmartHopper.Providers.Gemini
                 var promptTokenCount = usageMetadata["promptTokenCount"]?.Value<int>() ?? 0;
                 if (promptTokenCount > 0)
                 {
-                    metrics.InputTokensPrompt = promptTokenCount;
+                    metrics = metrics with { InputTokensPrompt = promptTokenCount };
                 }
 
                 var candidatesTokenCount = usageMetadata["candidatesTokenCount"]?.Value<int>() ?? 0;
                 if (candidatesTokenCount > 0)
                 {
-                    metrics.OutputTokensGeneration = candidatesTokenCount;
+                    metrics = metrics with { OutputTokensGeneration = candidatesTokenCount };
                 }
 
                 // Extract thinking tokens (thoughtsTokenCount) for models that support thinking
                 var thoughtsTokenCount = usageMetadata["thoughtsTokenCount"]?.Value<int>() ?? 0;
                 if (thoughtsTokenCount > 0)
                 {
-                    metrics.OutputTokensReasoning = thoughtsTokenCount;
+                    metrics = metrics with { OutputTokensReasoning = thoughtsTokenCount };
                 }
 
                 if (metrics.InputTokensPrompt > 0 || metrics.OutputTokensGeneration > 0)

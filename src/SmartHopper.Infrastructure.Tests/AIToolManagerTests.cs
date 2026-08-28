@@ -18,6 +18,7 @@
 
 namespace SmartHopper.Infrastructure.Tests
 {
+    using System.Reflection;
     using System.Threading.Tasks;
     using SmartHopper.Infrastructure.AITools;
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
@@ -42,7 +43,7 @@ namespace SmartHopper.Infrastructure.Tests
 #endif
         public void RegisterTool_ShouldAddTool()
         {
-            AIToolManager.ResetTools();
+            this.ResetTools();
             var tool = new AITool("TestTool", "Test Description", "Test Category", "{}", _ => Task.FromResult(new AIReturn()));
             AIToolManager.RegisterTool(tool);
             var tools = AIToolManager.GetTools();
@@ -64,7 +65,7 @@ namespace SmartHopper.Infrastructure.Tests
 #endif
         public void GetTools_ShouldBeEmpty_WhenNoToolsRegistered()
         {
-            AIToolManager.ResetTools();
+            this.ResetTools();
             var tools = AIToolManager.GetTools();
             Assert.Empty(tools);
         }
@@ -87,6 +88,11 @@ namespace SmartHopper.Infrastructure.Tests
 
             Assert.True(enabledTool.Enabled);
             Assert.False(disabledTool.Enabled);
+        }
+
+        private void ResetTools()
+        {
+            typeof(AIToolManager).GetMethod("ResetTools", BindingFlags.Static | BindingFlags.NonPublic)?.Invoke(null, null);
         }
     }
 }

@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
-        pub        public TestOpenRouterEncodeComponent()
+        public TestOpenRouterEncodeComponent()
             : base("Test OpenRouter Encode", "TEST-OPENROUTER-ENC", "Tests OpenRouter message encoding from AIRequestCall")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

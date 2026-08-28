@@ -19,6 +19,7 @@
 namespace SmartHopper.Infrastructure.Tests
 {
     using System.IO;
+    using System.Reflection;
     using System.Text;
     using SmartHopper.Infrastructure.AIProviders;
     using SmartHopper.ProviderSdk.AIProviders;
@@ -40,8 +41,8 @@ namespace SmartHopper.Infrastructure.Tests
                 File.WriteAllText(tempFile, "test content");
 
                 // Act
-                var hash1 = ProviderHashVerifier.CalculateFileHash(tempFile);
-                var hash2 = ProviderHashVerifier.CalculateFileHash(tempFile);
+                var hash1 = this.CalculateFileHash(tempFile);
+                var hash2 = this.CalculateFileHash(tempFile);
 
                 // Assert
                 Assert.Equal(hash1, hash2);
@@ -70,8 +71,8 @@ namespace SmartHopper.Infrastructure.Tests
                 File.WriteAllText(tempFile2, "content 2");
 
                 // Act
-                var hash1 = ProviderHashVerifier.CalculateFileHash(tempFile1);
-                var hash2 = ProviderHashVerifier.CalculateFileHash(tempFile2);
+                var hash1 = this.CalculateFileHash(tempFile1);
+                var hash2 = this.CalculateFileHash(tempFile2);
 
                 // Assert
                 Assert.NotEqual(hash1, hash2);
@@ -97,7 +98,7 @@ namespace SmartHopper.Infrastructure.Tests
                 File.WriteAllText(tempFile, "test");
 
                 // Act
-                var hash = ProviderHashVerifier.CalculateFileHash(tempFile);
+                var hash = this.CalculateFileHash(tempFile);
 
                 // Assert
                 Assert.Equal(hash, hash.ToLower());
@@ -125,7 +126,7 @@ namespace SmartHopper.Infrastructure.Tests
                 File.WriteAllBytes(tempFile, Encoding.UTF8.GetBytes("test"));
 
                 // Act
-                var hash = ProviderHashVerifier.CalculateFileHash(tempFile);
+                var hash = this.CalculateFileHash(tempFile);
 
                 // Assert - This is the SHA-256 hash of "test"
                 Assert.Equal("9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08", hash);
@@ -153,7 +154,7 @@ namespace SmartHopper.Infrastructure.Tests
                 File.WriteAllText(tempFile, string.Empty);
 
                 // Act
-                var hash = ProviderHashVerifier.CalculateFileHash(tempFile);
+                var hash = this.CalculateFileHash(tempFile);
 
                 // Assert - SHA-256 of empty string
                 Assert.Equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hash);
@@ -179,7 +180,7 @@ namespace SmartHopper.Infrastructure.Tests
                 File.WriteAllBytes(tempFile, binaryContent);
 
                 // Act
-                var hash = ProviderHashVerifier.CalculateFileHash(tempFile);
+                var hash = this.CalculateFileHash(tempFile);
 
                 // Assert
                 Assert.NotEmpty(hash);
@@ -212,7 +213,7 @@ namespace SmartHopper.Infrastructure.Tests
                 File.WriteAllBytes(tempFile, largeContent);
 
                 // Act
-                var hash = ProviderHashVerifier.CalculateFileHash(tempFile);
+                var hash = this.CalculateFileHash(tempFile);
 
                 // Assert
                 Assert.NotEmpty(hash);
@@ -237,7 +238,7 @@ namespace SmartHopper.Infrastructure.Tests
             // Act & Assert
             Assert.Throws<FileNotFoundException>(() =>
             {
-                ProviderHashVerifier.CalculateFileHash(nonexistentFile);
+                this.CalculateFileHash(nonexistentFile);
             });
         }
 
@@ -245,5 +246,20 @@ namespace SmartHopper.Infrastructure.Tests
         // or using integration tests with actual network calls.
         // For unit tests, we focus on the hash calculation logic.
         // Integration tests can be added separately to test the full verification flow.
+
+        private string CalculateFileHash(string filePath)
+        {
+            var type = typeof(ProviderManager).Assembly.GetType("SmartHopper.Infrastructure.AIProviders.ProviderHashVerifier");
+            var method = type?.GetMethod("CalculateFileHash", BindingFlags.Static | BindingFlags.Public);
+
+            try
+            {
+                return (string)method?.Invoke(null, new object[] { filePath });
+            }
+            catch (TargetInvocationException ex) when (ex.InnerException != null)
+            {
+                throw ex.InnerException;
+            }
+        }
     }
 }

@@ -44,7 +44,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
-        pub        public TestOpenRouterBatchCallComponent()
+        public TestOpenRouterBatchCallComponent()
             : base("Test OpenRouter Batch Call", "TEST-OPENROUTER-BATCH", "Tests OpenRouter batch API call with service_tier=batch and metrics validation", "SmartHopper", "Test/Providers")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

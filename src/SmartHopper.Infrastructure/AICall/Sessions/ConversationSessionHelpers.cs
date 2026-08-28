@@ -183,8 +183,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 if (tc != null)
                 {
-                    if (string.IsNullOrWhiteSpace(tc.TurnId)) tc.TurnId = turnId;
-                    if (tc.Agent != AIAgent.ToolCall) tc.Agent = AIAgent.ToolCall;
+                    tc = tc with
+                    {
+                        TurnId = string.IsNullOrWhiteSpace(tc.TurnId) ? turnId : tc.TurnId,
+                        Agent = AIAgent.ToolCall,
+                    };
 
                     // Append only if this tool_call was not already persisted (avoid introducing duplicates ourselves).
                     var exists = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?
@@ -237,34 +240,33 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
 
             // Normalize metadata to guarantee correlation
-            if (string.IsNullOrWhiteSpace(toolInteraction.Id)) toolInteraction.Id = tc.Id;
-            if (string.IsNullOrWhiteSpace(toolInteraction.Name)) toolInteraction.Name = tc.Name;
-            if (toolInteraction.Agent != AIAgent.ToolResult) toolInteraction.Agent = AIAgent.ToolResult;
-
-            // ALWAYS preserve TurnId from the originating tool call to maintain turn consistency
-            // ToolResults must share TurnId with their ToolCall for correct metrics aggregation
-            toolInteraction.TurnId = tc.TurnId;
+            toolInteraction = toolInteraction with
+            {
+                Id = string.IsNullOrWhiteSpace(toolInteraction.Id) ? tc.Id : toolInteraction.Id,
+                Name = string.IsNullOrWhiteSpace(toolInteraction.Name) ? tc.Name : toolInteraction.Name,
+                Agent = AIAgent.ToolResult,
+                TurnId = tc.TurnId,
+            };
 
             this.PersistToolResult(toolInteraction, turnId);
 
             // Attach tool metrics and completion time to the tool result interaction
             if (toolRet?.Metrics != null)
             {
-                toolInteraction.Metrics = toolRet.Metrics;
-
-                // Override with actual measured time (includes tool execution + any overhead)
-                toolInteraction.Metrics.CompletionTime = stopwatch.Elapsed.TotalSeconds;
+                var metrics = (toolRet.Metrics ?? new AIMetrics()) with { CompletionTime = stopwatch.Elapsed.TotalSeconds };
+                toolInteraction = toolInteraction with { Metrics = metrics };
             }
             else if (toolInteraction.Metrics == null)
             {
                 // Create metrics with at least the completion time
-                toolInteraction.Metrics = new AIMetrics
+                var metrics = new AIMetrics
                 {
                     CompletionTime = stopwatch.Elapsed.TotalSeconds,
                     Provider = this.Request.Provider,
                     Model = this.Request.Model,
                     FinishReason = "stop", // Tool completed normally
                 };
+                toolInteraction = toolInteraction with { Metrics = metrics };
             }
 
             var deltaOk = new AIReturn();
@@ -310,7 +312,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 // Ensure TurnId is set
                 if (string.IsNullOrWhiteSpace(accumulatedText.TurnId))
                 {
-                    accumulatedText.TurnId = turnId;
+                    accumulatedText = accumulatedText with { TurnId = turnId };
                 }
 
                 // Transfer final metrics from the provider's last delta to the accumulated text
@@ -320,22 +322,20 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     // Copy complete metrics from the final provider delta
                     if (finalAssistant.Metrics != null)
                     {
-                        accumulatedText.Metrics = finalAssistant.Metrics;
-
-                        // Override with actual measured streaming time
-                        accumulatedText.Metrics.CompletionTime = completionTime;
+                        var metrics = finalAssistant.Metrics with { CompletionTime = completionTime };
+                        accumulatedText = accumulatedText with { Metrics = metrics };
                     }
 
                     // Update time if available
                     if (finalAssistant.Time != default)
                     {
-                        accumulatedText.Time = finalAssistant.Time;
+                        accumulatedText = accumulatedText with { Time = finalAssistant.Time };
                     }
 
                     // Preserve reasoning if present in final delta
                     if (!string.IsNullOrWhiteSpace(finalAssistant.Reasoning))
                     {
-                        accumulatedText.Reasoning = finalAssistant.Reasoning;
+                        accumulatedText = accumulatedText with { Reasoning = finalAssistant.Reasoning };
                     }
                 }
 
@@ -366,7 +366,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
 
             var followUpNew = followUp.Body?.GetNewInteractions();
-            InteractionUtility.EnsureTurnId(followUpNew, turnId);
+            followUpNew = InteractionUtility.EnsureTurnId(followUpNew, turnId).ToList();
             this.MergeNewToSessionBody(followUpNew, toolsOnly: false);
             this._lastReturn = followUp;
             this.UpdateLastReturn();

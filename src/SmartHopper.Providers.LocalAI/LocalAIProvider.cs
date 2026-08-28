@@ -452,12 +452,13 @@ namespace SmartHopper.Providers.LocalAI
                     || !string.IsNullOrEmpty(reasoning)
                     || (tcs != null && tcs.Count > 0))
                 {
-                    var interaction = new AIInteractionText();
-                    interaction.SetResult(
-                        agent: AIAgent.Assistant,
-                        content: content,
-                        reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
-                    interaction.Metrics = this.DecodeMetrics(response);
+                    var interaction = new AIInteractionText
+                    {
+                        Agent = AIAgent.Assistant,
+                        Content = content,
+                        Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
+                        Metrics = this.DecodeMetrics(response),
+                    };
                     interactions.Add(interaction);
                 }
 

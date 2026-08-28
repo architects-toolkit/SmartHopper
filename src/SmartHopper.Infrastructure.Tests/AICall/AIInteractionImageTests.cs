@@ -29,7 +29,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         {
             var interaction = new AIInteractionImage();
             var uri = new Uri("https://example.com/image.png");
-            interaction.CreateVisionInput(uri);
+            interaction = interaction.WithVisionInput(uri);
             Assert.Equal(uri, interaction.ImageUrl);
         }
 
@@ -37,14 +37,14 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         public void CreateVisionInput_WithNullUri_ThrowsArgumentNull()
         {
             var interaction = new AIInteractionImage();
-            Assert.Throws<ArgumentNullException>(() => interaction.CreateVisionInput((Uri)null));
+            Assert.Throws<ArgumentNullException>(() => interaction.WithVisionInput((Uri)null));
         }
 
         [Fact(DisplayName = "CreateVisionInput_WithValidString_SetsImageUrl")]
         public void CreateVisionInput_WithValidString_SetsImageUrl()
         {
             var interaction = new AIInteractionImage();
-            interaction.CreateVisionInput("https://example.com/image.png");
+            interaction = interaction.WithVisionInput("https://example.com/image.png");
             Assert.NotNull(interaction.ImageUrl);
             Assert.Equal("https://example.com/image.png", interaction.ImageUrl.ToString());
         }
@@ -53,14 +53,14 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         public void CreateVisionInput_WithInvalidString_ThrowsArgument()
         {
             var interaction = new AIInteractionImage();
-            Assert.Throws<ArgumentException>(() => interaction.CreateVisionInput("not a valid url"));
+            Assert.Throws<ArgumentException>(() => interaction.WithVisionInput("not a valid url"));
         }
 
         [Fact(DisplayName = "CreateVisionInput_WithEmptyString_ThrowsArgument")]
         public void CreateVisionInput_WithEmptyString_ThrowsArgument()
         {
             var interaction = new AIInteractionImage();
-            Assert.Throws<ArgumentException>(() => interaction.CreateVisionInput(string.Empty));
+            Assert.Throws<ArgumentException>(() => interaction.WithVisionInput(string.Empty));
         }
 
         [Fact(DisplayName = "CreateVisionInputFromBase64_SetsDataAndMime")]
@@ -68,7 +68,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         {
             var interaction = new AIInteractionImage();
             var base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-            interaction.CreateVisionInputFromBase64(base64, "image/jpeg");
+            interaction = interaction.WithVisionInputFromBase64(base64, "image/jpeg");
             Assert.Equal(base64, interaction.ImageData);
             Assert.Equal("image/jpeg", interaction.MimeType);
         }
@@ -77,7 +77,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         public void CreateVisionInputFromBase64_WithNullData_Throws()
         {
             var interaction = new AIInteractionImage();
-            Assert.Throws<ArgumentException>(() => interaction.CreateVisionInputFromBase64(null));
+            Assert.Throws<ArgumentException>(() => interaction.WithVisionInputFromBase64(null));
         }
 
         [Fact(DisplayName = "CreateVisionInputFromBase64_NullMime_DefaultsToImagePng")]
@@ -85,7 +85,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         {
             var interaction = new AIInteractionImage();
             var base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-            interaction.CreateVisionInputFromBase64(base64, null);
+            interaction = interaction.WithVisionInputFromBase64(base64, null);
             Assert.Equal("image/png", interaction.MimeType);
         }
 
@@ -94,7 +94,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         {
             var interaction = new AIInteractionImage();
             var base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-            interaction.CreateVisionInputFromBase64(base64, "image/webp");
+            interaction = interaction.WithVisionInputFromBase64(base64, "image/webp");
             Assert.Equal("image/webp", interaction.MimeType);
         }
 
@@ -102,14 +102,14 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         public void SetResult_NullBothArgs_Throws()
         {
             var interaction = new AIInteractionImage();
-            Assert.Throws<ArgumentNullException>(() => interaction.SetResult((string)null, null));
+            Assert.Throws<ArgumentNullException>(() => interaction.WithResult((string)null, null));
         }
 
         [Fact(DisplayName = "SetResult_WithUrl_SetsImageUrl")]
         public void SetResult_WithUrl_SetsImageUrl()
         {
             var interaction = new AIInteractionImage();
-            interaction.SetResult("https://example.com/generated.png");
+            interaction = interaction.WithResult("https://example.com/generated.png");
             Assert.NotNull(interaction.ImageUrl);
             Assert.Equal("https://example.com/generated.png", interaction.ImageUrl.ToString());
         }
@@ -119,7 +119,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         {
             var interaction = new AIInteractionImage();
             var base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-            interaction.SetResult((string)null, base64);
+            interaction = interaction.WithResult((string)null, base64);
             Assert.Equal(base64, interaction.ImageData);
         }
 
@@ -127,7 +127,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         public void SetResult_InvalidUrl_NoData_Throws()
         {
             var interaction = new AIInteractionImage();
-            var ex = Assert.Throws<ArgumentException>(() => interaction.SetResult("not-a-url"));
+            var ex = Assert.Throws<ArgumentException>(() => interaction.WithResult("not-a-url"));
             Assert.Equal("imageUrl", ex.ParamName);
             Assert.Null(interaction.ImageUrl);
             Assert.Null(interaction.ImageData);
@@ -138,7 +138,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         {
             var interaction = new AIInteractionImage();
             var base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-            interaction.SetResult("not-a-url", base64);
+            interaction = interaction.WithResult("not-a-url", base64);
             Assert.Null(interaction.ImageUrl);
             Assert.Equal(base64, interaction.ImageData);
         }
@@ -147,7 +147,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         public void SetResult_WithRevisedPrompt_SetsRevisedPrompt()
         {
             var interaction = new AIInteractionImage();
-            interaction.SetResult("https://example.com/image.png", null, "A beautiful sunset over the ocean");
+            interaction = interaction.WithResult("https://example.com/image.png", null, "A beautiful sunset over the ocean");
             Assert.Equal("A beautiful sunset over the ocean", interaction.RevisedPrompt);
         }
 
@@ -155,7 +155,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         public void CreateRequest_SetsPromptAndDefaults()
         {
             var interaction = new AIInteractionImage();
-            interaction.CreateRequest("A cat wearing sunglasses");
+            interaction = interaction.WithRequest("A cat wearing sunglasses");
             Assert.Equal("A cat wearing sunglasses", interaction.OriginalPrompt);
             Assert.Equal("1024x1024", interaction.ImageSize);
             Assert.Equal("standard", interaction.ImageQuality);
@@ -166,7 +166,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         public void CreateRequest_WithCustomSize_OverridesDefault()
         {
             var interaction = new AIInteractionImage();
-            interaction.CreateRequest("A cat", "512x512");
+            interaction = interaction.WithRequest("A cat", "512x512");
             Assert.Equal("512x512", interaction.ImageSize);
         }
 
@@ -174,8 +174,8 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         public void GetStreamKey_WithTurnId_IncludesTurnPrefix()
         {
             var interaction = new AIInteractionImage();
-            interaction.TurnId = "turn-123";
-            interaction.CreateRequest("A cat");
+            interaction = interaction with { TurnId = "turn-123" };
+            interaction = interaction.WithRequest("A cat");
             var key = interaction.GetStreamKey();
             Assert.StartsWith("turn:turn-123:image:", key);
         }
@@ -184,7 +184,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         public void GetStreamKey_WithoutTurnId_NoPrefix()
         {
             var interaction = new AIInteractionImage();
-            interaction.CreateRequest("A cat");
+            interaction = interaction.WithRequest("A cat");
             var key = interaction.GetStreamKey();
             Assert.StartsWith("image:", key);
         }
@@ -193,7 +193,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         public void GetRawContentForRender_WithUrl_ReturnsMarkdownImage()
         {
             var interaction = new AIInteractionImage();
-            interaction.SetResult("https://example.com/image.png");
+            interaction = interaction.WithResult("https://example.com/image.png");
             var content = interaction.GetRawContentForRender();
             Assert.Contains("![generated image]", content);
             Assert.Contains("https://example.com/image.png", content);
@@ -204,7 +204,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         {
             var interaction = new AIInteractionImage();
             var base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-            interaction.SetResult((string)null, base64);
+            interaction = interaction.WithResult((string)null, base64);
             var content = interaction.GetRawContentForRender();
             Assert.Contains("data:image/png;base64,", content);
         }

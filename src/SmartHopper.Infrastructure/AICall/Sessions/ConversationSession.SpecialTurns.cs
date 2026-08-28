@@ -135,7 +135,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             // Apply TurnId to new interactions
             var newInteractions = result.Body?.GetNewInteractions();
-            InteractionUtility.EnsureTurnId(newInteractions, turnId);
+            newInteractions = InteractionUtility.EnsureTurnId(newInteractions, turnId).ToList();
 
             // Do NOT notify observers here - they will be notified by ApplyPersistenceStrategy
             return result;
@@ -182,7 +182,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 // Apply TurnId to new interactions
                 var newInteractions = delta.Body?.GetNewInteractions();
-                InteractionUtility.EnsureTurnId(newInteractions, turnId);
+                newInteractions = InteractionUtility.EnsureTurnId(newInteractions, turnId).ToList();
 
                 // Do NOT notify observers here - special turn execution is isolated
                 // Accumulate text deltas in memory
@@ -215,7 +215,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             if (accumulatedText != null && !string.IsNullOrWhiteSpace(accumulatedText.Content))
             {
-                accumulatedText.TurnId = turnId;
+                accumulatedText = accumulatedText with { TurnId = turnId };
                 builder.Add(accumulatedText);
             }
 
@@ -339,12 +339,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var resultInteractions = result?.Body?.Interactions?.Where(i => i.Agent == AIAgent.Assistant).ToList();
             if (resultInteractions != null && resultInteractions.Count > 0)
             {
-                foreach (var interaction in resultInteractions)
+                foreach (var rawInteraction in resultInteractions)
                 {
-                    if (string.IsNullOrWhiteSpace(interaction.TurnId))
-                    {
-                        interaction.TurnId = turnId;
-                    }
+                    var interaction = string.IsNullOrWhiteSpace(rawInteraction.TurnId)
+                        ? rawInteraction.WithTurnId(turnId)
+                        : rawInteraction;
 
                     this.AppendToSessionHistory(interaction);
                 }
@@ -364,12 +363,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             if (interactions != null && interactions.Count > 0)
             {
-                foreach (var interaction in interactions)
+                foreach (var rawInteraction in interactions)
                 {
-                    if (string.IsNullOrWhiteSpace(interaction.TurnId))
-                    {
-                        interaction.TurnId = turnId;
-                    }
+                    var interaction = string.IsNullOrWhiteSpace(rawInteraction.TurnId)
+                        ? rawInteraction.WithTurnId(turnId)
+                        : rawInteraction;
 
                     this.AppendToSessionHistory(interaction);
                 }
@@ -404,12 +402,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 .AsHistory();
             builder.AddRange(preservedInteractions);
 
-            foreach (var interaction in resultInteractions)
+            foreach (var rawInteraction in resultInteractions)
             {
-                if (string.IsNullOrWhiteSpace(interaction.TurnId))
-                {
-                    interaction.TurnId = turnId;
-                }
+                var interaction = string.IsNullOrWhiteSpace(rawInteraction.TurnId)
+                    ? rawInteraction.WithTurnId(turnId)
+                    : rawInteraction;
 
                 // Convert Assistant responses to Summary for summarization turns
                 if (isSummarizeTurn && interaction.Agent == AIAgent.Assistant && interaction is AIInteractionText textInteraction)
@@ -425,7 +422,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                     if (summaryInteraction.Metrics != null)
                     {
-                        summaryInteraction.Metrics.LastEffectiveTotalTokens = 0;
+                        summaryInteraction = summaryInteraction with
+                        {
+                            Metrics = summaryInteraction.Metrics with { LastEffectiveTotalTokens = 0 },
+                        };
                     }
 
                     builder.Add(summaryInteraction, markAsNew: false);

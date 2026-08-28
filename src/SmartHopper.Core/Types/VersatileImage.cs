@@ -294,7 +294,7 @@ namespace SmartHopper.Core.Types
                     {
                         this.Bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
                         var base64 = Convert.ToBase64String(ms.ToArray());
-                        interaction.CreateVisionInputFromBase64(base64, "image/png");
+                        interaction = interaction.WithVisionInputFromBase64(base64, "image/png");
                     }
 
                     break;
@@ -304,24 +304,24 @@ namespace SmartHopper.Core.Types
                     var fileBytes = File.ReadAllBytes(this.RawValue);
                     var base64File = Convert.ToBase64String(fileBytes);
                     var mimeType = GetMimeTypeFromPath(this.RawValue);
-                    interaction.CreateVisionInputFromBase64(base64File, mimeType);
+                    interaction = interaction.WithVisionInputFromBase64(base64File, mimeType);
                     break;
 
                 case VersatileImageKind.Url:
                     // Use URL directly
-                    interaction.CreateVisionInput(this.RawValue);
+                    interaction = interaction.WithVisionInput(this.RawValue);
                     break;
 
                 case VersatileImageKind.Base64:
                     // Use base64 directly (assume PNG if no hint)
-                    interaction.CreateVisionInputFromBase64(this.RawValue, "image/png");
+                    interaction = interaction.WithVisionInputFromBase64(this.RawValue, "image/png");
                     break;
 
                 case VersatileImageKind.DataUri:
                     // Extract base64 from data-URI
                     var base64DataUri = ExtractBase64FromDataUri(this.RawValue);
                     var mimeTypeDataUri = ExtractMimeTypeFromDataUri(this.RawValue);
-                    interaction.CreateVisionInputFromBase64(base64DataUri, mimeTypeDataUri);
+                    interaction = interaction.WithVisionInputFromBase64(base64DataUri, mimeTypeDataUri);
                     break;
 
                 default:

@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
-        pub        public TestDeepSeekToolsComponent()
+        public TestDeepSeekToolsComponent()
             : base("Test DeepSeek Tools", "TEST-DEEPSEEK-TOOLS", "Tests DeepSeek tool encoding and response parsing")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

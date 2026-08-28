@@ -72,19 +72,18 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                 }
 
                 // Replace only the finish reason in the last interaction if applicable
-                if (lastInteraction != null && lastInteraction.Metrics != null)
+                if (lastInteraction != null)
                 {
-                    lastInteraction.Metrics.FinishReason = normalized;
-                }
-                else if (lastInteraction != null)
-                {
-                    lastInteraction.Metrics = new AIMetrics { FinishReason = normalized };
-                }
+                    var newMetrics = lastInteraction.Metrics != null
+                        ? lastInteraction.Metrics with { FinishReason = normalized }
+                        : new AIMetrics { FinishReason = normalized };
+                    lastInteraction = lastInteraction.WithMetrics(newMetrics);
 
-                // Replace the last interaction in the response
-                response.SetBody(AIBodyBuilder.FromImmutable(response.Body)
-                        .ReplaceLast(lastInteraction)
-                        .Build());
+                    // Replace the last interaction in the response
+                    response.SetBody(AIBodyBuilder.FromImmutable(response.Body)
+                            .ReplaceLast(lastInteraction)
+                            .Build());
+                }
 
                 // Surface an error when the provider stopped due to length/token limit
                 if (string.Equals(normalized, "length", StringComparison.Ordinal))

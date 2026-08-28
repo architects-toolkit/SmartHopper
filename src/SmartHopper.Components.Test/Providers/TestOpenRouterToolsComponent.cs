@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
-        pub        public TestOpenRouterToolsComponent()
+        public TestOpenRouterToolsComponent()
             : base("Test OpenRouter Tools", "TEST-OPENROUTER-TOOLS", "Tests OpenRouter tool encoding and response parsing")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

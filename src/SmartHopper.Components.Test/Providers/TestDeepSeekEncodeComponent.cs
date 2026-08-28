@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
-        pub        public TestDeepSeekEncodeComponent()
+        public TestDeepSeekEncodeComponent()
             : base("Test DeepSeek Encode", "TEST-DEEPSEEK-ENC", "Tests DeepSeek message encoding from AIRequestCall")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

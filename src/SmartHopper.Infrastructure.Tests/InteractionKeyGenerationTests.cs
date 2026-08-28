@@ -53,7 +53,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             // Act
             var key1 = text.GetStreamKey();
-            text.Content = "Modified content"; // Change content
+            text = text with { Content = "Modified content" }; // Change content
             var key2 = text.GetStreamKey();
 
             // Assert
@@ -574,7 +574,7 @@ namespace SmartHopper.Infrastructure.Tests
             {
                 TurnId = "abc123"
             };
-            image.SetResult(new System.Uri("https://example.com/image.png"));
+            image = image.WithResult(new System.Uri("https://example.com/image.png"));
 
             // Act
             var key = image.GetStreamKey();
@@ -602,7 +602,7 @@ namespace SmartHopper.Infrastructure.Tests
                 ImageQuality = "hd",
                 ImageStyle = "vivid"
             };
-            image.SetResult(new System.Uri("https://example.com/image.png"));
+            image = image.WithResult(new System.Uri("https://example.com/image.png"));
 
             // Act
             var key = image.GetDedupKey();
@@ -630,7 +630,7 @@ namespace SmartHopper.Infrastructure.Tests
                 ImageSize = "1024x1024",
                 ImageQuality = "standard"
             };
-            image1.SetResult(new System.Uri("https://example.com/same.png"));
+            image1 = image1.WithResult(new System.Uri("https://example.com/same.png"));
 
             var image2 = new AIInteractionImage
             {
@@ -638,7 +638,7 @@ namespace SmartHopper.Infrastructure.Tests
                 ImageSize = "512x512",
                 ImageQuality = "hd"
             };
-            image2.SetResult(new System.Uri("https://example.com/same.png"));
+            image2 = image2.WithResult(new System.Uri("https://example.com/same.png"));
 
             // Act
             var key1 = image1.GetDedupKey();
@@ -859,10 +859,10 @@ namespace SmartHopper.Infrastructure.Tests
             // Act - Get stream key with empty content
             var key1 = text.GetStreamKey();
 
-            text.Content = "Some content"; // Add content
+            text = text with { Content = "Some content" }; // Add content
             var key2 = text.GetStreamKey();
 
-            text.Content = "More content"; // Change content
+            text = text with { Content = "More content" }; // Change content
             var key3 = text.GetStreamKey();
 
             // Assert - Stream key must be stable regardless of content

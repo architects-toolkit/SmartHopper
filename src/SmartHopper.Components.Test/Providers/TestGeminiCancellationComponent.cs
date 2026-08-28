@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
-        pub        public TestGeminiCancellationComponent()
+        public TestGeminiCancellationComponent()
             : base("Test Gemini Cancellation", "TEST-GEMINI-CANCEL", "Tests Gemini cancellation across all async operations")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

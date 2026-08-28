@@ -241,11 +241,11 @@ namespace SmartHopper.Core.IO.Codecs
                 _ => null
             };
 
-            if (interaction is AIInteractionBase baseInteraction)
+            if (interaction != null)
             {
-                baseInteraction.TurnId = turnId;
-                baseInteraction.Time = DateTime.TryParse(timeStr, out var time) ? time : DateTime.UtcNow;
-                baseInteraction.Agent = agent;
+                interaction = interaction.WithTurnId(turnId);
+                interaction = interaction.WithTime(DateTime.TryParse(timeStr, out var time) ? time : DateTime.UtcNow);
+                interaction = interaction.WithAgent(agent);
             }
 
             return interaction;

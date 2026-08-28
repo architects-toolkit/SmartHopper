@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
-        pub        public TestAnthropicDecodeComponent()
+        public TestAnthropicDecodeComponent()
             : base("Test Anthropic Decode", "TEST-ANTHROPIC-DEC", "Tests Anthropic comprehensive response decoding")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

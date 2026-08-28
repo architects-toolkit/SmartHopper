@@ -140,10 +140,10 @@ namespace SmartHopper.Infrastructure.AICall.Validation
             }
             else
             {
-                // If a schema exists but no arguments were provided, initialize to an empty object
-                // so downstream execution receives a valid JSON object. This mirrors permissive
-                // handling for tools that support optional arguments.
-                instance.Arguments = new JObject();
+                // If a schema exists but no arguments were provided, create a local copy with an empty
+                // object. Downstream consumers that need the normalized instance must use the validation
+                // result because the contract is side-effect free.
+                instance = instance with { Arguments = new JObject() };
 
                 if (hasRequired)
                 {

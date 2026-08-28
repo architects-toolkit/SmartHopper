@@ -144,7 +144,7 @@ namespace SmartHopper.Core.ComponentBase
                 if (result.Metrics != null)
                 {
                     var metrics = result.Metrics;
-                    metrics.DataCount = 1; // One AI call = one processing unit
+                    metrics = metrics with { DataCount = 1 }; // One AI call = one processing unit
                     this.CombineIntoPersistedMetrics(metrics, "main");
                 }
             }

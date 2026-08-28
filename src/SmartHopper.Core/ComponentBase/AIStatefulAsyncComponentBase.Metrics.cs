@@ -268,15 +268,19 @@ namespace SmartHopper.Core.ComponentBase
             // AIReturn.Metrics is computed fresh on every access — writing to it is a no-op.
             if (this._batchState.CompletionTime.HasValue)
             {
-                var entries = this._batchState.PersistedMetricsList?.Entries;
-                if (entries != null && entries.Count > 0)
+                var list = this._batchState.PersistedMetricsList;
+                if (list?.Entries != null && list.Entries.Count > 0)
                 {
-                    foreach (var entry in entries)
+                    var completionTime = this._batchState.CompletionTime.Value;
+                    var newList = new ProviderSdk.AICall.Metrics.AIMetricsList();
+                    foreach (var entry in list.Entries)
                     {
-                        entry.CompletionTime = this._batchState.CompletionTime.Value;
+                        newList.Add(entry with { CompletionTime = completionTime });
                     }
 
-                    Debug.WriteLine($"[AIStatefulAsync] FinishResults: stamped CompletionTime={this._batchState.CompletionTime.Value:F2}s into {entries.Count} metric(s)");
+                    this._batchState.PersistedMetricsList = newList;
+
+                    Debug.WriteLine($"[AIStatefulAsync] FinishResults: stamped CompletionTime={completionTime:F2}s into {newList.Entries.Count} metric(s)");
                 }
 
                 // Also stamp into the metrics tree by updating the serialized JSON strings

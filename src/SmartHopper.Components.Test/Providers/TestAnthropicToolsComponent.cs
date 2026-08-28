@@ -44,7 +44,7 @@ namespace SmartHopper.Components.Test.Providers
 
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
-        pub        public TestAnthropicToolsComponent()
+        public TestAnthropicToolsComponent()
             : base("Test Anthropic Tools", "TEST-ANTHROPIC-TOOLS", "Tests Anthropic tool encoding and response parsing")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

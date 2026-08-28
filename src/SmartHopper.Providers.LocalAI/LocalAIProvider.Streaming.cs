@@ -157,7 +157,7 @@ namespace SmartHopper.Providers.LocalAI
                 int promptTokens = 0;
                 int completionTokens = 0;
 
-                var assistantAggregate = new AIInteractionText
+                var assistantAggregate = new AIInteractionText.Builder
                 {
                     Agent = AIAgent.Assistant,
                     Content = string.Empty,
@@ -171,24 +171,9 @@ namespace SmartHopper.Providers.LocalAI
                 {
                     if (string.IsNullOrEmpty(text)) yield break;
 
-                    assistantAggregate.AppendDelta(contentDelta: text);
+                    assistantAggregate.AppendContent(text);
 
-                    var snapshot = new AIInteractionText
-                    {
-                        Agent = assistantAggregate.Agent,
-                        Content = assistantAggregate.Content,
-                        Metrics = new AIMetrics
-                        {
-                            Provider = assistantAggregate.Metrics.Provider,
-                            Model = assistantAggregate.Metrics.Model,
-                            FinishReason = assistantAggregate.Metrics.FinishReason,
-                            InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                            InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                            OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                            OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                            CompletionTime = assistantAggregate.Metrics.CompletionTime,
-                        },
-                    };
+                    var snapshot = assistantAggregate.Build();
 
                     var delta = new AIReturn
                     {
@@ -257,7 +242,7 @@ namespace SmartHopper.Providers.LocalAI
                         if (pt.HasValue) promptTokens = pt.Value;
                         if (ct.HasValue) completionTokens = ct.Value;
 
-                        assistantAggregate.AppendDelta(metricsDelta: new AIMetrics
+                        assistantAggregate.CombineMetrics(new AIMetrics
                         {
                             Provider = this.Provider.Name,
                             Model = request.Model,
@@ -350,7 +335,7 @@ namespace SmartHopper.Providers.LocalAI
                     Status = AICallStatus.Finished,
                 };
 
-                assistantAggregate.AppendDelta(metricsDelta: new AIMetrics
+                assistantAggregate.CombineMetrics(new AIMetrics
                 {
                     FinishReason = string.IsNullOrEmpty(finalFinishReason) ? "stop" : finalFinishReason,
                 });
@@ -358,22 +343,7 @@ namespace SmartHopper.Providers.LocalAI
                 var finalBuilder = AIBodyBuilder.Create();
                 if (!string.IsNullOrEmpty(assistantAggregate.Content))
                 {
-                    var finalSnapshot = new AIInteractionText
-                    {
-                        Agent = assistantAggregate.Agent,
-                        Content = assistantAggregate.Content,
-                        Metrics = new AIMetrics
-                        {
-                            Provider = assistantAggregate.Metrics.Provider,
-                            Model = assistantAggregate.Metrics.Model,
-                            FinishReason = assistantAggregate.Metrics.FinishReason,
-                            InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
-                            InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
-                            OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
-                            OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
-                            CompletionTime = assistantAggregate.Metrics.CompletionTime,
-                        },
-                    };
+                    var finalSnapshot = assistantAggregate.Build();
                     finalBuilder.Add(finalSnapshot, markAsNew: false);
                 }
 
