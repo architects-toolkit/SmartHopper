@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `.github/workflows/pr-linear-history.yml` to enforce that pull requests targeting `main` (and release/hotfix branches) are rebased and contain no merge commits.
 - Added `.github/workflows/sync-dev-from-main.yml` to automatically rebase `dev` onto `main` and force-push; if the rebase fails, the workflow run fails so it surfaces in GitHub Actions.
 - Added `.github/actions/utils/rebase-onto-base` composite action to centralize rebase/base-management operations for GitHub Actions workflows.
+- Added `AIBody.WithReplaced` extension for replacing a specific interaction by reference in an immutable body.
+- Added `AITool.GetRequiredParameters()` helper to parse required parameter names from a tool's JSON schema.
+- Added `ProviderTestComponentBase` to `SmartHopper.Components.Test/Providers` and converted all ~43 `Test{Provider}{Feature}Component` classes to inherit from it. The base centralizes common setup/teardown (provider selection, `RunOnlyOnInputChanges`, category/exposure) while each component remains an independent per-provider test runner.
+- Added nested mutable `Builder` classes to `AIInteractionText` and `AIBody` for streaming aggregation and body construction. Builders accumulate local state and emit immutable snapshots via `Build()`.
 
 ### Changed
 
@@ -41,11 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AIMetrics.Combine(...)` replaced by `AIMetrics.WithCombined(...)`, returning a new metrics record instead of mutating in place.
 - Streaming and session code now uses mutable local builders and `with` expressions instead of mutating interactions or metrics after construction.
 - `SmartHopper.Infrastructure` project file now conditionally emits `InternalsVisibleTo` public keys only when `SignAssembly` is not disabled, allowing unsigned `dotnet build -p:SignAssembly=false` runs to compile test projects.
-
-### Added
-
-- Added `ProviderTestComponentBase` to `SmartHopper.Components.Test/Providers` and converted all ~43 `Test{Provider}{Feature}Component` classes to inherit from it. The base centralizes common setup/teardown (provider selection, `RunOnlyOnInputChanges`, category/exposure) while each component remains an independent per-provider test runner.
-- Added nested mutable `Builder` classes to `AIInteractionText` and `AIBody` for streaming aggregation and body construction. Builders accumulate local state and emit immutable snapshots via `Build()`.
+- `AIToolManager.ExecuteTool` now normalizes a `null` `AIInteractionToolCall.Arguments` value to an empty `JObject` at execution time when the tool schema has no required parameters, replacing the interaction in the immutable `AIBody` so downstream tool delegates receive the normalized value.
+- `ToolJsonSchemaValidator` now uses `AITool.GetRequiredParameters()` to determine required parameters instead of parsing the schema inline.
 
 ### Removed
 

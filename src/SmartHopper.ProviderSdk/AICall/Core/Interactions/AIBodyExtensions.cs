@@ -267,6 +267,57 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         }
 
         /// <summary>
+        /// Returns a new immutable body where the first occurrence of <paramref name="oldInteraction"/>
+        /// (by reference) is replaced with <paramref name="newInteraction"/>.
+        /// If the old interaction is not found, the original body is returned.
+        /// </summary>
+        /// <param name="body">The AI body to mutate.</param>
+        /// <param name="oldInteraction">The interaction to replace.</param>
+        /// <param name="newInteraction">The replacement interaction.</param>
+        /// <returns>A new immutable body with the replaced interaction.</returns>
+        public static AIBody WithReplaced(this AIBody body, IAIInteraction oldInteraction, IAIInteraction newInteraction)
+        {
+            if (body == null)
+            {
+                throw new ArgumentNullException(nameof(body));
+            }
+
+            if (oldInteraction == null)
+            {
+                throw new ArgumentNullException(nameof(oldInteraction));
+            }
+
+            if (newInteraction == null)
+            {
+                throw new ArgumentNullException(nameof(newInteraction));
+            }
+
+            if (body.Interactions == null || body.Interactions.Count == 0)
+            {
+                return body;
+            }
+
+            var interactions = new List<IAIInteraction>(body.Interactions);
+            var index = -1;
+            for (int i = 0; i < interactions.Count; i++)
+            {
+                if (ReferenceEquals(interactions[i], oldInteraction))
+                {
+                    index = i;
+                    break;
+                }
+            }
+
+            if (index < 0)
+            {
+                return body;
+            }
+
+            interactions[index] = newInteraction;
+            return body with { Interactions = interactions };
+        }
+
+        /// <summary>
         /// Returns the interactions that were newly added or replaced in the last mutation
         /// that produced this immutable body, based on <see cref="AIBody.InteractionsNew"/>.
         /// </summary>

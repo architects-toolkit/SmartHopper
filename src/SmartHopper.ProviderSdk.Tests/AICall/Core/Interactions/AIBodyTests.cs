@@ -131,5 +131,66 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
 
             Assert.Equal(600, body.GetEffectiveTokenCount());
         }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "WithReplaced_ReplacesInteractionByReference [Windows]")]
+#else
+        [Fact(DisplayName = "WithReplaced_ReplacesInteractionByReference [Core]")]
+#endif
+        public void WithReplaced_ReplacesInteractionByReference()
+        {
+            ProviderSdkTestHelper.ResetCapabilityRegistry();
+
+            var turnId = System.Guid.NewGuid().ToString("N");
+            var original = new AIInteractionText
+            {
+                Agent = AIAgent.Assistant,
+                Content = "original",
+                TurnId = turnId,
+            };
+
+            var body = AIBodyBuilder.Create()
+                .WithTurnId(turnId)
+                .Add(original)
+                .Build();
+
+            var replacement = new AIInteractionText
+            {
+                Agent = AIAgent.Assistant,
+                Content = "replacement",
+            };
+
+            var newBody = body.WithReplaced(original, replacement);
+
+            Assert.NotSame(body, newBody);
+            Assert.Single(newBody.Interactions);
+            Assert.Equal("replacement", (newBody.Interactions[0] as AIInteractionText)?.Content);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "WithReplaced_ReturnsOriginalWhenInteractionNotFound [Windows]")]
+#else
+        [Fact(DisplayName = "WithReplaced_ReturnsOriginalWhenInteractionNotFound [Core]")]
+#endif
+        public void WithReplaced_ReturnsOriginalWhenInteractionNotFound()
+        {
+            ProviderSdkTestHelper.ResetCapabilityRegistry();
+
+            var body = AIBodyBuilder.Create()
+                .AddText(AIAgent.Assistant, "original")
+                .Build();
+
+            var other = new AIInteractionText
+            {
+                Agent = AIAgent.Assistant,
+                Content = "other",
+            };
+
+            var newBody = body.WithReplaced(other, new AIInteractionText { Agent = AIAgent.Assistant, Content = "replacement" });
+
+            Assert.Same(body, newBody);
+            Assert.Single(newBody.Interactions);
+            Assert.Equal("original", (newBody.Interactions[0] as AIInteractionText)?.Content);
+        }
     }
 }

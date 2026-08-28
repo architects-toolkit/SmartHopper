@@ -22,8 +22,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 namespace SmartHopper.Infrastructure.AITools
@@ -142,6 +144,22 @@ namespace SmartHopper.Infrastructure.AITools
                     Debug.WriteLine($"[AIToolManager] Tool not found: {toolInfo.Name}");
                     output.CreateToolError($"Tool '{toolInfo.Name}' is not registered.", toolCall);
                     return output;
+                }
+            }
+
+            // Normalize a null arguments object to an empty JObject when the tool schema has no
+            // required parameters. ToolJsonSchemaValidator validates this case but cannot return the
+            // normalized instance because IValidator<T> is side-effect free, so the normalization
+            // is applied at the execution boundary where the value is actually consumed.
+            if (toolInfo.Arguments == null && tool.GetRequiredParameters().Count == 0)
+            {
+                var normalized = toolInfo with { Arguments = new JObject() };
+                var newBody = toolCall.Body.WithReplaced(toolInfo, normalized);
+                if (!ReferenceEquals(newBody, toolCall.Body))
+                {
+                    toolCall.Body = newBody;
+                    toolInfo = normalized;
+                    Debug.WriteLine($"[AIToolManager] Normalized null arguments to empty JObject for tool '{toolInfo.Name}'");
                 }
             }
 
