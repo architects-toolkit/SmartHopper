@@ -329,12 +329,12 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 // Only populate estimated fields when actual tokens are missing
                 if (!hasActualInputTokens)
                 {
-                    metrics.EstimatedInputTokens = estimatedInput;
+                    metrics = metrics with { EstimatedInputTokens = estimatedInput };
                 }
 
                 if (!hasActualOutputTokens)
                 {
-                    metrics.EstimatedOutputTokens = estimatedOutput;
+                    metrics = metrics with { EstimatedOutputTokens = estimatedOutput };
                 }
             }
 

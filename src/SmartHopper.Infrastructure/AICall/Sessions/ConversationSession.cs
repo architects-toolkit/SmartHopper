@@ -639,7 +639,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             foreach (var interaction in interactions
                 .Where(i => i?.Metrics != null && string.Equals(i.TurnId, turnId, StringComparison.Ordinal)))
             {
-                combined.Combine(interaction.Metrics);
+                combined = combined.WithCombined(interaction.Metrics);
             }
 
             return combined;

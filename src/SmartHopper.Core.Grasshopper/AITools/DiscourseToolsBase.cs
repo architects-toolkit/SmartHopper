@@ -337,7 +337,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (summaryResult.Metrics != null)
                     {
-                        accumulatedMetrics.Combine(summaryResult.Metrics);
+                        accumulatedMetrics = accumulatedMetrics.WithCombined(summaryResult.Metrics);
                     }
 
                     if (summaryResult.Messages != null && summaryResult.Messages.Count > 0)

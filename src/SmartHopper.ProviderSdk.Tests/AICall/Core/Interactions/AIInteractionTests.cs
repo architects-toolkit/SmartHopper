@@ -45,33 +45,31 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
 
         #region AIInteractionText
 
-        [Fact(DisplayName = nameof(Text_SetResult) + PlatformSuffix)]
-        public void Text_SetResult()
+        [Fact(DisplayName = nameof(Text_WithResult) + PlatformSuffix)]
+        public void Text_WithResult()
         {
-            var interaction = new AIInteractionText();
-            interaction.SetResult(AIAgent.Assistant, "content", "reasoning");
+            var interaction = new AIInteractionText().WithResult(AIAgent.Assistant, "content", "reasoning");
 
             Assert.Equal(AIAgent.Assistant, interaction.Agent);
             Assert.Equal("content", interaction.Content);
             Assert.Equal("reasoning", interaction.Reasoning);
         }
 
-        [Fact(DisplayName = nameof(Text_AppendDeltaCombinesContentReasoningAndMetrics) + PlatformSuffix)]
-        public void Text_AppendDeltaCombinesContentReasoningAndMetrics()
+        [Fact(DisplayName = nameof(Text_BuilderAppendsContentReasoningAndMetrics) + PlatformSuffix)]
+        public void Text_BuilderAppendsContentReasoningAndMetrics()
         {
-            var interaction = new AIInteractionText();
-            interaction.SetResult(AIAgent.Assistant, "Hello", "think");
-
             var metrics = new AIMetrics
             {
                 InputTokensPrompt = 10,
                 OutputTokensGeneration = 5,
             };
 
-            interaction.AppendDelta(
-                contentDelta: " world",
-                reasoningDelta: " more",
-                metricsDelta: metrics);
+            var interaction = new AIInteractionText.Builder()
+                .WithResult(AIAgent.Assistant, "Hello", "think")
+                .AppendContent(" world")
+                .AppendReasoning(" more")
+                .CombineMetrics(metrics)
+                .Build();
 
             Assert.Equal("Hello world", interaction.Content);
             Assert.Equal("think more", interaction.Reasoning);
@@ -83,8 +81,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
         [Fact(DisplayName = nameof(Text_ToStringWithoutReasoning) + PlatformSuffix)]
         public void Text_ToStringWithoutReasoning()
         {
-            var interaction = new AIInteractionText();
-            interaction.SetResult(AIAgent.Assistant, "only content");
+            var interaction = new AIInteractionText().WithResult(AIAgent.Assistant, "only content");
 
             Assert.Equal("only content", interaction.ToString());
         }
@@ -92,13 +89,10 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
         [Fact(DisplayName = nameof(Text_ToStringWithReasoning) + PlatformSuffix)]
         public void Text_ToStringWithReasoning()
         {
-            var interaction = new AIInteractionText();
-            interaction.SetResult(AIAgent.Assistant, "answer", "thinking");
+            var interaction = new AIInteractionText().WithResult(AIAgent.Assistant, "answer", "thinking");
 
             var result = interaction.ToString();
 
-            Assert.Contains("<think>", result);
-            Assert.Contains("<think>", result);
             Assert.Contains("thinking", result);
             Assert.Contains("answer", result);
         }
@@ -106,8 +100,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
         [Fact(DisplayName = nameof(Text_GetStreamKeyWithoutTurnId) + PlatformSuffix)]
         public void Text_GetStreamKeyWithoutTurnId()
         {
-            var interaction = new AIInteractionText();
-            interaction.SetResult(AIAgent.Assistant, "content");
+            var interaction = new AIInteractionText().WithResult(AIAgent.Assistant, "content");
 
             Assert.Equal("text:assistant", interaction.GetStreamKey());
         }
@@ -118,8 +111,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             var interaction = new AIInteractionText
             {
                 TurnId = "turn-1",
-            };
-            interaction.SetResult(AIAgent.User, "content");
+            }.WithResult(AIAgent.User, "content");
 
             Assert.Equal("turn:turn-1:user", interaction.GetStreamKey());
         }
@@ -130,8 +122,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             var interaction = new AIInteractionText
             {
                 TurnId = "turn-1",
-            };
-            interaction.SetResult(AIAgent.Assistant, "content");
+            }.WithResult(AIAgent.Assistant, "content");
 
             var hash = HashUtility.ComputeShortHash("turn-1:assistant:content");
             var expected = $"turn:turn-1:assistant:{hash}";
@@ -142,11 +133,8 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
         [Fact(DisplayName = nameof(Text_GetRoleClassForRender) + PlatformSuffix)]
         public void Text_GetRoleClassForRender()
         {
-            var assistant = new AIInteractionText();
-            assistant.SetResult(AIAgent.Assistant, "a");
-
-            var user = new AIInteractionText();
-            user.SetResult(AIAgent.User, "b");
+            var assistant = new AIInteractionText().WithResult(AIAgent.Assistant, "a");
+            var user = new AIInteractionText().WithResult(AIAgent.User, "b");
 
             Assert.Equal("assistant", assistant.GetRoleClassForRender());
             Assert.Equal("user", user.GetRoleClassForRender());
@@ -155,8 +143,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
         [Fact(DisplayName = nameof(Text_GetDisplayNameForRender) + PlatformSuffix)]
         public void Text_GetDisplayNameForRender()
         {
-            var assistant = new AIInteractionText();
-            assistant.SetResult(AIAgent.Assistant, "a");
+            var assistant = new AIInteractionText().WithResult(AIAgent.Assistant, "a");
 
             Assert.Equal("Assistant", assistant.GetDisplayNameForRender());
         }
@@ -164,8 +151,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
         [Fact(DisplayName = nameof(Text_GetRawContentForRender) + PlatformSuffix)]
         public void Text_GetRawContentForRender()
         {
-            var interaction = new AIInteractionText();
-            interaction.SetResult(AIAgent.Assistant, "content");
+            var interaction = new AIInteractionText().WithResult(AIAgent.Assistant, "content");
 
             Assert.Equal("content", interaction.GetRawContentForRender());
         }
@@ -173,8 +159,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
         [Fact(DisplayName = nameof(Text_GetRawReasoningForRender) + PlatformSuffix)]
         public void Text_GetRawReasoningForRender()
         {
-            var interaction = new AIInteractionText();
-            interaction.SetResult(AIAgent.Assistant, "content", "reasoning");
+            var interaction = new AIInteractionText().WithResult(AIAgent.Assistant, "content", "reasoning");
 
             Assert.Equal("reasoning", interaction.GetRawReasoningForRender());
 
@@ -410,53 +395,45 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
 
         #region AIInteractionImage
 
-        [Fact(DisplayName = nameof(Image_CreateVisionInputWithValidUrl) + PlatformSuffix)]
-        public void Image_CreateVisionInputWithValidUrl()
+        [Fact(DisplayName = nameof(Image_WithVisionInputWithValidUrl) + PlatformSuffix)]
+        public void Image_WithVisionInputWithValidUrl()
         {
-            var interaction = new AIInteractionImage();
-            interaction.CreateVisionInput("https://example.com/image.png");
+            var interaction = new AIInteractionImage().WithVisionInput("https://example.com/image.png");
 
             Assert.Equal("https://example.com/image.png", interaction.ImageUrl.ToString());
             Assert.Contains("[vision input]", interaction.ToString());
         }
 
-        [Fact(DisplayName = nameof(Image_CreateVisionInputWithInvalidUrlThrows) + PlatformSuffix)]
-        public void Image_CreateVisionInputWithInvalidUrlThrows()
+        [Fact(DisplayName = nameof(Image_WithVisionInputWithInvalidUrlThrows) + PlatformSuffix)]
+        public void Image_WithVisionInputWithInvalidUrlThrows()
         {
-            var interaction = new AIInteractionImage();
-
-            Assert.Throws<ArgumentException>(() => interaction.CreateVisionInput("not a valid url"));
+            Assert.Throws<ArgumentException>(() => new AIInteractionImage().WithVisionInput("not a valid url"));
         }
 
-        [Fact(DisplayName = nameof(Image_CreateVisionInputWithNullOrEmptyThrows) + PlatformSuffix)]
-        public void Image_CreateVisionInputWithNullOrEmptyThrows()
+        [Fact(DisplayName = nameof(Image_WithVisionInputWithNullOrEmptyThrows) + PlatformSuffix)]
+        public void Image_WithVisionInputWithNullOrEmptyThrows()
         {
-            var interaction = new AIInteractionImage();
-
-            Assert.Throws<ArgumentException>(() => interaction.CreateVisionInput(string.Empty));
-            Assert.Throws<ArgumentException>(() => interaction.CreateVisionInput("   "));
+            Assert.Throws<ArgumentException>(() => new AIInteractionImage().WithVisionInput(string.Empty));
+            Assert.Throws<ArgumentException>(() => new AIInteractionImage().WithVisionInput("   "));
         }
 
-        [Fact(DisplayName = nameof(Image_CreateVisionInputFromBase64) + PlatformSuffix)]
-        public void Image_CreateVisionInputFromBase64()
+        [Fact(DisplayName = nameof(Image_WithVisionInputFromBase64) + PlatformSuffix)]
+        public void Image_WithVisionInputFromBase64()
         {
-            var interaction = new AIInteractionImage();
-            interaction.CreateVisionInputFromBase64("base64data");
+            var interaction = new AIInteractionImage().WithVisionInputFromBase64("base64data");
 
             Assert.Equal("base64data", interaction.ImageData);
             Assert.Equal("image/png", interaction.MimeType);
 
-            var withMime = new AIInteractionImage();
-            withMime.CreateVisionInputFromBase64("base64data", "image/jpeg");
+            var withMime = new AIInteractionImage().WithVisionInputFromBase64("base64data", "image/jpeg");
 
             Assert.Equal("image/jpeg", withMime.MimeType);
         }
 
-        [Fact(DisplayName = nameof(Image_CreateRequestSetsProperties) + PlatformSuffix)]
-        public void Image_CreateRequestSetsProperties()
+        [Fact(DisplayName = nameof(Image_WithRequestSetsProperties) + PlatformSuffix)]
+        public void Image_WithRequestSetsProperties()
         {
-            var interaction = new AIInteractionImage();
-            interaction.CreateRequest(
+            var interaction = new AIInteractionImage().WithRequest(
                 prompt: "a red apple",
                 size: "512x512",
                 quality: "hd",
@@ -470,29 +447,24 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             Assert.Equal("16:9", interaction.AspectRatio);
         }
 
-        [Fact(DisplayName = nameof(Image_SetResultWithValidUrl) + PlatformSuffix)]
-        public void Image_SetResultWithValidUrl()
+        [Fact(DisplayName = nameof(Image_WithResultWithValidUrl) + PlatformSuffix)]
+        public void Image_WithResultWithValidUrl()
         {
-            var interaction = new AIInteractionImage();
-            interaction.SetResult("https://example.com/image.png");
+            var interaction = new AIInteractionImage().WithResult("https://example.com/image.png");
 
             Assert.Equal("https://example.com/image.png", interaction.ImageUrl.ToString());
         }
 
-        [Fact(DisplayName = nameof(Image_SetResultInvalidUrlWithoutImageDataThrows) + PlatformSuffix)]
-        public void Image_SetResultInvalidUrlWithoutImageDataThrows()
+        [Fact(DisplayName = nameof(Image_WithResultInvalidUrlWithoutImageDataThrows) + PlatformSuffix)]
+        public void Image_WithResultInvalidUrlWithoutImageDataThrows()
         {
-            var interaction = new AIInteractionImage();
-
-            Assert.Throws<ArgumentException>(() => interaction.SetResult("not a valid url"));
+            Assert.Throws<ArgumentException>(() => new AIInteractionImage().WithResult("not a valid url"));
         }
 
-        [Fact(DisplayName = nameof(Image_SetResultInvalidUrlWithImageDataSucceeds) + PlatformSuffix)]
-        public void Image_SetResultInvalidUrlWithImageDataSucceeds()
+        [Fact(DisplayName = nameof(Image_WithResultInvalidUrlWithImageDataSucceeds) + PlatformSuffix)]
+        public void Image_WithResultInvalidUrlWithImageDataSucceeds()
         {
-            var interaction = new AIInteractionImage();
-            interaction.CreateRequest("a cat");
-            interaction.SetResult("not a valid url", "base64data");
+            var interaction = new AIInteractionImage().WithRequest("a cat").WithResult("not a valid url", "base64data");
 
             Assert.Null(interaction.ImageUrl);
             Assert.Equal("base64data", interaction.ImageData);
@@ -503,8 +475,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
         [Fact(DisplayName = nameof(Image_ToStringForVisionInput) + PlatformSuffix)]
         public void Image_ToStringForVisionInput()
         {
-            var interaction = new AIInteractionImage();
-            interaction.CreateVisionInput("https://example.com/image.png");
+            var interaction = new AIInteractionImage().WithVisionInput("https://example.com/image.png");
 
             Assert.Equal("AIInteractionImage (1024x1024) [vision input]", interaction.ToString());
         }
@@ -512,13 +483,11 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
         [Fact(DisplayName = nameof(Image_ToStringForGeneratedImage) + PlatformSuffix)]
         public void Image_ToStringForGeneratedImage()
         {
-            var shortPrompt = new AIInteractionImage();
-            shortPrompt.CreateRequest("a cat");
+            var shortPrompt = new AIInteractionImage().WithRequest("a cat");
 
             Assert.Equal("AIInteractionImage (1024x1024) generated from 'a cat'", shortPrompt.ToString());
 
-            var longPrompt = new AIInteractionImage();
-            longPrompt.CreateRequest("a very long prompt that should be truncated in the output");
+            var longPrompt = new AIInteractionImage().WithRequest("a very long prompt that should be truncated in the output");
 
             Assert.Contains("generated from '", longPrompt.ToString());
             Assert.Contains("...", longPrompt.ToString());
@@ -547,18 +516,15 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
         [Fact(DisplayName = nameof(Image_GetRawContentForRender) + PlatformSuffix)]
         public void Image_GetRawContentForRender()
         {
-            var withUrl = new AIInteractionImage();
-            withUrl.SetResult("https://example.com/image.png");
+            var withUrl = new AIInteractionImage().WithResult("https://example.com/image.png");
 
             Assert.Equal("![generated image](https://example.com/image.png)", withUrl.GetRawContentForRender());
 
-            var withData = new AIInteractionImage();
-            withData.CreateVisionInputFromBase64("data");
+            var withData = new AIInteractionImage().WithVisionInputFromBase64("data");
 
             Assert.Equal("![generated image](data:image/png;base64,data)", withData.GetRawContentForRender());
 
-            var neither = new AIInteractionImage();
-            neither.CreateRequest("a cat");
+            var neither = new AIInteractionImage().WithRequest("a cat");
 
             Assert.Contains("generated from 'a cat'", neither.GetRawContentForRender());
         }

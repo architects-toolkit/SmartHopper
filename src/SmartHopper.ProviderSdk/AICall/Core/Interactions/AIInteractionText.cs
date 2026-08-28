@@ -16,6 +16,7 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using System.Globalization;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Metrics;
@@ -25,20 +26,20 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
     /// <summary>
     /// Represents an AI-generated text result with associated metadata.
     /// </summary>
-    public class AIInteractionText : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
+    public sealed record AIInteractionText : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
     {
         /// <summary>
-        /// Gets or sets the content of the message.
+        /// Gets the content of the message.
         /// </summary>
-        public string Content { get; set; }
+        public string Content { get; init; }
 
         /// <summary>
-        /// Gets or sets the reasoning of the message.
+        /// Gets the reasoning of the message.
         /// </summary>
-        public string Reasoning { get; set; }
+        public string Reasoning { get; init; }
 
         /// <summary>
-        /// Returns a string representation of the AIInteractionText.
+        /// Returns a string representation of the <see cref="AIInteractionText"/>.
         /// </summary>
         /// <returns>A formatted string containing text metadata.</returns>
         public override string ToString()
@@ -47,7 +48,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 
             if (!string.IsNullOrEmpty(this.Reasoning))
             {
-                result += $"<think>{this.Reasoning}</think>";
+                result += $"thinking:{this.Reasoning}\n\n";
             }
 
             if (!string.IsNullOrEmpty(this.Content))
@@ -59,47 +60,29 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Sets the result for text generation.
+        /// Returns a new <see cref="AIInteractionText"/> with the given result values.
         /// </summary>
         /// <param name="agent">The agent that generated the text.</param>
         /// <param name="content">The content to generate the text from.</param>
         /// <param name="reasoning">The reasoning to generate the text from.</param>
-        public void SetResult(AIAgent agent, string content, string reasoning = null)
-        {
-            this.Agent = agent;
-            this.Content = content;
-            this.Reasoning = reasoning;
-        }
+        /// <returns>A new immutable <see cref="AIInteractionText"/>.</returns>
+        public AIInteractionText WithResult(AIAgent agent, string content, string reasoning = null)
+            => this with { Agent = agent, Content = content, Reasoning = reasoning };
 
         /// <summary>
-        /// Appends streamed deltas to this interaction. Intended for provider-local aggregation
-        /// during streaming so that providers can incrementally build up the assistant message
-        /// without mutating shared chat history.
+        /// Returns a new <see cref="AIInteractionText"/> with the given metrics combined
+        /// into the existing metrics.
         /// </summary>
-        /// <param name="contentDelta">Optional content to append to <see cref="Content"/>.</param>
-        /// <param name="reasoningDelta">Optional reasoning to append to <see cref="Reasoning"/>.</param>
-        /// <param name="metricsDelta">Optional metrics to combine into <see cref="Metrics"/>.</param>
-        public void AppendDelta(string contentDelta = null, string reasoningDelta = null, AIMetrics metricsDelta = null)
+        /// <param name="metricsDelta">Optional metrics to combine.</param>
+        /// <returns>A new immutable <see cref="AIInteractionText"/>.</returns>
+        public AIInteractionText WithDeltaMetrics(AIMetrics metricsDelta)
         {
-            if (!string.IsNullOrEmpty(contentDelta))
+            if (metricsDelta == null)
             {
-                this.Content = (this.Content ?? string.Empty) + contentDelta;
+                return this;
             }
 
-            if (!string.IsNullOrEmpty(reasoningDelta))
-            {
-                this.Reasoning = (this.Reasoning ?? string.Empty) + reasoningDelta;
-            }
-
-            if (metricsDelta != null)
-            {
-                if (this.Metrics == null)
-                {
-                    this.Metrics = new AIMetrics();
-                }
-
-                this.Metrics.Combine(metricsDelta);
-            }
+            return this with { Metrics = (this.Metrics ?? new AIMetrics()).WithCombined(metricsDelta) };
         }
 
         /// <summary>
@@ -167,6 +150,142 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         public string GetRawReasoningForRender()
         {
             return this.Reasoning ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Mutable builder used to incrementally construct an <see cref="AIInteractionText"/>
+        /// during streaming, provider decoding, or UI aggregation.
+        /// </summary>
+        public sealed class Builder
+        {
+            /// <summary>
+            /// Gets or sets the turn identifier.
+            /// </summary>
+            public string TurnId { get; set; }
+
+            /// <summary>
+            /// Gets or sets the timestamp.
+            /// </summary>
+            public DateTime Time { get; set; } = DateTime.UtcNow;
+
+            /// <summary>
+            /// Gets or sets the agent.
+            /// </summary>
+            public AIAgent Agent { get; set; }
+
+            /// <summary>
+            /// Gets or sets the metrics.
+            /// </summary>
+            public AIMetrics Metrics { get; set; }
+
+            /// <summary>
+            /// Gets or sets the content.
+            /// </summary>
+            public string Content { get; set; }
+
+            /// <summary>
+            /// Gets or sets the reasoning.
+            /// </summary>
+            public string Reasoning { get; set; }
+
+            /// <summary>
+            /// Initializes a new empty builder.
+            /// </summary>
+            public Builder()
+            {
+            }
+
+            /// <summary>
+            /// Initializes a builder from an existing interaction.
+            /// </summary>
+            /// <param name="source">The interaction to copy.</param>
+            public Builder(AIInteractionText? source)
+            {
+                if (source != null)
+                {
+                    this.TurnId = source.TurnId;
+                    this.Time = source.Time;
+                    this.Agent = source.Agent;
+                    this.Metrics = source.Metrics;
+                    this.Content = source.Content;
+                    this.Reasoning = source.Reasoning;
+                }
+            }
+
+            /// <summary>
+            /// Sets the result values on the builder.
+            /// </summary>
+            /// <param name="agent">The agent that generated the text.</param>
+            /// <param name="content">The content to generate the text from.</param>
+            /// <param name="reasoning">The reasoning to generate the text from.</param>
+            /// <returns>The same builder for chaining.</returns>
+            public Builder WithResult(AIAgent agent, string content, string reasoning = null)
+            {
+                this.Agent = agent;
+                this.Content = content;
+                this.Reasoning = reasoning;
+                return this;
+            }
+
+            /// <summary>
+            /// Appends streamed content to the builder.
+            /// </summary>
+            /// <param name="contentDelta">Content to append.</param>
+            /// <returns>The same builder for chaining.</returns>
+            public Builder AppendContent(string contentDelta)
+            {
+                if (!string.IsNullOrEmpty(contentDelta))
+                {
+                    this.Content = (this.Content ?? string.Empty) + contentDelta;
+                }
+
+                return this;
+            }
+
+            /// <summary>
+            /// Appends streamed reasoning to the builder.
+            /// </summary>
+            /// <param name="reasoningDelta">Reasoning to append.</param>
+            /// <returns>The same builder for chaining.</returns>
+            public Builder AppendReasoning(string reasoningDelta)
+            {
+                if (!string.IsNullOrEmpty(reasoningDelta))
+                {
+                    this.Reasoning = (this.Reasoning ?? string.Empty) + reasoningDelta;
+                }
+
+                return this;
+            }
+
+            /// <summary>
+            /// Combines streamed metrics into the builder's metrics.
+            /// </summary>
+            /// <param name="metricsDelta">Metrics to combine.</param>
+            /// <returns>The same builder for chaining.</returns>
+            public Builder CombineMetrics(AIMetrics? metricsDelta)
+            {
+                if (metricsDelta != null)
+                {
+                    this.Metrics = (this.Metrics ?? new AIMetrics()).WithCombined(metricsDelta);
+                }
+
+                return this;
+            }
+
+            /// <summary>
+            /// Builds an immutable <see cref="AIInteractionText"/> from the builder.
+            /// </summary>
+            /// <returns>The finalized interaction.</returns>
+            public AIInteractionText Build()
+                => new AIInteractionText
+                {
+                    TurnId = this.TurnId,
+                    Time = this.Time,
+                    Agent = this.Agent,
+                    Metrics = this.Metrics,
+                    Content = this.Content,
+                    Reasoning = this.Reasoning,
+                };
         }
     }
 }

@@ -225,16 +225,14 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
             var provider = req.Provider ?? "Unknown";
             var model = req.Model ?? "Unknown";
 
-            // Extract and update provider and model from interactions
-            foreach (var interaction in body.Interactions)
-            {
-                interaction.Metrics.Provider = provider;
-                interaction.Metrics.Model = model;
-            }
+            // Stamp provider/model on a copy of each interaction, preserving other fields and new markers.
+            var updatedInteractions = body.Interactions
+                .Select(i => i.WithMetrics((i.Metrics ?? new AIMetrics()) with { Provider = provider, Model = model }))
+                .ToList();
 
-            // Create a new body from new interactions
+            // Create a new body from the updated interactions, preserving new markers.
             body = AIBodyBuilder.FromImmutable(body)
-                .ReplaceLastRange(body.Interactions)
+                .ReplaceLastRange(updatedInteractions, markAsNew: false)
                 .Build();
 
             this.Body = body;
@@ -264,14 +262,8 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
             var provider = req.Provider ?? "Unknown";
             var model = req.Model ?? "Unknown";
 
-            // Update provider and model to interactions
-            foreach (var interaction in result)
-            {
-                interaction.Metrics.Provider = provider;
-                interaction.Metrics.Model = model;
-            }
-
             // Build immutable body from interactions; metrics are aggregated within the immutable body.
+            // Provider/model are stamped by the AIBody overload of CreateSuccess.
             var body = AIBodyBuilder.Create()
                 .AddRange(result)
                 .Build();
@@ -455,14 +447,11 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
             var provider = this.Request.Provider ?? "Unknown";
             var model = this.Request.Model ?? "Unknown";
 
-            // Update provider and model to interactions
-            foreach (var interaction in interactions)
-            {
-                interaction.Metrics.Provider = provider;
-                interaction.Metrics.Model = model;
-            }
+            // Stamp provider/model on a copy of each decoded interaction.
+            var updatedInteractions = interactions
+                .Select(i => i.WithMetrics((i.Metrics ?? new AIMetrics()) with { Provider = provider, Model = model }));
 
-            b.AddRange(interactions);
+            b.AddRange(updatedInteractions);
 
             this.Body = b.Build();
             try

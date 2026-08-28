@@ -18,6 +18,7 @@
 
 using System;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Metrics;
 namespace SmartHopper.ProviderSdk.AICall.Utilities
 {
     /// <summary>
@@ -44,9 +45,9 @@ namespace SmartHopper.ProviderSdk.AICall.Utilities
         ///   - Else → incremental delta: append incoming to current
         /// </remarks>
         public static AIInteractionText Coalesce(
-            AIInteractionText accumulated,
-            AIInteractionText incoming,
-            string turnId,
+            AIInteractionText? accumulated,
+            AIInteractionText? incoming,
+            string? turnId,
             bool preserveMetrics = false)
         {
             if (incoming == null)
@@ -71,6 +72,7 @@ namespace SmartHopper.ProviderSdk.AICall.Utilities
             // Coalesce content (cumulative vs incremental detection)
             var currentContent = accumulated.Content ?? string.Empty;
             var incomingContent = incoming.Content ?? string.Empty;
+            var newContent = currentContent;
 
             if (!string.IsNullOrEmpty(incomingContent))
             {
@@ -78,7 +80,7 @@ namespace SmartHopper.ProviderSdk.AICall.Utilities
                 if (incomingContent.Length >= currentContent.Length &&
                     incomingContent.StartsWith(currentContent, StringComparison.Ordinal))
                 {
-                    accumulated.Content = incomingContent;
+                    newContent = incomingContent;
                 }
 
                 // Regression/noise: ignore to avoid trimming
@@ -90,20 +92,21 @@ namespace SmartHopper.ProviderSdk.AICall.Utilities
                 // Incremental: append delta
                 else
                 {
-                    accumulated.Content = currentContent + incomingContent;
+                    newContent = currentContent + incomingContent;
                 }
             }
 
             // Coalesce reasoning similarly
             var currentReasoning = accumulated.Reasoning ?? string.Empty;
             var incomingReasoning = incoming.Reasoning ?? string.Empty;
+            var newReasoning = currentReasoning;
 
             if (!string.IsNullOrEmpty(incomingReasoning))
             {
                 if (incomingReasoning.Length >= currentReasoning.Length &&
                     incomingReasoning.StartsWith(currentReasoning, StringComparison.Ordinal))
                 {
-                    accumulated.Reasoning = incomingReasoning;
+                    newReasoning = incomingReasoning;
                 }
                 else if (currentReasoning.StartsWith(incomingReasoning, StringComparison.Ordinal))
                 {
@@ -111,25 +114,34 @@ namespace SmartHopper.ProviderSdk.AICall.Utilities
                 }
                 else
                 {
-                    accumulated.Reasoning = currentReasoning + incomingReasoning;
+                    newReasoning = currentReasoning + incomingReasoning;
                 }
             }
 
             // Update metrics and time based on preserveMetrics flag
+            AIMetrics? newMetrics = accumulated.Metrics;
+            var newTime = accumulated.Time;
+
             if (!preserveMetrics)
             {
                 if (incoming.Metrics != null)
                 {
-                    accumulated.Metrics = incoming.Metrics;
+                    newMetrics = incoming.Metrics;
                 }
 
                 if (incoming.Time != default)
                 {
-                    accumulated.Time = incoming.Time;
+                    newTime = incoming.Time;
                 }
             }
 
-            return accumulated;
+            return accumulated with
+            {
+                Content = newContent,
+                Reasoning = newReasoning,
+                Metrics = newMetrics,
+                Time = newTime,
+            };
         }
     }
 }

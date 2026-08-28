@@ -48,8 +48,8 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
         public void Add(AIMetrics metrics, string role = null)
         {
             if (metrics == null) return;
-            metrics.Role = role;
-            this._entries.Add(metrics);
+            var entry = string.IsNullOrEmpty(role) ? metrics : metrics with { Role = role };
+            this._entries.Add(entry);
         }
 
     }

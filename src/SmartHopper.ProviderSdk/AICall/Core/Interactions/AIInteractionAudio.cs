@@ -24,30 +24,30 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
     /// <summary>
     /// Represents an audio interaction for speech-to-text or text-to-speech operations.
     /// </summary>
-    public class AIInteractionAudio : AIInteractionBase, IAIKeyedInteraction
+    public sealed record AIInteractionAudio : AIInteractionBase, IAIKeyedInteraction
     {
         /// <summary>
-        /// Gets or sets the audio data as a byte array.
+        /// Gets the audio data as a byte array.
         /// Either Data or FilePath should be set, not both.
         /// </summary>
-        public byte[] Data { get; set; }
+        public byte[] Data { get; init; }
 
         /// <summary>
-        /// Gets or sets the file path to the audio file.
+        /// Gets the file path to the audio file.
         /// Either Data or FilePath should be set, not both.
         /// </summary>
-        public string FilePath { get; set; }
+        public string FilePath { get; init; }
 
         /// <summary>
-        /// Gets or sets the MIME type of the audio (e.g., "audio/wav", "audio/mp3", "audio/mpeg").
+        /// Gets the MIME type of the audio (e.g., "audio/wav", "audio/mp3", "audio/mpeg").
         /// </summary>
-        public string MimeType { get; set; }
+        public string MimeType { get; init; }
 
         /// <summary>
-        /// Gets or sets an optional language hint for speech-to-text operations.
+        /// Gets an optional language hint for speech-to-text operations.
         /// Format: ISO 639-1 language code (e.g., "en", "es", "fr").
         /// </summary>
-        public string LanguageHint { get; set; }
+        public string LanguageHint { get; init; }
 
         /// <summary>
         /// Gets the size of the audio data in bytes.

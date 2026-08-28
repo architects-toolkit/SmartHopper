@@ -30,39 +30,39 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
     /// this class during request encoding — these entries are for UI/diagnostics only and must never
     /// be sent to the AI model.
     /// </summary>
-    public class AIInteractionRuntimeMessage : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
+    public sealed record AIInteractionRuntimeMessage : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
     {
         /// <summary>
-        /// Gets or sets the diagnostic severity. Also determines the effective <see cref="Agent"/>,
+        /// Gets the diagnostic severity. Also determines the effective <see cref="Agent"/>,
         /// the CSS role class used for rendering and the display name shown in the UI.
         /// </summary>
-        public SHRuntimeMessageSeverity Severity { get; set; } = SHRuntimeMessageSeverity.Info;
+        public SHRuntimeMessageSeverity Severity { get; init; } = SHRuntimeMessageSeverity.Info;
 
         /// <summary>
-        /// Gets or sets the machine-readable diagnostic code. Defaults to <see cref="SHMessageCode.Unknown"/>.
+        /// Gets the machine-readable diagnostic code. Defaults to <see cref="SHMessageCode.Unknown"/>.
         /// </summary>
-        public SHMessageCode Code { get; set; } = SHMessageCode.Unknown;
+        public SHMessageCode Code { get; init; } = SHMessageCode.Unknown;
 
         /// <summary>
-        /// Gets or sets the origin of this diagnostic. Defaults to <see cref="SHRuntimeMessageOrigin.Return"/>.
+        /// Gets the origin of this diagnostic. Defaults to <see cref="SHRuntimeMessageOrigin.Return"/>.
         /// </summary>
-        public SHRuntimeMessageOrigin Origin { get; set; } = SHRuntimeMessageOrigin.Return;
+        public SHRuntimeMessageOrigin Origin { get; init; } = SHRuntimeMessageOrigin.Return;
 
         /// <summary>
-        /// Gets or sets a value indicating whether this diagnostic should be surfaced to the end user.
+        /// Gets a value indicating whether this diagnostic should be surfaced to the end user.
         /// Defaults to true for Info/Warning/Error and false for Debug (adjusted via
-        /// <see cref="CreateDebug(string,AIMetrics)"/> or explicitly by callers).
+        /// <see cref="CreateDebug"/> or explicitly by callers).
         /// </summary>
-        public bool Surfaceable { get; set; } = true;
+        public bool Surfaceable { get; init; } = true;
 
         /// <summary>
-        /// Gets or sets the human-readable diagnostic text.
+        /// Gets the human-readable diagnostic text.
         /// </summary>
-        public string Content { get; set; }
+        public string Content { get; init; }
 
         /// <summary>
         /// Gets the effective agent for this diagnostic, derived from <see cref="Severity"/>.
-        /// The setter is intentionally a no-op — callers should set <see cref="Severity"/> instead.
+        /// The init accessor is intentionally a no-op — callers should set <see cref="Severity"/> instead.
         /// </summary>
         public override AIAgent Agent
         {
@@ -74,19 +74,17 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 SHRuntimeMessageSeverity.Debug => AIAgent.Debug,
                 _ => AIAgent.Unknown,
             };
-            set { /* Agent is derived from Severity; setter retained for base-class/serialization compatibility. */ }
+            init { /* Agent is derived from Severity; init retained for base-class/serialization compatibility. */ }
         }
 
         /// <summary>
-        /// Sets the diagnostic content and optional metrics.
+        /// Returns a new <see cref="AIInteractionRuntimeMessage"/> with the given content and metrics.
         /// </summary>
         /// <param name="content">The diagnostic text.</param>
         /// <param name="metrics">Optional metrics to attach; a new instance is created if null.</param>
-        public void SetResult(string content, AIMetrics metrics = null)
-        {
-            this.Content = content;
-            this.Metrics = metrics ?? new AIMetrics();
-        }
+        /// <returns>A new immutable <see cref="AIInteractionRuntimeMessage"/>.</returns>
+        public AIInteractionRuntimeMessage WithResult(string content, AIMetrics? metrics = null)
+            => this with { Content = content, Metrics = metrics ?? new AIMetrics() };
 
         /// <summary>
         /// Returns the content of this diagnostic.
@@ -111,7 +109,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// </summary>
         /// <param name="message">The runtime message to project into an interaction.</param>
         /// <returns>A new <see cref="AIInteractionRuntimeMessage"/> mirroring the input.</returns>
-        public static AIInteractionRuntimeMessage FromRuntimeMessage(SHRuntimeMessage message)
+        public static AIInteractionRuntimeMessage FromRuntimeMessage(SHRuntimeMessage? message)
         {
             if (message == null)
             {
@@ -134,7 +132,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// <param name="content">The diagnostic text.</param>
         /// <param name="metrics">Optional metrics to attach; a new instance is created if null.</param>
         /// <returns>A new <see cref="AIInteractionRuntimeMessage"/> configured for Debug severity.</returns>
-        public static AIInteractionRuntimeMessage CreateDebug(string content, AIMetrics metrics = null)
+        public static AIInteractionRuntimeMessage CreateDebug(string content, AIMetrics? metrics = null)
         {
             return new AIInteractionRuntimeMessage
             {

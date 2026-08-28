@@ -31,25 +31,49 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
     public interface IAIInteraction
     {
         /// <summary>
-        /// Gets or sets the per-turn stable identifier for this interaction.
+        /// Gets the per-turn stable identifier for this interaction.
         /// All interactions that belong to the same logical assistant turn must share the same TurnId.
         /// UI renderers may use this as a unified key for both streaming aggregation and persisted history.
         /// </summary>
-        string TurnId { get; set; }
+        string TurnId { get; init; }
 
         /// <summary>
-        /// Gets or sets the timestamp of the interaction.
+        /// Gets the timestamp of the interaction.
         /// </summary>
-        DateTime Time { get; set; }
+        DateTime Time { get; init; }
 
         /// <summary>
-        /// Gets or sets the agent of the interaction.
+        /// Gets the agent of the interaction.
         /// </summary>
-        AIAgent Agent { get; set; }
+        AIAgent Agent { get; init; }
 
         /// <summary>
-        /// Gets or sets the metrics associated with the interaction.
+        /// Gets the metrics associated with the interaction.
         /// </summary>
-        AIMetrics Metrics { get; set; }
+        AIMetrics Metrics { get; init; }
+
+        /// <summary>
+        /// Returns a new <see cref="IAIInteraction"/> of the same concrete type with the specified
+        /// <see cref="TurnId"/>, preserving all other fields.
+        /// </summary>
+        IAIInteraction WithTurnId(string turnId);
+
+        /// <summary>
+        /// Returns a new <see cref="IAIInteraction"/> of the same concrete type with the specified
+        /// <see cref="Time"/>, preserving all other fields.
+        /// </summary>
+        IAIInteraction WithTime(DateTime time);
+
+        /// <summary>
+        /// Returns a new <see cref="IAIInteraction"/> of the same concrete type with the specified
+        /// <see cref="Agent"/>, preserving all other fields.
+        /// </summary>
+        IAIInteraction WithAgent(AIAgent agent);
+
+        /// <summary>
+        /// Returns a new <see cref="IAIInteraction"/> of the same concrete type with the specified
+        /// <see cref="Metrics"/>, preserving all other fields.
+        /// </summary>
+        IAIInteraction WithMetrics(AIMetrics metrics);
     }
 }

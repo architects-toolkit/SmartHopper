@@ -35,7 +35,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         string ToolFilter,
         string ContextFilter,
         string JsonOutputSchema,
-        List<int> InteractionsNew)
+        IReadOnlyList<int> InteractionsNew)
     {
         /// <summary>
         /// Gets an empty immutable body with defaults: ToolFilter="-*", ContextFilter="-*".
@@ -45,7 +45,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
             "-*",
             "-*",
             null,
-            new List<int>());
+            Array.Empty<int>());
 
         /// <summary>
         /// Gets the count of interactions (no dynamic context injection here).
@@ -79,7 +79,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 {
                     if (i?.Metrics != null)
                     {
-                        m.Combine(i.Metrics);
+                        m = m.WithCombined(i.Metrics);
                     }
                 }
 
@@ -87,7 +87,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 // default to one iteration per body (one provider call).
                 if (m.IterationsCount == null && this.Interactions.Any(i => i?.Metrics != null))
                 {
-                    m.IterationsCount = 1;
+                    m = m with { IterationsCount = 1 };
                 }
 
                 return m;
@@ -135,14 +135,6 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 
                 return combined;
             }
-        }
-
-        /// <summary>
-        /// Clears the list of indices marked as new in this body.
-        /// </summary>
-        public void ResetNew()
-        {
-            this.InteractionsNew?.Clear();
         }
 
         /// <summary>

@@ -27,24 +27,24 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
     /// <summary>
     /// Represents an AI-generated tool result with associated metadata.
     /// </summary>
-    public class AIInteractionToolResult : AIInteractionToolCall, IAIInteraction, IAIRenderInteraction
+    public sealed record AIInteractionToolResult : AIInteractionToolCall, IAIInteraction, IAIRenderInteraction
     {
         /// <inheritdoc/>
-        public override AIAgent Agent { get; set; } = AIAgent.ToolResult;
+        public override AIAgent Agent { get; init; } = AIAgent.ToolResult;
 
         /// <summary>
-        /// Gets or sets the result of the tool call.
+        /// Gets the result of the tool call.
         /// </summary>
-        public JObject Result { get; set; }
+        public JObject Result { get; init; }
 
         /// <summary>
-        /// Gets or sets the structured runtime messages produced while generating this tool result.
+        /// Gets the structured runtime messages produced while generating this tool result.
         /// These are propagated from inner AI calls to improve diagnostics and visibility.
         /// </summary>
-        public List<SHRuntimeMessage> Messages { get; set; } = new List<SHRuntimeMessage>();
+        public List<SHRuntimeMessage> Messages { get; init; } = new List<SHRuntimeMessage>();
 
         /// <summary>
-        /// Returns a string representation of the AIInteractionToolResult.
+        /// Returns a string representation of the <see cref="AIInteractionToolResult"/>.
         /// </summary>
         /// <returns>A formatted string containing tool result metadata.</returns>
         public override string ToString()

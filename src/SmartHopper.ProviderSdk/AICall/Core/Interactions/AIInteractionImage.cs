@@ -26,64 +26,64 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
     /// <summary>
     /// Represents an AI image interaction — either a generated image result or an image input for vision.
     /// </summary>
-    public class AIInteractionImage : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
+    public sealed record AIInteractionImage : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
     {
         /// <summary>
-        /// Gets or sets the URL of the generated image.
+        /// Gets the URL of the generated image.
         /// </summary>
-        public Uri ImageUrl { get; set; }
+        public Uri ImageUrl { get; init; }
 
         /// <summary>
-        /// Gets or sets the raw image data (base64 encoded, if available).
+        /// Gets the raw image data (base64 encoded, if available).
         /// </summary>
-        public string ImageData { get; set; }
+        public string ImageData { get; init; }
 
         /// <summary>
-        /// Gets or sets the revised prompt used by the AI model.
+        /// Gets the revised prompt used by the AI model.
         /// May differ from the original prompt due to AI model optimizations.
         /// </summary>
-        public string RevisedPrompt { get; set; }
+        public string RevisedPrompt { get; init; }
 
         /// <summary>
-        /// Gets or sets the original prompt provided by the user.
+        /// Gets the original prompt provided by the user.
         /// </summary>
-        public string OriginalPrompt { get; set; }
+        public string OriginalPrompt { get; init; }
 
         /// <summary>
-        /// Gets or sets the size of the generated image (e.g., "1024x1024").
+        /// Gets the size of the generated image (e.g., "1024x1024").
         /// </summary>
-        public string ImageSize { get; set; } = "1024x1024";
+        public string ImageSize { get; init; } = "1024x1024";
 
         /// <summary>
-        /// Gets or sets the quality setting used for image generation (e.g., "standard", "hd").
+        /// Gets the quality setting used for image generation (e.g., "standard", "hd").
         /// </summary>
-        public string ImageQuality { get; set; } = "standard";
+        public string ImageQuality { get; init; } = "standard";
 
         /// <summary>
-        /// Gets or sets the style setting used for image generation (e.g., "vivid", "natural").
+        /// Gets the style setting used for image generation (e.g., "vivid", "natural").
         /// </summary>
-        public string ImageStyle { get; set; } = "vivid";
+        public string ImageStyle { get; init; } = "vivid";
 
         /// <summary>
-        /// Gets or sets the aspect ratio of the generated image (e.g., "1:1", "16:9").
+        /// Gets the aspect ratio of the generated image (e.g., "1:1", "16:9").
         /// Provider-specific; used by Gemini image generation.
         /// </summary>
-        public string AspectRatio { get; set; }
+        public string AspectRatio { get; init; }
 
         /// <summary>
-        /// Gets or sets the MIME type of the image (e.g., "image/png", "image/jpeg").
+        /// Gets the MIME type of the image (e.g., "image/png", "image/jpeg").
         /// Used primarily for vision input to indicate the format of base64-encoded image data.
         /// </summary>
-        public string MimeType { get; set; }
+        public string MimeType { get; init; }
 
         /// <summary>
-        /// Gets or sets the structured runtime messages associated with this image interaction.
+        /// Gets the structured runtime messages associated with this image interaction.
         /// Used to propagate warnings, infos, or provider notes alongside the result.
         /// </summary>
-        public List<SHRuntimeMessage> Messages { get; set; } = new List<SHRuntimeMessage>();
+        public List<SHRuntimeMessage> Messages { get; init; } = new List<SHRuntimeMessage>();
 
         /// <summary>
-        /// Returns a string representation of the AIInteractionImage.
+        /// Returns a string representation of the <see cref="AIInteractionImage"/>.
         /// </summary>
         /// <returns>A formatted string containing image metadata.</returns>
         public override string ToString()
@@ -100,21 +100,23 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Creates a vision input interaction from a URL.
+        /// Returns a new image interaction configured as a vision input from a URL.
         /// Use this when sending an image to an AI model for understanding/description.
         /// </summary>
         /// <param name="imageUrl">The URL of the image to analyze.</param>
-        public void CreateVisionInput(Uri imageUrl)
-        {
-            this.ImageUrl = imageUrl ?? throw new ArgumentNullException(nameof(imageUrl));
-        }
+        /// <returns>A new immutable <see cref="AIInteractionImage"/>.</returns>
+        public AIInteractionImage WithVisionInput(Uri imageUrl)
+            => imageUrl == null
+                ? throw new ArgumentNullException(nameof(imageUrl))
+                : this with { ImageUrl = imageUrl };
 
         /// <summary>
-        /// Creates a vision input interaction from a URL string.
+        /// Returns a new image interaction configured as a vision input from a URL string.
         /// Use this when sending an image to an AI model for understanding/description.
         /// </summary>
         /// <param name="imageUrl">The URL of the image to analyze.</param>
-        public void CreateVisionInput(string imageUrl)
+        /// <returns>A new immutable <see cref="AIInteractionImage"/>.</returns>
+        public AIInteractionImage WithVisionInput(string imageUrl)
         {
             if (string.IsNullOrWhiteSpace(imageUrl))
             {
@@ -123,55 +125,57 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 
             if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri))
             {
-                this.ImageUrl = uri;
+                return this with { ImageUrl = uri };
             }
-            else
-            {
-                throw new ArgumentException($"Invalid image URL: {imageUrl}", nameof(imageUrl));
-            }
+
+            throw new ArgumentException($"Invalid image URL: {imageUrl}", nameof(imageUrl));
         }
 
         /// <summary>
-        /// Creates a vision input interaction from base64-encoded image data.
+        /// Returns a new image interaction configured as a vision input from base64-encoded image data.
         /// Use this when sending an image to an AI model for understanding/description.
         /// </summary>
         /// <param name="base64Data">The base64-encoded image data (without data URI prefix).</param>
         /// <param name="mimeType">The MIME type of the image (e.g., "image/png", "image/jpeg"). Defaults to "image/png".</param>
-        public void CreateVisionInputFromBase64(string base64Data, string mimeType = "image/png")
+        /// <returns>A new immutable <see cref="AIInteractionImage"/>.</returns>
+        public AIInteractionImage WithVisionInputFromBase64(string base64Data, string mimeType = "image/png")
         {
             if (string.IsNullOrWhiteSpace(base64Data))
             {
                 throw new ArgumentException("Base64 image data cannot be null or empty.", nameof(base64Data));
             }
 
-            this.ImageData = base64Data;
-            this.MimeType = mimeType ?? "image/png";
+            return this with { ImageData = base64Data, MimeType = mimeType ?? "image/png" };
         }
 
         /// <summary>
-        /// Creates a request for image generation.
+        /// Returns a new image interaction configured as an image generation request.
         /// </summary>
         /// <param name="prompt">The prompt to generate the image from.</param>
         /// <param name="size">The size of the image to generate (e.g., "1024x1024").</param>
         /// <param name="quality">The quality setting used for image generation (e.g., "standard", "hd").</param>
         /// <param name="style">The style setting used for image generation (e.g., "vivid", "natural").</param>
         /// <param name="aspectRatio">The aspect ratio of the image to generate (e.g., "1:1", "16:9").</param>
-        public void CreateRequest(string prompt, string size = null, string quality = null, string style = null, string aspectRatio = null)
-        {
-            this.OriginalPrompt = prompt;
-            this.ImageSize = size ?? this.ImageSize;
-            this.ImageQuality = quality ?? this.ImageQuality;
-            this.ImageStyle = style ?? this.ImageStyle;
-            this.AspectRatio = aspectRatio ?? this.AspectRatio;
-        }
+        /// <returns>A new immutable <see cref="AIInteractionImage"/>.</returns>
+        public AIInteractionImage WithRequest(string prompt, string size = null, string quality = null, string style = null, string aspectRatio = null)
+            => this with
+            {
+                OriginalPrompt = prompt,
+                ImageSize = size ?? this.ImageSize,
+                ImageQuality = quality ?? this.ImageQuality,
+                ImageStyle = style ?? this.ImageStyle,
+                AspectRatio = aspectRatio ?? this.AspectRatio,
+            };
 
         /// <summary>
-        /// Sets the result of the image generation. imageUrl or imageData must be provided.
+        /// Returns a new image interaction with the result of the image generation.
+        /// imageUrl or imageData must be provided.
         /// </summary>
         /// <param name="imageUrl">The URL of the generated image.</param>
         /// <param name="imageData">The raw image data (base64 encoded, if available).</param>
         /// <param name="revisedPrompt">The revised prompt used by the AI model.</param>
-        public void SetResult(string imageUrl = null, string imageData = null, string revisedPrompt = null)
+        /// <returns>A new immutable <see cref="AIInteractionImage"/>.</returns>
+        public AIInteractionImage WithResult(string imageUrl = null, string imageData = null, string revisedPrompt = null)
         {
             if (imageUrl == null && imageData == null)
             {
@@ -182,8 +186,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
             {
                 if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri))
                 {
-                    this.SetResult(uri, imageData, revisedPrompt);
-                    return;
+                    return this.WithResult(uri, imageData, revisedPrompt);
                 }
 
                 if (imageData == null)
@@ -195,44 +198,34 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
             }
 
             // Handle case where only imageData is provided (no URL, or URL was invalid but data is present)
-            if (imageData != null)
+            return this with
             {
-                this.ImageData = imageData;
-            }
-
-            if (revisedPrompt != null)
-            {
-                this.RevisedPrompt = revisedPrompt;
-            }
+                ImageData = imageData ?? this.ImageData,
+                RevisedPrompt = revisedPrompt ?? this.RevisedPrompt,
+            };
         }
 
         /// <summary>
-        /// Sets the result of the image generation using strong types. imageUrl or imageData must be provided.
+        /// Returns a new image interaction with the result of the image generation using strong types.
+        /// imageUrl or imageData must be provided.
         /// </summary>
         /// <param name="imageUrl">The URL of the generated image.</param>
         /// <param name="imageData">The raw image data (base64 encoded, if available).</param>
         /// <param name="revisedPrompt">The revised prompt used by the AI model.</param>
-        public void SetResult(Uri imageUrl = null, string imageData = null, string revisedPrompt = null)
+        /// <returns>A new immutable <see cref="AIInteractionImage"/>.</returns>
+        public AIInteractionImage WithResult(Uri imageUrl = null, string imageData = null, string revisedPrompt = null)
         {
             if (imageUrl == null && imageData == null)
             {
                 throw new ArgumentNullException("imageUrl or imageData must be provided");
             }
 
-            if (imageUrl != null)
+            return this with
             {
-                this.ImageUrl = imageUrl;
-            }
-
-            if (imageData != null)
-            {
-                this.ImageData = imageData;
-            }
-
-            if (revisedPrompt != null)
-            {
-                this.RevisedPrompt = revisedPrompt;
-            }
+                ImageUrl = imageUrl ?? this.ImageUrl,
+                ImageData = imageData ?? this.ImageData,
+                RevisedPrompt = revisedPrompt ?? this.RevisedPrompt,
+            };
         }
 
         /// <summary>
