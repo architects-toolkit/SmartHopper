@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `tools/Sign-Authenticode.ps1` now Authenticode-signs `SmartHopper.Providers.LocalAI.dll` and `SmartHopper.Providers.Ollama.dll`. They were missing from the signing allowlist, so both providers shipped unsigned and Grasshopper refused to enable them as untrusted providers.
+
+## [2.0.0-dev.260821] - 2026-08-21
+
 ### Added
 
 - **LocalAI provider** (`SmartHopper.Providers.LocalAI`): new built-in provider for self-hosted [LocalAI](https://localai.io/) instances. Talks to the standard OpenAI-compatible `/v1/chat/completions` endpoint, with full support for tools/function calling, streaming, JSON Schema structured outputs, and an `Authorization: Bearer` API key when one is configured. Settings include a required **Base URL** (default `http://localhost:8080/v1`) plus optional API Key, Model, Streaming, Max Tokens, and Temperature. The provider does not auto-discover models — users list whatever models they have installed locally.
@@ -34,10 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated workflows that open PRs to `main`/`main-*`/`release/**`/`hotfix/**` now fetch full history and rebase onto the target base before calling `create-pull-request`.
 - `pr-block-dev-to-main.yml` is now `Warn Dev Release to Main`: it emits a warning and a PR comment instead of exiting with an error when a `-dev` version is merged into a protected branch.
 - Updated `SmartHopper.Providers.Ollama` and `SmartHopper.Providers.LocalAI` resource icons to their official brand marks (Ollama from `@lobehub/icons`, LocalAI from the official `mudler/LocalAI` logo).
-
-### Fixed
-
-- `tools/Sign-Authenticode.ps1` now Authenticode-signs `SmartHopper.Providers.LocalAI.dll` and `SmartHopper.Providers.Ollama.dll`. They were missing from the signing allowlist, so both providers shipped unsigned and Grasshopper refused to enable them as untrusted providers.
 
 ## [2.0.0-dev.260802] - 2026-08-02
 
