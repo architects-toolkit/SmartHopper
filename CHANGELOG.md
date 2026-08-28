@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `tools/Sign-Authenticode.ps1` now Authenticode-signs `SmartHopper.Providers.LocalAI.dll` and `SmartHopper.Providers.Ollama.dll`. They were missing from the signing allowlist, so both providers shipped unsigned and Grasshopper refused to enable them as untrusted providers.
+
+## [2.0.0-dev.260821] - 2026-08-21
+
 ### Added
 
 - **LocalAI provider** (`SmartHopper.Providers.LocalAI`): new built-in provider for self-hosted [LocalAI](https://localai.io/) instances. Talks to the standard OpenAI-compatible `/v1/chat/completions` endpoint, with full support for tools/function calling, streaming, JSON Schema structured outputs, and an `Authorization: Bearer` API key when one is configured. Settings include a required **Base URL** (default `http://localhost:8080/v1`) plus optional API Key, Model, Streaming, Max Tokens, and Temperature. The provider does not auto-discover models — users list whatever models they have installed locally.
