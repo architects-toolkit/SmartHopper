@@ -52,9 +52,9 @@ function Find-SnExe {
     if ($snCmd) { return $snCmd.Source }
 
     $sdkPaths = @(
-        "$Env:ProgramFiles(x86)\Windows Kits\10\bin\x64\sn.exe",
-        "$Env:ProgramFiles(x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64\sn.exe",
-        "$Env:ProgramFiles(x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\sn.exe"
+        "${Env:ProgramFiles(x86)}\Windows Kits\10\bin\x64\sn.exe",
+        "${Env:ProgramFiles(x86)}\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64\sn.exe",
+        "${Env:ProgramFiles(x86)}\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\sn.exe"
     )
     $sdkPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
 }

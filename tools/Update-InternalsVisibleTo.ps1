@@ -179,7 +179,7 @@ try {
 # Update the .csproj file
 Write-Host "Updating: $CsprojPath" -ForegroundColor Cyan
 
-$content = Get-Content $CsprojPath -Raw
+$content = [System.IO.File]::ReadAllText($CsprojPath, [System.Text.Encoding]::UTF8)
 
 # Replace the SmartHopperPublicKey value using regex.
 # This avoids XmlDocument.LoadXml() which fails when the file starts with a
