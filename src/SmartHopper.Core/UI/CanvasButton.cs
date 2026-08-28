@@ -32,7 +32,6 @@ using Grasshopper;
 using Grasshopper.GUI.Canvas;
 using Rhino;
 using SmartHopper.Core.UI.Chat;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Properties;

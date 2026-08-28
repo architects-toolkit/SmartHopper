@@ -22,7 +22,6 @@ using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.Infrastructure.AICall.Fallback;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
@@ -182,7 +181,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             modelDD.Enabled = true;
 
-            var models = ModelManager.Instance.GetProviderModels(selectedProvider)
+            var models = AIModelCapabilityRegistry.Instance.GetProviderModels(selectedProvider)
                 .Where(m => m.HasCapability(fallback.RequiresCapability))
                 .OrderBy(m => m.Model)
                 .ToList();

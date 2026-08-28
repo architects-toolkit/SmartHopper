@@ -8,9 +8,9 @@ This page describes the simplified, capability-first model selection policy and 
 
 | Property | Value |
 | --- | --- |
-| **Source Code** | `src/SmartHopper.Infrastructure/Providers/ModelSelection.cs` |
+| **Source Code** | `src/SmartHopper.ProviderSdk/AIModels/AIModelCapabilityRegistry.cs` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
+| **Last Updated** | 2026-08-28 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -34,7 +34,7 @@ Understanding the model selection policy is important if you need to know how Sm
 ### Callers: How to Select a Model
 
 - Always call `provider.SelectModel(requiredCapability, requestedModel)`.
-- Do not call `ModelManager.SelectBestModel` directly from requests/components. The provider base class delegates to it internally by default, keeping policy centralized while maintaining proper abstraction.
+- Do not call `AIModelCapabilityRegistry.SelectBestModel` directly from requests/components. The provider base class delegates to it internally by default, keeping policy centralized while maintaining proper abstraction.
 
 ### Policy (Capability-First)
 
@@ -62,11 +62,11 @@ When selecting a model for a given `provider` and `requiredCapability`:
 Notes:
 
 - Models must be concrete API-ready names. No wildcard resolution.
-- Selection is fully handled by `ModelManager.SelectBestModel()`; the registry is internal for storage only. Callers should go through `IAIProvider.SelectModel(...)`.
+- Selection is fully handled by `AIModelCapabilityRegistry.SelectBestModel()`. Callers should go through `IAIProvider.SelectModel(...)`.
 
 ### Is "Last Resort" Necessary?
 
-Not applicable. Registry-level fallback has been removed. `ModelManager` encapsulates selection logic entirely, and `AIModelCapabilityRegistry` is internal to `ModelManager` for thread-safe storage and retrieval.
+Not applicable. `AIModelCapabilityRegistry` encapsulates both storage and selection logic.
 
 ---
 
@@ -74,7 +74,7 @@ Not applicable. Registry-level fallback has been removed. `ModelManager` encapsu
 
 ### Managing Defaults with SetDefault
 
-Use `ModelManager.SetDefault(provider, model, caps, exclusive = true)` to set default models per capability.
+Use `AIModelCapabilityRegistry.SetDefault(provider, model, caps, exclusive = true)` to set default models per capability.
 
 - `caps` is an `AICapability` bitmask. You can set multiple capability defaults at once.
 - `exclusive = true` clears those capability bits from other models of the same provider to ensure a single default per capability.
@@ -83,10 +83,10 @@ Use `ModelManager.SetDefault(provider, model, caps, exclusive = true)` to set de
 
 ```csharp
 // Make mistral-small-latest the default for Text2Text
-ModelManager.Instance.SetDefault("mistralai", "mistral-small-latest", AICapability.Text2Text);
+AIModelCapabilityRegistry.Instance.SetDefault("mistralai", "mistral-small-latest", AICapability.Text2Text);
 
 // Make gpt-4o-mini the default for ToolChat and Text2Json, exclusively
-ModelManager.Instance.SetDefault(
+AIModelCapabilityRegistry.Instance.SetDefault(
     "openai",
     "gpt-4o-mini",
     AICapability.ToolChat | AICapability.Text2Json,

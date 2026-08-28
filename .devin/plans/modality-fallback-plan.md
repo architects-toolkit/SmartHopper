@@ -33,7 +33,7 @@ emits a **list** of metrics entries rather than a single collapsed object.
    where the plan suggested (sync, before work dispatch), but the **per-branch validation also
    stays** since `RequiredCapability` can vary with payload contents.
 
-2. **`ModelManager.SelectBestModel` already implements model-level fallback** — when a
+2. **`AIModelCapabilityRegistry.SelectBestModel` already implements model-level fallback** — when a
    user-specified model lacks a capability, it silently falls back to a capable model *within the
    same provider*. This is a different axis than modality fallback (which transforms the
    *request*, not the model), but it means part of the "fallback" UX already exists without
@@ -559,7 +559,7 @@ Before the automatic provider search, the resolver checks `FallbackProviderPins[
 - If a pin exists with a non-null `Provider`:
   - Verify `fallback.IsAvailable(pin.Provider)`. If not → hard error with a clear message
     "Pinned provider '{pin.Provider}' cannot perform {fallback.Name} conversion."
-  - Use `pin.Model ?? ModelManager.SelectBestModel(pin.Provider, null, fallback.RequiresCapability)`
+  - Use `pin.Model ?? AIModelCapabilityRegistry.SelectBestModel(pin.Provider, null, fallback.RequiresCapability)`
     as the `ActualModel` on the chain.
   - Record `ActualProvider = pin.Provider`, `ActualModel = pin.Model` (or resolved default).
 - If no pin → proceed with automatic selection as before.
@@ -778,7 +778,7 @@ M8. Phase M tests + CHANGELOG.
   settings-level warning if not. The settings dialog already has a validation pattern.
 - **`ContextUsagePercent` per entry:** each `AIMetricsList` entry computes its own
   `contextUsagePercent` from its own `provider`/`model` — no cross-entry ambiguity.
-- **`ModelManager.SelectBestModel` silent model reassignment** — today, when the user's
+- **`AIModelCapabilityRegistry.SelectBestModel` silent model reassignment** — today, when the user's
   chosen model is incapable, `SelectBestModel` silently picks a different one (only
   `Debug.WriteLine`). This is a separate axis from modality fallback but causes the same
   "surprise token spend" UX problem. Planned as a **separate follow-up task**: add an

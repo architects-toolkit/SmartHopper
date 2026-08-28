@@ -23,7 +23,6 @@ using System.Linq;
 using SmartHopper.Core.ComponentBase.Attributes;
 using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.ComponentBase.State;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
@@ -146,7 +145,7 @@ namespace SmartHopper.Core.ComponentBase
                 Debug.WriteLine($"[UpdateBadgeCache] badgeInvalidModel={this.badgeInvalidModel}");
 
                 // Read metadata from the resolved model to set Verified/Deprecated/NotRecommended when available
-                var resolvedCaps = string.IsNullOrWhiteSpace(resolvedModel) ? null : ModelManager.Instance.GetCapabilities(providerName, resolvedModel);
+                var resolvedCaps = string.IsNullOrWhiteSpace(resolvedModel) ? null : AIModelCapabilityRegistry.Instance.GetCapabilities(providerName, resolvedModel);
                 if (resolvedCaps == null)
                 {
                     // No metadata available for the resolved model – do not render badges

@@ -228,7 +228,7 @@ var hasImageOut = capabilities.HasFlag(AICapability.ImageOutput);
 [Provider Plugin] --registers--> [AIModelCapabilities] --uses--> [AICapability]
                                               |
                                               v
-[AI Component] <--queries-- [ModelManager] <--filters by--> [AICapability]
+[AI Component] <--queries-- [AIModelCapabilityRegistry] <--filters by--> [AICapability]
 
 ```
 

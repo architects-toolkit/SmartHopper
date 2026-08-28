@@ -28,7 +28,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.Infrastructure.AICall.Policies;
     using SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns;
     using SmartHopper.Infrastructure.AICall.Utilities;
-    using SmartHopper.Infrastructure.AIModels;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Requests;

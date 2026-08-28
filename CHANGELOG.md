@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pr-block-dev-to-main.yml` is now `Warn Dev Release to Main`: it emits a warning and a PR comment instead of exiting with an error when a `-dev` version is merged into a protected branch.
 - Updated `SmartHopper.Providers.Ollama` and `SmartHopper.Providers.LocalAI` resource icons to their official brand marks (Ollama from `@lobehub/icons`, LocalAI from the official `mudler/LocalAI` logo).
 
+### Removed
+
+- Removed the redundant `SmartHopper.Infrastructure.AIModels.ModelManager` singleton. All model capabilities, defaults, selection, and streaming validation now flow through `SmartHopper.ProviderSdk.AIModels.AIModelCapabilityRegistry.Instance`, making it the single source of truth for model selection.
+
 ## [2.0.0-dev.260802] - 2026-08-02
 
 ### Added

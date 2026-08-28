@@ -572,7 +572,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 }
             }
 
-            // Else, try to get default model from ModelManager that matches the required capabilities
+            // Else, try to get default model from AIModelCapabilityRegistry that matches the required capabilities
             string modelFromProviderDefault = AIModelCapabilityRegistry.Instance.GetDefaultModel(this.Name, requiredCapability);
 
             if (!string.IsNullOrWhiteSpace(modelFromProviderDefault))

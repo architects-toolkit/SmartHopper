@@ -17,4 +17,4 @@ globs: **/SmartHopper.Providers.*/*.cs
 - Mark secret settings with `SettingDescriptor.IsSecret`; settings UI is generated from descriptors through `SettingsDialog`.
 - Do not place API keys or secret headers on `AIRequestCall.Headers`, `AIReturn`, logs, or source code. Set `AIRequestCall.Authentication` and let provider internals apply secrets just-in-time.
 - Register model capabilities in `AIProviderModels.RetrieveModels()` using concrete API-ready model names. Use `Verified`, `Deprecated`, `Rank`, aliases, streaming support, and capability flags to guide model selection.
-- Callers should select models through `provider.SelectModel(requiredCapability, requestedModel)` rather than directly calling `ModelManager.SelectBestModel`.
+- Callers should select models through `provider.SelectModel(requiredCapability, requestedModel)` rather than directly calling `AIModelCapabilityRegistry.SelectBestModel`.

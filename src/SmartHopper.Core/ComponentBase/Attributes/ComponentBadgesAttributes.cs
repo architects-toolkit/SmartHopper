@@ -27,7 +27,7 @@
  * Purpose: Extend component UI to show model state directly on the component.
  * - Uses last used model from metrics when available; otherwise falls back to the
  *   configured (input/default) model.
- * - Queries ModelManager for AIModelCapabilities to determine flags.
+ * - Queries AIModelCapabilityRegistry for AIModelCapabilities to determine flags.
  * - Designed to be extensible for future badges (e.g., automatic model replacement).
  */
 

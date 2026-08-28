@@ -104,7 +104,7 @@ public interface IAIProvider
 ```
 
 - **Discovery**: `ProviderManager` scans for `SmartHopper.Providers.*.dll` ([docs](./Providers/ProviderManager.md))
-- **Models**: Registered via `AIModelCapabilities` in `ModelManager` ([docs](./Providers/AIModelCapabilities.md))
+- **Models**: Registered via `AIModelCapabilities` in `AIModelCapabilityRegistry` ([docs](./Providers/AIModelCapabilities.md))
 - **Capabilities**: Expressed as `AICapability` flags ([docs](./Providers/AICapability.md))
 
 ### Context Provider Contract
@@ -215,7 +215,7 @@ SmartHopper integrates with external AI providers through a secure plug-in model
 
 ### Concurrency and Reliability
 
-- Model registry lookups use exact model names and aliases only; `ModelManager.SelectBestModel` centralizes capability-aware selection and fallbacks.
+- Model registry lookups use exact model names and aliases only; `AIModelCapabilityRegistry.SelectBestModel` centralizes capability-aware selection and fallbacks.
 - Default model resolution prefers concrete names to avoid API errors and uses `Verified`/`Deprecated`/`Rank` metadata as tie-breakers.
 - Components maintain run state and metrics; the async bases ensure metrics are not cleared mid-processing in toggle scenarios.
 - The AICall `PolicyPipeline` runs request/response policies (timeouts, tool validation, context injection, schema attach/validate, finish-reason normalization) for every call.

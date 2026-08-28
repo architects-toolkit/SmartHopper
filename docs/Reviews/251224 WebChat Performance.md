@@ -400,10 +400,10 @@ Model resolution happens in:
 
 - `AIProvider.SelectModel()`
 - `AIProvider.GetDefaultModel()`
-- `ModelManager.SelectBestModel()`
+- `AIModelCapabilityRegistry.SelectBestModel()`
 - `AIRequestBase.Model` property getter
 
-**Should be**: Single entry point in `ModelManager.SelectBestModel()` called once.
+**Should be**: Single entry point in `AIModelCapabilityRegistry.SelectBestModel()` called once.
 
 #### 4.5.2 Streaming Validation Scattered
 
