@@ -63,7 +63,7 @@ namespace SmartHopper.Providers.Ollama
             this.Models = new OllamaProviderModels(this);
 
             // Register provider-specific JSON schema adapter (object-root wrapper, OpenAI-style)
-            JsonSchemaAdapterRegistry.Register(new OllamaJsonSchemaAdapter());
+            JsonSchemaAdapterRegistry.Register(new OpenAICompatibleJsonSchemaAdapter(this.Name));
         }
 
         /// <inheritdoc/>

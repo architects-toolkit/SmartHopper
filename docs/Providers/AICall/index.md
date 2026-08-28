@@ -118,6 +118,7 @@ var result = await session.RunToStableResult(options);
 - Messages and Aggregation: [./messages.md](./messages.md)
 - Conversation Session: [./ConversationSession.md](./ConversationSession.md)
 - Streaming: [./Streaming.md](./Streaming.md)
+- JSON Schema Adapters: [./JsonSchemaAdapters.md](./JsonSchemaAdapters.md)
 
 Notes:
 

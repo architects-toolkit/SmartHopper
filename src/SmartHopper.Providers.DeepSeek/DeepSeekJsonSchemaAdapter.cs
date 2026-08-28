@@ -24,7 +24,12 @@ using SmartHopper.ProviderSdk.AICall.JsonSchemas;
 
 namespace SmartHopper.Providers.DeepSeek
 {
-    internal sealed partial class DeepSeekJsonSchemaAdapter : IJsonSchemaAdapter
+    /// <summary>
+    /// DeepSeek JSON schema adapter. Inherits the standard OpenAI-compatible wrapping
+    /// and only overrides <see cref="Unwrap"/> to clean up malformed enum arrays that
+    /// some DeepSeek responses produce.
+    /// </summary>
+    internal sealed partial class DeepSeekJsonSchemaAdapter : OpenAICompatibleJsonSchemaAdapter
     {
         #region Compiled Regex Patterns
 
@@ -36,66 +41,23 @@ namespace SmartHopper.Providers.DeepSeek
 
         #endregion
 
-        public string ProviderName => "DeepSeek";
-
-        public (JObject wrapped, SchemaWrapperInfo info) Wrap(JObject schema)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DeepSeekJsonSchemaAdapter"/> class.
+        /// </summary>
+        public DeepSeekJsonSchemaAdapter()
+            : base("DeepSeek")
         {
-            if (schema is null)
-            {
-                throw new ArgumentNullException(nameof(schema));
-            }
-
-            var schemaType = schema["type"]?.ToString();
-
-            // DeepSeek also behaves better with object-root schemas
-            if (string.Equals(schemaType, "object", StringComparison.OrdinalIgnoreCase))
-            {
-                return (schema, new SchemaWrapperInfo { IsWrapped = false, ProviderName = this.ProviderName });
-            }
-
-            if (string.Equals(schemaType, "array", StringComparison.OrdinalIgnoreCase))
-            {
-                var wrapped = new JObject
-                {
-                    ["type"] = "object",
-                    ["properties"] = new JObject { ["items"] = schema },
-                    ["required"] = new JArray { "items" },
-                    ["additionalProperties"] = false,
-                };
-                return (wrapped, new SchemaWrapperInfo { IsWrapped = true, WrapperType = "array", PropertyName = "items", ProviderName = this.ProviderName });
-            }
-
-            if (schemaType == "string" || schemaType == "number" || schemaType == "integer" || schemaType == "boolean")
-            {
-                var wrapped = new JObject
-                {
-                    ["type"] = "object",
-                    ["properties"] = new JObject { ["value"] = schema },
-                    ["required"] = new JArray { "value" },
-                    ["additionalProperties"] = false,
-                };
-                return (wrapped, new SchemaWrapperInfo { IsWrapped = true, WrapperType = schemaType ?? "primitive", PropertyName = "value", ProviderName = this.ProviderName });
-            }
-
-            // Unknown type: wrap under data
-            var generic = new JObject
-            {
-                ["type"] = "object",
-                ["properties"] = new JObject { ["data"] = schema },
-                ["required"] = new JArray { "data" },
-                ["additionalProperties"] = false,
-            };
-            return (generic, new SchemaWrapperInfo { IsWrapped = true, WrapperType = "unknown", PropertyName = "data", ProviderName = this.ProviderName });
         }
 
-        public string Unwrap(string content, SchemaWrapperInfo info)
+        /// <inheritdoc/>
+        public override string Unwrap(string content, SchemaWrapperInfo info)
         {
             if (string.IsNullOrWhiteSpace(content))
             {
                 return content;
             }
 
-            // DeepSeek sometimes returns malformed JSON where array is put under an "enum" property
+            // DeepSeek sometimes returns malformed JSON where an array is put under an "enum" property
             try
             {
                 var trimmed = content.TrimStart();

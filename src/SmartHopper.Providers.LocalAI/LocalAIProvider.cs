@@ -63,7 +63,7 @@ namespace SmartHopper.Providers.LocalAI
             this.Models = new LocalAIProviderModels(this);
 
             // Register provider-specific JSON schema adapter (object-root wrapper, OpenAI-style)
-            JsonSchemaAdapterRegistry.Register(new LocalAIJsonSchemaAdapter());
+            JsonSchemaAdapterRegistry.Register(new OpenAICompatibleJsonSchemaAdapter(this.Name));
         }
 
         /// <inheritdoc/>

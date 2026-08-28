@@ -17,6 +17,11 @@
 
 **Single highest-value fix:** Consolidate model capability selection into one source of truth (`AIModelCapabilityRegistry` in the Provider SDK), remove or repurpose the redundant `ModelManager`, and expose shared provider-agnostic helpers (`BaseJsonSchemaAdapter`, `AIProvider.GetApiKey`/`LoadIcon`, validation utilities) so the per-provider projects shrink and cannot diverge.
 
+## Remediation status
+
+- `ModelManager` has been removed and `AIModelCapabilityRegistry.Instance` is now the single source of truth for model selection, defaults, and streaming validation. Unique test coverage was ported to `AIModelCapabilityRegistryTests`.
+- `OpenAIJsonSchemaAdapter`, `MistralAIJsonSchemaAdapter`, `LocalAIJsonSchemaAdapter`, and `OllamaJsonSchemaAdapter` have been removed. `OpenAICompatibleJsonSchemaAdapter` in `SmartHopper.ProviderSdk.AICall.JsonSchemas` now owns the shared object-root wrapping logic. `DeepSeekJsonSchemaAdapter` inherits from it and overrides only the provider-specific `Unwrap` behavior.
+
 ---
 
 ## Dimension Scores
@@ -70,8 +75,8 @@
 
 ### 4. Duplication of code and responsibilities
 
-- **[Certain]** **Model selection is duplicated.** `AIModelCapabilityRegistry.SelectBestModel` and `ModelManager.SelectBestModel` implement the same fallback algorithm: user model → preferred default → exact default → compatible default → any registered (`src/SmartHopper.ProviderSdk/AIModels/AIModelCapabilityRegistry.cs`, lines 278-353 and `src/SmartHopper.Infrastructure/AIModels/ModelManager.cs`, lines 282-383).
-- **[Certain]** **JSON schema wrapping is duplicated.** `OpenAIJsonSchemaAdapter`, `MistralAIJsonSchemaAdapter`, `LocalAIJsonSchemaAdapter`, `OllamaJsonSchemaAdapter`, and `DeepSeekJsonSchemaAdapter` all contain the same `Wrap()` logic for object-root schema conversion (`src/SmartHopper.Providers.OpenAI/OpenAIJsonSchemaAdapter.cs`, lines 29-77).
+- **[Certain]** **Model selection is duplicated.** `AIModelCapabilityRegistry.SelectBestModel` and `ModelManager.SelectBestModel` implement the same fallback algorithm: user model → preferred default → exact default → compatible default → any registered (`src/SmartHopper.ProviderSdk/AIModels/AIModelCapabilityRegistry.cs`, lines 278-353 and `src/SmartHopper.Infrastructure/AIModels/ModelManager.cs`, lines 282-383). *[Remediated: `ModelManager` removed; `AIModelCapabilityRegistry.Instance` is the single source of truth.]*
+- **[Certain]** **JSON schema wrapping is duplicated.** `OpenAIJsonSchemaAdapter`, `MistralAIJsonSchemaAdapter`, `LocalAIJsonSchemaAdapter`, `OllamaJsonSchemaAdapter`, and `DeepSeekJsonSchemaAdapter` all contain the same `Wrap()` logic for object-root schema conversion (`src/SmartHopper.Providers.OpenAI/OpenAIJsonSchemaAdapter.cs`, lines 29-77). *[Remediated: consolidated into `OpenAICompatibleJsonSchemaAdapter` in Provider SDK; DeepSeek overrides only `Unwrap`.]*
 - **[Certain]** **API-key helper is duplicated.** Eight providers define an identical `internal string GetApiKey() { return this.GetSetting<string>("ApiKey"); }` (e.g., `src/SmartHopper.Providers.OpenAI/OpenAIProvider.cs`, line 106; `src/SmartHopper.Providers.Anthropic/AnthropicProvider.cs`, line 88; `src/SmartHopper.Providers.SmartHopperCloud/SmartHopperCloudProvider.cs`, line 401).
 - **[Certain]** **Icon loading is duplicated.** Provider `Icon` properties repeat the same `MemoryStream`/`Image.FromStream`/`new Bitmap` pattern with the same fallback across all providers.
 - **[Certain]** **Settings validation is duplicated.** `OpenAIProviderSettings`, `AnthropicProviderSettings`, `DeepSeekProviderSettings`, etc. all hand-roll `MaxTokens > 0` and `0.0 <= Temperature <= 2.0` validation with the same diagnostics pattern (`src/SmartHopper.Providers.OpenAI/OpenAIProviderSettings.cs`, lines 179-218).
@@ -137,8 +142,8 @@
 
 | Concept | Locations | Proposed Single Source of Truth | Certainty |
 | --- | --- | --- | --- |
-| Model selection / fallback | `AIModelCapabilityRegistry.SelectBestModel` and `ModelManager.SelectBestModel` | `AIModelCapabilityRegistry` in Provider SDK (delete or delegate `ModelManager`) | High |
-| JSON schema object-root wrapping | `OpenAIJsonSchemaAdapter`, `MistralAIJsonSchemaAdapter`, `LocalAIJsonSchemaAdapter`, `OllamaJsonSchemaAdapter`, `DeepSeekJsonSchemaAdapter` | `BaseJsonSchemaAdapter` in `SmartHopper.ProviderSdk.AICall.JsonSchemas`; providers override only `Unwrap` | High |
+| Model selection / fallback | `AIModelCapabilityRegistry.SelectBestModel` and `ModelManager.SelectBestModel` | `AIModelCapabilityRegistry` in Provider SDK (delete `ModelManager`) | High — **Remediated** |
+| JSON schema object-root wrapping | `OpenAIJsonSchemaAdapter`, `MistralAIJsonSchemaAdapter`, `LocalAIJsonSchemaAdapter`, `OllamaJsonSchemaAdapter`, `DeepSeekJsonSchemaAdapter` | `OpenAICompatibleJsonSchemaAdapter` in `SmartHopper.ProviderSdk.AICall.JsonSchemas`; providers override only `Unwrap` | High — **Remediated** |
 | Provider API-key accessor | Eight providers’ `internal string GetApiKey()` | `AIProvider` protected helper or direct `GetSetting<string>("ApiKey")` | High |
 | Provider icon loading | Eight providers’ `Image Icon` properties | `AIProvider` protected helper such as `LoadIconFromResources(byte[])` | High |
 | Settings validation (MaxTokens/Temperature) | `OpenAIProviderSettings`, `AnthropicProviderSettings`, `DeepSeekProviderSettings`, etc. | `AIProviderSettings` protected helpers `ValidateMaxTokens` / `ValidateTemperature` | High |
@@ -155,7 +160,7 @@
 | --- | --- | --- |
 | `SmartHopper.Infrastructure.Settings.TrustedProviderRecord` | **Dead** | Class is defined but referenced by no other file; `SmartHopperSettings.TrustedProviders` remains `Dictionary<string, bool>`. |
 | `SmartHopper.ProviderSdk.AICall.Core.Interactions.AIBody.ResetNew()` | **Dead / suspicious** | Method is only called in `AIBodyValidationTests`; no production usage. |
-| `SmartHopper.Infrastructure.AIModels.ModelManager` | **Orphaned / redundant** | Only used by `FallbackSettingsPage` and tests; the runtime path uses `AIModelCapabilityRegistry`. It wraps and duplicates the registry. |
+| `SmartHopper.Infrastructure.AIModels.ModelManager` | **Removed** | Removed; `AIModelCapabilityRegistry.Instance` is the single source of truth for model selection, defaults, and streaming validation. |
 | `SmartHopper.Components.Test` Release build mapping | **Contradicts intent** | `SmartHopper.sln` includes `Release` build entries, but `.devin/rules/solution-structure.md` says it is not built in Release. |
 | `AICapability.VideoInput/VideoOutput/EmbedOutput` and related | **Suspicious** | Declared but no production references were located; may be future-proofing flags. |
 | `SmartHopper.Core.ComponentBase.AsyncComponentBase` → `SmartHopper.Infrastructure.Mcp` | **Suspicious coupling** | A generic async base class knows about MCP canvas lock state. |
@@ -166,8 +171,8 @@
 
 | Rank | Change | Effort | Expected Impact |
 | --- | --- | --- | --- |
-| 1 | **Make `AIModelCapabilityRegistry` the single source of truth for model selection and remove/repurpose `ModelManager`.** Eliminate duplicated `SelectBestModel`, `SetDefault`, `GetDefaultModel`, and streaming validation. | Small | High. Removes the most dangerous source of model-selection divergence and simplifies every provider call. |
-| 2 | **Add a shared `BaseJsonSchemaAdapter` in the Provider SDK.** Make OpenAI/Mistral/Local/Ollama inherit it; only DeepSeek overrides `Unwrap`. | Small | High. Cuts ~4 copy-paste adapters and makes schema changes safe. |
+| 1 | **Make `AIModelCapabilityRegistry` the single source of truth for model selection and remove/repurpose `ModelManager`.** Eliminate duplicated `SelectBestModel`, `SetDefault`, `GetDefaultModel`, and streaming validation. | Small | High. Removes the most dangerous source of model-selection divergence and simplifies every provider call. **Done.** |
+| 2 | **Add a shared `OpenAICompatibleJsonSchemaAdapter` in the Provider SDK.** Make OpenAI/Mistral/Local/Ollama use it; only DeepSeek inherits and overrides `Unwrap`. | Small | High. Cuts ~4 copy-paste adapters and makes schema changes safe. **Done.** |
 | 3 | **Move common provider helpers into the base classes.** Add `AIProvider.GetApiKey()`, `AIProvider.LoadIconFromResources()`, and `AIProviderSettings.ValidateMaxTokens`/`ValidateTemperature`. | Small | High. Removes the bulk of per-provider boilerplate. |
 | 4 | **Document and, if needed, harness the `SmartHopper.Components.Test` suite.** Clarify that each `Test{Provider}{Feature}Component` is an intentional per-provider test runner. Only extract a shared test-harness base for common setup/teardown; do not collapse the ~43 provider-specific runners into a single component. | Small | Medium. Preserves the intended test surface while reducing common boilerplate. |
 | 5 | **Fix `AIBody` immutability and `AIInteractionBase` mutability.** Make `AIBody.InteractionsNew` immutable, remove `ResetNew()` if unused, and use init-only setters or a builder for `AIInteractionBase`. | Small | Medium. Aligns the domain model with the documented immutability goal. |
