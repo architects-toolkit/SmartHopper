@@ -1,0 +1,126 @@
+name: Version Bump
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump to apply
+        required: true
+        type: choice
+        options:
+          - none
+          - patch
+          - minor
+          - major
+        default: none
+      stage:
+        description: Version stage
+        required: true
+        type: choice
+        options:
+          - dev
+          - alpha
+          - beta
+          - rc
+          - stable
+        default: dev
+      base-branch:
+        description: Branch to base the version bump on
+        required: true
+        type: string
+        default: main
+      auto-merge:
+        description: Enable rebase auto-merge for the bump PR
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.base-branch }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  version-bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.base-branch }}
+          fetch-depth: 0
+
+      - name: Get current version
+        id: current-version
+        uses: ./.github/actions/versioning/get-version
+
+      - name: Calculate next version
+        id: next-version
+        uses: ./.github/actions/versioning/next-release-version
+        with:
+          current-version: ${{ steps.current-version.outputs.version }}
+          bump: ${{ inputs.bump }}
+          stage: ${{ inputs.stage }}
+
+      - name: Set version and refresh badges
+        uses: ./.github/actions/versioning/version-manager
+        with:
+          mode: set-version
+          new-version: ${{ steps.next-version.outputs.new-version }}
+
+      - name: Add changelog entry
+        uses: ./.github/actions/documentation/update-changelog
+        with:
+          action: add-line
+          section: Changed
+          description: "Updated the version to ${{ steps.next-version.outputs.new-version }}."
+
+      - name: Create bump branch
+        shell: bash
+        env:
+          NEW_VERSION: ${{ steps.next-version.outputs.new-version }}
+        run: |
+          set -euo pipefail
+          git checkout -b "chore/bump-$NEW_VERSION"
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
+
+      - name: Commit and push bump branch
+        shell: bash
+        env:
+          NEW_VERSION: ${{ steps.next-version.outputs.new-version }}
+        run: |
+          set -euo pipefail
+          git add Solution.props README.md CHANGELOG.md
+          git commit -m "chore: bump version to $NEW_VERSION"
+          git push origin "chore/bump-$NEW_VERSION"
+
+      - name: Open bump pull request
+        id: create-pr
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_BRANCH: ${{ inputs.base-branch }}
+          NEW_VERSION: ${{ steps.next-version.outputs.new-version }}
+        run: |
+          set -euo pipefail
+          gh pr create \
+            --base "$BASE_BRANCH" \
+            --head "chore/bump-$NEW_VERSION" \
+            --title "chore: bump version to $NEW_VERSION" \
+            --body "Updates the canonical version to \`$NEW_VERSION\` and refreshes the README badges."
+
+      - name: Enable rebase auto-merge
+        if: inputs.auto-merge == true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ steps.next-version.outputs.new-version }}
+        run: |
+          set -euo pipefail
+          PR_NUMBER=$(gh pr list --head "chore/bump-$NEW_VERSION" --json number --jq '.[0].number')
+          gh pr merge "$PR_NUMBER" --auto --rebase

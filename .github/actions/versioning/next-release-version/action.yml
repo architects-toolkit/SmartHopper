@@ -1,0 +1,143 @@
+name: Next Release Version
+description: Calculate a tag-aware release version from the current version.
+
+inputs:
+  current-version:
+    description: Current version in X.Y.Z[-suffix] format.
+    required: true
+  bump:
+    description: Version bump to apply.
+    required: false
+    default: none
+  stage:
+    description: Release stage.
+    required: false
+    default: stable
+  date:
+    description: Development suffix date in YYMMDD format. Defaults to today in UTC.
+    required: false
+    default: ''
+
+outputs:
+  new-version:
+    description: Computed version.
+    value: ${{ steps.calculate.outputs.new-version }}
+  tag:
+    description: Computed bare tag name.
+    value: ${{ steps.calculate.outputs.tag }}
+  is-prerelease:
+    description: Whether the computed version is a prerelease.
+    value: ${{ steps.calculate.outputs.is-prerelease }}
+  stage:
+    description: Release stage.
+    value: ${{ steps.calculate.outputs.stage }}
+  core:
+    description: Computed X.Y.Z core version.
+    value: ${{ steps.calculate.outputs.core }}
+
+runs:
+  using: composite
+  steps:
+    - name: Calculate next release version
+      id: calculate
+      shell: bash
+      env:
+        CURRENT_VERSION: ${{ inputs.current-version }}
+        BUMP: ${{ inputs.bump }}
+        STAGE: ${{ inputs.stage }}
+        INPUT_DATE: ${{ inputs.date }}
+      run: |
+        set -euo pipefail
+
+        if [[ ! "$CURRENT_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[A-Za-z0-9.]+)?$ ]]; then
+          echo "::error::Invalid current-version '$CURRENT_VERSION'; expected X.Y.Z[-suffix]." >&2
+          exit 1
+        fi
+        CURRENT_MAJOR="${BASH_REMATCH[1]}"
+        CURRENT_MINOR="${BASH_REMATCH[2]}"
+        CURRENT_PATCH="${BASH_REMATCH[3]}"
+
+        if [[ ! "$BUMP" =~ ^(none|patch|minor|major)$ ]]; then
+          echo "::error::Invalid bump '$BUMP'; expected none, patch, minor, or major." >&2
+          exit 1
+        fi
+
+        if [[ ! "$STAGE" =~ ^(stable|alpha|beta|rc|dev)$ ]]; then
+          echo "::error::Invalid stage '$STAGE'; expected stable, alpha, beta, rc, or dev." >&2
+          exit 1
+        fi
+
+        MAJOR=$((10#$CURRENT_MAJOR))
+        MINOR=$((10#$CURRENT_MINOR))
+        PATCH=$((10#$CURRENT_PATCH))
+
+        case "$BUMP" in
+          patch)
+            PATCH=$((PATCH + 1))
+            ;;
+          minor)
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            ;;
+          major)
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            ;;
+        esac
+
+        CORE="$MAJOR.$MINOR.$PATCH"
+        if [[ -n "$INPUT_DATE" ]]; then
+          DATE="$INPUT_DATE"
+        else
+          DATE=$(date -u +%y%m%d)
+        fi
+
+        if [[ ! "$DATE" =~ ^[0-9]{6}$ ]]; then
+          echo "::error::Invalid date '$DATE'; expected YYMMDD." >&2
+          exit 1
+        fi
+
+        git fetch --tags
+
+        if [[ "$STAGE" == "stable" ]]; then
+          NEW_VERSION="$CORE"
+          IS_PRERELEASE=false
+        elif [[ "$STAGE" == "dev" ]]; then
+          NEW_VERSION="$CORE-dev.$DATE"
+          IS_PRERELEASE=true
+        else
+          HIGHEST=0
+          LEGACY_TAG="$CORE-$STAGE"
+          if git tag --list "$LEGACY_TAG" | grep -Fxq "$LEGACY_TAG"; then
+            HIGHEST=1
+          fi
+
+          while IFS= read -r TAG; do
+            if [[ "$TAG" =~ ^${CORE//./\\.}-${STAGE}\.([0-9]+)$ ]]; then
+              NUMBER=$((10#${BASH_REMATCH[1]}))
+              if (( NUMBER > HIGHEST )); then
+                HIGHEST=$NUMBER
+              fi
+            fi
+          done < <(git tag --list "$CORE-$STAGE.*")
+
+          NEW_VERSION="$CORE-$STAGE.$((HIGHEST + 1))"
+          IS_PRERELEASE=true
+        fi
+
+        if git tag --list "$NEW_VERSION" | grep -Fxq "$NEW_VERSION" ||
+          git ls-remote --exit-code --refs origin "refs/tags/$NEW_VERSION" >/dev/null 2>&1; then
+          echo "::error::Computed version '$NEW_VERSION' already exists as a git tag." >&2
+          exit 1
+        fi
+
+        {
+          echo "new-version=$NEW_VERSION"
+          echo "tag=$NEW_VERSION"
+          echo "is-prerelease=$IS_PRERELEASE"
+          echo "stage=$STAGE"
+          echo "core=$CORE"
+        } >> "$GITHUB_OUTPUT"
+
+        echo "Computed $NEW_VERSION (core $CORE, stage $STAGE)."
