@@ -18,7 +18,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
@@ -209,6 +211,39 @@ namespace SmartHopper.Infrastructure.AITools
             var prefix = this.MutatesCanvas ? "[Mutates canvas]" : "[Read-only]";
             var tags = this.Tags.Count > 0 ? $" Tags: {string.Join(", ", this.Tags)}." : string.Empty;
             return $"{prefix}{tags} {this.Description}";
+        }
+
+        /// <summary>
+        /// Returns the names of the parameters declared as required in the tool's JSON schema.
+        /// Returns an empty list when the schema is empty, invalid, or declares no required properties.
+        /// </summary>
+        /// <returns>The required parameter names.</returns>
+        public IReadOnlyList<string> GetRequiredParameters()
+        {
+            if (string.IsNullOrWhiteSpace(this.ParametersSchema))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var schemaObj = JObject.Parse(this.ParametersSchema);
+                var required = schemaObj?["required"] as JArray;
+                if (required == null || required.Count == 0)
+                {
+                    return new List<string>();
+                }
+
+                return required
+                    .Select(r => r?.ToString())
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Select(s => s!)
+                    .ToList();
+            }
+            catch
+            {
+                return new List<string>();
+            }
         }
 
         private static IReadOnlyList<string> BuildDefaultTags(string category, bool mutatesCanvas)

@@ -118,6 +118,106 @@ namespace SmartHopper.Infrastructure.Tests
 
         #endregion
 
+        #region ExecuteTool Null Arguments Normalization
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "AIToolManager ExecuteTool normalizes null arguments for schema with no required properties [Windows]")]
+#else
+        [Fact(DisplayName = "AIToolManager ExecuteTool normalizes null arguments for schema with no required properties [Core]")]
+#endif
+        public async Task ExecuteTool_NullArguments_NoRequiredParameters_NormalizesToEmptyJObject()
+        {
+            this.ResetTools();
+
+            JObject? observedArgs = null;
+            var tool = new AITool(
+                "test_null_args",
+                "Tool with no required parameters",
+                "test",
+                @"{ ""type"": ""object"", ""properties"": {} }",
+                request =>
+                {
+                    observedArgs = request.GetToolCall().Arguments;
+                    request.SkipMetricsValidation = true;
+                    var ret = new AIReturn
+                    {
+                        Request = request,
+                    };
+                    var body = AIBodyBuilder.Create()
+                        .WithTurnId(System.Guid.NewGuid().ToString("N"))
+                        .AddText(AIAgent.ToolResult, "ok")
+                        .Build();
+                    ret.SetBody(body);
+                    return Task.FromResult(ret);
+                });
+
+            AIToolManager.RegisterTool(tool);
+
+            var toolCall = new AIToolCall
+            {
+                Provider = "test",
+                Model = "test-model",
+                Body = AIBodyBuilder.Create()
+                    .WithTurnId(System.Guid.NewGuid().ToString("N"))
+                    .Add(new AIInteractionToolCall
+                    {
+                        Id = "call-1",
+                        Name = "test_null_args",
+                        Arguments = null!,
+                    })
+                    .Build(),
+            };
+
+            var result = await AIToolManager.ExecuteTool(toolCall).ConfigureAwait(false);
+
+            Assert.NotNull(result);
+            Assert.Equal("ok", result.Body?.GetLastText());
+            Assert.False(result.Messages.Exists(m => m.Severity == SHRuntimeMessageSeverity.Error));
+            Assert.NotNull(observedArgs);
+            Assert.False(observedArgs!.HasValues);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "AIToolManager ExecuteTool does not normalize null arguments when required properties are missing [Windows]")]
+#else
+        [Fact(DisplayName = "AIToolManager ExecuteTool does not normalize null arguments when required properties are missing [Core]")]
+#endif
+        public async Task ExecuteTool_NullArguments_RequiredParameters_ReturnsValidationError()
+        {
+            this.ResetTools();
+
+            var tool = new AITool(
+                "test_required_args",
+                "Tool with required parameters",
+                "test",
+                @"{ ""type"": ""object"", ""properties"": { ""value"": { ""type"": ""string"" } }, ""required"": [""value""] }",
+                _ => Task.FromResult(new AIReturn()));
+
+            AIToolManager.RegisterTool(tool);
+
+            var toolCall = new AIToolCall
+            {
+                Provider = "test",
+                Model = "test-model",
+                Body = AIBodyBuilder.Create()
+                    .WithTurnId(System.Guid.NewGuid().ToString("N"))
+                    .Add(new AIInteractionToolCall
+                    {
+                        Id = "call-1",
+                        Name = "test_required_args",
+                        Arguments = null!,
+                    })
+                    .Build(),
+            };
+
+            var result = await AIToolManager.ExecuteTool(toolCall).ConfigureAwait(false);
+
+            Assert.NotNull(result);
+            Assert.True(result.Messages.Exists(m => m.Severity == SHRuntimeMessageSeverity.Error));
+        }
+
+        #endregion
+
         #region ExecuteTool Unknown Tool
 
 #if NET7_WINDOWS

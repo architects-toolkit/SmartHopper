@@ -69,19 +69,8 @@ namespace SmartHopper.Infrastructure.AICall.Validation
 
             var tool = tools[instance.Name];
             var schemaText = tool.ParametersSchema ?? string.Empty;
-
-            JArray required = null;
-            try
-            {
-                var schemaObj = string.IsNullOrWhiteSpace(schemaText) ? null : JObject.Parse(schemaText);
-                required = schemaObj?["required"] as JArray;
-            }
-            catch
-            {
-                required = null;
-            }
-
-            var hasRequired = required != null && required.Count > 0;
+            var required = tool.GetRequiredParameters();
+            var hasRequired = required.Count > 0;
 
             if (string.IsNullOrWhiteSpace(schemaText))
             {
@@ -108,9 +97,8 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 if (hasRequired && instance.Arguments is JObject argsObj)
                 {
                     var missing = new List<string>();
-                    foreach (var r in required)
+                    foreach (var key in required)
                     {
-                        var key = r?.ToString();
                         if (string.IsNullOrWhiteSpace(key))
                         {
                             continue;
@@ -140,10 +128,9 @@ namespace SmartHopper.Infrastructure.AICall.Validation
             }
             else
             {
-                // If a schema exists but no arguments were provided, create a local copy with an empty
-                // object. Downstream consumers that need the normalized instance must use the validation
-                // result because the contract is side-effect free.
-                instance = instance with { Arguments = new JObject() };
+                // IValidator<T> is side-effect free, so the normalized instance cannot be returned here.
+                // AIToolManager.ExecuteTool normalizes null arguments to an empty JObject before invoking
+                // the tool when the schema has no required parameters.
 
                 if (hasRequired)
                 {
