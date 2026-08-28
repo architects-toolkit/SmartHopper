@@ -37,20 +37,16 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for OpenAI standard API call.
     /// </summary>
-    public class TestOpenAIStandardCallComponent : AIStatefulAsyncComponentBase
+    public class TestOpenAIStandardCallComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("70B1A4C5-DDAE-40B0-BCDD-509F06B607C5");
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        protected override string TestProviderName => "OpenAI";
 
-        public TestOpenAIStandardCallComponent()
-            : base("Test OpenAI Standard Call", "TEST-OPENAI-CALL", "Tests OpenAI standard API call and metrics validation", "SmartHopper Tests", "Testing Providers")
+        pub        public TestOpenAIStandardCallComponent()
+            : base("Test OpenAI Standard Call", "TEST-OPENAI-CALL", "Tests OpenAI standard API call and metrics validation")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("OpenAI");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

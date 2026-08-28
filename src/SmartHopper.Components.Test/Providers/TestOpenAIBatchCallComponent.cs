@@ -39,20 +39,16 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for OpenAI batch API call.
     /// </summary>
-    public class TestOpenAIBatchCallComponent : AIStatefulAsyncComponentBase
+    public class TestOpenAIBatchCallComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("2B36EFF6-46F3-4CAB-B032-369D0102D954");
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        protected override string TestProviderName => "OpenAI";
 
-        public TestOpenAIBatchCallComponent()
-            : base("Test OpenAI Batch Call", "TEST-OPENAI-BATCH", "Tests OpenAI batch API call with service_tier=batch and metrics validation", "SmartHopper Tests", "Testing Providers")
+        pub        public TestOpenAIBatchCallComponent()
+            : base("Test OpenAI Batch Call", "TEST-OPENAI-BATCH", "Tests OpenAI batch API call with service_tier=batch and metrics validation")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("OpenAI");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

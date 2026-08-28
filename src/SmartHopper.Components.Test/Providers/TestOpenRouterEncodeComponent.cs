@@ -35,20 +35,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for OpenRouter message encoding.
     /// </summary>
-    public class TestOpenRouterEncodeComponent : AIStatefulAsyncComponentBase
+    public class TestOpenRouterEncodeComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("04900353-70D4-4F0E-96E1-5EE2BD0C2418");
 
+        protected override string TestProviderName => "OpenRouter";
+
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
-        public TestOpenRouterEncodeComponent()
-            : base("Test OpenRouter Encode", "TEST-OPENROUTER-ENC", "Tests OpenRouter message encoding from AIRequestCall", "SmartHopper Tests", "Testing Providers")
+        pub        public TestOpenRouterEncodeComponent()
+            : base("Test OpenRouter Encode", "TEST-OPENROUTER-ENC", "Tests OpenRouter message encoding from AIRequestCall")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("OpenRouter");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

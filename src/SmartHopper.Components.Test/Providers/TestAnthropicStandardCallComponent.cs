@@ -35,21 +35,19 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for Anthropic standard API call.
     /// </summary>
-    public class TestAnthropicStandardCallComponent : AIStatefulAsyncComponentBase
+    public class TestAnthropicStandardCallComponent : ProviderTestComponentBase
     {
 
         public override Guid ComponentGuid => new Guid("96E4F7C5-B7E4-4C0E-8CE4-538D50D724E5");
 
+        protected override string TestProviderName => "Anthropic";
+
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
-        public TestAnthropicStandardCallComponent()
-            : base("Test Anthropic Standard Call", "TEST-ANTHROPIC-CALL", "Tests Anthropic standard API call and metrics validation", "SmartHopper Tests", "Testing Providers")
+        pub        public TestAnthropicStandardCallComponent()
+            : base("Test Anthropic Standard Call", "TEST-ANTHROPIC-CALL", "Tests Anthropic standard API call and metrics validation")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("Anthropic");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

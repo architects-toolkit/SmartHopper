@@ -34,20 +34,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for Anthropic comprehensive response decoding.
     /// </summary>
-    public class TestAnthropicDecodeComponent : AIStatefulAsyncComponentBase
+    public class TestAnthropicDecodeComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("9B40A72D-F7AA-4C37-BFFF-A3C58DA6838F");
 
+        protected override string TestProviderName => "Anthropic";
+
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
-        public TestAnthropicDecodeComponent()
-            : base("Test Anthropic Decode", "TEST-ANTHROPIC-DEC", "Tests Anthropic comprehensive response decoding", "SmartHopper Tests", "Testing Providers")
+        pub        public TestAnthropicDecodeComponent()
+            : base("Test Anthropic Decode", "TEST-ANTHROPIC-DEC", "Tests Anthropic comprehensive response decoding")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("Anthropic");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

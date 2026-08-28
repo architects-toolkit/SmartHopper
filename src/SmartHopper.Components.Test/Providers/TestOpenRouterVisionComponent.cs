@@ -37,20 +37,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for OpenRouter vision input handling.
     /// </summary>
-    public class TestOpenRouterVisionComponent : AIStatefulAsyncComponentBase
+    public class TestOpenRouterVisionComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("A3845F33-35BD-463F-923C-68A60CCF96A0");
 
+        protected override string TestProviderName => "OpenRouter";
+
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
-        public TestOpenRouterVisionComponent()
-            : base("Test OpenRouter Vision", "TEST-OPENROUTER-VISION", "Tests OpenRouter vision API call with image input", "SmartHopper Tests", "Testing Providers")
+        pub        public TestOpenRouterVisionComponent()
+            : base("Test OpenRouter Vision", "TEST-OPENROUTER-VISION", "Tests OpenRouter vision API call with image input")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("OpenRouter");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

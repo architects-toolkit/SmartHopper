@@ -87,7 +87,7 @@ namespace SmartHopper.Providers.Gemini
                     }
 
                     var auth = authentication?.Trim().ToLowerInvariant();
-                    var apiKey = this.provider.GetSetting<string>("ApiKey");
+                    var apiKey = this.provider.GetApiKey();
 
                     AIReturn authError = null;
                     if (string.IsNullOrWhiteSpace(auth) || auth == "none")

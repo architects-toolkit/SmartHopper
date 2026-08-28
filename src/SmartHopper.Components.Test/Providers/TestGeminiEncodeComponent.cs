@@ -38,21 +38,19 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for Google Gemini message encoding.
     /// </summary>
-    public class TestGeminiEncodeComponent : AIStatefulAsyncComponentBase
+    public class TestGeminiEncodeComponent : ProviderTestComponentBase
     {
 
         public override Guid ComponentGuid => new Guid("BFA00A8F-3DA2-4261-87A6-DBCE0E861188");
 
+        protected override string TestProviderName => "Gemini";
+
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
-        public TestGeminiEncodeComponent()
-            : base("Test Gemini Encode", "TEST-GEMINI-ENC", "Tests Gemini message encoding from AIRequestCall", "SmartHopper Tests", "Testing Providers")
+        pub        public TestGeminiEncodeComponent()
+            : base("Test Gemini Encode", "TEST-GEMINI-ENC", "Tests Gemini message encoding from AIRequestCall")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("Gemini");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

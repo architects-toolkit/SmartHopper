@@ -18,7 +18,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
 using SmartHopper.ProviderSdk.Settings;
 namespace SmartHopper.ProviderSdk.AIProviders
@@ -79,6 +81,79 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 // Safe default: disabled
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Reports a settings validation error through the host diagnostics.
+        /// </summary>
+        /// <param name="message">The validation message.</param>
+        protected void ReportSettingsValidationError(string message)
+        {
+            ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, message));
+        }
+
+        /// <summary>
+        /// Validates that the "MaxTokens" setting, if present, is a positive integer.
+        /// Unparseable or non-positive values are reported as errors.
+        /// </summary>
+        /// <param name="settings">The settings to validate.</param>
+        /// <param name="reportError">If true, reports a validation error when invalid.</param>
+        /// <param name="errorMessage">The error message to report.</param>
+        /// <returns>True if the setting is absent or valid; false if it is present and invalid.</returns>
+        protected bool ValidateMaxTokens(Dictionary<string, object> settings, bool reportError, string errorMessage = "Max Tokens must be greater than 0.")
+        {
+            if (settings == null)
+            {
+                return false;
+            }
+
+            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
+            {
+                if (!int.TryParse(maxTokensObj.ToString(), out var maxTokens) || maxTokens <= 0)
+                {
+                    if (reportError)
+                    {
+                        this.ReportSettingsValidationError(errorMessage);
+                    }
+
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Validates that the "Temperature" setting, if present, is within the specified range.
+        /// Unparseable or out-of-range values are reported as errors.
+        /// </summary>
+        /// <param name="settings">The settings to validate.</param>
+        /// <param name="reportError">If true, reports a validation error when invalid.</param>
+        /// <param name="errorMessage">The error message to report.</param>
+        /// <param name="min">The minimum allowed temperature.</param>
+        /// <param name="max">The maximum allowed temperature.</param>
+        /// <returns>True if the setting is absent or valid; false if it is present and invalid.</returns>
+        protected bool ValidateTemperature(Dictionary<string, object> settings, bool reportError, string errorMessage = "Temperature must be between 0.0 and 2.0.", double min = 0.0, double max = 2.0)
+        {
+            if (settings == null)
+            {
+                return false;
+            }
+
+            if (settings.TryGetValue("Temperature", out var temperatureObj) && temperatureObj != null)
+            {
+                if (!double.TryParse(temperatureObj.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var temperature) || temperature < min || temperature > max)
+                {
+                    if (reportError)
+                    {
+                        this.ReportSettingsValidationError(errorMessage);
+                    }
+
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 }

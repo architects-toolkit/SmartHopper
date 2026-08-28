@@ -140,8 +140,6 @@ namespace SmartHopper.Providers.OpenRouter
 
             string? apiKey = null;
             string? model = null;
-            int? maxTokens = null;
-            double? temperature = null;
             bool? allowFallbacks = null;
             string? sort = null;
             string? dataCollection = null;
@@ -160,42 +158,14 @@ namespace SmartHopper.Providers.OpenRouter
                 Debug.WriteLine($"[OpenRouter] Model extracted: {model}");
             }
 
-            // Max tokens must be > 0 if present
-            if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
+            if (!this.ValidateMaxTokens(settings, showErrorDialogs))
             {
-                if (int.TryParse(maxTokensObj.ToString(), out int parsedMaxTokens))
-                {
-                    maxTokens = parsedMaxTokens;
-                }
-
-                if (maxTokens <= 0)
-                {
-                    if (showErrorDialogs)
-                    {
-                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Max Tokens must be greater than 0."));
-                    }
-
-                    return false;
-                }
+                return false;
             }
 
-            // Temperature should be parsable and within range if present
-            if (settings.TryGetValue("Temperature", out var temperatureObj) && temperatureObj != null)
+            if (!this.ValidateTemperature(settings, showErrorDialogs))
             {
-                if (double.TryParse(temperatureObj.ToString(), out double parsedTemperature))
-                {
-                    temperature = parsedTemperature;
-                }
-
-                if (temperature < 0.0 || temperature > 2.0)
-                {
-                    if (showErrorDialogs)
-                    {
-                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Temperature must be between 0.0 and 2.0."));
-                    }
-
-                    return false;
-                }
+                return false;
             }
 
             // AllowFallbacks (bool) optional
@@ -239,7 +209,7 @@ namespace SmartHopper.Providers.OpenRouter
                 }
             }
 
-            Debug.WriteLine($"Validating OpenRouter settings: API Key: {(string.IsNullOrEmpty(apiKey) ? "<empty>" : "<provided>")}, Model: {model}, Max Tokens: {maxTokens}");
+            Debug.WriteLine($"Validating OpenRouter settings: API Key: {(string.IsNullOrEmpty(apiKey) ? "<empty>" : "<provided>")}, Model: {model}");
 
             return true;
         }

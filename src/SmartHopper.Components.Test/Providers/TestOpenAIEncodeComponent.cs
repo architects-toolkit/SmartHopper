@@ -35,20 +35,16 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for OpenAI message encoding.
     /// </summary>
-    public class TestOpenAIEncodeComponent : AIStatefulAsyncComponentBase
+    public class TestOpenAIEncodeComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("AD538781-65B9-4123-B4EE-874D03BD6FC3");
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        protected override string TestProviderName => "OpenAI";
 
-        public TestOpenAIEncodeComponent()
-            : base("Test OpenAI Encode", "TEST-OPENAI-ENC", "Tests OpenAI message encoding from AIRequestCall", "SmartHopper Tests", "Testing Providers")
+        pub        public TestOpenAIEncodeComponent()
+            : base("Test OpenAI Encode", "TEST-OPENAI-ENC", "Tests OpenAI message encoding from AIRequestCall")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("OpenAI");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

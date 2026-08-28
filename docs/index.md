@@ -91,6 +91,10 @@ This is the root documentation hub for SmartHopper. It organizes all guides, ref
 
 - [Authenticode Signing](Development/authenticode-signing.md) -- assembly signing for provider trust
 
+### Testing
+
+- [Components Test Suite](Testing/index.md) -- test-only Grasshopper components for providers and utilities
+
 ### Reviews
 
 - [Architecture Reviews](Reviews/index.md) -- analysis of SmartHopper components

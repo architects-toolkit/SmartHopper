@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -555,6 +556,74 @@ namespace SmartHopper.ProviderSdk.AIProviders
             }
         }
 
+        /// <summary>
+        /// Gets the provider's configured API key from settings.
+        /// </summary>
+        /// <returns>The API key string, or <see cref="string.Empty"/> if not configured.</returns>
+        protected string GetApiKey()
+        {
+            return this.GetSetting<string>("ApiKey") ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Loads the provider icon from a raw byte array, returning a decoupled <see cref="Image"/>.
+        /// </summary>
+        /// <param name="iconBytes">The icon bytes, or null/empty to use a fallback.</param>
+        /// <returns>A decoupled <see cref="Image"/>, or a 1×1 fallback on failure.</returns>
+        protected Image LoadIconFromResources(byte[] iconBytes)
+        {
+            if (iconBytes == null || iconBytes.Length == 0)
+            {
+                return this.CreateFallbackIcon();
+            }
+
+            try
+            {
+                using (var ms = new MemoryStream(iconBytes))
+                using (var img = Image.FromStream(ms))
+                {
+                    return new Bitmap(img);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{this.Name}] Icon load error: {ex.Message}");
+                return this.CreateFallbackIcon();
+            }
+        }
+
+        /// <summary>
+        /// Loads the provider icon from an existing <see cref="Image"/> resource, returning a decoupled copy.
+        /// </summary>
+        /// <param name="image">The image, or null to use a fallback.</param>
+        /// <returns>A decoupled <see cref="Image"/>, or a 1×1 fallback on failure.</returns>
+        protected Image LoadIconFromResources(Image image)
+        {
+            if (image == null)
+            {
+                return this.CreateFallbackIcon();
+            }
+
+            try
+            {
+                return new Bitmap(image);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{this.Name}] Icon load error: {ex.Message}");
+                return this.CreateFallbackIcon();
+            }
+        }
+
+        /// <summary>
+        /// Creates a minimal 1×1 fallback icon.
+        /// </summary>
+        /// <returns>A 1×1 <see cref="Bitmap"/>.</returns>
+        private Image CreateFallbackIcon()
+        {
+            return new Bitmap(1, 1);
+        }
+
         /// <inheritdoc/>
         public string GetDefaultModel(AICapability requiredCapability = AICapability.Text2Text, bool useSettings = true)
         {
@@ -871,7 +940,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 var auth = authentication?.Trim().ToLowerInvariant();
 
                 // Centralized API key handling: fetch from provider settings
-                var apiKey = this.GetSetting<string>("ApiKey");
+                var apiKey = this.GetApiKey();
 
                 if (string.IsNullOrWhiteSpace(auth) || auth == "none")
                 {

@@ -34,20 +34,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for DeepSeek comprehensive response decoding.
     /// </summary>
-    public class TestDeepSeekDecodeComponent : AIStatefulAsyncComponentBase
+    public class TestDeepSeekDecodeComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("F4B36D4B-7037-440F-A9E6-B7791C622AC5");
 
+        protected override string TestProviderName => "DeepSeek";
+
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
-        public TestDeepSeekDecodeComponent()
-            : base("Test DeepSeek Decode", "TEST-DEEPSEEK-DEC", "Tests DeepSeek comprehensive response decoding", "SmartHopper Tests", "Testing Providers")
+        pub        public TestDeepSeekDecodeComponent()
+            : base("Test DeepSeek Decode", "TEST-DEEPSEEK-DEC", "Tests DeepSeek comprehensive response decoding")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("DeepSeek");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

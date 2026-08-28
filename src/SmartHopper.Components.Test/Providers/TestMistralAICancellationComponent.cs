@@ -37,18 +37,16 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for MistralAI cancellation across all async operations.
     /// </summary>
-    public class TestMistralAICancellationComponent : AIStatefulAsyncComponentBase
+    public class TestMistralAICancellationComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("DC5C78E6-CE9A-4171-BA76-772BA553AFAE");
 
-        public TestMistralAICancellationComponent()
-            : base("Test MistralAI Cancellation", "TEST-MISTRAL-CANCEL", "Tests MistralAI cancellation across all async operations", "SmartHopper Tests", "Testing Providers")
-        {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("MistralAI");
-        }
+        protected override string TestProviderName => "MistralAI";
 
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        pub        public TestMistralAICancellationComponent()
+            : base("Test MistralAI Cancellation", "TEST-MISTRAL-CANCEL", "Tests MistralAI cancellation across all async operations")
+        {
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

@@ -37,20 +37,16 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for OpenAI cancellation across all async operations.
     /// </summary>
-    public class TestOpenAICancellationComponent : AIStatefulAsyncComponentBase
+    public class TestOpenAICancellationComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("30DE33AE-6039-4D91-A527-7707AA4084DE");
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        protected override string TestProviderName => "OpenAI";
 
-        public TestOpenAICancellationComponent()
-            : base("Test OpenAI Cancellation", "TEST-OPENAI-CANCEL", "Tests OpenAI cancellation across all async operations", "SmartHopper Tests", "Testing Providers")
+        pub        public TestOpenAICancellationComponent()
+            : base("Test OpenAI Cancellation", "TEST-OPENAI-CANCEL", "Tests OpenAI cancellation across all async operations")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("OpenAI");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

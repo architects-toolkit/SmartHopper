@@ -35,20 +35,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for Google Gemini tool encoding and parsing.
     /// </summary>
-    public class TestGeminiToolsComponent : AIStatefulAsyncComponentBase
+    public class TestGeminiToolsComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("4A7B2C9D-1E3F-4A5B-8C6D-9E0F1A2B3C4D");
 
+        protected override string TestProviderName => "Gemini";
+
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
-        public TestGeminiToolsComponent()
-            : base("Test Gemini Tools", "TEST-GEMINI-TOOLS", "Tests Gemini tool encoding and response parsing", "SmartHopper Tests", "Testing Providers")
+        pub        public TestGeminiToolsComponent()
+            : base("Test Gemini Tools", "TEST-GEMINI-TOOLS", "Tests Gemini tool encoding and response parsing")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("Gemini");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

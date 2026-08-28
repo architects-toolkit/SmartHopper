@@ -81,43 +81,9 @@ namespace SmartHopper.Providers.Anthropic
         public override bool IsConfigured => this.IsSettingConfigured("ApiKey");
 
         /// <summary>
-        /// Helper to retrieve the configured API key for this provider.
-        /// Exposed to nested streaming adapter to avoid protected access issues.
-        /// </summary>
-        /// <returns>The API key string stored in settings; may be empty if not configured.</returns>
-        internal string GetApiKey()
-        {
-            return this.GetSetting<string>("ApiKey");
-        }
-
-        /// <summary>
         /// Gets the provider's icon.
         /// </summary>
-        public override Image Icon
-        {
-            get
-            {
-                try
-                {
-                    var bytes = Properties.Resources.anthropic_icon;
-                    if (bytes != null && bytes.Length > 0)
-                    {
-                        using (var ms = new MemoryStream(bytes))
-                        using (var img = Image.FromStream(ms))
-                        {
-                            // Create a decoupled Bitmap so the MemoryStream can be disposed safely
-                            return new Bitmap(img);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[Anthropic] Icon load error: {ex.Message}");
-                }
-
-                return new Bitmap(1, 1);
-            }
-        }
+        public override Image Icon => this.LoadIconFromResources(Properties.Resources.anthropic_icon);
 
         /// <summary>
         /// Returns a streaming adapter for Anthropic that yields incremental AIReturn deltas.

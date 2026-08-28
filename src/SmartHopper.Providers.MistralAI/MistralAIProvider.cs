@@ -75,28 +75,9 @@ namespace SmartHopper.Providers.MistralAI
         public override bool IsConfigured => this.IsSettingConfigured("ApiKey");
 
         /// <summary>
-        /// Helper to retrieve the configured API key for this provider.
-        /// Exposed to nested streaming adapter to avoid protected access issues.
-        /// </summary>
-        internal string GetApiKey()
-        {
-            return this.GetSetting<string>("ApiKey");
-        }
-
-        /// <summary>
         /// Gets the provider's icon.
         /// </summary>
-        public override Image Icon
-        {
-            get
-            {
-                var iconBytes = Properties.Resources.mistralai_icon;
-                using (var ms = new System.IO.MemoryStream(iconBytes))
-                {
-                    return new Bitmap(ms);
-                }
-            }
-        }
+        public override Image Icon => this.LoadIconFromResources(Properties.Resources.mistralai_icon);
 
         /// <summary>
         /// <inheritdoc/>

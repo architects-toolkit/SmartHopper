@@ -34,20 +34,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for OpenRouter comprehensive response decoding.
     /// </summary>
-    public class TestOpenRouterDecodeComponent : AIStatefulAsyncComponentBase
+    public class TestOpenRouterDecodeComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("0DF2FEEA-79E4-423B-91C5-3806F4EADC3E");
 
+        protected override string TestProviderName => "OpenRouter";
+
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
-        public TestOpenRouterDecodeComponent()
-            : base("Test OpenRouter Decode", "TEST-OPENROUTER-DEC", "Tests OpenRouter comprehensive response decoding", "SmartHopper Tests", "Testing Providers")
+        pub        public TestOpenRouterDecodeComponent()
+            : base("Test OpenRouter Decode", "TEST-OPENROUTER-DEC", "Tests OpenRouter comprehensive response decoding")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("OpenRouter");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

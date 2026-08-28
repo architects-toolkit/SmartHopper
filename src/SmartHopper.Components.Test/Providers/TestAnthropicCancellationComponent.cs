@@ -37,20 +37,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for Anthropic cancellation across all async operations.
     /// </summary>
-    public class TestAnthropicCancellationComponent : AIStatefulAsyncComponentBase
+    public class TestAnthropicCancellationComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("D5B281DA-988B-4E6D-9F76-A905DC12EAFA");
 
+        protected override string TestProviderName => "Anthropic";
+
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
-        public TestAnthropicCancellationComponent()
-            : base("Test Anthropic Cancellation", "TEST-ANTHROPIC-CANCEL", "Tests Anthropic cancellation across all async operations", "SmartHopper Tests", "Testing Providers")
+        pub        public TestAnthropicCancellationComponent()
+            : base("Test Anthropic Cancellation", "TEST-ANTHROPIC-CANCEL", "Tests Anthropic cancellation across all async operations")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("Anthropic");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

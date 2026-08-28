@@ -35,20 +35,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for OpenRouter standard API call.
     /// </summary>
-    public class TestOpenRouterStandardCallComponent : AIStatefulAsyncComponentBase
+    public class TestOpenRouterStandardCallComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("B5D9A785-3865-4978-9D0E-416B38F5447D");
 
+        protected override string TestProviderName => "OpenRouter";
+
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
-        public TestOpenRouterStandardCallComponent()
-            : base("Test OpenRouter Standard Call", "TEST-OPENROUTER-CALL", "Tests OpenRouter standard API call and metrics validation", "SmartHopper Tests", "Testing Providers")
+        pub        public TestOpenRouterStandardCallComponent()
+            : base("Test OpenRouter Standard Call", "TEST-OPENROUTER-CALL", "Tests OpenRouter standard API call and metrics validation")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("OpenRouter");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

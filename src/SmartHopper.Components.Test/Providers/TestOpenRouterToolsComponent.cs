@@ -35,20 +35,18 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for OpenRouter tool encoding and parsing.
     /// </summary>
-    public class TestOpenRouterToolsComponent : AIStatefulAsyncComponentBase
+    public class TestOpenRouterToolsComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("84F357D4-3A8E-47F6-9D11-CB512F152301");
 
+        protected override string TestProviderName => "OpenRouter";
+
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
-        public TestOpenRouterToolsComponent()
-            : base("Test OpenRouter Tools", "TEST-OPENROUTER-TOOLS", "Tests OpenRouter tool encoding and response parsing", "SmartHopper Tests", "Testing Providers")
+        pub        public TestOpenRouterToolsComponent()
+            : base("Test OpenRouter Tools", "TEST-OPENROUTER-TOOLS", "Tests OpenRouter tool encoding and response parsing")
         {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("OpenRouter");
-        }
-
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 

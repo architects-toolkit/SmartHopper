@@ -34,18 +34,16 @@ namespace SmartHopper.Components.Test.Providers
     /// <summary>
     /// Test component for MistralAI comprehensive response decoding.
     /// </summary>
-    public class TestMistralAIDecodeComponent : AIStatefulAsyncComponentBase
+    public class TestMistralAIDecodeComponent : ProviderTestComponentBase
     {
         public override Guid ComponentGuid => new Guid("8D2545BA-C1BC-45DD-B94B-A07838C00B15");
 
-        public TestMistralAIDecodeComponent()
-            : base("Test MistralAI Decode", "TEST-MISTRAL-DEC", "Tests MistralAI comprehensive response decoding", "SmartHopper Tests", "Testing Providers")
-        {
-            this.RunOnlyOnInputChanges = false;
-            this.SetSelectedProviderName("MistralAI");
-        }
+        protected override string TestProviderName => "MistralAI";
 
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        pub        public TestMistralAIDecodeComponent()
+            : base("Test MistralAI Decode", "TEST-MISTRAL-DEC", "Tests MistralAI comprehensive response decoding")
+        {
+        }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
         }
 
