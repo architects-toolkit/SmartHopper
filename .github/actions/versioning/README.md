@@ -110,7 +110,7 @@ Formats version components back into a semantic version string.
 
 #### `manage-milestones`
 
-Creates next-stage milestones for released versions. Does **not** close older milestones — milestone lifecycle is managed by `release-promotion.yml`.
+Creates next-stage milestones for released versions. Does **not** close older milestones — milestone lifecycle is managed by `stabilization-2-promote.yml`.
 
 | Released stage | Creates |
 |---|---|

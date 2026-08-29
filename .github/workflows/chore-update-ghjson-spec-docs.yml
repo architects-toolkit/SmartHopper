@@ -1,7 +1,7 @@
 name: 🔄 Update GhJSON Spec Docs
 
 # Related workflows:
-#   - chore-update-dev-aitools.yml (DEV.md AI Tools table sync)
+#   - chore-update-aitools.yml (DEV.md AI Tools table sync)
 #   - chore-update-provider-models.yml (external provider model sync)
 #   - chore-update-ghjson-spec-docs.yml (this file)
 #
@@ -22,9 +22,6 @@ on:
   pull_request:
     branches:
       - main
-      - dev
-      - 'main-*'
-      - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
     paths:
@@ -35,9 +32,6 @@ on:
   push:
     branches:
       - main
-      - dev
-      - 'main-*'
-      - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
     paths:

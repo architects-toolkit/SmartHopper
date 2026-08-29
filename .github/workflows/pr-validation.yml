@@ -24,9 +24,6 @@ on:
   pull_request:
     branches: 
       - main
-      - dev
-      - 'main-*'
-      - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
   merge_group:

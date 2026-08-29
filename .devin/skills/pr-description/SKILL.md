@@ -18,7 +18,7 @@ The aim is to return the title and the description for a PR, following the rules
 
 3. Check for an active PR in the current branch
 
-4. Analyze the changes in the active PR, or the changes between the current branch and the dev branch if no PR
+4. Analyze the changes in the active PR, or the changes between the current branch and the main branch if no PR
 
 5. Return the PR title in a codeblock as plain text
 

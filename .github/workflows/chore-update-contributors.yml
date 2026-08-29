@@ -9,7 +9,7 @@ name: 🙏 Update Contributors Section
 # - GitHub usernames linked to commits
 #
 # Triggers:
-# - Automatically on pushes to main, dev, release/*, and hotfix/* branches
+# - Automatically on pushes to main, release/*, and hotfix/* branches
 #
 # Permissions:
 # - contents:write - Required to create branches and PRs
@@ -19,9 +19,6 @@ on:
   push:
     branches:
       - main
-      - dev
-      - 'main-*'
-      - 'dev-*'
       - 'release/**'
       - 'hotfix/**'
 
@@ -250,11 +247,11 @@ jobs:
             exit 0
           fi
 
-          # Check if [Unreleased] section is effectively empty (dev->main merge scenario)
+          # Check if [Unreleased] section is effectively empty after a release merge
           # Count non-empty lines after the header (excluding the header itself)
           UNRELEASED_CONTENT_LINES=$(echo "$UNRELEASED_SECTION" | tail -n +2 | grep -v '^[[:space:]]*$' | wc -l)
           if [ "$UNRELEASED_CONTENT_LINES" -eq 0 ]; then
-            echo "[Unreleased] section is empty (likely dev->main merge), skipping contributors update"
+            echo "[Unreleased] section is empty after a release merge, skipping contributors update"
             echo "changelog_updated=false" >> $GITHUB_OUTPUT
             exit 0
           fi

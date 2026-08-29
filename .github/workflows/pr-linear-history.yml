@@ -1,8 +1,7 @@
 name: Linear History
 
 # Description: Enforces that pull requests targeting the linear-history protected
-# branches are rebased onto their base and contain no merge commits. The `dev`
-# branch is intentionally excluded because it no longer requires linear history.
+# branches are rebased onto their base and contain no merge commits.
 #
 # Triggers:
 # - pull_request to main and related release/hotfix branches
@@ -13,7 +12,6 @@ on:
   pull_request:
     branches:
       - main
-      - 'main-*'
       - 'hotfix/**'
       - 'release/**'
   merge_group:
@@ -63,7 +61,7 @@ jobs:
             HEAD="${{ github.event.pull_request.head.sha }}"
           fi
 
-          # GitHub provides full refs (e.g. refs/heads/dev) for merge_group and
+          # GitHub provides full refs (e.g. refs/heads/main) for merge_group and
           # workflow_dispatch; the remaining commands expect short branch names.
           BASE="${BASE#refs/heads/}"
           HEAD="${HEAD#refs/heads/}"

@@ -97,7 +97,8 @@ when **all** of these hold for the current staged version:
 - the last closed issue for the version is at least `PROMOTION_AGE_DAYS` old,
 - no `promotion: freeze` label is active for the version.
 
-`force-promote` (dispatch input) overrides the age and freeze conditions. When a line is older than
+`force-promote` (dispatch input) overrides the age and freeze conditions. An open issue with the
+`promotion: freeze` label and matching `version: X.Y` label freezes that line. When a line is older than
 the threshold but blocked, automation opens/updates an issue
 `⛔ Promotion blocked: X.Y.Z-stage` with the current reason.
 
@@ -140,17 +141,62 @@ from it, revert the offending change there, and ship a new patch release.
 
 ## 8. Workflow map
 
-| Concern | Workflow |
-| --- | --- |
-| PR title/description generation | `pr-notes.yml` |
-| PR description/changelog AI actions | `.github/actions/documentation/changelog-review`, `.github/actions/ai/mistral-chat` |
-| PR gates | `pr-validation.yml`, `pr-version-validation.yml`, `pr-linear-history.yml`, `pr-build-hash-validation.yml`, `pr-documentation-validation.yml`, `pr-license-headers.yml`, `ci-dotnet-tests.yml`, `check-provider-models.yml` |
-| Version bumps | `version-bump.yml`, `chore-version-sync.yml` |
-| Release preparation | `release-1-prepare.yml` |
-| Tag + release creation | `release-2-tag-on-merge.yml` |
-| Build / publish | `release-4-build.yml`, `release-5-deploy-pages.yml`, `release-6-upload-yak.yml` |
-| Stabilization | `stabilization-1-start.yml`, `stabilization-2-promote.yml`, `stabilization-3-complete.yml` |
-| Hotfix | `hotfix-1-start.yml`, `hotfix-2-release.yml` |
-| Cleanup | `pr-delete-auto-branches.yml`, `chore-cleanup-stale-branches.yml` |
-| Maintenance chores (auto-PRs into `main`) | `chore-update-*.yml`, `pr-anonymize-public-key.yml` |
-| Issue/label/milestone metadata | `github-*.yml`, `milestone-management.yml`, `pr-milestone.yml`, `model-verification.yml` |
+| Workflow | Trigger | Role |
+| --- | --- | --- |
+| `check-provider-models.yml` | pull requests | Validates provider model definitions. |
+| `chore-changelog-review.yml` | release-prep pull requests to `main` or `release/**` | Simplifies release changelog text. |
+| `chore-cleanup-stale-branches.yml` | schedule / manual | Deletes old eligible automation branches. |
+| `chore-update-aitools.yml` | pushes to `main`, `hotfix/**`, `release/**` | Updates the `DEV.md` AI Tools table. |
+| `chore-update-contributors.yml` | pushes on protected lines | Updates release contributors. |
+| `chore-update-copyright-year.yml` | schedule / manual | Updates copyright years and opens a PR. |
+| `chore-update-ghjson-spec-docs.yml` | pushes and pull requests on protected lines | Updates GhJSON documentation. |
+| `chore-update-model-verification-template.yml` | provider-model pushes / manual | Updates the model-verification issue template. |
+| `chore-update-provider-models-on-push.yml` | provider-model pushes on protected lines | Updates the `DEV.md` provider model table. |
+| `chore-update-provider-models.yml` | schedule / manual | Retrieves provider model data and proposes it to `main`. |
+| `chore-version-sync.yml` | source pushes on protected lines | Refreshes development-version dates and badges. |
+| `ci-dotnet-tests.yml` | push, pull request, merge queue | Builds and tests the solution. |
+| `github-issue-label-by-content.yml` | issue events | Applies labels from issue content. |
+| `github-issue-label-version-from-template.yml` | issue events | Applies version labels from issue templates. |
+| `github-issue-labels-close.yml` | issue events | Closes or updates issue labels. |
+| `github-issue-labels-on-close.yml` | issue close | Maintains labels when issues close. |
+| `github-labels-sync.yml` | schedule / manual | Synchronizes repository labels. |
+| `github-pr-auto-label.yml` | pull requests | Applies pull-request labels. |
+| `github-stale-management.yml` | schedule | Manages stale issues and pull requests. |
+| `hotfix-1-start.yml` | manual | Creates a hotfix branch from a stable tag. |
+| `hotfix-2-release.yml` | manual | Prepares a hotfix release and optional backports. |
+| `milestone-management.yml` | milestone events | Maintains milestone metadata. |
+| `model-verification.yml` | issue events / manual | Verifies provider models and opens update PRs. |
+| `pr-anonymize-public-key.yml` | pull requests on protected lines | Removes identifying public-key metadata. |
+| `pr-build-hash-validation.yml` | pull requests, merge queue | Validates build and provider hashes. |
+| `pr-delete-auto-branches.yml` | pull request close | Deletes merged automation branches. |
+| `pr-documentation-validation.yml` | documentation pull requests | Validates documentation structure. |
+| `pr-license-headers.yml` | pull requests | Checks license headers. |
+| `pr-linear-history.yml` | pull requests, merge queue | Enforces linear history. |
+| `pr-milestone.yml` | pull requests to `main`, `release/**`, `hash-update/*` | Assigns pull requests to milestones. |
+| `pr-notes.yml` | pull request open/update/reopen/ready | Generates PR titles and descriptions. |
+| `pr-update-changelog-issues.yml` | manual | Adds eligible closed issues to the changelog. |
+| `pr-validation.yml` | pull requests, merge queue | Runs pull-request metadata and style gates. |
+| `pr-version-validation.yml` | pull requests | Validates version progression. |
+| `release-1-prepare.yml` | manual | Creates a release-preparation pull request. |
+| `release-2-tag-on-merge.yml` | merged release-prep pull requests | Creates release tags and draft releases. |
+| `release-4-build.yml` | published releases | Builds release artifacts. |
+| `release-5-deploy-pages.yml` | published releases | Deploys release documentation and hashes to Pages. |
+| `release-6-upload-yak.yml` | published releases / manual | Uploads the tagged package to Yak. |
+| `stabilization-1-start.yml` | manual | Creates a `release/X.Y.x` stabilization line. |
+| `stabilization-2-promote.yml` | daily schedule / manual | Promotes eligible stabilization stages. |
+| `stabilization-3-complete.yml` | published stable release / manual | Backports a stable line release to `main`. |
+| `user-build-and-hash.yml` | manual | Builds and validates hashes for a selected ref. |
+| `user-code-style.yml` | manual | Runs the code-style tooling. |
+| `version-bump.yml` | manual | Opens a version-bump pull request. |
+
+### Removed in the redesign
+
+- `sync-dev-from-main.yml` — removed; `main` is now the only integration branch.
+- `pr-block-dev-to-main.yml` — removed; obsolete cross-branch warning/blocking behavior.
+- `release-promotion.yml` — replaced by `stabilization-2-promote.yml`.
+- `stabilization-0-init.yml` and `stabilization-1-cancel.yml` — replaced by
+  `stabilization-1-start.yml`; milestones are metadata only.
+- `stabilization-2-complete.yml` — replaced by `stabilization-3-complete.yml`.
+- `hotfix-0-new-branch.yml` — replaced by `hotfix-1-start.yml`.
+- `hotfix-1-release-hotfix.yml` and `hotfix-backport.yml` — replaced by
+  `hotfix-2-release.yml`.

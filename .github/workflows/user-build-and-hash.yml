@@ -10,7 +10,7 @@ on:
       branch:
         description: 'Branch to build from'
         required: true
-        default: 'dev'
+        default: 'main'
 
 permissions:
   contents: read

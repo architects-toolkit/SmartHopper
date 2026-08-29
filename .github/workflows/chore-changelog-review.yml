@@ -1,7 +1,7 @@
 name: 📝 AI Changelog Review & Simplification
 
 # Description: Uses Mistral AI to simplify changelog entries for end users.
-# On release/* PRs targeting dev/dev-*, the AI rewrites the [Unreleased] section
+# On release-prep/* PRs targeting main or release/**, the AI rewrites the [Unreleased] section
 # to be user-focused and commits the simplified changelog directly to the source
 # branch. A summary of changes is posted as a PR comment.
 #
@@ -13,7 +13,7 @@ name: 📝 AI Changelog Review & Simplification
 #   - Exclude file paths, workflow names, internal tooling details
 #
 # Triggers:
-#   - pull_request opened/synchronize targeting dev/dev-* from release/* branches
+#   - pull_request opened/synchronize targeting main or release/** from release-prep/* branches
 #   - workflow_dispatch with optional PR number
 #
 # Permissions:
@@ -26,8 +26,8 @@ on:
       - opened
       - synchronize
     branches:
-      - 'dev'
-      - 'dev-*'
+      - main
+      - 'release/**'
     paths:
       - 'CHANGELOG.md'
   workflow_dispatch:
@@ -61,12 +61,12 @@ jobs:
           elif [ "${{ github.event_name }}" = "pull_request" ]; then
             PR_NUMBER="${{ github.event.pull_request.number }}"
           else
-            # Find latest open release PR targeting dev or dev-*
+            # Find latest open release-prep PR targeting main or release/**
             PR_NUMBER=$(gh pr list \
               --repo "${{ github.repository }}" \
               --state open \
               --json number,headRefName,baseRefName \
-              --jq '[.[] | select(.headRefName | startswith("release/")) | select(.baseRefName | test("^dev(-.*)?$"))][0].number // empty')
+              --jq '[.[] | select(.headRefName | startswith("release-prep/")) | select(.baseRefName == "main" or (.baseRefName | startswith("release/")))][0].number // empty')
           fi
 
           if [ -z "$PR_NUMBER" ]; then

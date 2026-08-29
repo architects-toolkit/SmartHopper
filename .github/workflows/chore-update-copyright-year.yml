@@ -5,7 +5,7 @@ name: 🗓️ Update Copyright Year
 # - <Copyright> metadata in Directory.Build.props (tools/Update-CopyrightYear.ps1)
 #
 # Runs on January 1st at 00:00 UTC each year, or manually via workflow_dispatch.
-# Creates a PR to dev if changes are detected.
+# Creates a PR to main if changes are detected.
 
 on:
   schedule:
@@ -26,7 +26,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: main
           fetch-depth: 0
 
       - name: Get current year
@@ -57,11 +57,11 @@ jobs:
             echo "has-changes=false" >> $env:GITHUB_OUTPUT
           }
 
-      - name: Rebase onto latest dev
+      - name: Rebase onto latest main
         if: steps.check-changes.outputs.has-changes == 'true'
         uses: ./.github/actions/utils/rebase-onto-base
         with:
-          base-ref: dev
+          base-ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
           bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
           bot-email: ${{ vars.SMARTHOPPER_BOT_EMAIL }}
@@ -83,7 +83,7 @@ jobs:
 
             This is an automated PR created by the **Update Copyright Year** workflow.
           branch: "chore/update-copyright-year-${{ steps.year.outputs.year }}"
-          base: dev
+          base: main
           delete-branch: true
           labels: |
             automated
@@ -102,7 +102,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: chore/update-copyright-year-${{ steps.year.outputs.year }}
           pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
-          base-ref: dev
+          base-ref: main
           pr-title: "chore: update copyright year to ${{ steps.year.outputs.year }}"
 
       - name: Label PR on failure

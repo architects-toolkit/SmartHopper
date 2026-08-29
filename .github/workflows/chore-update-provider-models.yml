@@ -12,8 +12,7 @@ name: 🔄 Update Provider Models
 # (architecture.modalities, supported_parameters, context_length), marks models
 # with expiration_date < 1 year as deprecated, and flags disappeared models.
 #
-# Target branches are discovered dynamically (dev, dev-*) so that each
-# provider update is proposed to every active integration branch.
+# Provider updates are proposed to the single integration branch, main.
 #
 # Triggers:
 #   - workflow_dispatch: manual run with optional provider filter
@@ -35,43 +34,8 @@ permissions:
   pull-requests: write
 
 jobs:
-  discover-branches:
-    name: Discover target branches
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      branches: ${{ steps.list.outputs.branches }}
-    steps:
-      - name: List target branches
-        id: list
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const branches = [];
-            const per_page = 100;
-            let page = 1;
-            let done = false;
-            while (!done) {
-              const { data } = await github.rest.repos.listBranches({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                per_page,
-                page,
-              });
-              for (const b of data) {
-                if (b.name === 'dev' || b.name.startsWith('dev-')) {
-                  branches.push(b.name);
-                }
-              }
-              done = data.length < per_page;
-              page++;
-            }
-            core.info(`Discovered target branches: ${JSON.stringify(branches)}`);
-            core.setOutput('branches', JSON.stringify(branches));
-
   fetch-and-update:
     name: ${{ matrix.provider }} → ${{ matrix.branch }}
-    needs: discover-branches
     runs-on: windows-latest
     timeout-minutes: 45
     concurrency:
@@ -87,7 +51,8 @@ jobs:
           - OpenRouter
           - DeepSeek
           - Gemini
-        branch: ${{ fromJson(needs.discover-branches.outputs.branches) }}
+        branch:
+          - main
     steps:
       - name: Skip if secret is absent or filtered out
         id: check
