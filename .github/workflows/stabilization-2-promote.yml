@@ -193,7 +193,7 @@ jobs:
           LINE: ${{ matrix.line }}
         run: |
           set -euo pipefail
-          git tag --list "${LINE}.*" |
+          versions=$(git tag --list "${LINE}.*" |
             LINE="$LINE" python3 -c '
           import json
           import os
@@ -202,8 +202,8 @@ jobs:
           line = os.environ["LINE"]
           pattern = re.compile(rf"^{re.escape(line)}\.[0-9]+(?:-[0-9A-Za-z.-]+)?$")
           print(json.dumps([tag.strip() for tag in sys.stdin if pattern.fullmatch(tag.strip())]))
-          ' > versions.json
-          echo "versions=$(cat versions.json)" >> "$GITHUB_OUTPUT"
+          ')
+          echo "versions=$versions" >> "$GITHUB_OUTPUT"
 
       - name: Check open issues across release line
         id: check-line-issues
@@ -215,7 +215,13 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const versions = JSON.parse(process.env.VERSIONS || '[]');
-            const versionLabels = new Set(versions.map(version => `version: ${version}`));
+            const normalizedVersions = new Set(versions.map(version => {
+              const match = version.match(/^(\d+\.\d+\.\d+(?:-[^.+]+)?)/);
+              return match ? match[1] : version;
+            }));
+            const versionLabels = new Set(
+              [...normalizedVersions].map(version => `version: ${version}`)
+            );
             const issues = await github.paginate(github.rest.issues.listForRepo, {
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -313,7 +319,6 @@ jobs:
           RELEASE_AGE: ${{ steps.check-issues.outputs.release-age-days }}
           LAST_CLOSED_OLD_ENOUGH: ${{ steps.check-line-issues.outputs.last-closed-old-enough }}
           LAST_CLOSED_AGE: ${{ steps.check-line-issues.outputs.last-closed-age-days }}
-          BLOCKING_REASON: ${{ steps.check-issues.outputs.blocking-reason }}
           OPEN_PR_COUNT: ${{ steps.check-prs.outputs.count }}
           FROZEN: ${{ steps.check-freeze.outputs.frozen }}
           FORCE_PROMOTE: ${{ inputs.force-promote }}
@@ -357,9 +362,6 @@ jobs:
             if [[ "$FROZEN" == true ]]; then
               ELIGIBLE=false
               REASONS+=("promotion: freeze is active for ${CURRENT_TAG%%-*}")
-            fi
-            if [[ -n "$BLOCKING_REASON" && "$HAS_ISSUES" != true ]]; then
-              REASONS+=("$BLOCKING_REASON")
             fi
           elif [[ -n "$NEXT_STAGE" && "${OPEN_PR_COUNT:-0}" != 0 ]]; then
             ELIGIBLE=false
