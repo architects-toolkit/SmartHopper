@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
   issues: write
   pull-requests: write
 
@@ -192,14 +193,39 @@ jobs:
           LINE: ${{ steps.determine.outputs.line }}
         run: |
           set -euo pipefail
-          PR_URL=$(gh pr create \
+          PR_OUTPUT=$(gh pr create \
             --base main \
             --head "backport/$VERSION" \
             --title "chore: backport $VERSION to main" \
-            --body "Backports the stabilization-line changes for \`$VERSION\` from \`$LINE\` to \`main\`.")
+            --body "Backports the stabilization-line changes for \`$VERSION\` from \`$LINE\` to \`main\`." 2>&1 || true)
+          PR_URL=$(printf '%s\n' "$PR_OUTPUT" | grep -Eo 'https://[^[:space:]]+/pull/[0-9]+' | tail -n 1 || true)
+          if [[ -z "$PR_URL" ]]; then
+            PR_URL=$(gh pr list --base main --head "backport/$VERSION" \
+              --state open --json url --jq '.[0].url // empty' || true)
+          fi
           echo "url=$PR_URL" >> "$GITHUB_OUTPUT"
-          PR_NUMBER=$(gh pr view "$PR_URL" --json number --jq '.number')
+          PR_NUMBER=$(gh pr view "$PR_URL" --json number --jq '.number' 2>/dev/null || true)
+          if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            PR_NUMBER=$(gh pr list --base main --head "backport/$VERSION" \
+              --state open --json number --jq '.[0].number // empty' || true)
+          fi
+          if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "::error::Failed to resolve the stabilization backport PR number." >&2
+            printf '%s\n' "$PR_OUTPUT" >&2
+            exit 1
+          fi
           gh pr edit "$PR_NUMBER" --add-label automated
+          echo "pr-number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch required PR checks
+        if: steps.create-pr.outputs.pr-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: backport/${{ inputs.version || github.event.release.tag_name }}
+          pr-number: ${{ steps.create-pr.outputs.pr-number }}
+          base-ref: main
+          pr-title: "chore: backport ${{ inputs.version || github.event.release.tag_name }} to main"
 
       - name: Close matching milestone
         if: steps.determine.outputs.should-run == 'true'

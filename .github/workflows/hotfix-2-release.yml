@@ -29,6 +29,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
   issues: write
   pull-requests: write
 
@@ -239,7 +240,7 @@ jobs:
         run: |
           set -euo pipefail
           CHANGELOG_URL="https://github.com/${{ github.repository }}/blob/release-prep/$VERSION/CHANGELOG.md"
-          PR_URL=$(gh pr create \
+          PR_OUTPUT=$(gh pr create \
             --base "$TARGET_BRANCH" \
             --head "release-prep/$VERSION" \
             --title "release: $VERSION" \
@@ -255,8 +256,42 @@ jobs:
           - [ ] Create a draft GitHub Release
           - [ ] Open and auto-merge the post-release development bump PR
           EOF
-          )")
+          )" 2>&1 || true)
+          PR_URL=$(printf '%s\n' "$PR_OUTPUT" | grep -Eo 'https://[^[:space:]]+/pull/[0-9]+' | tail -n 1 || true)
+          if [[ -z "$PR_URL" ]]; then
+            PR_URL=$(gh pr list --base "$TARGET_BRANCH" --head "release-prep/$VERSION" \
+              --state open --json url --jq '.[0].url // empty' || true)
+          fi
           echo "url=$PR_URL" >> "$GITHUB_OUTPUT"
+          PR_NUMBER=$(gh pr view "$PR_URL" --json number --jq '.number' 2>/dev/null || true)
+          if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            PR_NUMBER=$(gh pr list --base "$TARGET_BRANCH" --head "release-prep/$VERSION" \
+              --state open --json number --jq '.[0].number // empty' || true)
+          fi
+          if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "::error::Failed to resolve the hotfix release preparation PR number." >&2
+            printf '%s\n' "$PR_OUTPUT" >&2
+            exit 1
+          fi
+          echo "pr-number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Assign release PR to milestone
+        if: steps.create-pr.outputs.pr-number != ''
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-pr.outputs.pr-number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: ${{ steps.next-version.outputs.new-version }}
+
+      - name: Dispatch required PR checks
+        if: steps.create-pr.outputs.pr-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: release-prep/${{ steps.next-version.outputs.new-version }}
+          pr-number: ${{ steps.create-pr.outputs.pr-number }}
+          base-ref: ${{ inputs.target-branch }}
+          pr-title: "release: ${{ steps.next-version.outputs.new-version }}"
 
   discover-backports:
     needs: prepare
@@ -391,6 +426,7 @@ jobs:
           exit 1
 
       - name: Open backport pull request
+        id: create-pr
         if: steps.cherry-pick.outputs.conflict != 'true' && steps.cherry-pick.outputs.picked-count != '0'
         shell: bash
         env:
@@ -399,9 +435,34 @@ jobs:
           LINE: ${{ matrix.line }}
         run: |
           set -euo pipefail
-          PR_URL=$(gh pr create \
+          PR_OUTPUT=$(gh pr create \
             --base "release/$LINE.x" \
             --head "backport/$VERSION-to-$LINE" \
             --title "chore: backport hotfix $VERSION to release/$LINE.x" \
-            --body "Backports the hotfix fix commits for \`$VERSION\` to \`release/$LINE.x\` without release metadata changes.")
-          gh pr view "$PR_URL" --json number --jq '.number' >/dev/null
+            --body "Backports the hotfix fix commits for \`$VERSION\` to \`release/$LINE.x\` without release metadata changes." 2>&1 || true)
+          PR_URL=$(printf '%s\n' "$PR_OUTPUT" | grep -Eo 'https://[^[:space:]]+/pull/[0-9]+' | tail -n 1 || true)
+          if [[ -z "$PR_URL" ]]; then
+            PR_URL=$(gh pr list --base "release/$LINE.x" --head "backport/$VERSION-to-$LINE" \
+              --state open --json url --jq '.[0].url // empty' || true)
+          fi
+          PR_NUMBER=$(gh pr view "$PR_URL" --json number --jq '.number' 2>/dev/null || true)
+          if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            PR_NUMBER=$(gh pr list --base "release/$LINE.x" --head "backport/$VERSION-to-$LINE" \
+              --state open --json number --jq '.[0].number // empty' || true)
+          fi
+          if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "::error::Failed to resolve the hotfix backport PR number." >&2
+            printf '%s\n' "$PR_OUTPUT" >&2
+            exit 1
+          fi
+          echo "pr-number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch required PR checks for backport
+        if: steps.cherry-pick.outputs.conflict != 'true' && steps.cherry-pick.outputs.picked-count != '0'
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: backport/${{ needs.prepare.outputs.version }}-to-${{ matrix.line }}
+          pr-number: ${{ steps.create-pr.outputs.pr-number }}
+          base-ref: release/${{ matrix.line }}.x
+          pr-title: "chore: backport hotfix ${{ needs.prepare.outputs.version }} to release/${{ matrix.line }}.x"

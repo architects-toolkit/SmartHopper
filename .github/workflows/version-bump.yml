@@ -41,6 +41,7 @@ concurrency:
 
 permissions:
   contents: write
+  actions: write
   pull-requests: write
 
 jobs:
@@ -114,12 +115,38 @@ jobs:
           NEW_VERSION: ${{ steps.next-version.outputs.new-version }}
         run: |
           set -euo pipefail
-          PR_URL=$(gh pr create \
+          PR_OUTPUT=$(gh pr create \
             --base "$BASE_BRANCH" \
             --head "chore/bump-$NEW_VERSION" \
             --title "chore: bump version to $NEW_VERSION" \
-            --body "Updates the canonical version to \`$NEW_VERSION\` and refreshes the README badges.")
+            --body "Updates the canonical version to \`$NEW_VERSION\` and refreshes the README badges." 2>&1 || true)
+          PR_URL=$(printf '%s\n' "$PR_OUTPUT" | grep -Eo 'https://[^[:space:]]+/pull/[0-9]+' | tail -n 1 || true)
+          if [[ -z "$PR_URL" ]]; then
+            PR_URL=$(gh pr list --base "$BASE_BRANCH" --head "chore/bump-$NEW_VERSION" \
+              --state open --json url --jq '.[0].url // empty' || true)
+          fi
+          PR_NUMBER=$(gh pr view "$PR_URL" --json number --jq '.number' 2>/dev/null || true)
+          if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            PR_NUMBER=$(gh pr list --base "$BASE_BRANCH" --head "chore/bump-$NEW_VERSION" \
+              --state open --json number --jq '.[0].number // empty' || true)
+          fi
+          if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "::error::Failed to resolve the version bump PR number." >&2
+            printf '%s\n' "$PR_OUTPUT" >&2
+            exit 1
+          fi
           echo "pr-url=$PR_URL" >> "$GITHUB_OUTPUT"
+          echo "pr-number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch required PR checks
+        if: steps.create-pr.outputs.pr-url != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: chore/bump-${{ steps.next-version.outputs.new-version }}
+          pr-number: ${{ steps.create-pr.outputs.pr-number }}
+          base-ref: ${{ inputs.base-branch }}
+          pr-title: "chore: bump version to ${{ steps.next-version.outputs.new-version }}"
 
       - name: Enable rebase auto-merge
         if: inputs.auto-merge == true
