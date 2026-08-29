@@ -113,7 +113,12 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           days-lookback: 90
 
-      # TODO(phase-3): Insert the LLM changelog review here.
+      - name: Review and simplify changelog
+        uses: ./.github/actions/documentation/changelog-review
+        with:
+          mistral-api-key: ${{ secrets.MISTRAL_API_KEY }}
+          commit: false
+
       - name: Move unreleased changelog content to release
         uses: ./.github/actions/documentation/update-changelog
         with:

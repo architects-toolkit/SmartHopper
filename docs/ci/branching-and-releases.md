@@ -46,8 +46,11 @@ The dated `-dev.YYMMDD` suffix is refreshed by `chore-version-sync.yml` when `sr
 ## 4. Daily development
 
 1. Branch from `main`, commit, open a PR to `main`.
-2. `pr-notes.yml` rewrites the PR title into Conventional Commits form and generates the description
-   from the commits and diff (LLM). It only overwrites descriptions it generated itself.
+2. `pr-notes.yml` generates a Conventional Commits title and description from the commits and diff
+   (LLM). Empty bodies, or bodies containing its markers, receive an updated marked region; a
+   human-authored body without markers is preserved and receives a sticky suggestion comment instead.
+   Titles are changed only when invalid or equal to the head branch name. A recorded head SHA makes
+   the run idempotent, and unavailable AI uses a clearly marked deterministic fallback.
 3. `pr-validation`, `pr-version-validation`, `pr-linear-history`, `ci-dotnet-tests`,
    `pr-build-hash-validation` and the style/license/doc checks must pass.
 4. Rebase-merge through the merge queue. The branch is deleted automatically.
@@ -140,6 +143,7 @@ from it, revert the offending change there, and ship a new patch release.
 | Concern | Workflow |
 | --- | --- |
 | PR title/description generation | `pr-notes.yml` |
+| PR description/changelog AI actions | `.github/actions/documentation/changelog-review`, `.github/actions/ai/mistral-chat` |
 | PR gates | `pr-validation.yml`, `pr-version-validation.yml`, `pr-linear-history.yml`, `pr-build-hash-validation.yml`, `pr-documentation-validation.yml`, `pr-license-headers.yml`, `ci-dotnet-tests.yml`, `check-provider-models.yml` |
 | Version bumps | `version-bump.yml`, `chore-version-sync.yml` |
 | Release preparation | `release-1-prepare.yml` |

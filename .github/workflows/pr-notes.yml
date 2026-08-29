@@ -1,0 +1,263 @@
+name: PR Notes
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: ['**']
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-notes-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.type != 'Bot' &&
+      !startsWith(github.event.pull_request.head.ref, 'release-prep/') &&
+      !startsWith(github.event.pull_request.head.ref, 'chore/bump-') &&
+      !startsWith(github.event.pull_request.head.ref, 'backport/') &&
+      !startsWith(github.event.pull_request.head.ref, 'hash-update/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out pull request
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Prepare PR context
+        id: context
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          CONTEXT_DIR="$RUNNER_TEMP/pr-notes"
+          mkdir -p "$CONTEXT_DIR"
+
+          COMMITS=$(git log --format='%s' "$BASE_SHA..$HEAD_SHA" || true)
+          FILES=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" || true)
+          DIFF=$(git diff --no-ext-diff --unified=3 "$BASE_SHA...$HEAD_SHA" || true)
+          DIFF_TRUNCATED=false
+          if [[ ${#DIFF} -gt 204800 ]]; then
+            DIFF="${DIFF:0:204800}"
+            DIFF_TRUNCATED=true
+          fi
+          DIFF_LINES=$(printf '%s\n' "$DIFF" | wc -l)
+          if [[ "$DIFF_LINES" -gt 4000 ]]; then
+            DIFF=$(DIFF="$DIFF" python3 - <<'PY'
+          import os
+          print("\n".join(os.environ["DIFF"].splitlines()[:4000]))
+          PY
+            )
+            DIFF_TRUNCATED=true
+          fi
+
+          UNRELEASED=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' CHANGELOG.md || true)
+          COMMITS="$COMMITS" FILES="$FILES" DIFF="$DIFF" \
+          DIFF_TRUNCATED="$DIFF_TRUNCATED" UNRELEASED="$UNRELEASED" \
+          python3 - "$CONTEXT_DIR/data.json" "$CONTEXT_DIR/prompt" <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          output_path = pathlib.Path(sys.argv[1])
+          prompt_path = pathlib.Path(sys.argv[2])
+          template = pathlib.Path(".github/prompts/pr-notes.md").read_text(encoding="utf-8")
+          values = {
+              "HEAD_BRANCH": os.environ["HEAD_BRANCH"],
+              "COMMIT_MESSAGES": os.environ.get("COMMITS", ""),
+              "CHANGED_FILES": os.environ.get("FILES", ""),
+              "RAW_DIFF": os.environ.get("DIFF", ""),
+              "RAW_DIFF_TRUNCATED": (
+                  "The raw diff was truncated to 200 KB and 4000 lines."
+                  if os.environ.get("DIFF_TRUNCATED") == "true"
+                  else "The raw diff was not truncated."
+              ),
+              "UNRELEASED": os.environ.get("UNRELEASED", ""),
+          }
+          for key, value in values.items():
+              template = template.replace("{{" + key + "}}", value)
+          prompt_path.write_text(template, encoding="utf-8")
+          output_path.write_text(json.dumps({
+              "head_sha": os.environ["HEAD_SHA"],
+              "head_branch": os.environ["HEAD_BRANCH"],
+              "commits": os.environ.get("COMMITS", ""),
+              "files": os.environ.get("FILES", ""),
+              "prompt": template,
+          }), encoding="utf-8")
+          PY
+          {
+            echo "prompt<<EOF_PROMPT"
+            cat "$CONTEXT_DIR/prompt"
+            echo "EOF_PROMPT"
+            echo "commits<<EOF_COMMITS"
+            echo "$COMMITS"
+            echo "EOF_COMMITS"
+            echo "files<<EOF_FILES"
+            echo "$FILES"
+            echo "EOF_FILES"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate PR notes
+        id: ai
+        uses: ./.github/actions/ai/mistral-chat
+        with:
+          api-key: ${{ secrets.MISTRAL_API_KEY }}
+          model: mistral-medium-latest
+          temperature: '0.3'
+          max-tokens: '4096'
+          user-prompt: ${{ steps.context.outputs.prompt }}
+
+      - name: Apply PR notes
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_SUCCESS: ${{ steps.ai.outputs.success || 'false' }}
+          AI_RESPONSE: ${{ steps.ai.outputs.response || '' }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          CURRENT_TITLE: ${{ github.event.pull_request.title }}
+          CURRENT_BODY: ${{ github.event.pull_request.body || '' }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          COMMITS: ${{ steps.context.outputs.commits || '' }}
+          FILES: ${{ steps.context.outputs.files || '' }}
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/pr-notes-result.json" <<'PY'
+          import json
+          import os
+          import re
+          import sys
+
+          valid_types = "feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security|release"
+          title_pattern = rf"^({valid_types})(\([a-z0-9-]+\))?:\ .+"
+          response = os.environ.get("AI_RESPONSE", "")
+          current_title = os.environ.get("CURRENT_TITLE", "")
+          current_body = os.environ.get("CURRENT_BODY", "")
+          head_sha = os.environ["HEAD_SHA"]
+          head_branch = os.environ["HEAD_BRANCH"]
+          commits = os.environ.get("COMMITS", "").splitlines()
+          files = os.environ.get("FILES", "").splitlines()
+
+          state_match = re.search(r"<!-- pr-notes:state\s+([^ >]+)\s*-->", current_body)
+          if state_match and state_match.group(1) == head_sha:
+              json.dump({"skip": True}, open(sys.argv[1], "w", encoding="utf-8"))
+              raise SystemExit(0)
+
+          blocks = re.findall(r"```[^\n]*\n([\s\S]*?)```", response)
+          llm_title = blocks[0].strip() if len(blocks) >= 2 else ""
+          llm_body = blocks[1].strip() if len(blocks) >= 2 else ""
+          ai_ok = os.environ.get("AI_SUCCESS") == "true" and bool(llm_title and llm_body)
+
+          def fallback_title():
+              slug = re.sub(r"[^a-z0-9]+", " ", head_branch.lower()).strip()
+              branch_type, _, branch_description = slug.partition(" ")
+              if branch_type not in valid_types.split("|"):
+                  branch_description = slug
+                  branch_type = "chore"
+              description = branch_description or "update pull request"
+              return f"{branch_type}: {description}"
+
+          if not ai_ok:
+              llm_title = fallback_title()
+              llm_body = "\n".join([
+                  "> **Fallback:** LLM-generated PR notes were unavailable; this summary was generated from repository metadata.",
+                  "",
+                  "## Description",
+                  "This pull request contains the changes listed below.",
+                  "",
+                  "## Breaking Changes",
+                  "No breaking changes identified from the available metadata.",
+                  "",
+                  "## Testing Done",
+                  "Not specified in the available metadata.",
+                  "",
+                  "## Checklist",
+                  "- [ ] This PR is focused on a single feature or bug fix",
+                  "- [ ] Version in Solution.props was updated, if necessary, and follows semantic versioning",
+                  "- [ ] CHANGELOG.md has been updated",
+                  "- [ ] PR title follows Conventional Commits format",
+                  "- [ ] PR description follows the Pull Request Description Template",
+                  "",
+                  "### Commits",
+                  *(f"- {item}" for item in commits[:20]),
+                  "",
+                  "### Changed files",
+                  *(f"- `{item}`" for item in files[:100]),
+              ]).strip()
+
+          if not re.fullmatch(title_pattern, llm_title):
+              llm_title = fallback_title()
+
+          title_valid = bool(re.fullmatch(title_pattern, current_title))
+          replacement_title = llm_title if (not title_valid or current_title == head_branch) else current_title
+          if not re.fullmatch(title_pattern, replacement_title):
+              replacement_title = current_title if title_valid else "chore: update pull request"
+
+          begin = "<!-- pr-notes:begin -->"
+          end = "<!-- pr-notes:end -->"
+          state = f"<!-- pr-notes:state {head_sha} -->"
+          generated = f"{begin}\n{llm_body}\n{end}"
+          state_stripped = re.sub(r"\n?<!-- pr-notes:state\s+[^ >]+\s*-->", "", current_body).rstrip()
+
+          suggestion = None
+          if not current_body.strip():
+              replacement_body = f"{generated}\n{state}"
+          elif begin in current_body:
+              prefix, remainder = current_body.split(begin, 1)
+              if end in remainder:
+                  _, suffix = remainder.split(end, 1)
+              else:
+                  suffix = ""
+              suffix = re.sub(r"\n?<!-- pr-notes:state\s+[^ >]+\s*-->", "", suffix)
+              replacement_body = f"{prefix}{generated}{suffix.rstrip()}\n{state}"
+          else:
+              replacement_body = current_body
+              suggestion = "<!-- pr-notes:suggestion -->\n\n" + llm_body
+
+          json.dump({
+              "skip": False,
+              "title": replacement_title,
+              "body": replacement_body,
+              "suggestion": suggestion,
+          }, open(sys.argv[1], "w", encoding="utf-8"))
+          PY
+
+          RESULT="$RUNNER_TEMP/pr-notes-result.json"
+          if [[ "$(jq -r '.skip' "$RESULT")" == "true" ]]; then
+            echo "PR notes already generated for $HEAD_SHA; skipping."
+            exit 0
+          fi
+
+          TITLE=$(jq -r '.title' "$RESULT")
+          BODY=$(jq -r '.body' "$RESULT")
+          SUGGESTION=$(jq -r '.suggestion // empty' "$RESULT")
+          if [[ -n "$SUGGESTION" ]]; then
+            COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+              --paginate --jq '.[] | select(.body | contains("<!-- pr-notes:suggestion -->")) | .id' | head -n 1 || true)
+            if [[ -n "$COMMENT_ID" ]]; then
+              gh api --method PATCH "repos/${{ github.repository }}/issues/comments/$COMMENT_ID" \
+                -f body="$SUGGESTION" >/dev/null
+            else
+              gh api --method POST "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" \
+                -f body="$SUGGESTION" >/dev/null
+            fi
+          fi
+
+          if [[ "$BODY" != "$CURRENT_BODY" || "$TITLE" != "$CURRENT_TITLE" ]]; then
+            jq -n --arg title "$TITLE" --arg body "$BODY" \
+              '{title: $title, body: $body}' > "$RUNNER_TEMP/pr-notes-update.json"
+            gh api --method PATCH "repos/${{ github.repository }}/pulls/$PR_NUMBER" \
+              --input "$RUNNER_TEMP/pr-notes-update.json" >/dev/null
+          fi
