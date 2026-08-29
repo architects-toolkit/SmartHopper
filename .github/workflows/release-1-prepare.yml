@@ -36,6 +36,8 @@ on:
 
 permissions:
   contents: write
+  # Required to dispatch the protected-branch checks for the PR created below.
+  actions: write
   issues: read
   pull-requests: write
 
@@ -159,6 +161,7 @@ jobs:
           git push origin "release-prep/$VERSION"
 
       - name: Open release preparation pull request
+        id: create-pr
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -167,11 +170,7 @@ jobs:
         run: |
           set -euo pipefail
           CHANGELOG_URL="https://github.com/${{ github.repository }}/blob/release-prep/$VERSION/CHANGELOG.md"
-          gh pr create \
-            --base "$TARGET_BRANCH" \
-            --head "release-prep/$VERSION" \
-            --title "release: $VERSION" \
-            --body "$(cat <<EOF
+          PR_BODY=$(cat <<EOF
           ## Release preparation
 
           - Version: \`$VERSION\`
@@ -183,7 +182,43 @@ jobs:
           - [ ] Create a draft GitHub Release
           - [ ] Open and auto-merge the post-release development bump PR
           EOF
-          )"
+          )
+          PR_OUTPUT=$(gh pr create \
+            --base "$TARGET_BRANCH" \
+            --head "release-prep/$VERSION" \
+            --title "release: $VERSION" \
+            --body "$PR_BODY" 2>&1 || true)
+
+          PR_URL=$(printf '%s\n' "$PR_OUTPUT" | grep -Eo 'https://[^[:space:]]+/pull/[0-9]+' | tail -n 1 || true)
+          if [[ -z "$PR_URL" ]]; then
+            PR_URL=$(gh pr list --base "$TARGET_BRANCH" --head "release-prep/$VERSION" \
+              --state open --json url --jq '.[0].url // empty')
+          fi
+          PR_NUMBER=$(gh pr view "$PR_URL" --json number --jq '.number' 2>/dev/null || true)
+          if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "::error::Failed to create or resolve release preparation PR." >&2
+            printf '%s\n' "$PR_OUTPUT" >&2
+            exit 1
+          fi
+          echo "pr-number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "pr-url=$PR_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Assign release PR to milestone
+        if: steps.create-pr.outputs.pr-number != ''
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-pr.outputs.pr-number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks
+        if: steps.create-pr.outputs.pr-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: release-prep/${{ steps.next-version.outputs.new-version }}
+          pr-number: ${{ steps.create-pr.outputs.pr-number }}
+          base-ref: ${{ inputs.target-branch }}
+          pr-title: "release: ${{ steps.next-version.outputs.new-version }}"
 
   notify-on-failure:
     needs: [release-preparation]
