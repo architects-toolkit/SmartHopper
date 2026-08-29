@@ -105,6 +105,22 @@ runs:
           IS_PRERELEASE=false
         elif [[ "$STAGE" == "dev" ]]; then
           NEW_VERSION="$CORE-dev.$DATE"
+          HIGHEST=-1
+          while IFS= read -r TAG; do
+            if [[ "$TAG" =~ ^${CORE//./\\.}-dev\.${DATE}(\.([0-9]+))?$ ]]; then
+              NUMBER=$((10#${BASH_REMATCH[2]:-0}))
+              if (( NUMBER > HIGHEST )); then
+                HIGHEST=$NUMBER
+              fi
+            fi
+          done < <({
+            git tag --list "$CORE-dev.$DATE*"
+            git ls-remote --tags --refs origin "refs/tags/$CORE-dev.$DATE*" |
+              awk '{ sub("refs/tags/", "", $2); print $2 }'
+          } | sort -u)
+          if (( HIGHEST >= 0 )); then
+            NEW_VERSION="$CORE-dev.$DATE.$((HIGHEST + 1))"
+          fi
           IS_PRERELEASE=true
         else
           HIGHEST=0

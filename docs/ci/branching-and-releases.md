@@ -79,9 +79,11 @@ writes the version except version automation.
 | Prerelease | `X.Y.Z-alpha.N` / `-beta.N` / `-rc.N` | `2.0.0-beta.2` |
 | Stable | `X.Y.Z` | `2.0.0` |
 
-Development versions are legitimate dated prereleases intended mainly for testers. The prerelease
-counter `N` starts at `1` and is derived from existing tags for the same core version and stage.
-A legacy suffix-only tag (`1.4.2-alpha`) counts as `N = 1`.
+Development versions are legitimate dated prereleases intended mainly for testers. If the base
+`X.Y.Z-dev.YYMMDD` tag already exists, same-day development bumps append a sequence:
+`X.Y.Z-dev.YYMMDD.1`, then `.2`, and so on. The prerelease counter `N` for alpha, beta, and rc
+starts at `1` and is derived from existing tags for the same core version and stage. A legacy
+suffix-only tag (`1.4.2-alpha`) counts as `N = 1`.
 The dated `-dev.YYMMDD` suffix is refreshed by `chore-version-sync.yml` when `src/` changes.
 
 ## 3. Tags
