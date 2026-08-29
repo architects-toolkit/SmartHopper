@@ -133,8 +133,12 @@ Publishing the draft release triggers the existing build → hash → Pages → 
 
 ### 5.2 Stabilization line
 
-Run **`stabilization-1-start.yml`** with a line (`X.Y`) and a source (`main` or a tag). It creates
+Run **`stabilization-1-start.yml`** with a line (`X.Y`) and an existing release tag from that line.
+The line starts from an immutable, identifiable release commit rather than a moving branch:
 `release/X.Y.x`.
+
+To start a line at the current `main`, first cut a release from `main` (for example, an alpha via
+`release-1-prepare.yml`), then start stabilization from the resulting tag.
 
 **`stabilization-2-promote.yml`** (daily at 04:00 UTC, plus manual dispatch) promotes each active
 line through `alpha → beta → rc → stable` by dispatching `release-1-prepare.yml` against the line,

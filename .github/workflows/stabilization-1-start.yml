@@ -8,9 +8,8 @@ on:
         required: true
         type: string
       source:
-        description: Branch or tag from which to create the release line
+        description: Release tag from which to create the stabilization line
         required: true
-        default: main
         type: string
       milestone-title:
         description: Optional milestone to create or verify
@@ -48,12 +47,12 @@ jobs:
             exit 1
           fi
 
-      - name: Resolve source and create release line
+      - name: Resolve release tag and create release line
         id: create-line
         shell: bash
         env:
           LINE: ${{ inputs.line }}
-          SOURCE: ${{ inputs.source }}
+          SOURCE_TAG: ${{ inputs.source }}
         run: |
           set -euo pipefail
           RELEASE_BRANCH="release/${LINE}.x"
@@ -64,21 +63,32 @@ jobs:
             exit 1
           fi
 
-          SOURCE_SHA=""
-          if git rev-parse --verify "refs/remotes/origin/$SOURCE^{commit}" >/dev/null 2>&1; then
-            SOURCE_SHA=$(git rev-parse "refs/remotes/origin/$SOURCE^{commit}")
-          elif git rev-parse --verify "refs/tags/$SOURCE^{commit}" >/dev/null 2>&1; then
-            SOURCE_SHA=$(git rev-parse "refs/tags/$SOURCE^{commit}")
-          elif git rev-parse --verify "$SOURCE^{commit}" >/dev/null 2>&1; then
-            SOURCE_SHA=$(git rev-parse "$SOURCE^{commit}")
-          else
-            echo "::error::Source branch or tag '$SOURCE' could not be resolved." >&2
+          if [[ "$SOURCE_TAG" == "main" ]] ||
+             git rev-parse --verify "refs/heads/$SOURCE_TAG^{commit}" >/dev/null 2>&1 ||
+             git rev-parse --verify "refs/remotes/origin/$SOURCE_TAG^{commit}" >/dev/null 2>&1; then
+            echo "::error::Source '$SOURCE_TAG' is a branch; stabilization must start from a release tag." >&2
+            exit 1
+          fi
+
+          if ! SOURCE_SHA=$(git rev-parse --verify "refs/tags/$SOURCE_TAG^{commit}" 2>/dev/null); then
+            echo "::error::Release tag '$SOURCE_TAG' does not exist; stabilization must start from an existing release tag." >&2
+            exit 1
+          fi
+
+          if [[ ! "$SOURCE_TAG" =~ ^([0-9]+)\.([0-9]+)\.[0-9]+(-.*)?$ ]]; then
+            echo "::error::Release tag '$SOURCE_TAG' does not contain a version in X.Y.Z[-suffix] format." >&2
+            exit 1
+          fi
+          TAG_LINE="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+          if [[ "$TAG_LINE" != "$LINE" ]]; then
+            echo "::error::Release tag '$SOURCE_TAG' belongs to release line '$TAG_LINE', not requested line '$LINE'." >&2
             exit 1
           fi
 
           git push origin "$SOURCE_SHA:refs/heads/$RELEASE_BRANCH"
           echo "release-branch=$RELEASE_BRANCH" >> "$GITHUB_OUTPUT"
           echo "source-sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          echo "source-tag=$SOURCE_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Create stabilization milestone
         if: inputs.milestone-title != ''
@@ -95,11 +105,13 @@ jobs:
           LINE: ${{ inputs.line }}
           RELEASE_BRANCH: ${{ steps.create-line.outputs.release-branch }}
           SOURCE_SHA: ${{ steps.create-line.outputs.source-sha }}
+          SOURCE_TAG: ${{ steps.create-line.outputs.source-tag }}
         run: |
           {
             echo "## Stabilization line started"
             echo
             echo "- **Branch:** \`$RELEASE_BRANCH\`"
+            echo "- **Source tag:** \`$SOURCE_TAG\`"
             echo "- **Source SHA:** \`$SOURCE_SHA\`"
             echo
             echo "The maintainer must add this branch to the repository ruleset if branch protection is desired."
@@ -115,13 +127,16 @@ jobs:
         uses: actions/github-script@v7
         env:
           LINE: ${{ inputs.line || 'unknown' }}
+          SOURCE_TAG: ${{ inputs.source || 'unknown' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const line = process.env.LINE;
+            const sourceTag = process.env.SOURCE_TAG;
             const title = `⛔ Stabilization start failed: ${line}`;
             const body = [
               `The stabilization line workflow failed for \`release/${line}.x\`.`,
+              `**Requested source tag:** \`${sourceTag}\``,
               '',
               `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               `**Triggered by:** ${context.actor}`,
