@@ -9,8 +9,6 @@ on:
   push:
     branches:
       - main
-      - 'hotfix/**'
-      - 'release/**'
     paths:
       - 'src/SmartHopper.Core.Grasshopper/AITools/**/*.cs'
       - 'tools/Update-DevAiTools.ps1'

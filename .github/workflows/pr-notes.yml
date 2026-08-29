@@ -160,6 +160,33 @@ jobs:
           llm_body = blocks[1].strip() if len(blocks) >= 2 else ""
           ai_ok = os.environ.get("AI_SUCCESS") == "true" and bool(llm_title and llm_body)
 
+          def normalize_ai_body(body):
+              matches = list(re.finditer(
+                  r"(?m)^##\s+(Description|Breaking Changes)\s*$", body))
+              sections = {}
+              for index, match in enumerate(matches):
+                  end = matches[index + 1].start() if index + 1 < len(matches) else len(body)
+                  sections.setdefault(match.group(1), body[match.end():end].strip())
+              if "Description" not in sections or "Breaking Changes" not in sections:
+                  return ""
+              return "\n".join([
+                  "## Description",
+                  sections["Description"],
+                  "",
+                  "## Breaking Changes",
+                  sections["Breaking Changes"],
+                  "",
+                  "## Testing Done",
+                  "_Not verified by automation — to be completed by the author._",
+                  "",
+                  "## Checklist",
+                  "- [ ] This PR is focused on a single feature or bug fix",
+                  "- [ ] Version in Solution.props was updated, if necessary, and follows semantic versioning",
+                  "- [ ] CHANGELOG.md has been updated",
+                  "- [ ] PR title follows Conventional Commits format",
+                  "- [ ] PR description follows the Pull Request Description Template",
+              ]).strip()
+
           def fallback_title():
               slug = re.sub(r"[^a-z0-9]+", " ", head_branch.lower()).strip()
               branch_type, _, branch_description = slug.partition(" ")
@@ -168,6 +195,10 @@ jobs:
                   branch_type = "chore"
               description = branch_description or "update pull request"
               return f"{branch_type}: {description}"
+
+          if ai_ok:
+              llm_body = normalize_ai_body(llm_body)
+              ai_ok = bool(llm_body)
 
           if not ai_ok:
               llm_title = fallback_title()
@@ -181,7 +212,7 @@ jobs:
                   "No breaking changes identified from the available metadata.",
                   "",
                   "## Testing Done",
-                  "Not specified in the available metadata.",
+                  "_Not verified by automation — to be completed by the author._",
                   "",
                   "## Checklist",
                   "- [ ] This PR is focused on a single feature or bug fix",
