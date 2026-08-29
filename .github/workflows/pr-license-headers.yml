@@ -72,7 +72,7 @@ jobs:
           PR_HEAD_REF: ${{ github.head_ref }}
         run: |
           $isFork = "$env:PR_HEAD_REPO" -ne "${{ github.repository }}"
-          $isProtected = "$env:PR_HEAD_REF" -match '^(main|dev)(?:$|-)'
+          $isProtected = "$env:PR_HEAD_REF" -match '^main(?:$|-)'
           $canAutoCommit = (-not $isFork) -and (-not $isProtected)
           "can_auto_commit=$canAutoCommit" >> $env:GITHUB_OUTPUT
           "is_fork=$isFork" >> $env:GITHUB_OUTPUT
