@@ -1,6 +1,6 @@
 # Patch Propagation (Multi-Branch)
 
-Tool to fan-out one or more commits across several active branches by opening a PR per target. Useful when a small change (AI provider model list, docs fix, CI tweak, isolated bugfix) is relevant to `main` and active `release/X.Y.x` lines.
+Tool to fan-out one or more commits across several active branches by opening a PR per target. Useful when a small change (AI provider model list, docs fix, CI tweak, isolated bugfix) is relevant to `main` and active `release/X.Y` lines.
 
 ---
 
@@ -34,7 +34,7 @@ This document explains how to propagate small, focused changes across multiple a
 ### When to Use
 
 - Updating supported AI models for one or more providers and wanting the change in `main` and any active release line.
-- Backporting a small bugfix landed in `main` to one or more `release/X.Y.x` lines.
+- Backporting a small bugfix landed in `main` to one or more `release/X.Y` lines.
 - Propagating CI or documentation tweaks across active branches.
 
 Do **not** use it for large feature ports — those should go through the normal release/promotion or hotfix workflows.
@@ -51,13 +51,13 @@ Do **not** use it for large feature ports — those should go through the normal
   5. Skips a SHA if it is already in the target branch history.
   6. Pushes the patch branch and opens a PR via `gh pr create`.
 
-It never pushes to the target branch directly, so branch protection on `main` and `release/X.Y.x` lines is respected.
+It never pushes to the target branch directly, so branch protection on `main` and `release/X.Y` lines is respected.
 
 ### Inputs
 
 - **`source-shas`** — Comma- or space-separated commit SHAs in chronological order.
 - **`source-branch`** — Informational, shown in the PR body (default `main`).
-- **`target-branches`** — Comma-separated branches, e.g. `main,release/1.4.x`.
+- **`target-branches`** — Comma-separated branches, e.g. `main,release/1.4`.
 - **`pr-title-prefix`** — Title prefix (default `[patch]`).
 - **`pr-body-extra`** — Optional markdown appended to each PR body.
 - **`labels`** — Comma-separated labels (default empty). Labels are applied best-effort after the PR is created; any label that doesn't exist in the repo is logged as a warning and skipped (PR is **not** aborted). `has-conflicts` is also applied (best-effort) when conflicts occur.
@@ -70,7 +70,7 @@ It never pushes to the target branch directly, so branch protection on `main` an
 2. Go to **Actions** → **🍒 Patch Propagate (Multi-Branch)** → **Run workflow**.
 3. Fill in:
    - `source-shas`: `abc12345`
-   - `target-branches`: `main,release/1.4.x`
+   - `target-branches`: `main,release/1.4`
    - keep defaults for the rest.
 4. Run. The workflow opens one PR per target. Conflicting targets get a draft PR with `has-conflicts` label.
 5. Review and merge each PR like any other change. Existing PR validations (build, tests, code style, changelog) still run.
