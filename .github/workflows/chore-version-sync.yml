@@ -2,7 +2,7 @@ name: 🔄 Version Sync
 
 # Related workflows (triggered on Solution.props / version changes):
 #   - chore-version-sync.yml (unified version date + badge update)
-#   - chore-version-main-release.yml (strips date suffix for main release PRs)
+#   - release-1-prepare.yml (strips the date suffix for release preparation)
 
 # Description: This unified workflow automatically updates the development version date
 # and/or version badge in README.md when source files or Solution.props change.
@@ -18,11 +18,7 @@ name: 🔄 Version Sync
 on:
   push:
     branches:
-      - dev
-      - release/*
       - main
-      - main-*
-      - dev-*
       - hotfix/**
       - release/**
     paths:

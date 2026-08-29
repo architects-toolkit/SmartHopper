@@ -25,6 +25,11 @@ Many thanks to the following contributors to this release:
 
 - Replaced the dual-branch release chain with single-main release preparation, tag, draft release, and post-release development bump automation.
 - Added tag-based stabilization promotion/completion and hotfix branch, release-preparation, and backport automation.
+- Maintenance and automatic-PR workflows now target `main` as the integration branch.
+
+### Removed
+
+- Removed the obsolete `dev`↔`main` synchronization workflows.
 
 ## [2.0.0-dev.260821] - 2026-08-21
 

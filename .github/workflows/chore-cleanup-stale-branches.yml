@@ -51,7 +51,8 @@ jobs:
             const repo = context.repo.repo;
             const maxAgeDays = parseInt(process.env.MAX_AGE_DAYS, 10);
             const prefixes = ['chore/', 'cascade/', 'devin/'];
-            const protectedBranches = new Set(['main', 'dev']);
+            const protectedBranches = new Set(['main']);
+            const protectedPrefixes = ['release/', 'release-prep/', 'hotfix/'];
 
             const now = new Date();
             const cutoff = new Date(now.getTime() - maxAgeDays * 24 * 60 * 60 * 1000);
@@ -63,7 +64,9 @@ jobs:
             );
 
             const watchedBranches = branches.filter(b =>
-              prefixes.some(p => b.name.startsWith(p)) && !protectedBranches.has(b.name)
+              prefixes.some(p => b.name.startsWith(p)) &&
+              !protectedBranches.has(b.name) &&
+              !protectedPrefixes.some(p => b.name.startsWith(p))
             );
 
             let deleted = 0;

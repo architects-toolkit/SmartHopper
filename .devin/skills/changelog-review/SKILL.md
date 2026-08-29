@@ -11,9 +11,9 @@ triggers:
   - model
 ---
 
-Omit this skill if current branch is main or dev.
+Omit this skill if the current branch is main.
 
-1. Get a list of all commits in the current branch that are not in dev branch.
+1. Get a list of all commits in the current branch that are not in main branch.
 
 2. Get the messages for all retrieved commits.
 
