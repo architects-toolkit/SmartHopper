@@ -54,6 +54,22 @@ jobs:
       id: pr_version
       uses: ./.github/actions/versioning/get-version
 
+    - name: Reject released version reuse
+      shell: bash
+      env:
+        PR_VERSION: ${{ steps.pr_version.outputs.version }}
+      run: |
+        set -euo pipefail
+        if [[ -z "$PR_VERSION" ]]; then
+          echo "Could not read the PR version; skipping released-version reuse check."
+          exit 0
+        fi
+        git fetch --tags origin
+        if git rev-parse --verify "refs/tags/$PR_VERSION^{commit}" >/dev/null 2>&1; then
+          echo "::error::Version '$PR_VERSION' has already been released as tag '$PR_VERSION'. Move the version forward (date, sequence, stage, patch, minor, or major) instead of reusing a released version." >&2
+          exit 1
+        fi
+
     - name: Checkout Target Branch Solution.props
       shell: bash
       run: |
