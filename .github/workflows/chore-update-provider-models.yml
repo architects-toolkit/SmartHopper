@@ -53,9 +53,9 @@ jobs:
         run: |
           set -euo pipefail
           targets=$(git ls-remote --heads origin 'refs/heads/release/*' |
-            sed -n 's#.*refs/heads/release/\([0-9]\+\.[0-9]\+\)$#\1#p' |
+            sed -n 's#.*refs/heads/release/\([0-9]\+\.[0-9]\+\)$#release/\1#p' |
             sort -V |
-            python3 -c 'import json, sys; print(json.dumps([{"branch": branch, "safe": "release-" + branch.replace("/", "-")} for branch in ["main", *[line.strip() for line in sys.stdin if line.strip()]]]))')
+            python3 -c 'import json, sys; print(json.dumps([{"branch": branch, "safe": branch.replace("/", "-")} for branch in ["main", *[line.strip() for line in sys.stdin if line.strip()]]]))')
           echo "targets=$targets" >> "$GITHUB_OUTPUT"
 
   fetch-and-update:
