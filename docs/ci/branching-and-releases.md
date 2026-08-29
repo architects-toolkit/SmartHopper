@@ -3,6 +3,56 @@
 SmartHopper uses a **single long-lived branch** (`main`), **on-demand stabilization branches**, and
 **tags as the source of truth** for what was released.
 
+---
+
+## Metadata
+
+| Property | Value |
+| --- | --- |
+| **Source Code** | `.github/workflows/` |
+| **Since Version** | 2.0.0 |
+| **Last Updated** | 2026-08-29 |
+| **Documentation Maintainer** | Devin AI |
+
+---
+
+## Why Read This?
+
+This document is the authoritative guide to SmartHopper's branch, version, tag, and release
+automation. Read it before changing a workflow or preparing a release.
+
+---
+
+## End-User Guide
+
+Use the procedures below to create releases, maintain stabilization lines, and ship hotfixes.
+
+---
+
+## Developer Reference
+
+The canonical release version is read from `Solution.props`:
+
+```csharp
+var releaseVersion = solutionVersion;
+```
+
+Release automation targets the integration branch explicitly:
+
+```csharp
+var integrationBranch = "main";
+```
+
+---
+
+## Architecture & Design
+
+`main` is the only long-lived integration branch. Release-preparation branches carry version and
+changelog metadata, while tags identify immutable release commits. Downstream build, Pages, and Yak
+workflows resolve their inputs from those tags.
+
+---
+
 ## 1. Branches
 
 | Branch | Lifetime | Purpose |
