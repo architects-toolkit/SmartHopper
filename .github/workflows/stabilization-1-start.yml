@@ -55,7 +55,7 @@ jobs:
           SOURCE_TAG: ${{ inputs.source }}
         run: |
           set -euo pipefail
-          RELEASE_BRANCH="release/${LINE}.x"
+          RELEASE_BRANCH="release/${LINE}"
           git fetch --all --tags
 
           if git ls-remote --exit-code --heads origin "$RELEASE_BRANCH" >/dev/null 2>&1; then
@@ -91,10 +91,9 @@ jobs:
           echo "source-tag=$SOURCE_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Create stabilization milestone
-        if: inputs.milestone-title != ''
         uses: ./.github/actions/milestone/create-or-get
         with:
-          title: ${{ inputs.milestone-title }}
+          title: ${{ inputs.milestone-title || inputs.line }}
           description: Stabilization metadata for release line ${{ inputs.line }}
           state: open
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -135,7 +134,7 @@ jobs:
             const sourceTag = process.env.SOURCE_TAG;
             const title = `⛔ Stabilization start failed: ${line}`;
             const body = [
-              `The stabilization line workflow failed for \`release/${line}.x\`.`,
+              `The stabilization line workflow failed for \`release/${line}\`.`,
               `**Requested source tag:** \`${sourceTag}\``,
               '',
               `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,

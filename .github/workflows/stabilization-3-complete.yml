@@ -64,10 +64,10 @@ jobs:
               LINE="${branch#origin/}"
               break
             fi
-          done < <(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/release/*.x')
+          done < <(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/release/*')
 
           if [[ -z "$LINE" ]]; then
-            echo "::error::Tag '$VERSION' is not contained in an active release/X.Y.x branch." >&2
+            echo "::error::Tag '$VERSION' is not contained in an active release/X.Y branch." >&2
             exit 1
           fi
 

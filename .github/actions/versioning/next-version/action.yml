@@ -1,4 +1,4 @@
-name: Next Release Version
+name: Next Version
 description: Calculate a tag-aware release version from the current version.
 
 inputs:
@@ -6,11 +6,11 @@ inputs:
     description: Current version in X.Y.Z[-suffix] format.
     required: true
   bump:
-    description: Version bump to apply.
+    description: Version bump to apply (none, patch, minor, or major).
     required: false
     default: none
   stage:
-    description: Release stage.
+    description: Release stage (dev, alpha, beta, rc, or stable).
     required: false
     default: stable
   date:
