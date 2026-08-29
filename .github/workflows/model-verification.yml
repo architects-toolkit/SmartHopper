@@ -72,7 +72,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: main
           fetch-depth: 0
 
       - name: Tally verifiers
@@ -234,7 +234,7 @@ jobs:
 
             Generated automatically by `.github/workflows/model-verification.yml`.
           branch: "chore/verify-${{ steps.tally.outputs.provider }}-${{ steps.tally.outputs.model }}"
-          base: dev
+          base: main
           delete-branch: true
           labels: |
             automated
@@ -253,7 +253,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: chore/verify-${{ steps.tally.outputs.provider }}-${{ steps.tally.outputs.model }}
           pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
-          base-ref: dev
+          base-ref: main
           pr-title: "chore(models): verify ${{ steps.tally.outputs.provider }}/${{ steps.tally.outputs.model }}"
 
       - name: Comment outcome on issue

@@ -15,10 +15,7 @@ name: Anonymize Public Key
 on:
   push:
     branches:
-      - dev
       - main
-      - 'main-*'
-      - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
     paths:

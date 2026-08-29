@@ -1,9 +1,8 @@
 name: 🏁 4 Build Project (Dual Platform)
 
 # Related workflows (release pipeline — execute in numbered order):
-#   - release-1-milestone.yml (creates milestone and branches)
-#   - release-2-pr-to-dev-closed.yml (creates PR from dev→main on release merge)
-#   - release-3-pr-to-main-closed.yml (creates GitHub Release on main merge)
+#   - release-1-prepare.yml (creates the release-preparation PR)
+#   - release-2-tag-on-merge.yml (creates a tag and draft release after release merge)
 #   - release-4-build.yml (builds platform artifacts on release publish)
 #   - release-5-deploy-pages.yml (deploys documentation pages)
 #   - release-6-upload-yak.yml (uploads to Yak package manager)

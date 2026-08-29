@@ -17,7 +17,7 @@ triggers:
 
 The user should provide a description of the purpose of the new branch. If no description is provided, ask for it and stop the skill.
 
-Check that the current branch is `dev`. If not, switch to `dev` before continuing.
+Check that the current branch is `main`. If not, switch to `main` before continuing.
 
 ## Branch Naming Convention
 
@@ -58,7 +58,7 @@ Where:
 
 3. **Determining Current Development Status**
 
-   Compare the CURRENT BASE VERSION and the PREVIOUS RELEASE VERSION to identify the release level being developed in `dev`. Compare only numbers, skip suffixes. The result can be a PATCH release (`0.0.X`), a MINOR release (`0.X.0`), MAJOR release (`X.0.0`) or NONE (all digits remain equal, version unchanged, `0.0.0`).
+   Compare the CURRENT BASE VERSION and the PREVIOUS RELEASE VERSION to identify the release level being developed in `main`. Compare only numbers, skip suffixes. The result can be a PATCH release (`0.0.X`), a MINOR release (`0.X.0`), MAJOR release (`X.0.0`) or NONE (all digits remain equal, version unchanged, `0.0.0`).
 
 4. **Determining New Branch Release Level**
 
@@ -76,12 +76,12 @@ Where:
 
 1. Ensure there are no changes pending to commit. Stop the execution if so and ask the user to commit them.
 
-2. Ensure the current branch is `dev` and synced with remote.
+2. Ensure the current branch is `main` and synced with remote.
 
-   git checkout dev
-   git pull public dev
+   git checkout main
+   git pull origin main
 
-3. Create a new local branch from `dev`. Replace prefix, X.Y.Z, and descriptive-title as appropriate. Ask for confirmation if you doubt.
+3. Create a new local branch from `main`. Replace prefix, X.Y.Z, and descriptive-title as appropriate. Ask for confirmation if you doubt.
 
    git checkout -b prefix/X.Y.Z-descriptive-title
 

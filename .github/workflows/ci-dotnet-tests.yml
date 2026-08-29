@@ -27,13 +27,9 @@ on:
   push:
     branches:
       - main
-      - 'main-*'
   pull_request:
     branches:
       - main
-      - dev
-      - 'main-*'
-      - 'dev-*'
       - hotfix/**
       - release/**
   merge_group:

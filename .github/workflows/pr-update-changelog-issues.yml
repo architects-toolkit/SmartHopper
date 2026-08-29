@@ -4,7 +4,7 @@ name: 📝 Update Changelog with Closed Issues
 # It identifies issues marked as solved in the last month and adds them to the Unreleased/Fixed section.
 #
 # Triggers:
-# - Automatically when a pull request is created or updated targeting main or dev branches
+# - Automatically when a pull request is created or updated targeting main or release branches
 # - Manually via workflow_dispatch on any branch
 #
 # Permissions:
@@ -16,7 +16,6 @@ on:
   # pull_request:
   #   branches: 
   #     - main
-  #     - dev
   workflow_dispatch:
 
 permissions:

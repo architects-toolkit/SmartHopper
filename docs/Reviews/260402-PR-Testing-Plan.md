@@ -1,6 +1,6 @@
 # Testing Plan: SmartHopper 2.0.0 Refactor
 
-**Branch:** `feature/2.0.0-text2json` → `dev`
+**Branch:** `feature/2.0.0-text2json` → `main`
 **PR Date:** April 2, 2026
 **Status:** 🚧 Pre-PR Testing Phase
 **Estimated Testing Time:** 4-6 hours
@@ -516,4 +516,4 @@ Automated coverage: `src/SmartHopper.Core.Grasshopper.Tests/Converters/UrlConver
 ---
 
 *Document generated: April 2, 2026*
-*For PR: feature/2.0.0-text2json → dev*
+*For PR: feature/2.0.0-text2json → main*

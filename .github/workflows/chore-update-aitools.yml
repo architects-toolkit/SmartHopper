@@ -9,9 +9,6 @@ on:
   push:
     branches:
       - main
-      - dev
-      - 'main-*'
-      - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
     paths:
@@ -24,7 +21,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  update-dev:
+  update-aitools:
     name: Update DEV.md AI Tools table
     runs-on: windows-latest
     steps:
@@ -87,14 +84,14 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "docs(dev): update AI Tools summary [ci skip]"
-          title: "docs(dev): sync AI Tools table (${{ github.ref_name }})"
+          commit-message: "docs: update AI Tools summary [ci skip]"
+          title: "docs: sync AI Tools table (${{ github.ref_name }})"
           body: |
-            Auto-generated PR from `.github/workflows/chore-update-dev-aitools.yml`.
+            Auto-generated PR from `.github/workflows/chore-update-aitools.yml`.
 
             The AI Tools table in `DEV.md` has been refreshed to reflect
             the current tool definitions in `src/SmartHopper.Core.Grasshopper/AITools`.
-          branch: "chore/update-dev-aitools-${{ steps.slug.outputs.value }}"
+          branch: "chore/update-aitools-${{ steps.slug.outputs.value }}"
           base: ${{ github.ref_name }}
           delete-branch: true
           labels: |

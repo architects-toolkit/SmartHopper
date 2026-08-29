@@ -9,19 +9,16 @@ name: 🔄 Update Model Verification Template
 # Description: Keeps the model dropdown in the model-verification issue template
 # in sync with the *ProviderModels.cs source files. Runs the
 # Update-ModelVerificationTemplate.ps1 script whenever provider model
-# definitions change on an integration branch, and opens a PR to that same
-# branch. main gets the updated template through the regular dev→main release
-# flow, so main is intentionally excluded from triggers.
+# definitions change on a protected branch, and opens a PR to that same branch.
 #
 # Triggers:
-#   - push to dev, dev-*, hotfix/*, or release/* touching any *ProviderModels.cs file
+#   - push to main, hotfix/*, or release/* touching any *ProviderModels.cs file
 #   - workflow_dispatch for manual runs
 
 on:
   push:
     branches:
-      - dev
-      - 'dev-*'
+      - main
       - 'hotfix/**'
       - 'release/**'
     paths:
