@@ -13,23 +13,23 @@ Many thanks to the following contributors to this release:
 
 ----
 
-### Fixed
-
-- `tools/Sign-Authenticode.ps1` now Authenticode-signs `SmartHopper.Providers.LocalAI.dll` and `SmartHopper.Providers.Ollama.dll`. They were missing from the signing allowlist, so both providers shipped unsigned and Grasshopper refused to enable them as untrusted providers.
-
 ### Added
 
-- Added optional LLM-generated pull request descriptions with deterministic fallback and human-authored body protection.
+- Pull request descriptions and titles are now drafted automatically, with a deterministic fallback when AI is unavailable and no overwriting of descriptions written by a person.
 
 ### Changed
 
-- Replaced the dual-branch release chain with single-main release preparation, tag, draft release, and post-release development bump automation.
-- Added tag-based stabilization promotion/completion and hotfix branch, release-preparation, and backport automation.
-- Maintenance and automatic-PR workflows now target `main` as the integration branch.
+- Releases now come from a single `main` branch with on-demand stabilization lines: a release is prepared on demand, tagged when its pull request merges, and published as a draft release. Version tags are the source of truth for released versions.
+- Hotfixes now branch from the release tag they patch and are backported automatically to active release lines.
+- Maintenance workflows that open automatic pull requests now target `main`.
 
 ### Removed
 
-- Removed the obsolete `dev`↔`main` synchronization workflows.
+- Removed the `dev` branch and its synchronization workflows.
+
+### Fixed
+
+- `tools/Sign-Authenticode.ps1` now Authenticode-signs `SmartHopper.Providers.LocalAI.dll` and `SmartHopper.Providers.Ollama.dll`. They were missing from the signing allowlist, so both providers shipped unsigned and Grasshopper refused to enable them as untrusted providers.
 
 ## [2.0.0-dev.260821] - 2026-08-21
 
