@@ -1,0 +1,241 @@
+name: 'Review Changelog'
+description: 'Use Mistral AI to simplify the [Unreleased] changelog section'
+
+inputs:
+  mistral-api-key:
+    description: 'Mistral AI API key'
+    required: false
+    default: ''
+  model:
+    description: 'Mistral model name'
+    required: false
+    default: 'mistral-medium-latest'
+  changelog-path:
+    description: 'Path to the changelog file'
+    required: false
+    default: 'CHANGELOG.md'
+  commit:
+    description: 'Commit a changed changelog file'
+    required: false
+    default: 'false'
+  commit-messages:
+    description: 'Recent commit messages to provide as review context'
+    required: false
+    default: ''
+
+outputs:
+  changed:
+    description: 'Whether the changelog was rewritten'
+    value: ${{ steps.apply.outputs.changed }}
+  skipped-reason:
+    description: 'Why review was skipped'
+    value: ${{ steps.apply.outputs.skipped-reason }}
+  success:
+    description: 'Whether the AI review completed successfully'
+    value: ${{ steps.ai-review.outputs.success || 'false' }}
+  error:
+    description: 'AI error, if any'
+    value: ${{ steps.ai-review.outputs.error || '' }}
+  changes-made:
+    description: 'JSON array of changes reported by the AI'
+    value: ${{ steps.apply.outputs.changes-made }}
+  usage-prompt-tokens:
+    description: 'Prompt tokens used'
+    value: ${{ steps.ai-review.outputs.usage-prompt-tokens || '0' }}
+  usage-completion-tokens:
+    description: 'Completion tokens used'
+    value: ${{ steps.ai-review.outputs.usage-completion-tokens || '0' }}
+
+runs:
+  using: composite
+  steps:
+    - name: Extract changelog [Unreleased] section
+      id: extract
+      shell: bash
+      env:
+        CHANGELOG_PATH: ${{ inputs.changelog-path }}
+      run: |
+        set -euo pipefail
+        if [[ ! -f "$CHANGELOG_PATH" ]]; then
+          echo "::warning::Changelog file not found at $CHANGELOG_PATH"
+          echo "empty=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        UNRELEASED=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' "$CHANGELOG_PATH")
+        if [[ -z "$UNRELEASED" ]]; then
+          echo "::notice::No [Unreleased] section found or it is empty"
+          echo "empty=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "empty=false" >> "$GITHUB_OUTPUT"
+          {
+            echo "content<<EOF_CHANGELOG"
+            echo "$UNRELEASED"
+            echo "EOF_CHANGELOG"
+          } >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: AI review and simplification
+      id: ai-review
+      if: steps.extract.outputs.empty != 'true' && inputs.mistral-api-key != ''
+      uses: ./.github/actions/ai/mistral-chat
+      with:
+        api-key: ${{ inputs.mistral-api-key }}
+        model: ${{ inputs.model }}
+        temperature: '0.3'
+        max-tokens: '32768'
+        system-prompt: |
+          You are a changelog editor for SmartHopper, an open-source plugin that implements AI features to Grasshopper (inside Rhino3D).
+          Your job is to rewrite the [Unreleased] section of the changelog for end users.
+
+          RULES:
+          1. Each entry must be 1-2 lines maximum
+          2. Focus on end-user value, not implementation details
+          3. ALWAYS preserve issue references like [#123](https://github.com/architects-toolkit/SmartHopper/issues/123)
+          4. ALWAYS preserve the contributors section unchanged (### New Contributors and everything below it)
+          5. Preserve the markdown structure in this order: ### Added, ### Changed, ### Fixed, ### Deprecated, ### Removed sections
+          6. Remove empty sections (sections with no entries after simplification)
+          7. Do NOT add any sections that don't exist in the original
+
+          INCLUDE in changelog:
+          - New AI models and capabilities
+          - New components or features
+          - UI/UX changes
+          - Breaking changes that affect saved files
+          - Performance improvements users will notice
+          - Deprecated features or models
+          - GitHub issue references
+
+          BRIEFLY MENTION (one-liner):
+          - CI/CD improvements
+          - Infrastructure stability improvements
+          - Code quality improvements (only if significant)
+
+          EXCLUDE from changelog:
+          - Detailed CI workflow specifications
+          - Concurrency settings and race condition prevention
+          - Per-provider technical minutiae
+          - Internal tooling details
+          - File paths and implementation details
+
+          SIMPLIFICATION EXAMPLES:
+          - Technical CI details -> "- **CI/CD**: Enhanced workflow automation for model verification and stabilization branch management"
+          - Per-model ranking changes -> "- **AI model rankings**: Adjusted default models and rankings across providers based on official documentation"
+
+          OUTPUT FORMAT:
+          Respond with a JSON object containing TWO fields:
+          {
+            "simplified_section": "The complete rewritten [Unreleased] section content (everything between '## [Unreleased]' and the next '## [x.y.z]' header). Use actual newlines in the string.",
+            "changes_made": [
+              "Short description of each simplification you made"
+            ]
+          }
+
+          If no changes are needed, return:
+          {"simplified_section": "", "changes_made": []}
+          with an empty simplified_section to signal no rewrite is needed.
+        user-prompt: |
+          Rewrite this changelog [Unreleased] section. Simplify overly technical entries
+          into user-focused descriptions.
+
+          ## Current [Unreleased] changelog entries:
+          ${{ steps.extract.outputs.content }}
+
+          ## Recent commits (for context only):
+          ${{ inputs.commit-messages }}
+
+    - name: Apply simplified changelog
+      id: apply
+      if: always()
+      shell: bash
+      env:
+        AI_RESPONSE: ${{ steps.ai-review.outputs.response || '' }}
+        AI_SUCCESS: ${{ steps.ai-review.outputs.success || 'false' }}
+        API_KEY: ${{ inputs.mistral-api-key }}
+        CHANGELOG_PATH: ${{ inputs.changelog-path }}
+      run: |
+        set -euo pipefail
+        echo "changed=false" >> "$GITHUB_OUTPUT"
+        echo "skipped-reason=" >> "$GITHUB_OUTPUT"
+        echo "changes-made=[]" >> "$GITHUB_OUTPUT"
+
+        if [[ "${{ steps.extract.outputs.empty }}" == "true" ]]; then
+          echo "skipped-reason=empty changelog section" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        if [[ -z "$API_KEY" ]]; then
+          echo "::warning::Mistral API key is missing; changelog review is skipped."
+          echo "skipped-reason=missing API key" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        if [[ "$AI_SUCCESS" != "true" || -z "$AI_RESPONSE" ]]; then
+          echo "::warning::Mistral changelog review failed; leaving the changelog untouched."
+          echo "skipped-reason=AI call failed" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        AI_RESPONSE="$AI_RESPONSE" CHANGELOG_PATH="$CHANGELOG_PATH" python3 - "$GITHUB_OUTPUT" <<'PY'
+        import json
+        import os
+        import re
+        import sys
+
+        output_path = sys.argv[1]
+        response = os.environ["AI_RESPONSE"]
+        changelog_path = os.environ["CHANGELOG_PATH"]
+
+        try:
+            match = re.search(r"```(?:json)?\s*([\s\S]*?)```", response)
+            review = json.loads((match.group(1) if match else response).strip())
+        except Exception as error:
+            print(f"::warning::Failed to parse AI response: {error}", file=sys.stderr)
+            with open(output_path, "a", encoding="utf-8") as output:
+                output.write("skipped-reason=invalid AI response\n")
+            raise SystemExit(0)
+
+        changes = review.get("changes_made") or []
+        with open(output_path, "a", encoding="utf-8") as output:
+            output.write(f"changes-made={json.dumps(changes, separators=(',', ':'))}\n")
+
+        simplified = review.get("simplified_section")
+        if not simplified or not simplified.strip():
+            with open(output_path, "a", encoding="utf-8") as output:
+                output.write("skipped-reason=no simplifications needed\n")
+            raise SystemExit(0)
+
+        with open(changelog_path, encoding="utf-8") as changelog_file:
+            changelog = changelog_file.read()
+        header_match = re.search(r"^## \[Unreleased\]", changelog, re.MULTILINE)
+        if not header_match:
+            print("::warning::Could not find ## [Unreleased] header", file=sys.stderr)
+            with open(output_path, "a", encoding="utf-8") as output:
+                output.write("skipped-reason=missing Unreleased header\n")
+            raise SystemExit(0)
+
+        header_end = header_match.end()
+        rest_after_header = changelog[header_end:]
+        next_match = re.search(r"\n## \[\d+\.\d+", rest_after_header)
+        if next_match:
+            content_end = header_end + next_match.start()
+            new_changelog = (
+                changelog[:header_end] + "\n\n" + simplified.strip() + "\n\n" +
+                changelog[content_end + 1:]
+            )
+        else:
+            new_changelog = changelog[:header_end] + "\n\n" + simplified.strip() + "\n"
+
+        with open(changelog_path, "w", encoding="utf-8") as changelog_file:
+            changelog_file.write(new_changelog)
+        with open(output_path, "a", encoding="utf-8") as output:
+            output.write("changed=true\n")
+        PY
+
+    - name: Commit reviewed changelog
+      if: inputs.commit == 'true' && steps.apply.outputs.changed == 'true'
+      shell: bash
+      env:
+        CHANGELOG_PATH: ${{ inputs.changelog-path }}
+      run: |
+        set -euo pipefail
+        git add "$CHANGELOG_PATH"
+        git commit -m "docs: AI-simplified changelog entries"
