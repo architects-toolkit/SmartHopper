@@ -29,16 +29,17 @@ release.
 
 ## Developer Reference
 
-The integration branch is explicit in automation:
+Start a stabilization line from an existing release tag:
 
-```csharp
-var integrationBranch = "main";
+```bash
+gh workflow run stabilization-1-start.yml -f line=2.0 -f source=2.0.0-alpha.1
 ```
 
-Release metadata is read from the solution:
+Use the release-line and preparation branch conventions when inspecting workflow runs:
 
-```csharp
-var releaseVersion = solutionVersion;
+```text
+release/X.Y
+release-prep/<version>
 ```
 
 ---
