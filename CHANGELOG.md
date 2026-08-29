@@ -17,6 +17,10 @@ Many thanks to the following contributors to this release:
 
 - `tools/Sign-Authenticode.ps1` now Authenticode-signs `SmartHopper.Providers.LocalAI.dll` and `SmartHopper.Providers.Ollama.dll`. They were missing from the signing allowlist, so both providers shipped unsigned and Grasshopper refused to enable them as untrusted providers.
 
+### Added
+
+- Added optional LLM-generated pull request descriptions with deterministic fallback and human-authored body protection.
+
 ### Changed
 
 - Replaced the dual-branch release chain with single-main release preparation, tag, draft release, and post-release development bump automation.
