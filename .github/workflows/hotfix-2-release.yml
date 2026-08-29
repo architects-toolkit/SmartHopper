@@ -6,7 +6,6 @@ on:
       hotfix-branch:
         description: Hotfix branch to release
         required: true
-        default: ${{ github.ref_name }}
         type: string
       bump:
         description: Version bump from the hotfix base tag
@@ -17,7 +16,7 @@ on:
           - none
           - patch
       target-branch:
-        description: Branch to receive the release preparation PR
+        description: Branch to receive the release preparation PR (main or release/X.Y)
         required: true
         default: main
         type: string
@@ -79,6 +78,10 @@ jobs:
             echo "::error::Hotfix branch must use the hotfix/<tag>-<slug> format." >&2
             exit 1
           fi
+          if [[ "$TARGET_BRANCH" != "main" && ! "$TARGET_BRANCH" =~ ^release/[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Target branch must be 'main' or a release/X.Y stabilization line; got '$TARGET_BRANCH'." >&2
+            exit 1
+          fi
           echo "target-branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
 
       - name: Parse and validate hotfix base tag
@@ -109,7 +112,7 @@ jobs:
 
       - name: Calculate hotfix release version
         id: next-version
-        uses: ./.github/actions/versioning/next-release-version
+        uses: ./.github/actions/versioning/next-version
         with:
           current-version: ${{ steps.parse.outputs.base-tag }}
           bump: ${{ inputs.bump }}
@@ -314,8 +317,8 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
-          LINES=$(git ls-remote --heads origin 'refs/heads/release/*.x' |
-            sed -n 's#.*refs/heads/release/\([0-9]\+\.[0-9]\+\)\.x$#\1#p' | sort -V)
+          LINES=$(git ls-remote --heads origin 'refs/heads/release/*' |
+            sed -n 's#.*refs/heads/release/\([0-9]\+\.[0-9]\+\)$#\1#p' | sort -V)
           LINES_JSON=$(VERSION="$VERSION" LINES="$LINES" python3 - <<'PY'
           import json
           import os
@@ -355,7 +358,7 @@ jobs:
         id: cherry-pick
         uses: ./.github/actions/utils/cherry-pick-range
         with:
-          base-branch: release/${{ matrix.line }}.x
+          base-branch: release/${{ matrix.line }}
           new-branch: backport/${{ needs.prepare.outputs.version }}-to-${{ matrix.line }}
           source-ref: origin/${{ needs.prepare.outputs.hotfix-branch }}
           from-ref: ${{ needs.prepare.outputs.base-tag }}
@@ -381,12 +384,12 @@ jobs:
           script: |
             const title = `⛔ Hotfix backport needs manual work: ${process.env.VERSION} to ${process.env.LINE}`;
             const body = [
-              `The hotfix fix commits could not be backported to \`release/${process.env.LINE}.x\`.`,
+              `The hotfix fix commits could not be backported to \`release/${process.env.LINE}\`.`,
               '',
               'Run these commands locally, resolve conflicts, and open the backport PR:',
               '```bash',
-              `git fetch origin release/${process.env.LINE}.x ${process.env.HOTFIX_BRANCH} --tags`,
-              `git checkout -B backport/${process.env.VERSION}-to-${process.env.LINE} origin/release/${process.env.LINE}.x`,
+              `git fetch origin release/${process.env.LINE} ${process.env.HOTFIX_BRANCH} --tags`,
+              `git checkout -B backport/${process.env.VERSION}-to-${process.env.LINE} origin/release/${process.env.LINE}`,
               `git cherry-pick ${process.env.BASE_TAG}..origin/${process.env.HOTFIX_BRANCH}`,
               'git cherry-pick --continue',
               `git push origin backport/${process.env.VERSION}-to-${process.env.LINE}`,
@@ -436,18 +439,18 @@ jobs:
         run: |
           set -euo pipefail
           PR_OUTPUT=$(gh pr create \
-            --base "release/$LINE.x" \
+            --base "release/$LINE" \
             --head "backport/$VERSION-to-$LINE" \
-            --title "chore: backport hotfix $VERSION to release/$LINE.x" \
-            --body "Backports the hotfix fix commits for \`$VERSION\` to \`release/$LINE.x\` without release metadata changes." 2>&1 || true)
+            --title "chore: backport hotfix $VERSION to release/$LINE" \
+            --body "Backports the hotfix fix commits for \`$VERSION\` to \`release/$LINE\` without release metadata changes." 2>&1 || true)
           PR_URL=$(printf '%s\n' "$PR_OUTPUT" | grep -Eo 'https://[^[:space:]]+/pull/[0-9]+' | tail -n 1 || true)
           if [[ -z "$PR_URL" ]]; then
-            PR_URL=$(gh pr list --base "release/$LINE.x" --head "backport/$VERSION-to-$LINE" \
+            PR_URL=$(gh pr list --base "release/$LINE" --head "backport/$VERSION-to-$LINE" \
               --state open --json url --jq '.[0].url // empty' || true)
           fi
           PR_NUMBER=$(gh pr view "$PR_URL" --json number --jq '.number' 2>/dev/null || true)
           if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
-            PR_NUMBER=$(gh pr list --base "release/$LINE.x" --head "backport/$VERSION-to-$LINE" \
+            PR_NUMBER=$(gh pr list --base "release/$LINE" --head "backport/$VERSION-to-$LINE" \
               --state open --json number --jq '.[0].number // empty' || true)
           fi
           if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
@@ -464,5 +467,5 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: backport/${{ needs.prepare.outputs.version }}-to-${{ matrix.line }}
           pr-number: ${{ steps.create-pr.outputs.pr-number }}
-          base-ref: release/${{ matrix.line }}.x
-          pr-title: "chore: backport hotfix ${{ needs.prepare.outputs.version }} to release/${{ matrix.line }}.x"
+          base-ref: release/${{ matrix.line }}
+          pr-title: "chore: backport hotfix ${{ needs.prepare.outputs.version }} to release/${{ matrix.line }}"

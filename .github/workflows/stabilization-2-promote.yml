@@ -15,12 +15,6 @@ on:
         required: false
         default: false
         type: boolean
-      promotion-age-days:
-        description: Optional promotion age threshold override
-        required: false
-        default: ''
-        type: string
-
 permissions:
   contents: read
   actions: write
@@ -58,13 +52,13 @@ jobs:
 
           if [[ -n "$REQUESTED_LINE" ]]; then
             branches="$REQUESTED_LINE"
-            if ! git ls-remote --exit-code --heads origin "release/${branches}.x" >/dev/null 2>&1; then
-              echo "::error::Release branch 'release/${branches}.x' does not exist." >&2
+            if ! git ls-remote --exit-code --heads origin "release/${branches}" >/dev/null 2>&1; then
+              echo "::error::Release branch 'release/${branches}' does not exist." >&2
               exit 1
             fi
           else
-            branches=$(git ls-remote --heads origin 'refs/heads/release/*.x' |
-              sed -n 's#.*refs/heads/release/\([0-9]\+\.[0-9]\+\)\.x$#\1#p' | sort -V)
+            branches=$(git ls-remote --heads origin 'refs/heads/release/*' |
+              sed -n 's#.*refs/heads/release/\([0-9]\+\.[0-9]\+\)$#\1#p' | sort -V)
           fi
 
           LINES_JSON=$(BRANCHES="$branches" python3 - <<'PY'
@@ -92,7 +86,7 @@ jobs:
       - name: Checkout release line
         uses: actions/checkout@v4
         with:
-          ref: release/${{ matrix.line }}.x
+          ref: release/${{ matrix.line }}
           fetch-depth: 0
 
       # The release line may predate the composite actions used by this
@@ -113,11 +107,10 @@ jobs:
         id: threshold
         shell: bash
         env:
-          INPUT_AGE: ${{ inputs.promotion-age-days }}
           CONFIGURED_AGE: ${{ vars.PROMOTION_AGE_DAYS }}
         run: |
           set -euo pipefail
-          AGE="${INPUT_AGE:-${CONFIGURED_AGE:-15}}"
+          AGE="${CONFIGURED_AGE:-15}"
           if [[ ! "$AGE" =~ ^[0-9]+$ ]]; then
             echo "::error::Promotion age '$AGE' is not a non-negative integer." >&2
             exit 1
@@ -132,7 +125,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --tags origin
-          BRANCH="origin/release/${LINE}.x"
+          BRANCH="origin/release/${LINE}"
           mapfile -t TAGS < <(git tag --merged "$BRANCH")
           CURRENT_TAG=$(python3 - "${LINE}" "${TAGS[@]}" <<'PY'
           import re
@@ -193,6 +186,79 @@ jobs:
             echo "next-milestone=$NEXT_MILESTONE"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Enumerate release versions on line
+        id: line-versions
+        shell: bash
+        env:
+          LINE: ${{ matrix.line }}
+        run: |
+          set -euo pipefail
+          git tag --list "${LINE}.*" |
+            LINE="$LINE" python3 -c '
+          import json
+          import os
+          import re
+          import sys
+          line = os.environ["LINE"]
+          pattern = re.compile(rf"^{re.escape(line)}\.[0-9]+(?:-[0-9A-Za-z.-]+)?$")
+          print(json.dumps([tag.strip() for tag in sys.stdin if pattern.fullmatch(tag.strip())]))
+          ' > versions.json
+          echo "versions=$(cat versions.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Check open issues across release line
+        id: check-line-issues
+        uses: actions/github-script@v7
+        env:
+          VERSIONS: ${{ steps.line-versions.outputs.versions }}
+          DAYS: ${{ steps.threshold.outputs.days }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const versions = JSON.parse(process.env.VERSIONS || '[]');
+            const versionLabels = new Set(versions.map(version => `version: ${version}`));
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const matches = issues.filter(issue =>
+              !issue.pull_request &&
+              issue.labels.some(label => versionLabels.has(label.name))
+            );
+            const matchedVersions = [...new Set(matches.flatMap(issue =>
+              issue.labels
+                .map(label => label.name)
+                .filter(label => versionLabels.has(label))
+                .map(label => label.substring('version: '.length))
+            ))].sort();
+            core.setOutput('has-issues', String(matches.length > 0));
+            core.setOutput('issue-count', String(matches.length));
+            core.setOutput('versions', matchedVersions.join(', '));
+            const closedIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed',
+              per_page: 100,
+            });
+            const closedMatches = closedIssues.filter(issue =>
+              !issue.pull_request &&
+              issue.labels.some(label => versionLabels.has(label.name))
+            );
+            const lastClosed = closedMatches.sort((left, right) =>
+              new Date(right.closed_at) - new Date(left.closed_at)
+            )[0];
+            if (!lastClosed) {
+              core.setOutput('last-closed-old-enough', 'true');
+              core.setOutput('last-closed-age-days', '-1');
+            } else {
+              const ageDays = Math.floor(
+                (Date.now() - new Date(lastClosed.closed_at).getTime()) / 86400000
+              );
+              core.setOutput('last-closed-old-enough', String(ageDays >= Number(process.env.DAYS)));
+              core.setOutput('last-closed-age-days', String(ageDays));
+            }
+
       - name: Check issues and release age
         id: check-issues
         if: steps.tag.outputs.current-tag != ''
@@ -207,7 +273,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_BRANCH: release/${{ matrix.line }}.x
+          RELEASE_BRANCH: release/${{ matrix.line }}
         run: |
           set -euo pipefail
           COUNT=$(gh pr list --base "$RELEASE_BRANCH" --state open --json number --jq 'length')
@@ -240,12 +306,13 @@ jobs:
         env:
           CURRENT_TAG: ${{ steps.tag.outputs.current-tag }}
           NEXT_STAGE: ${{ steps.tag.outputs.next-stage }}
-          ISSUE_COUNT: ${{ steps.check-issues.outputs.issue-count }}
-          HAS_ISSUES: ${{ steps.check-issues.outputs.has-issues }}
+          ISSUE_COUNT: ${{ steps.check-line-issues.outputs.issue-count }}
+          HAS_ISSUES: ${{ steps.check-line-issues.outputs.has-issues }}
+          ISSUE_VERSIONS: ${{ steps.check-line-issues.outputs.versions }}
           RELEASE_OLD_ENOUGH: ${{ steps.check-issues.outputs.release-old-enough }}
           RELEASE_AGE: ${{ steps.check-issues.outputs.release-age-days }}
-          LAST_CLOSED_OLD_ENOUGH: ${{ steps.check-issues.outputs.last-closed-old-enough }}
-          LAST_CLOSED_AGE: ${{ steps.check-issues.outputs.last-closed-age-days }}
+          LAST_CLOSED_OLD_ENOUGH: ${{ steps.check-line-issues.outputs.last-closed-old-enough }}
+          LAST_CLOSED_AGE: ${{ steps.check-line-issues.outputs.last-closed-age-days }}
           BLOCKING_REASON: ${{ steps.check-issues.outputs.blocking-reason }}
           OPEN_PR_COUNT: ${{ steps.check-prs.outputs.count }}
           FROZEN: ${{ steps.check-freeze.outputs.frozen }}
@@ -273,7 +340,7 @@ jobs:
           elif [[ -n "$NEXT_STAGE" && -n "$CURRENT_TAG" ]]; then
             if [[ "$HAS_ISSUES" == true ]]; then
               ELIGIBLE=false
-              REASONS+=("${ISSUE_COUNT:-unknown} open issue(s) for this version")
+              REASONS+=("${ISSUE_COUNT:-unknown} open issue(s) for release line versions: ${ISSUE_VERSIONS:-unknown}")
             fi
             if [[ "$RELEASE_OLD_ENOUGH" != true ]]; then
               ELIGIBLE=false
@@ -310,67 +377,12 @@ jobs:
           echo "past-threshold=$PAST_THRESHOLD" >> "$GITHUB_OUTPUT"
           echo "reason=$REASON" >> "$GITHUB_OUTPUT"
 
-      - name: Create next-stage milestone
-        if: steps.evaluate.outputs.eligible == 'true' && steps.tag.outputs.next-milestone != ''
-        uses: ./.github/actions/milestone/create-or-get
-        with:
-          title: ${{ steps.tag.outputs.next-milestone }}
-          description: Stabilization metadata for ${{ steps.tag.outputs.next-milestone }}
-          state: open
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Move milestone items and close previous stage
-        if: steps.evaluate.outputs.eligible == 'true' && steps.tag.outputs.current-tag != ''
-        uses: actions/github-script@v7
-        env:
-          CORE: ${{ steps.tag.outputs.core }}
-          CURRENT_STAGE: ${{ steps.tag.outputs.current-stage }}
-          NEXT_MILESTONE: ${{ steps.tag.outputs.next-milestone }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const currentTitle = `${process.env.CORE}-${process.env.CURRENT_STAGE}`;
-            const nextTitle = process.env.NEXT_MILESTONE;
-            const milestones = await github.paginate(github.rest.issues.listMilestones, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'all',
-              per_page: 100,
-            });
-            const current = milestones.find(item => item.title === currentTitle && item.state === 'open');
-            const next = milestones.find(item => item.title === nextTitle && item.state === 'open');
-            if (!current || !next) {
-              core.warning(`Milestone bookkeeping skipped: ${currentTitle} or ${nextTitle} was not found.`);
-              return;
-            }
-            const items = await github.paginate(github.rest.issues.listForRepo, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              milestone: current.number,
-              state: 'open',
-              per_page: 100,
-            });
-            for (const item of items) {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: item.number,
-                milestone: next.number,
-              });
-            }
-            await github.rest.issues.updateMilestone({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              milestone_number: current.number,
-              state: 'closed',
-            });
-
       - name: Dispatch next-stage preparation
         if: steps.evaluate.outputs.eligible == 'true' && steps.tag.outputs.next-stage != ''
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_BRANCH: release/${{ matrix.line }}.x
+          RELEASE_BRANCH: release/${{ matrix.line }}
           NEXT_STAGE: ${{ steps.tag.outputs.next-stage }}
         run: |
           set -euo pipefail
@@ -386,6 +398,7 @@ jobs:
         env:
           VERSION: ${{ steps.tag.outputs.current-tag }}
           REASON: ${{ steps.evaluate.outputs.reason }}
+          ISSUE_VERSIONS: ${{ steps.check-line-issues.outputs.versions }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -394,6 +407,7 @@ jobs:
               `Promotion of \`${process.env.VERSION}\` is blocked.`,
               '',
               `**Condition:** ${process.env.REASON}`,
+              `**Open issue versions:** ${process.env.ISSUE_VERSIONS || 'none'}`,
               '',
               `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
             ].join('\n');

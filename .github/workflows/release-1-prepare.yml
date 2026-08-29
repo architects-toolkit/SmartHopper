@@ -18,6 +18,7 @@ on:
         required: true
         type: choice
         options:
+          - dev
           - stable
           - alpha
           - beta
@@ -82,22 +83,11 @@ jobs:
 
       - name: Calculate release version
         id: next-version
-        uses: ./.github/actions/versioning/next-release-version
+        uses: ./.github/actions/versioning/next-version
         with:
           current-version: ${{ steps.current-version.outputs.version }}
           bump: ${{ inputs.bump }}
           stage: ${{ inputs.stage }}
-
-      - name: Reject development version
-        shell: bash
-        env:
-          NEW_VERSION: ${{ steps.next-version.outputs.new-version }}
-        run: |
-          set -euo pipefail
-          if [[ "$NEW_VERSION" == *-dev.* ]]; then
-            echo "::error::Release version '$NEW_VERSION' still contains a -dev. suffix." >&2
-            exit 1
-          fi
 
       - name: Set version and refresh badges
         uses: ./.github/actions/versioning/version-manager

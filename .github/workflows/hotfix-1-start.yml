@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Stable tag to fix (empty uses the newest stable tag)
+        description: Stable release tag from any line to fix (empty uses the newest stable tag)
         required: false
         default: ''
         type: string
@@ -17,7 +17,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: hotfix-start-${{ inputs.tag || 'latest' }}
+  group: hotfix-start-${{ inputs.tag || github.run_id }}
   cancel-in-progress: false
 
 jobs:
