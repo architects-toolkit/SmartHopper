@@ -123,6 +123,7 @@ runs:
           - Per-model ranking changes -> "- **AI model rankings**: Adjusted default models and rankings across providers based on official documentation"
 
           OUTPUT FORMAT:
+          Respond with raw JSON only. Do not use Markdown fences such as ```json or ```text, and do not include prose before or after the JSON.
           Respond with a JSON object containing TWO fields:
           {
             "simplified_section": "The complete rewritten [Unreleased] section content (everything between '## [Unreleased]' and the next '## [x.y.z]' header). Use actual newlines in the string.",

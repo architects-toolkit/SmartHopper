@@ -34,12 +34,37 @@ permissions:
   pull-requests: write
 
 jobs:
+  discover-targets:
+    name: Discover provider model targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      targets: ${{ steps.discover.outputs.targets }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Discover main and active release lines
+        id: discover
+        shell: bash
+        run: |
+          set -euo pipefail
+          targets=$(git ls-remote --heads origin 'release/*' |
+            awk '{ sub("refs/heads/", "", $2); print $2 }' |
+            sort -V |
+            python3 -c 'import json, sys; print(json.dumps([{"branch": branch, "safe": branch.replace("/", "-")} for branch in ["main", *[line.strip() for line in sys.stdin if line.strip()]]]))')
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+
   fetch-and-update:
-    name: ${{ matrix.provider }} → ${{ matrix.branch }}
+    needs: discover-targets
+    name: ${{ matrix.provider }} → ${{ matrix.target.branch }}
     runs-on: windows-latest
     timeout-minutes: 45
     concurrency:
-      group: provider-models-${{ matrix.provider }}-${{ matrix.branch }}
+      group: provider-models-${{ matrix.provider }}-${{ matrix.target.safe }}
       cancel-in-progress: false
     strategy:
       fail-fast: false
@@ -51,8 +76,7 @@ jobs:
           - OpenRouter
           - DeepSeek
           - Gemini
-        branch:
-          - main
+        target: ${{ fromJSON(needs.discover-targets.outputs.targets) }}
     steps:
       - name: Skip if secret is absent or filtered out
         id: check
@@ -76,11 +100,11 @@ jobs:
             echo "skipped=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Checkout ${{ matrix.branch }}
+      - name: Checkout ${{ matrix.target.branch }}
         if: steps.check.outputs.skipped == 'false'
         uses: actions/checkout@v4
         with:
-          ref: ${{ matrix.branch }}
+          ref: ${{ matrix.target.branch }}
           fetch-depth: 0
 
       - name: Fetch and compare models for ${{ matrix.provider }}
@@ -309,7 +333,7 @@ jobs:
           REPORT_JSON: ${{ steps.models.outputs.report }}
         run: |
           $report = $env:REPORT_JSON | ConvertFrom-Json
-          Write-Output "## ${{ matrix.provider }} → ${{ matrix.branch }} model scan" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "## ${{ matrix.provider }} → ${{ matrix.target.branch }} model scan" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "- API models: $($report.apiModels.Count)" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "- Source models: $($report.sourceModels.Count)" >> $env:GITHUB_STEP_SUMMARY
           if ($report.newModels.Count -gt 0) {
@@ -323,7 +347,7 @@ jobs:
         if: steps.check.outputs.skipped == 'false' && steps.models.outputs.success == 'true' && steps.models.outputs.changed == 'false'
         shell: pwsh
         run: |
-          Write-Output "## ${{ matrix.provider }} → ${{ matrix.branch }} model scan" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "## ${{ matrix.provider }} → ${{ matrix.target.branch }} model scan" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "- API models: $($env:MODEL_COUNT)" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "- **No changes** detected in source file; no PR created." >> $env:GITHUB_STEP_SUMMARY
         env:
@@ -334,17 +358,17 @@ jobs:
         id: branch-name
         shell: bash
         run: |
-          base="${{ matrix.branch }}"
+          base="${{ matrix.target.branch }}"
           provider="${{ matrix.provider }}"
           # Replace / with - for valid branch names
           safe_base="${base//\//-}"
           echo "pr-branch=chore/update-models-${provider}-${safe_base}" >> "$GITHUB_OUTPUT"
 
-      - name: Rebase PR branch onto latest ${{ matrix.branch }}
+      - name: Rebase PR branch onto latest ${{ matrix.target.branch }}
         if: steps.check.outputs.skipped == 'false' && steps.models.outputs.changed == 'true'
         uses: ./.github/actions/utils/rebase-onto-base
         with:
-          base-ref: ${{ matrix.branch }}
+          base-ref: ${{ matrix.target.branch }}
           token: ${{ secrets.GITHUB_TOKEN }}
           bot-name: ${{ vars.SMARTHOPPER_BOT_NAME }}
           bot-email: ${{ vars.SMARTHOPPER_BOT_EMAIL }}
@@ -359,7 +383,7 @@ jobs:
           title: "chore(models): auto-add new and deprecate stale ${{ matrix.provider }} models"
           body-path: ${{ steps.pr-body.outputs.body-file }}
           branch: ${{ steps.branch-name.outputs.pr-branch }}
-          base: ${{ matrix.branch }}
+          base: ${{ matrix.target.branch }}
           delete-branch: true
           labels: |
             automated
@@ -378,7 +402,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ steps.branch-name.outputs.pr-branch }}
           pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
-          base-ref: ${{ matrix.branch }}
+          base-ref: ${{ matrix.target.branch }}
           pr-title: "chore(models): auto-add new and deprecate stale ${{ matrix.provider }} models"
 
       - name: Label PR on failure
