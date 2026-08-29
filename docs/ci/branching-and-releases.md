@@ -31,16 +31,16 @@ Use the procedures below to create releases, maintain stabilization lines, and s
 
 ## Developer Reference
 
-The canonical release version is read from `Solution.props`:
+Start a stabilization line from an existing release tag:
 
-```csharp
-var releaseVersion = solutionVersion;
+```bash
+gh workflow run stabilization-1-start.yml -f line=2.0 -f source=2.0.0-alpha.1
 ```
 
-Release automation targets the integration branch explicitly:
+The canonical version source is the `Solution.props` property:
 
-```csharp
-var integrationBranch = "main";
+```xml
+<SolutionVersion>2.0.0-dev.260828</SolutionVersion>
 ```
 
 ---
@@ -59,8 +59,8 @@ workflows resolve their inputs from those tags.
 | --- | --- | --- |
 | `main` | permanent | The only integration branch. Always releasable. Linear history, rebase-only, merge queue. Carries the dated development version (`X.Y.Z-dev.YYMMDD`). |
 | `feat/*`, `fix/*`, `docs/*`, `chore/*`, `refactor/*`, `test/*` | hours–days | Topic branches. PR to `main`, rebase merge, deleted on merge. |
-| `release/X.Y.x` | one stabilization cycle | Created on demand to stabilize a line (alpha → beta → rc → stable) while `main` moves on, or to maintain a shipped line. |
-| `release-prep/<version>` | minutes–days | Created by release automation. Contains only version/changelog/badge changes. PR into `main` or `release/X.Y.x`. Deleted on merge. |
+| `release/X.Y` | one stabilization cycle | Created on demand to stabilize a line (alpha → beta → rc → stable) while `main` moves on, or to maintain a shipped line. |
+| `release-prep/<version>` | minutes–days | Created by release automation. Contains only version/changelog/badge changes. PR into `main` or `release/X.Y`. Deleted on merge. |
 | `hotfix/<version>-<slug>` | hours | Cut **from the release tag** being patched. |
 | `backport/*`, `hash-update/*` | ephemeral | Opened by automation. |
 
@@ -79,8 +79,9 @@ writes the version except version automation.
 | Prerelease | `X.Y.Z-alpha.N` / `-beta.N` / `-rc.N` | `2.0.0-beta.2` |
 | Stable | `X.Y.Z` | `2.0.0` |
 
-The prerelease counter `N` starts at `1` and is derived from existing tags for the same
-core version and stage. A legacy suffix-only tag (`1.4.2-alpha`) counts as `N = 1`.
+Development versions are legitimate dated prereleases intended mainly for testers. The prerelease
+counter `N` starts at `1` and is derived from existing tags for the same core version and stage.
+A legacy suffix-only tag (`1.4.2-alpha`) counts as `N = 1`.
 The dated `-dev.YYMMDD` suffix is refreshed by `chore-version-sync.yml` when `src/` changes.
 
 ## 3. Tags
@@ -114,8 +115,8 @@ The dated `-dev.YYMMDD` suffix is refreshed by `chore-version-sync.yml` when `sr
 Run **`release-1-prepare.yml`** (`workflow_dispatch`) with:
 
 - `bump`: `none` | `patch` | `minor` | `major`
-- `stage`: `stable` | `alpha` | `beta` | `rc`
-- `target-branch`: `main` (default) or a `release/X.Y.x` line
+- `stage`: `dev` | `alpha` | `beta` | `rc` | `stable`
+- `target-branch`: `main` (default) or a `release/X.Y` line
 
 It computes the next version, writes `Solution.props`, runs the LLM changelog review, moves
 `[Unreleased]` into `## [X.Y.Z] - YYYY-MM-DD`, refreshes badges, ensures the milestone exists, and
@@ -128,14 +129,18 @@ Review and merge it. `release-2-tag-on-merge.yml` then:
 3. opens a `chore/bump-<next-dev-version>` PR so `main` returns to dated dev versioning
    (auto-merge with rebase).
 
+If the released version is today's dated development prerelease, the next development version is
+unchanged and no bump PR is opened; a later manual date or patch bump can create a new version.
+
 Publishing the draft release triggers the existing build → hash → Pages → Yak chain
 (`release-4-build.yml`, `release-5-deploy-pages.yml`, `release-6-upload-yak.yml`).
 
 ### 5.2 Stabilization line
 
 Run **`stabilization-1-start.yml`** with a line (`X.Y`) and an existing release tag from that line.
-The line starts from an immutable, identifiable release commit rather than a moving branch:
-`release/X.Y.x`.
+The source must be an existing tag whose `X.Y` prefix matches the requested line, so the line
+starts from an immutable, identifiable release commit rather than a moving branch. The new line is
+named `release/X.Y`.
 
 To start a line at the current `main`, first cut a release from `main` (for example, an alpha via
 `release-1-prepare.yml`), then start stabilization from the resulting tag.
@@ -144,12 +149,16 @@ To start a line at the current `main`, first cut a release from `main` (for exam
 line through `alpha → beta → rc → stable` by dispatching `release-1-prepare.yml` against the line,
 when **all** of these hold for the current staged version:
 
-- no open issues labelled `version: X.Y.Z`,
-- no open PRs targeting `release/X.Y.x`,
-- the current staged release was published at least `PROMOTION_AGE_DAYS` ago
-  (repository variable, default **15**),
-- the last closed issue for the version is at least `PROMOTION_AGE_DAYS` old,
+- no open issues labelled for **any tagged version on the `X.Y` line**,
+- no open PRs targeting `release/X.Y`,
+- the current staged release was published at least `PROMOTION_AGE_DAYS` days ago,
+- the last closed issue for the line's versions is at least `PROMOTION_AGE_DAYS` days old,
 - no `promotion: freeze` label is active for the version.
+
+`PROMOTION_AGE_DAYS` is a repository variable; when it is unset, the workflow uses a default of
+**15**. There is no per-dispatch age override. A blocked-promotion issue lists the exact tagged
+versions that still have open issues. Promotion does not move items between milestones or close
+milestones; milestones remain metadata only.
 
 `force-promote` (dispatch input) overrides the age and freeze conditions. An open issue with the
 `promotion: freeze` label and matching `version: X.Y` label freezes that line. When a line is older than
@@ -157,17 +166,26 @@ the threshold but blocked, automation opens/updates an issue
 `⛔ Promotion blocked: X.Y.Z-stage` with the current reason.
 
 When the line reaches **stable**, `stabilization-3-complete.yml` opens a backport PR
-`release/X.Y.x` → `main` and closes the milestone. The release line is retained for maintenance.
+`release/X.Y` → `main`. The release line is retained for maintenance and milestone metadata is
+not moved automatically.
 
 ### 5.3 Hotfix
 
 1. **`hotfix-1-start.yml`** — inputs: `tag` (defaults to the latest stable tag) and `description`.
-   Creates `hotfix/<version>-<slug>` **from the tag**.
+   It accepts a release tag from any line and creates `hotfix/<version>-<slug>` **from the tag**.
 2. Commit the fix on that branch (`CHANGELOG.md` under `[Unreleased]`).
 3. **`hotfix-2-release.yml`** — cherry-picks the hotfix commits onto `main` as
    `release-prep/<patch-version>` and opens the release PR, plus `backport/*` PRs into every active
-   `release/X.Y.x`. Conflicts stop the workflow and open an issue instead of guessing.
+   `release/X.Y`. Conflicts stop the workflow and open an issue instead of guessing.
 4. Merging the release PR tags and releases exactly as in §5.1.
+
+For a stabilization-line hotfix, select the tag from that line and run
+`hotfix-2-release.yml` with `target-branch=release/X.Y`. The workflow opens the
+`release-prep/<version>` PR into that line; merging it creates the tag, while the existing
+cherry-pick/backport machinery propagates the fix to `main` and newer active release lines.
+
+Released versions are immutable and cannot be reused. Version validation rejects a PR whose
+`Solution.props` version already exists as a tag; move the version forward instead.
 
 ### 5.4 Version bumps outside a release
 
@@ -200,13 +218,13 @@ from it, revert the offending change there, and ship a new patch release.
 | `check-provider-models.yml` | pull requests | Validates provider model definitions. |
 | `chore-changelog-review.yml` | release-prep pull requests to `main` or `release/**` | Simplifies release changelog text. |
 | `chore-cleanup-stale-branches.yml` | schedule / manual | Deletes old eligible automation branches. |
-| `chore-update-aitools.yml` | pushes to `main`, `hotfix/**`, `release/**` | Updates the `DEV.md` AI Tools table. |
+| `chore-update-aitools.yml` | pushes to `main` | Updates the `DEV.md` AI Tools table. |
 | `chore-update-contributors.yml` | pushes on protected lines | Updates release contributors. |
 | `chore-update-copyright-year.yml` | schedule / manual | Updates copyright years and opens a PR. |
 | `chore-update-ghjson-spec-docs.yml` | pushes and pull requests on protected lines | Updates GhJSON documentation. |
 | `chore-update-model-verification-template.yml` | provider-model pushes / manual | Updates the model-verification issue template. |
-| `chore-update-provider-models-on-push.yml` | provider-model pushes on protected lines | Updates the `DEV.md` provider model table. |
-| `chore-update-provider-models.yml` | schedule / manual | Retrieves provider model data and proposes it to `main`. |
+| `chore-update-provider-models-on-push.yml` | provider-model pushes on `main` | Updates the `DEV.md` provider model table. |
+| `chore-update-provider-models.yml` | schedule / manual | Retrieves provider model data and proposes it to `main` and active `release/X.Y` lines. |
 | `chore-version-sync.yml` | source pushes on protected lines | Refreshes development-version dates and badges. |
 | `ci-dotnet-tests.yml` | push, pull request, merge queue | Builds and tests the solution. |
 | `github-issue-label-by-content.yml` | issue events | Applies labels from issue content. |
@@ -226,7 +244,7 @@ from it, revert the offending change there, and ship a new patch release.
 | `pr-documentation-validation.yml` | documentation pull requests | Validates documentation structure. |
 | `pr-license-headers.yml` | pull requests | Checks license headers. |
 | `pr-linear-history.yml` | pull requests, merge queue | Enforces linear history. |
-| `pr-milestone.yml` | pull requests to `main`, `release/**`, `hash-update/*` | Assigns pull requests to milestones. |
+| `pr-milestone.yml` | pull requests to `main`, `release/**`, `hotfix/**`, `hash-update/*` | Assigns pull requests to milestones. |
 | `pr-notes.yml` | pull request open/update/reopen/ready | Generates PR titles and descriptions. |
 | `pr-update-changelog-issues.yml` | manual | Adds eligible closed issues to the changelog. |
 | `pr-validation.yml` | pull requests, merge queue | Runs pull-request metadata and style gates. |
@@ -236,7 +254,7 @@ from it, revert the offending change there, and ship a new patch release.
 | `release-4-build.yml` | published releases | Builds release artifacts. |
 | `release-5-deploy-pages.yml` | published releases | Deploys release documentation and hashes to Pages. |
 | `release-6-upload-yak.yml` | published releases / manual | Uploads the tagged package to Yak. |
-| `stabilization-1-start.yml` | manual | Creates a `release/X.Y.x` stabilization line. |
+| `stabilization-1-start.yml` | manual | Creates a `release/X.Y` stabilization line. |
 | `stabilization-2-promote.yml` | daily schedule / manual | Promotes eligible stabilization stages. |
 | `stabilization-3-complete.yml` | published stable release / manual | Backports a stable line release to `main`. |
 | `user-build-and-hash.yml` | manual | Builds and validates hashes for a selected ref. |

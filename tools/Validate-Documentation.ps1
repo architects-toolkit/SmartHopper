@@ -110,8 +110,17 @@ function Test-CodeExamples {
     
     # Check if Developer Reference section exists
     if ($content -match "## Developer Reference") {
-        # Count code blocks
-        $codeBlocks = [regex]::Matches($content, '```csharp').Count
+        $sourceCodeMatch = [regex]::Match(
+            $content,
+            '(?im)^\|\s*\*\*Source Code\*\*\s*\|\s*([^|\r\n]+)')
+        $sourcePath = $sourceCodeMatch.Groups[1].Value.Trim().Trim('`')
+        $sourceCodeIsCSharp = $sourceCodeMatch.Success -and
+            $sourcePath -match '(^|[/\\])src([/\\]|$)'
+        if ($sourceCodeIsCSharp) {
+            $codeBlocks = [regex]::Matches($content, '(?im)^```csharp\s*$').Count
+        } else {
+            $codeBlocks = [regex]::Matches($content, '(?m)^```[^\r\n]*\S[^\r\n]*$').Count
+        }
         
         if ($codeBlocks -lt 2) {
             $issues += "Developer Reference should have at least 2 code examples (found: $codeBlocks)"

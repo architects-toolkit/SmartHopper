@@ -11,9 +11,9 @@ normal release cycle.
 2. Make and test the fix on that branch. Add the user-facing change to
    `CHANGELOG.md` under `[Unreleased]`.
 3. Run **`hotfix-2-release.yml`** for the hotfix branch. It cherry-picks the
-   fix onto `main`, prepares the next stable patch release, and opens a
-   `release-prep/<version>` pull request. When enabled, it also opens fix-only
-   backport pull requests for active `release/X.Y.x` lines.
+   fix onto the selected `target-branch` (`main` by default, or `release/X.Y`), prepares the next
+   stable patch release, and opens a `release-prep/<version>` pull request. When enabled, it also
+   opens fix-only backport pull requests for active `release/X.Y` lines.
 4. Review and merge the release-preparation pull request into `main`. The
    normal tag, draft release, build, Pages, and Yak workflows then handle the
    release.
@@ -34,6 +34,10 @@ issue for manual resolution.
 ## Safety
 
 - The hotfix branch always starts at the selected stable tag, never at `main`.
+- A stabilization-line hotfix starts from that line's release tag, targets `release/X.Y`, and is
+  tagged when its release-preparation PR merges.
 - Release preparation goes through the usual required checks and merge queue.
-- `release/X.Y.x` branches remain available for maintenance.
+- `release/X.Y` branches remain available for maintenance.
+- Existing cherry-pick/backport automation propagates stabilization-line fixes to `main` and
+  newer active release lines.
 - Published tags are immutable; use another hotfix for a subsequent correction.
