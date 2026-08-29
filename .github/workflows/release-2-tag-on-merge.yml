@@ -57,17 +57,12 @@ jobs:
             exit 1
           fi
 
-      - name: Reject development version and existing tag
+      - name: Validate release version and existing tag
         shell: bash
         env:
           VERSION: ${{ steps.release-info.outputs.version }}
         run: |
           set -euo pipefail
-          if [[ "$VERSION" == *-dev.* ]]; then
-            echo "::error::Cannot release development version '$VERSION'." >&2
-            exit 1
-          fi
-
           git fetch --tags
           if git tag --list "$VERSION" | grep -Fxq "$VERSION" ||
             git ls-remote --exit-code --refs origin "refs/tags/$VERSION" >/dev/null 2>&1; then
@@ -148,17 +143,37 @@ jobs:
           prerelease: ${{ steps.prerelease.outputs.is-prerelease }}
           target_commitish: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
 
+      - name: Determine whether to create a post-release development bump
+        id: post-release-bump
+        if: github.base_ref == 'main'
+        shell: bash
+        env:
+          VERSION: ${{ steps.release-info.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-dev\.([0-9]{6})$ ]] &&
+             [[ "${BASH_REMATCH[1]}" == "$(date -u +%y%m%d)" ]]; then
+            echo "should-bump=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Post-release development bump"
+              echo
+              echo "No bump PR was opened because \`$VERSION\` already uses today's development date."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "should-bump=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Calculate post-release development version
-        if: github.base_ref == 'main' && !contains(steps.release-info.outputs.version, '-dev.')
+        if: steps.post-release-bump.outputs.should-bump == 'true'
         id: next-dev-version
-        uses: ./.github/actions/versioning/next-release-version
+        uses: ./.github/actions/versioning/next-version
         with:
           current-version: ${{ steps.release-info.outputs.version }}
           bump: ${{ contains(steps.release-info.outputs.version, '-') && 'none' || 'patch' }}
           stage: dev
 
       - name: Create post-release bump branch
-        if: github.base_ref == 'main' && !contains(steps.release-info.outputs.version, '-dev.')
+        if: steps.post-release-bump.outputs.should-bump == 'true'
         shell: bash
         env:
           VERSION: ${{ steps.next-dev-version.outputs.new-version }}
@@ -169,14 +184,14 @@ jobs:
           git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
 
       - name: Set post-release development version
-        if: github.base_ref == 'main' && !contains(steps.release-info.outputs.version, '-dev.')
+        if: steps.post-release-bump.outputs.should-bump == 'true'
         uses: ./.github/actions/versioning/version-manager
         with:
           mode: set-version
           new-version: ${{ steps.next-dev-version.outputs.new-version }}
 
       - name: Commit and push post-release bump
-        if: github.base_ref == 'main' && !contains(steps.release-info.outputs.version, '-dev.')
+        if: steps.post-release-bump.outputs.should-bump == 'true'
         shell: bash
         env:
           VERSION: ${{ steps.next-dev-version.outputs.new-version }}
@@ -194,7 +209,7 @@ jobs:
 
       - name: Open post-release bump pull request
         id: create-pr
-        if: github.base_ref == 'main' && !contains(steps.release-info.outputs.version, '-dev.')
+        if: steps.post-release-bump.outputs.should-bump == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -235,7 +250,7 @@ jobs:
           pr-title: "chore: bump version to ${{ steps.next-dev-version.outputs.new-version }}"
 
       - name: Enable rebase auto-merge
-        if: github.base_ref == 'main' && !contains(steps.release-info.outputs.version, '-dev.')
+        if: steps.post-release-bump.outputs.should-bump == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

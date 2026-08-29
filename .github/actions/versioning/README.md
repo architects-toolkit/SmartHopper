@@ -90,7 +90,7 @@ Parses a version string into components (major, minor, patch, suffix, stage).
 
 - `major`, `minor`, `patch`: Version components
 - `suffix`: Full suffix (if any)
-- `stage`: Release stage (alpha, beta, rc, stable)
+- `stage`: Release stage (dev, alpha, beta, rc, stable)
 - `is-prerelease`: Boolean flag
 
 #### `format-version`
