@@ -143,28 +143,8 @@ jobs:
           prerelease: ${{ steps.prerelease.outputs.is-prerelease }}
           target_commitish: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
 
-      - name: Determine whether to create a post-release development bump
-        id: post-release-bump
-        if: github.base_ref == 'main'
-        shell: bash
-        env:
-          VERSION: ${{ steps.release-info.outputs.version }}
-        run: |
-          set -euo pipefail
-          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-dev\.([0-9]{6})$ ]] &&
-             [[ "${BASH_REMATCH[1]}" == "$(date -u +%y%m%d)" ]]; then
-            echo "should-bump=false" >> "$GITHUB_OUTPUT"
-            {
-              echo "### Post-release development bump"
-              echo
-              echo "No bump PR was opened because \`$VERSION\` already uses today's development date."
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "should-bump=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Calculate post-release development version
-        if: steps.post-release-bump.outputs.should-bump == 'true'
+        if: github.base_ref == 'main'
         id: next-dev-version
         uses: ./.github/actions/versioning/next-version
         with:
@@ -173,7 +153,7 @@ jobs:
           stage: dev
 
       - name: Create post-release bump branch
-        if: steps.post-release-bump.outputs.should-bump == 'true'
+        if: github.base_ref == 'main'
         shell: bash
         env:
           VERSION: ${{ steps.next-dev-version.outputs.new-version }}
@@ -184,14 +164,14 @@ jobs:
           git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
 
       - name: Set post-release development version
-        if: steps.post-release-bump.outputs.should-bump == 'true'
+        if: github.base_ref == 'main'
         uses: ./.github/actions/versioning/version-manager
         with:
           mode: set-version
           new-version: ${{ steps.next-dev-version.outputs.new-version }}
 
       - name: Commit and push post-release bump
-        if: steps.post-release-bump.outputs.should-bump == 'true'
+        if: github.base_ref == 'main'
         shell: bash
         env:
           VERSION: ${{ steps.next-dev-version.outputs.new-version }}
@@ -209,7 +189,7 @@ jobs:
 
       - name: Open post-release bump pull request
         id: create-pr
-        if: steps.post-release-bump.outputs.should-bump == 'true'
+        if: github.base_ref == 'main'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -240,7 +220,7 @@ jobs:
           echo "pr-url=$PR_URL" >> "$GITHUB_OUTPUT"
 
       - name: Dispatch required PR checks
-        if: steps.create-pr.outputs.pr-number != ''
+        if: github.base_ref == 'main' && steps.create-pr.outputs.pr-number != ''
         uses: ./.github/actions/dispatch-required-pr-checks
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -250,7 +230,7 @@ jobs:
           pr-title: "chore: bump version to ${{ steps.next-dev-version.outputs.new-version }}"
 
       - name: Enable rebase auto-merge
-        if: steps.post-release-bump.outputs.should-bump == 'true'
+        if: github.base_ref == 'main'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
