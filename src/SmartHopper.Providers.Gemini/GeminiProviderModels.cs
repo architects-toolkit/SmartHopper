@@ -54,48 +54,11 @@ namespace SmartHopper.Providers.Gemini
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "gemini-3.7-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 10000,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000375m,
-                        Completion = 0.000001875m,
-                        Image = 0.000000375m,
-                        Audio = 0.000000375m,
-                        InputAudioCache = 0.0000000375m,
-                        InputCacheRead = 0.0000000375m,
-                        InputCacheWrite = 0.0000000208333333333333m,
-                        InternalReasoning = 0.000001875m,
-                        WebSearch = 0.014m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000001875m,
-                        Completion = 0.0000009375m,
-                        Image = 0.0000001875m,
-                        Audio = 0.0000001875m,
-                        InputAudioCache = 0.00000001875m,
-                        InputCacheRead = 0.00000001875m,
-                        InputCacheWrite = 0.0000000208333333333333m,
-                        InternalReasoning = 0.0000009375m,
-                        WebSearch = 0.014m,
-                    },
-                    Aliases = new List<string> { "gemini-3.7-flash:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
                     Model = "gemini-3.5-flash-lite",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9995,
+                    Rank = 10000,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 7, 21),
                     Pricing = new AIModelPricing
@@ -122,6 +85,43 @@ namespace SmartHopper.Providers.Gemini
                         WebSearch = 0.014m,
                     },
                     Aliases = new List<string> { "gemini-3.5-flash-lite:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "gemini-3.7-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9995,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 13),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000075m,
+                        Completion = 0.00000375m,
+                        Image = 0.00000075m,
+                        Audio = 0.00000075m,
+                        InputAudioCache = 0.000000075m,
+                        InputCacheRead = 0.000000075m,
+                        InputCacheWrite = 0.0000000416666666666667m,
+                        InternalReasoning = 0.00000375m,
+                        WebSearch = 0.014m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000001875m,
+                        Completion = 0.0000009375m,
+                        Image = 0.0000001875m,
+                        Audio = 0.0000001875m,
+                        InputAudioCache = 0.00000001875m,
+                        InputCacheRead = 0.00000001875m,
+                        InputCacheWrite = 0.0000000208333333333333m,
+                        InternalReasoning = 0.0000009375m,
+                        WebSearch = 0.014m,
+                    },
+                    Aliases = new List<string> { "gemini-3.7-flash:batch" },
                 },
 
                 new AIModelCapabilities
@@ -269,16 +269,23 @@ namespace SmartHopper.Providers.Gemini
                     Provider = providerName,
                     Model = "gemma-4-31b-it",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9955,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
+                        Prompt = 0.00000009m,
                         Completion = 0.00000034m,
-                        InputCacheRead = 0.0000001m,
+                        InputCacheRead = 0.00000005m,
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000039m,
+                        Completion = 0.00000097m,
+                    },
+                    Aliases = new List<string> { "gemma-4-31b-it:batch" },
                 },
 
                 new AIModelCapabilities
@@ -376,49 +383,6 @@ namespace SmartHopper.Providers.Gemini
                     Aliases = new List<string> { "gemini-3.5-flash:batch" },
                 },
 
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
-                    Model = "gemini-3.1-pro-preview-customtools",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Verified = false,
-                    Rank = 9935,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 2, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000002m,
-                        Completion = 0.000012m,
-                        Image = 0.000002m,
-                        Audio = 0.000002m,
-                        InputAudioCache = 0.0000002m,
-                        InputCacheRead = 0.0000002m,
-                        InputCacheWrite = 0.000000375m,
-                        InternalReasoning = 0.000012m,
-                        WebSearch = 0.014m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
-                    Model = "gemini-3.1-flash-image-preview",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Image,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9930,
-                    ContextLimit = 65536,
-                    Created = new DateTime(2026, 2, 26),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000005m,
-                        Completion = 0.000003m,
-                        ImageOutput = 0.00006m,
-                        WebSearch = 0.014m,
-                    },
-                },
-
 
 
                 // Released between November 2025 and February 2026
@@ -430,7 +394,7 @@ namespace SmartHopper.Providers.Gemini
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9925,
+                    Rank = 9935,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 12, 17),
                     Pricing = new AIModelPricing
@@ -460,12 +424,35 @@ namespace SmartHopper.Providers.Gemini
                 new AIModelCapabilities
                 {
                     Provider = providerName,
+                    Model = "gemini-3.1-pro-preview-customtools",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Verified = false,
+                    Rank = 9930,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 2, 25),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000002m,
+                        Completion = 0.000012m,
+                        Image = 0.000002m,
+                        Audio = 0.000002m,
+                        InputAudioCache = 0.0000002m,
+                        InputCacheRead = 0.0000002m,
+                        InputCacheWrite = 0.000000375m,
+                        InternalReasoning = 0.000012m,
+                        WebSearch = 0.014m,
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
                     Model = "gemini-3.1-pro-preview",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9920,
+                    Rank = 9925,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 2, 19),
                     Pricing = new AIModelPricing
@@ -490,6 +477,26 @@ namespace SmartHopper.Providers.Gemini
                         WebSearch = 0.014m,
                     },
                     Aliases = new List<string> { "gemini-3.1-pro-preview:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "gemini-3.1-flash-image-preview",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Text2Image,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9920,
+                    ContextLimit = 65536,
+                    Created = new DateTime(2026, 2, 26),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000005m,
+                        Completion = 0.000003m,
+                        ImageOutput = 0.00006m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
 
@@ -710,26 +717,10 @@ namespace SmartHopper.Providers.Gemini
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "gemma-3n-e4b-it",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    Verified = false,
-                    Rank = 9880,
-                    ContextLimit = 32768,
-                    Created = new DateTime(2025, 5, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000006m,
-                        Completion = 0.00000012m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
                     Model = "gemma-3-12b-it",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     Verified = false,
-                    Rank = 9875,
+                    Rank = 9880,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 3, 13),
                     Pricing = new AIModelPricing
@@ -745,8 +736,8 @@ namespace SmartHopper.Providers.Gemini
                     Model = "gemma-3-27b-it",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     Verified = false,
-                    Rank = 9870,
-                    ContextLimit = 262144,
+                    Rank = 9875,
+                    ContextLimit = 131072,
                     Created = new DateTime(2025, 3, 12),
                     Pricing = new AIModelPricing
                     {
@@ -762,7 +753,7 @@ namespace SmartHopper.Providers.Gemini
                     Model = "gemini-2.5-pro-preview-05-06",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     Verified = false,
-                    Rank = 9865,
+                    Rank = 9870,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 5, 7),
                     Pricing = new AIModelPricing
@@ -789,7 +780,7 @@ namespace SmartHopper.Providers.Gemini
                     Model = "gemma-2-27b-it",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     Verified = false,
-                    Rank = 9860,
+                    Rank = 9865,
                     ContextLimit = 8192,
                     Created = new DateTime(2024, 7, 13),
                     Pricing = new AIModelPricing
@@ -1000,11 +991,27 @@ namespace SmartHopper.Providers.Gemini
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "gemma-3n-e4b-it:free",
+                    Model = "gemma-3n-e4b-it",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     Verified = false,
                     Deprecated = true,
                     Rank = -70,
+                    ContextLimit = 32768,
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000006m,
+                        Completion = 0.00000012m,
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "gemma-3n-e4b-it:free",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -75,
                     ContextLimit = 8192,
                 },
 
@@ -1015,7 +1022,7 @@ namespace SmartHopper.Providers.Gemini
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -75,
+                    Rank = -80,
                     ContextLimit = 262144,
                 },
 
@@ -1026,7 +1033,7 @@ namespace SmartHopper.Providers.Gemini
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -80,
+                    Rank = -85,
                     ContextLimit = 262144,
                 },
 
@@ -1039,7 +1046,7 @@ namespace SmartHopper.Providers.Gemini
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -85,
+                    Rank = -90,
                     ContextLimit = 32000,
                 },
 
@@ -1052,7 +1059,7 @@ namespace SmartHopper.Providers.Gemini
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -90,
+                    Rank = -95,
                     ContextLimit = 32000,
                 }
             };
