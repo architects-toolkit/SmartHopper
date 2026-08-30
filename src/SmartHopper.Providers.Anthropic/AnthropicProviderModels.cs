@@ -113,32 +113,12 @@ namespace SmartHopper.Providers.Anthropic
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-opus-4-8",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9990,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 5, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000005m,
-                        Completion = 0.000025m,
-                        InputCacheRead = 0.0000005m,
-                        InputCacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
                     Model = "claude-fable-5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9985,
+                    Rank = 9990,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 9),
                     Pricing = new AIModelPricing
@@ -163,6 +143,26 @@ namespace SmartHopper.Providers.Anthropic
 
 
                 // Released between February 2026 and May 2026
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-opus-4-8",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9985,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 5, 27),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000005m,
+                        Completion = 0.000025m,
+                        InputCacheRead = 0.0000005m,
+                        InputCacheWrite = 0.00000625m,
+                        WebSearch = 0.01m,
+                    },
+                },
 
                 new AIModelCapabilities
                 {
@@ -229,27 +229,6 @@ namespace SmartHopper.Providers.Anthropic
                     },
                 },
 
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
-                    Model = "claude-opus-4-5-20251101",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9965,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 11, 24),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000005m,
-                        Completion = 0.000025m,
-                        InputCacheRead = 0.0000005m,
-                        InputCacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "claude-opus-4-5", "claude-opus-4-5-latest", "claude-opus-4.5", "claude-opus-4.5-latest" },
-                },
-
 
 
                 // Released between August 2025 and November 2025
@@ -262,7 +241,7 @@ namespace SmartHopper.Providers.Anthropic
                     Default = AICapability.Text2Text | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.ToolChat | AICapability.Image2Text,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 9960,
+                    Rank = 9965,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 10, 15),
                     Pricing = new AIModelPricing
@@ -284,7 +263,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 9955,
+                    Rank = 9960,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 9, 29),
                     Pricing = new AIModelPricing
@@ -296,6 +275,27 @@ namespace SmartHopper.Providers.Anthropic
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-sonnet-4-5", "claude-sonnet-4-5-latest", "claude-sonnet-4.5", "claude-sonnet-4.5-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-opus-4-5-20251101",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9955,
+                    ContextLimit = 200000,
+                    Created = new DateTime(2025, 11, 24),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000005m,
+                        Completion = 0.000025m,
+                        InputCacheRead = 0.0000005m,
+                        InputCacheWrite = 0.00000625m,
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "claude-opus-4-5", "claude-opus-4-5-latest", "claude-opus-4.5", "claude-opus-4.5-latest" },
                 },
 
 
