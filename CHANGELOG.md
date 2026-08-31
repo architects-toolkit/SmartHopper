@@ -34,6 +34,8 @@ Many thanks to the following contributors to this release:
 ### Fixed
 
 - `tools/Sign-Authenticode.ps1` now Authenticode-signs `SmartHopper.Providers.LocalAI.dll` and `SmartHopper.Providers.Ollama.dll`. They were missing from the signing allowlist, so both providers shipped unsigned and Grasshopper refused to enable them as untrusted providers.
+- Hash-manifest validation now permits only bot-authored additions from release automation and continues to block manual edits.
+- Released-version validation now permits ordinary pull requests to inherit the target branch's already-released version while rejecting newly introduced reuse.
 
 ## [2.0.0-dev.260821] - 2026-08-21
 

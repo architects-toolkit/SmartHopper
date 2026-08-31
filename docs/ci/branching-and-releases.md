@@ -105,7 +105,12 @@ The dated `-dev.YYMMDD` suffix is refreshed by `chore-version-sync.yml` when `sr
    Titles are changed only when invalid or equal to the head branch name. A recorded head SHA makes
    the run idempotent, and unavailable AI uses a clearly marked deterministic fallback.
 3. `pr-validation`, `pr-version-validation`, `pr-linear-history`, `ci-dotnet-tests`,
-   `pr-build-hash-validation` and the style/license/doc checks must pass.
+   `pr-build-hash-validation` and the style/license/doc checks must pass. The released-version
+   guard only rejects a version newly introduced by the PR when that exact tag already exists;
+   inheriting the target branch's already-released version is allowed. The hash guard blocks
+   edits, deletions, renames, and copies, while allowing only a single bot-authored
+   `hashes/<version>.json` addition from a `hash-update/*` branch when its version matches the
+   PR head.
 4. Rebase-merge through the merge queue. The branch is deleted automatically.
 
 `CHANGELOG.md` entries go under `[Unreleased]` and stay there until a release moves them.
@@ -131,8 +136,9 @@ Review and merge it. `release-2-tag-on-merge.yml` then:
 3. opens a `chore/bump-<next-dev-version>` PR so `main` returns to dated dev versioning
    (auto-merge with rebase).
 
-If the released version is today's dated development prerelease, the next development version is
-unchanged and no bump PR is opened; a later manual date or patch bump can create a new version.
+The post-release workflow always opens the development-version bump PR for releases targeting
+`main`. Same-day development releases use the next available sequence suffix, so a release of
+`X.Y.Z-dev.YYMMDD` is followed by `X.Y.Z-dev.YYMMDD.1`, then `.2` as needed.
 
 Publishing the draft release triggers the existing build → hash → Pages → Yak chain
 (`release-4-build.yml`, `release-5-deploy-pages.yml`, `release-6-upload-yak.yml`).
