@@ -59,7 +59,6 @@ protected override IReadOnlyList<string> UsingAiTools => new[] { "text2text" };
 | -------- | ------- | ------- |
 | `github-pr-auto-label.yml` | PR open/sync | Path-based labels + AI tool propagation |
 | `pre-commit.ps1` | Every commit | Regenerate `labels.yml` and `labeler.yml` component mappings |
-| `one-time-label-sync.yml` | Manual | Rename/delete/create labels on GitHub and migrate issues/PRs |
 | `github-labels-sync.yml` | Push to labels.yml | Keep GitHub labels in sync with `labels.yml` definitions |
 
 ## PowerShell Scripts
