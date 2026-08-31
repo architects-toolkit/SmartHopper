@@ -141,7 +141,7 @@ The post-release workflow always opens the development-version bump PR for relea
 `X.Y.Z-dev.YYMMDD` is followed by `X.Y.Z-dev.YYMMDD.1`, then `.2` as needed.
 
 Publishing the draft release triggers the existing build → hash → Pages → Yak chain
-(`release-4-build.yml`, `release-5-deploy-pages.yml`, `release-6-upload-yak.yml`).
+(`release-3-build.yml`, `release-4-deploy-pages.yml`, `release-5-upload-yak.yml`).
 
 ### 5.2 Stabilization line
 
@@ -257,9 +257,9 @@ from it, revert the offending change there, and ship a new patch release.
 | `pr-version-validation.yml` | pull requests | Validates version progression. |
 | `release-1-prepare.yml` | manual | Creates a release-preparation pull request. |
 | `release-2-tag-on-merge.yml` | merged release-prep pull requests | Creates release tags and draft releases. |
-| `release-4-build.yml` | published releases | Builds release artifacts. |
-| `release-5-deploy-pages.yml` | published releases | Deploys release documentation and hashes to Pages. |
-| `release-6-upload-yak.yml` | published releases / manual | Uploads the tagged package to Yak. |
+| `release-3-build.yml` | published releases | Builds release artifacts. |
+| `release-4-deploy-pages.yml` | published releases | Deploys release documentation and hashes to Pages. |
+| `release-5-upload-yak.yml` | published releases / manual | Uploads the tagged package to Yak. |
 | `stabilization-1-start.yml` | manual | Creates a `release/X.Y` stabilization line. |
 | `stabilization-2-promote.yml` | daily schedule / manual | Promotes eligible stabilization stages. |
 | `stabilization-3-complete.yml` | published stable release / manual | Backports a stable line release to `main`. |
