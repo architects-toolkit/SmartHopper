@@ -17,6 +17,8 @@ on:
       - main
       - 'hotfix/**'
       - 'release/**'
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -56,8 +58,23 @@ jobs:
 
     - name: Checkout Target Branch Solution.props
       shell: bash
+      env:
+        INPUT_BASE_REF: ${{ github.event.inputs.base_ref }}
+        MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
       run: |
-        TARGET_BRANCH="${{ github.event.inputs.base_ref || github.base_ref }}"
+        if [ -n "${MERGE_GROUP_BASE_REF:-}" ]; then
+          TARGET_BRANCH="$MERGE_GROUP_BASE_REF"
+        elif [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+          TARGET_BRANCH="${GITHUB_REF_NAME#gh-readonly-queue/}"
+          TARGET_BRANCH="${TARGET_BRANCH%/*}"
+        elif [ -n "${INPUT_BASE_REF:-}" ]; then
+          TARGET_BRANCH="$INPUT_BASE_REF"
+        elif [ -n "${GITHUB_BASE_REF:-}" ]; then
+          TARGET_BRANCH="$GITHUB_BASE_REF"
+        else
+          TARGET_BRANCH="main"
+        fi
+        TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
         echo "Target branch: $TARGET_BRANCH"
         git fetch origin "$TARGET_BRANCH"
         git checkout "origin/$TARGET_BRANCH" -- Solution.props
