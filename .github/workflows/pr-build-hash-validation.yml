@@ -60,6 +60,7 @@ jobs:
         INPUT_BASE_REF: ${{ github.event.inputs.base_ref }}
         INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number }}
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SMARTHOPPER_BOT_EMAIL: ${{ vars.SMARTHOPPER_BOT_EMAIL }}
       run: |
         echo "Checking for manual edits to hashes/ directory..."
         echo "Source of truth: main branch"
@@ -140,18 +141,17 @@ jobs:
             version="${version%.json}"
             head_version=$(git show HEAD:Solution.props 2>/dev/null |
               sed -n 's#.*<SolutionVersion>\([^<]*\)</SolutionVersion>.*#\1#p' | head -n 1)
-            if [ -z "$head_version" ]; then
-              reason="the PR head version could not be read from Solution.props"
-            elif [ "$version" != "$head_version" ]; then
-              reason="manifest version '$version' does not match PR head version '$head_version'"
+            git fetch origin "refs/tags/$version:refs/tags/$version" --depth=1 2>/dev/null || true
+            if [ "$version" != "$head_version" ] &&
+               ! git rev-parse --verify "refs/tags/$version^{commit}" >/dev/null 2>&1; then
+              reason="manifest version '$version' is neither a released tag nor the PR head version '${head_version:-unknown}'"
             else
               author_email=$(git log --diff-filter=A --format=%ae -1 -- "$old_path" || true)
-              if [ -n "${SMARTHOPPER_BOT_EMAIL:-}" ]; then
-                if [ "$author_email" != "$SMARTHOPPER_BOT_EMAIL" ]; then
-                  reason="author email '$author_email' does not match SMARTHOPPER_BOT_EMAIL"
-                fi
+              if [ -n "${SMARTHOPPER_BOT_EMAIL:-}" ] &&
+                 [ "$author_email" = "$SMARTHOPPER_BOT_EMAIL" ]; then
+                :
               elif [[ ! "$author_email" =~ \[bot\]@users\.noreply\.github\.com$ ]]; then
-                reason="author email '$author_email' is not a GitHub bot email"
+                reason="author email '$author_email' is not the release bot"
               fi
             fi
           fi
