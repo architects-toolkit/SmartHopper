@@ -152,9 +152,7 @@ line through `alpha → beta → rc → stable` by dispatching `release-1-prepar
 when **all** of these hold for the current staged version:
 
 - no open issues labelled for **any tagged version on the `X.Y` line**,
-- no open PRs targeting `release/X.Y`,
 - the current staged release was published at least `PROMOTION_AGE_DAYS` days ago,
-- the last closed issue for the line's versions is at least `PROMOTION_AGE_DAYS` days old,
 - no `promotion: freeze` label is active for the version.
 
 `PROMOTION_AGE_DAYS` is a repository variable; when it is unset, the workflow uses a default of
@@ -162,7 +160,7 @@ when **all** of these hold for the current staged version:
 versions that still have open issues. Promotion does not move items between milestones or close
 milestones; milestones remain metadata only.
 
-`force-promote` (dispatch input) overrides the age and freeze conditions. An open issue with the
+`force-promote` (dispatch input) overrides all eligibility conditions. An open issue with the
 `promotion: freeze` label and matching `version: X.Y` label freezes that line. When a line is older than
 the threshold but blocked, automation opens/updates an issue
 `⛔ Promotion blocked: X.Y.Z-stage` with the current reason.
