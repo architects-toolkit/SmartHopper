@@ -40,35 +40,9 @@ jobs:
 
       - name: Discover active release lines
         id: discover
-        shell: bash
-        env:
-          REQUESTED_LINE: ${{ inputs.line }}
-        run: |
-          set -euo pipefail
-          if [[ -n "$REQUESTED_LINE" && ! "$REQUESTED_LINE" =~ ^[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Invalid release line '$REQUESTED_LINE'; expected X.Y." >&2
-            exit 1
-          fi
-
-          if [[ -n "$REQUESTED_LINE" ]]; then
-            branches="$REQUESTED_LINE"
-            if ! git ls-remote --exit-code --heads origin "release/${branches}" >/dev/null 2>&1; then
-              echo "::error::Release branch 'release/${branches}' does not exist." >&2
-              exit 1
-            fi
-          else
-            branches=$(git ls-remote --heads origin 'refs/heads/release/*' |
-              sed -n 's#.*refs/heads/release/\([0-9]\+\.[0-9]\+\)$#\1#p' | sort -V)
-          fi
-
-          LINES_JSON=$(BRANCHES="$branches" python3 - <<'PY'
-          import json
-          import os
-
-          print(json.dumps([line for line in os.environ["BRANCHES"].splitlines() if line]))
-          PY
-          )
-          echo "lines=$LINES_JSON" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/versioning/discover-release-lines
+        with:
+          line: ${{ inputs.line }}
 
   promote:
     needs: discover-lines

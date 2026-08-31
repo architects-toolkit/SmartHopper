@@ -1,0 +1,114 @@
+name: Discover Release Lines
+description: Discover active `release/X.Y` stabilization lines.
+
+inputs:
+  line:
+    description: Optional X.Y release line to restrict the result to.
+    required: false
+    default: ''
+  older-than:
+    description: Optional X.Y.Z[-suffix] version; include only older release lines.
+    required: false
+    default: ''
+  include-main:
+    description: Whether to include main in the targets output.
+    required: false
+    default: 'false'
+
+outputs:
+  lines:
+    description: JSON array of active X.Y release lines.
+    value: ${{ steps.discover.outputs.lines }}
+  targets:
+    description: JSON array of target branch and safe-name objects.
+    value: ${{ steps.discover.outputs.targets }}
+
+runs:
+  using: composite
+  steps:
+    - name: Discover release lines
+      id: discover
+      shell: bash
+      env:
+        REQUESTED_LINE: ${{ inputs.line }}
+        OLDER_THAN: ${{ inputs.older-than }}
+        INCLUDE_MAIN: ${{ inputs.include-main }}
+      run: |
+        set -euo pipefail
+
+        if [[ -n "$REQUESTED_LINE" && ! "$REQUESTED_LINE" =~ ^[0-9]+\.[0-9]+$ ]]; then
+          echo "::error::Invalid release line '$REQUESTED_LINE'; expected X.Y." >&2
+          exit 1
+        fi
+
+        if [[ -n "$OLDER_THAN" && ! "$OLDER_THAN" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-.+)?$ ]]; then
+          echo "Invalid release version: $OLDER_THAN" >&2
+          exit 1
+        fi
+
+        if [[ "$INCLUDE_MAIN" != true && "$INCLUDE_MAIN" != false ]]; then
+          echo "::error::Invalid include-main '$INCLUDE_MAIN'; expected true or false." >&2
+          exit 1
+        fi
+
+        RELEASE_LINES=$(git ls-remote --heads origin 'refs/heads/release/*' |
+          sed -n 's#.*refs/heads/release/\([0-9]\+\.[0-9]\+\)$#\1#p' |
+          sort -V)
+
+        if [[ -n "$REQUESTED_LINE" ]] &&
+           ! grep -Fxq "$REQUESTED_LINE" <<< "$RELEASE_LINES"; then
+          echo "::error::Release branch 'release/$REQUESTED_LINE' does not exist." >&2
+          exit 1
+        fi
+
+        LINES_JSON=$(RELEASE_LINES="$RELEASE_LINES" OLDER_THAN="$OLDER_THAN" REQUESTED_LINE="$REQUESTED_LINE" python3 - <<'PY'
+        import json
+        import os
+        import re
+
+        requested_line = os.environ["REQUESTED_LINE"]
+        older_than = os.environ["OLDER_THAN"]
+        release_lines = os.environ["RELEASE_LINES"].splitlines()
+
+        if requested_line:
+            release_lines = [requested_line]
+
+        if older_than:
+            match = re.fullmatch(
+                r"(\d+)\.(\d+)\.(\d+)(?:-.+)?",
+                older_than,
+            )
+            if not match:
+                raise SystemExit(f"Invalid release version: {older_than}")
+            target = tuple(map(int, match.groups()))
+            filtered_lines = []
+            for line in release_lines:
+                major, minor = map(int, line.split("."))
+                if (major, minor, 0) < target:
+                    filtered_lines.append(line)
+            release_lines = filtered_lines
+
+        print(json.dumps(release_lines))
+        PY
+        )
+
+        TARGETS_JSON=$(LINES_JSON="$LINES_JSON" INCLUDE_MAIN="$INCLUDE_MAIN" python3 - <<'PY'
+        import json
+        import os
+
+        lines = json.loads(os.environ["LINES_JSON"])
+        targets = []
+        if os.environ["INCLUDE_MAIN"] == "true":
+            targets.append({"branch": "main", "safe": "main"})
+        targets.extend(
+            {"branch": f"release/{line}", "safe": f"release-{line}"}
+            for line in lines
+        )
+        print(json.dumps(targets))
+        PY
+        )
+
+        {
+          echo "lines=$LINES_JSON"
+          echo "targets=$TARGETS_JSON"
+        } >> "$GITHUB_OUTPUT"
