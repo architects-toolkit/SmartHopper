@@ -2,8 +2,11 @@
 # Contains the domain logic for generating user-friendly release notes
 # from the CHANGELOG.md using the Mistral AI Chat Completions API.
 #
-# The prompts in this action are derived from .windsurf/workflows/release-notes.md
-# and should be kept in sync with that file when the release notes format changes.
+# The prompts are stored in .github/prompts/ directory:
+# - release-notes-major-minor.md for major/minor releases
+# - release-notes-patch.md for patch releases
+# - release-notes-dev.md for development releases
+# and should be kept in sync with those files when the release notes format changes.
 
 name: 'Generate Release Notes'
 description: 'Generate AI-powered release notes from CHANGELOG.md using Mistral AI'
@@ -77,14 +80,17 @@ runs:
       shell: bash
       env:
         PATCH: ${{ inputs.patch }}
+        SUFFIX: ${{ inputs.suffix }}
       run: |
         if [ "$PATCH" != "0" ]; then
           echo "type=patch" >> "$GITHUB_OUTPUT"
+        elif [ -n "$SUFFIX" ] && [[ "$SUFFIX" =~ ^dev(\.|$) ]]; then
+          echo "type=dev" >> "$GITHUB_OUTPUT"
         else
           echo "type=major-minor" >> "$GITHUB_OUTPUT"
         fi
 
-    - name: Build system prompt
+    - name: Build system prompt and static content
       id: build_prompt
       shell: bash
       env:
@@ -95,75 +101,100 @@ runs:
         if [ "$RELEASE_TYPE" = "major-minor" ]; then
           # Determine stage language for Important Notes section
           if [ -n "$SUFFIX" ]; then
-            STAGE_LINE="- This is an ${SUFFIX} release with some features still unstable or subject to change"
+            STAGE_LINE="- This is a pre-release with some features still unstable or subject to change"
           else
             STAGE_LINE="- This is a stable release"
           fi
 
-          SYSTEM_PROMPT="You are a release notes writer for SmartHopper, a Grasshopper plugin for AI-assisted design in Rhino.
-
-        Given a changelog section, generate:
-        1. A release title on the FIRST LINE in this exact format: SmartHopper ${VERSION}: <Engaging Short Title>
-           Examples: \"SmartHopper 0.3.0-alpha: Powerful AI tools and enhanced security\"
-        2. Then a blank line, followed by release notes in markdown:
-
-        <Brief sentence summarizing the release focusing on user-facing changes>
-
-        ## <emoji> Feature/Change 1
-        <Brief user-facing description>
-
-        ## <emoji> Feature/Change 2
-        <Repeat as needed>
-
-        ## Technical Requirements
-        - Rhino 8.0 or above is required
-        - Windows 10/11 or macOS
-        - Valid API keys for MistralAI, OpenAI, DeepSeek, Anthropic, OpenRouter, Gemini, or a self-hosted LocalAI/Ollama endpoint
-
-        ## Important Notes
-        ${STAGE_LINE}
-        - API keys are required, and usage costs apply based on your provider
-        - Documentation is currently under development
-
-        ## We Value Your Feedback!
-        Help shape SmartHopper's future by:
-        - Sharing your experiences with the new features
-        - Suggesting improvements via our discussion (https://github.com/architects-toolkit/SmartHopper/discussions)
-        - Telling us what AI capabilities would help your workflow most
-
-        We hope you enjoy these new features and improvements!
-        Happy designing!
-
-        RULES:
-        - Focus on user-facing changes only. Omit internal refactors, CI changes, and developer tooling.
-        - Summarize and group related changes into coherent themes. Do not copy-paste the changelog.
-        - Use emojis for section headers.
-        - The FIRST LINE must be the title only. Then blank line. Then the body."
+          # Read the major/minor prompt from the prompts directory
+          SYSTEM_PROMPT=$(python3 - "$VERSION" <<'PY'
+        import pathlib
+        import sys
+        
+        template_path = pathlib.Path(".github/prompts/release-notes-major-minor.md")
+        content = template_path.read_text(encoding="utf-8")
+        
+        # Replace placeholders
+        content = content.replace("${VERSION}", sys.argv[1])
+        
+        print(content)
+        PY
+          )
+          
+          # Load static content for major/minor and replace STAGE_LINE
+          STATIC_CONTENT=$(python3 - "$STAGE_LINE" <<'PY'
+        import pathlib
+        import sys
+        
+        template_path = pathlib.Path(".github/prompts/release-notes-major-minor-static.md")
+        content = template_path.read_text(encoding="utf-8")
+        
+        # Replace STAGE_LINE placeholder
+        content = content.replace("${STAGE_LINE}", sys.argv[1])
+        
+        print(content)
+        PY
+          )
+        elif [ "$RELEASE_TYPE" = "dev" ]; then
+          # Read the dev prompt from the prompts directory
+          SYSTEM_PROMPT=$(python3 - "$VERSION" <<'PY'
+        import pathlib
+        import sys
+        
+        template_path = pathlib.Path(".github/prompts/release-notes-dev.md")
+        content = template_path.read_text(encoding="utf-8")
+        
+        # Replace placeholders
+        content = content.replace("${VERSION}", sys.argv[1])
+        
+        print(content)
+        PY
+          )
+          
+          # Load static content for dev
+          STATIC_CONTENT=$(python3 <<'PY'
+        import pathlib
+        
+        template_path = pathlib.Path(".github/prompts/release-notes-dev-static.md")
+        print(template_path.read_text(encoding="utf-8"))
+        PY
+          )
         else
-          # Patch release prompt
-          SYSTEM_PROMPT="You are a release notes writer for SmartHopper, a Grasshopper plugin for AI-assisted design in Rhino.
-
-        Given a changelog section for a patch release, generate:
-        1. A release title on the FIRST LINE: SmartHopper ${VERSION}: <Short Description> [Patch]
-        2. Then a blank line, followed by release notes:
-
-        <Brief sentence summarizing the patch>
-
-        ## Detailed list of changes
-        - <Summarized change 1>
-        - <Summarized change 2>
-        - Fixed issue [#N](link) (preserve issue links from the changelog)
-
-        RULES:
-        - Summarize the changelog, do not copy-paste it literally.
-        - Preserve issue links from the original changelog.
-        - The FIRST LINE must be the title only. Then blank line. Then the body."
+          # Patch release - read the patch prompt from the prompts directory
+          SYSTEM_PROMPT=$(python3 - "$VERSION" <<'PY'
+        import pathlib
+        import sys
+        
+        template_path = pathlib.Path(".github/prompts/release-notes-patch.md")
+        content = template_path.read_text(encoding="utf-8")
+        
+        # Replace placeholders
+        content = content.replace("${VERSION}", sys.argv[1])
+        
+        print(content)
+        PY
+          )
+          
+          # Load static content for patch
+          STATIC_CONTENT=$(python3 <<'PY'
+        import pathlib
+        
+        template_path = pathlib.Path(".github/prompts/release-notes-patch-static.md")
+        print(template_path.read_text(encoding="utf-8"))
+        PY
+          )
         fi
 
         {
           echo "system_prompt<<EOF_SYSTEM_PROMPT"
           echo "$SYSTEM_PROMPT"
           echo "EOF_SYSTEM_PROMPT"
+        } >> "$GITHUB_OUTPUT"
+        
+        {
+          echo "static_content<<EOF_STATIC"
+          echo "$STATIC_CONTENT"
+          echo "EOF_STATIC"
         } >> "$GITHUB_OUTPUT"
 
     - name: Call Mistral AI
@@ -186,17 +217,26 @@ runs:
         AI_SUCCESS: ${{ steps.ai_call.outputs.success }}
         VERSION: ${{ inputs.version }}
         CHANGELOG_SECTION: ${{ steps.extract_changelog.outputs.changelog_section }}
+        STATIC_CONTENT: ${{ steps.build_prompt.outputs.static_content }}
       run: |
         if [ "$AI_SUCCESS" = "true" ] && [ -n "$AI_RESPONSE" ]; then
           # First line is the title, rest is the body
           TITLE=$(echo "$AI_RESPONSE" | head -n 1)
           BODY=$(echo "$AI_RESPONSE" | tail -n +3)
 
+          # Append static content to the body
+          FULL_BODY="${BODY}
+
+          ${STATIC_CONTENT}"
+
           echo "::notice::AI release notes generated successfully"
         else
           echo "::warning::AI generation failed or returned empty, using fallback"
           TITLE="SmartHopper $VERSION: <add an engaging title here>"
           BODY="$CHANGELOG_SECTION"
+          FULL_BODY="${BODY}
+
+          ${STATIC_CONTENT}"
         fi
 
         {
@@ -207,6 +247,6 @@ runs:
 
         {
           echo "body<<EOF_BODY"
-          echo "$BODY"
+          echo "$FULL_BODY"
           echo "EOF_BODY"
         } >> "$GITHUB_OUTPUT"
