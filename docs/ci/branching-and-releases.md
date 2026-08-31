@@ -259,7 +259,7 @@ from it, revert the offending change there, and ship a new patch release.
 | `pr-notes.yml` | pull request open/update/reopen/ready | Generates PR titles and descriptions. |
 | `pr-update-changelog-issues.yml` | manual | Adds eligible closed issues to the changelog. |
 | `pr-validation.yml` | pull requests, merge queue | Runs pull-request metadata and style gates. |
-| `pr-version-validation.yml` | pull requests | Validates version progression. |
+| `pr-version-validation.yml` | pull requests, merge queue | Validates version progression. |
 | `release-1-prepare.yml` | manual | Creates a release-preparation pull request. |
 | `release-2-tag-on-merge.yml` | merged release-prep pull requests | Creates release tags and draft releases. |
 | `release-3-build.yml` | published releases | Builds release artifacts. |
