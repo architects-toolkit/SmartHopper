@@ -90,7 +90,6 @@ This is the root documentation hub for SmartHopper. It organizes all guides, ref
 ### Development
 
 - [Authenticode Signing](Development/authenticode-signing.md) -- assembly signing for provider trust
-- [Patch Propagation](Development/patch-propagation.md) -- multi-branch commit fan-out
 
 ### Reviews
 
@@ -178,7 +177,7 @@ The SmartHopper documentation is organized into topical sections that mirror the
 - **Architecture** contains deep dives into data structures, design decisions, and system behavior.
 - **Context & Tools** explains how environment context is gathered and how AI tools modify the Grasshopper canvas.
 - **UI** covers the WebChat interface and its bridge into Rhino/Grasshopper.
-- **Development** hosts contributor-facing guides such as authenticode signing and patch propagation.
+- **Development** hosts contributor-facing guides such as authenticode signing.
 - **Reviews** archives architecture review analyses.
 
 This structure ensures that users, developers, and architects each have a clear path to the information they need.

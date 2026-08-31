@@ -262,15 +262,3 @@ from it, revert the offending change there, and ship a new patch release.
 | `user-build-and-hash.yml` | manual | Builds and validates hashes for a selected ref. |
 | `user-code-style.yml` | manual | Runs the code-style tooling. |
 | `version-bump.yml` | manual | Opens a version-bump pull request. |
-
-### Removed in the redesign
-
-- `sync-dev-from-main.yml` — removed; `main` is now the only integration branch.
-- `pr-block-dev-to-main.yml` — removed; obsolete cross-branch warning/blocking behavior.
-- `release-promotion.yml` — replaced by `stabilization-2-promote.yml`.
-- `stabilization-0-init.yml` and `stabilization-1-cancel.yml` — replaced by
-  `stabilization-1-start.yml`; milestones are metadata only.
-- `stabilization-2-complete.yml` — replaced by `stabilization-3-complete.yml`.
-- `hotfix-0-new-branch.yml` — replaced by `hotfix-1-start.yml`.
-- `hotfix-1-release-hotfix.yml` and `hotfix-backport.yml` — replaced by
-  `hotfix-2-release.yml`.

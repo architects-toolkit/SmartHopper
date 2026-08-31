@@ -7,8 +7,7 @@
 
 | Pattern | Protection |
 |---------|-----------|
-| `main`, `main-*` | PR + codeowner approval required |
-| `dev`, `dev-*` | PR + codeowner approval required |
+| `main` | PR + codeowner approval required |
 | `hotfix/*` | PR + codeowner approval required |
 | `release/**` | PR + codeowner approval required |
 

@@ -3,9 +3,9 @@ description: Review the changelog and last commits for consistency
 auto_execution_mode: 3
 ---
 
-Omit this workflow if current branch is main or dev.
+Omit this workflow if current branch is main.
 
-1. Get a list of all commits in the current branch that are not in dev branch.
+1. Get a list of all commits in the current branch that are not in the main branch.
 
 2. Get the messages for all retrieved commits.
 
