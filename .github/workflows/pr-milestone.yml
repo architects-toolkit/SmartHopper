@@ -59,25 +59,39 @@ jobs:
           console.log('Found full version:', fullVersion);
           
           // Parse and process version
-          // The following logic processes the version string to make it suitable for milestone assignment:
-          // - Build numbers (e.g., ".250720") are removed because they are not relevant for milestone assignment.
-          // - The suffix "-dev" is replaced with "-alpha" because there are no milestones for development versions, 
-          //   and development versions are treated as alpha releases.
+          // Milestones are named by the stage the PR is targeting, not the exact build/sequence.
+          // - stable X.Y.Z -> milestone X.Y.Z
+          // - pre-release X.Y.Z-stage.N -> milestone X.Y.Z-stage
+          // - development X.Y.Z-dev[.date][.seq] -> milestone X.Y.Z-alpha (pre-alpha)
+          //
           // Examples: "0.4.0-dev.250720" -> "0.4.0-alpha"
-          //           "0.4.1-alpha" -> "0.4.1-alpha"  
-          //           "0.4.2-beta.250123" -> "0.4.2-beta"
-          
-          // Remove everything after the last dot (suppress build number)
-          let processedVersion = fullVersion;
-          const lastDotIndex = processedVersion.lastIndexOf('.');
-          if (lastDotIndex > processedVersion.indexOf('-')) {
-            // Only remove if the dot is after the dash (part of build number)
-            processedVersion = processedVersion.substring(0, lastDotIndex);
+          //           "0.4.0-alpha" -> "0.4.0-alpha"
+          //           "0.4.0-alpha.1" -> "0.4.0-alpha"
+          //           "0.4.0-beta.2" -> "0.4.0-beta"
+
+          const match = fullVersion.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
+          if (!match) {
+            console.log('Could not parse version as semantic version');
+            return;
           }
-          
-          // Replace -dev with -alpha (there are no dev milestones)
-          processedVersion = processedVersion.replace('-dev', '-alpha');
-          
+
+          const core = `${match[1]}.${match[2]}.${match[3]}`;
+          const suffix = match[4] || '';
+          let processedVersion;
+
+          if (!suffix) {
+            // Stable release target
+            processedVersion = core;
+          } else {
+            // Stage is the first segment of the suffix; dev is pre-alpha
+            const stage = suffix.split('.')[0].toLowerCase();
+            if (stage === 'dev') {
+              processedVersion = `${core}-alpha`;
+            } else {
+              processedVersion = `${core}-${stage}`;
+            }
+          }
+
           console.log('Processed version for milestone:', processedVersion);
           
           // Find milestone with matching title — paginate to walk through ALL

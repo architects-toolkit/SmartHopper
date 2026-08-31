@@ -21,139 +21,191 @@ inputs:
 outputs:
   new-version:
     description: Computed version.
-    value: ${{ steps.calculate.outputs.new-version }}
+    value: ${{ steps.final.outputs.new-version }}
   tag:
     description: Computed bare tag name.
-    value: ${{ steps.calculate.outputs.tag }}
+    value: ${{ steps.final.outputs.tag }}
   is-prerelease:
     description: Whether the computed version is a prerelease.
-    value: ${{ steps.calculate.outputs.is-prerelease }}
+    value: ${{ steps.final.outputs.is-prerelease }}
   stage:
     description: Release stage.
-    value: ${{ steps.calculate.outputs.stage }}
+    value: ${{ steps.final.outputs.stage }}
   core:
     description: Computed X.Y.Z core version.
-    value: ${{ steps.calculate.outputs.core }}
+    value: ${{ steps.final.outputs.core }}
 
 runs:
   using: composite
   steps:
-    - name: Calculate next release version
-      id: calculate
+    - name: Determine base version inputs
+      id: base-inputs
       shell: bash
-      env:
-        CURRENT_VERSION: ${{ inputs.current-version }}
-        BUMP: ${{ inputs.bump }}
-        STAGE: ${{ inputs.stage }}
-        INPUT_DATE: ${{ inputs.date }}
       run: |
-        set -euo pipefail
-
-        if [[ ! "$CURRENT_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[A-Za-z0-9.]+)?$ ]]; then
-          echo "::error::Invalid current-version '$CURRENT_VERSION'; expected X.Y.Z[-suffix]." >&2
-          exit 1
-        fi
-        CURRENT_MAJOR="${BASH_REMATCH[1]}"
-        CURRENT_MINOR="${BASH_REMATCH[2]}"
-        CURRENT_PATCH="${BASH_REMATCH[3]}"
-
-        if [[ ! "$BUMP" =~ ^(none|patch|minor|major)$ ]]; then
-          echo "::error::Invalid bump '$BUMP'; expected none, patch, minor, or major." >&2
+        if [[ ! "${{ inputs.bump }}" =~ ^(none|patch|minor|major)$ ]]; then
+          echo "::error::Invalid bump '${{ inputs.bump }}'; expected none, patch, minor, or major." >&2
           exit 1
         fi
 
-        if [[ ! "$STAGE" =~ ^(stable|alpha|beta|rc|dev)$ ]]; then
-          echo "::error::Invalid stage '$STAGE'; expected stable, alpha, beta, rc, or dev." >&2
+        if [[ ! "${{ inputs.stage }}" =~ ^(stable|alpha|beta|rc|dev)$ ]]; then
+          echo "::error::Invalid stage '${{ inputs.stage }}'; expected stable, alpha, beta, rc, or dev." >&2
           exit 1
         fi
 
-        MAJOR=$((10#$CURRENT_MAJOR))
-        MINOR=$((10#$CURRENT_MINOR))
-        PATCH=$((10#$CURRENT_PATCH))
-
-        case "$BUMP" in
-          patch)
-            PATCH=$((PATCH + 1))
+        case "${{ inputs.stage }}" in
+          stable)
+            echo "change-pre-release=remove" >> "$GITHUB_OUTPUT"
+            echo "strip-date=true" >> "$GITHUB_OUTPUT"
+            echo "strip-sequence=true" >> "$GITHUB_OUTPUT"
             ;;
-          minor)
-            MINOR=$((MINOR + 1))
-            PATCH=0
+          dev)
+            echo "change-pre-release=dev" >> "$GITHUB_OUTPUT"
+            echo "strip-date=false" >> "$GITHUB_OUTPUT"
+            echo "strip-sequence=false" >> "$GITHUB_OUTPUT"
             ;;
-          major)
-            MAJOR=$((MAJOR + 1))
-            MINOR=0
-            PATCH=0
+          *)
+            echo "change-pre-release=${{ inputs.stage }}" >> "$GITHUB_OUTPUT"
+            echo "strip-date=true" >> "$GITHUB_OUTPUT"
+            echo "strip-sequence=true" >> "$GITHUB_OUTPUT"
             ;;
         esac
 
-        CORE="$MAJOR.$MINOR.$PATCH"
-        if [[ -n "$INPUT_DATE" ]]; then
-          DATE="$INPUT_DATE"
-        else
-          DATE=$(date -u +%y%m%d)
-        fi
+    - name: Calculate base version
+      id: base
+      uses: ./.github/actions/versioning/calculate-version
+      with:
+        version: ${{ inputs.current-version }}
+        increment: ${{ inputs.bump }}
+        change-pre-release: ${{ steps.base-inputs.outputs.change-pre-release }}
+        pre-release-date: ${{ inputs.date }}
+        strip-date: ${{ steps.base-inputs.outputs.strip-date }}
+        strip-sequence: ${{ steps.base-inputs.outputs.strip-sequence }}
 
-        if [[ ! "$DATE" =~ ^[0-9]{6}$ ]]; then
-          echo "::error::Invalid date '$DATE'; expected YYMMDD." >&2
-          exit 1
-        fi
-
+    - name: Fetch tags
+      shell: bash
+      run: |
+        set -euo pipefail
         git fetch --tags
 
-        if [[ "$STAGE" == "stable" ]]; then
-          NEW_VERSION="$CORE"
-          IS_PRERELEASE=false
-        elif [[ "$STAGE" == "dev" ]]; then
-          NEW_VERSION="$CORE-dev.$DATE"
-          HIGHEST=-1
-          while IFS= read -r TAG; do
-            if [[ "$TAG" =~ ^${CORE//./\\.}-dev\.${DATE}(\.([0-9]+))?$ ]]; then
-              NUMBER=$((10#${BASH_REMATCH[2]:-0}))
-              if (( NUMBER > HIGHEST )); then
-                HIGHEST=$NUMBER
-              fi
+    - name: Add sequence for dev stage
+      id: add-dev-sequence
+      if: inputs.stage == 'dev'
+      shell: bash
+      env:
+        BASE_VERSION: ${{ steps.base.outputs.new-version }}
+        DATE: ${{ inputs.date }}
+      run: |
+        set -euo pipefail
+        
+        if [[ -z "$DATE" ]]; then
+          DATE=$(date -u +%y%m%d)
+        fi
+        
+        CORE="${BASE_VERSION%-*}"
+        
+        HIGHEST=-1
+        while IFS= read -r TAG; do
+          if [[ "$TAG" =~ ^${CORE//./\\.}-dev\.${DATE}(\.([0-9]+))?$ ]]; then
+            NUMBER=$((10#${BASH_REMATCH[2]:-0}))
+            if (( NUMBER > HIGHEST )); then
+              HIGHEST=$NUMBER
             fi
-          done < <({
-            git tag --list "$CORE-dev.$DATE*"
-            git ls-remote --tags --refs origin "refs/tags/$CORE-dev.$DATE*" |
-              awk '{ sub("refs/tags/", "", $2); print $2 }'
-          } | sort -u)
-          if (( HIGHEST >= 0 )); then
-            NEW_VERSION="$CORE-dev.$DATE.$((HIGHEST + 1))"
           fi
-          IS_PRERELEASE=true
+        done < <({
+          git tag --list "$CORE-dev.$DATE*"
+          git ls-remote --tags --refs origin "refs/tags/$CORE-dev.$DATE*" |
+            awk '{ sub("refs/tags/", "", $2); print $2 }'
+        } | sort -u)
+        
+        if (( HIGHEST >= 0 )); then
+          NEW_VERSION="${BASE_VERSION}.$((HIGHEST + 1))"
         else
-          HIGHEST=0
-          LEGACY_TAG="$CORE-$STAGE"
-          if git tag --list "$LEGACY_TAG" | grep -Fxq "$LEGACY_TAG"; then
-            HIGHEST=1
-          fi
+          NEW_VERSION="$BASE_VERSION"
+        fi
+        echo "new-version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
 
-          while IFS= read -r TAG; do
-            if [[ "$TAG" =~ ^${CORE//./\\.}-${STAGE}\.([0-9]+)$ ]]; then
-              NUMBER=$((10#${BASH_REMATCH[1]}))
-              if (( NUMBER > HIGHEST )); then
-                HIGHEST=$NUMBER
-              fi
-            fi
-          done < <(git tag --list "$CORE-$STAGE.*")
-
-          NEW_VERSION="$CORE-$STAGE.$((HIGHEST + 1))"
-          IS_PRERELEASE=true
+    - name: Add sequence for alpha/beta/rc stages
+      id: add-abc-sequence
+      if: inputs.stage != 'stable' && inputs.stage != 'dev'
+      shell: bash
+      env:
+        BASE_VERSION: ${{ steps.base.outputs.new-version }}
+        STAGE: ${{ inputs.stage }}
+      run: |
+        set -euo pipefail
+        
+        CORE="${BASE_VERSION%-*}"
+        
+        HIGHEST=0
+        LEGACY_TAG="$CORE-$STAGE"
+        if git tag --list "$LEGACY_TAG" | grep -Fxq "$LEGACY_TAG"; then
+          HIGHEST=1
         fi
 
-        if git tag --list "$NEW_VERSION" | grep -Fxq "$NEW_VERSION" ||
-          git ls-remote --exit-code --refs origin "refs/tags/$NEW_VERSION" >/dev/null 2>&1; then
-          echo "::error::Computed version '$NEW_VERSION' already exists as a git tag." >&2
+        while IFS= read -r TAG; do
+          if [[ "$TAG" =~ ^${CORE//./\\.}-${STAGE}\.([0-9]+)$ ]]; then
+            NUMBER=$((10#${BASH_REMATCH[1]}))
+            # Ignore 6-digit values that look like embedded dates from legacy tags (e.g., alpha.260831)
+            if [[ "${BASH_REMATCH[1]}" =~ ^[0-9]{6}$ ]]; then
+              continue
+            fi
+            if (( NUMBER > HIGHEST )); then
+              HIGHEST=$NUMBER
+            fi
+          fi
+        done < <({
+          git tag --list "$CORE-$STAGE.*"
+          git ls-remote --tags --refs origin "refs/tags/$CORE-$STAGE.*" |
+            awk '{ sub("refs/tags/", "", $2); print $2 }'
+        } | sort -u)
+
+        NEW_VERSION="${BASE_VERSION}.$((HIGHEST + 1))"
+        echo "new-version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+    - name: Use base version for stable
+      id: use-base
+      if: inputs.stage == 'stable'
+      shell: bash
+      run: |
+        echo "new-version=${{ steps.base.outputs.new-version }}" >> "$GITHUB_OUTPUT"
+
+    - name: Determine final version and validate
+      id: final
+      shell: bash
+      run: |
+        set -euo pipefail
+        
+        if [[ "${{ inputs.stage }}" == "dev" ]]; then
+          FINAL_VERSION="${{ steps.add-dev-sequence.outputs.new-version }}"
+        elif [[ "${{ inputs.stage }}" == "stable" ]]; then
+          FINAL_VERSION="${{ steps.use-base.outputs.new-version }}"
+        else
+          FINAL_VERSION="${{ steps.add-abc-sequence.outputs.new-version }}"
+        fi
+        
+        # Check collision
+        if git tag --list "$FINAL_VERSION" | grep -Fxq "$FINAL_VERSION" ||
+          git ls-remote --exit-code --refs origin "refs/tags/$FINAL_VERSION" >/dev/null 2>&1; then
+          echo "::error::Computed version '$FINAL_VERSION' already exists as a git tag." >&2
           exit 1
         fi
-
+        
+        # Determine if prerelease
+        if [[ "$FINAL_VERSION" == *-* ]]; then
+          IS_PRERELEASE=true
+        else
+          IS_PRERELEASE=false
+        fi
+        
+        # Extract core
+        CORE="${FINAL_VERSION%-*}"
+        
         {
-          echo "new-version=$NEW_VERSION"
-          echo "tag=$NEW_VERSION"
+          echo "new-version=$FINAL_VERSION"
+          echo "tag=$FINAL_VERSION"
           echo "is-prerelease=$IS_PRERELEASE"
-          echo "stage=$STAGE"
+          echo "stage=${{ inputs.stage }}"
           echo "core=$CORE"
         } >> "$GITHUB_OUTPUT"
 
-        echo "Computed $NEW_VERSION (core $CORE, stage $STAGE)."
+        echo "Computed $FINAL_VERSION (core $CORE, stage ${{ inputs.stage }})."

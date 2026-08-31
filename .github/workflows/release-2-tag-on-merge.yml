@@ -149,8 +149,8 @@ jobs:
         uses: ./.github/actions/versioning/next-version
         with:
           current-version: ${{ steps.release-info.outputs.version }}
-          bump: ${{ contains(steps.release-info.outputs.version, '-') && 'none' || 'patch' }}
-          stage: dev
+          bump: ${{ contains(steps.release-info.outputs.version, '-') && 'none' || 'minor' }}
+          stage: ${{ contains(steps.release-info.outputs.version, '-') && steps.release-info.outputs.stage || 'dev' }}
 
       - name: Create post-release bump branch
         if: github.base_ref == 'main'

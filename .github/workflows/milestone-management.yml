@@ -1,19 +1,29 @@
 name: 📋 Milestone Management
 
 # Milestone Management Workflow
-# 1. Creates next-stage milestones when versions are released:
-#    - alpha → beta + next minor alpha
-#    - beta → rc
-#    - rc → stable
-# 2. Keeps only the latest beta, rc, and stable milestones active (closes older ones)
-# 3. Moves open issues from closed milestones to the next alpha version
-# 4. Allows unlimited alpha milestones
+# 1. Treats the release cycle as a single pipeline per core version:
+#    - dev           -> milestone X.Y.Z-alpha
+#    - alpha.N       -> milestone X.Y.Z-alpha
+#    - beta.N        -> milestone X.Y.Z-beta
+#    - rc.N          -> milestone X.Y.Z-rc
+#    - stable X.Y.Z  -> closes all X.Y.Z* milestones, opens X.(Y+1).0-alpha
+# 2. When a stage is promoted (a first-of-stage release, e.g. 2.0.0-beta.1),
+#    all earlier open milestones for that core are closed and their open
+#    issues/PRs are moved to the current stage milestone.
+# 3. When a subsequent sequence of the same stage is released (e.g. 2.0.0-alpha.2),
+#    the stage milestone stays open.
+# 4. On dev bump PR merge (title: 'chore: bump version to X.Y.Z-dev.*'),
+#    creates the corresponding X.Y.Z-alpha milestone.
 
 on:
   milestone:
     types: [closed]
   release:
     types: [published]
+  pull_request:
+    types: [closed]
+    branches:
+      - main
 
 permissions:
   issues: write
@@ -21,34 +31,227 @@ permissions:
   contents: read
 
 concurrency:
-  group: milestone-mgmt-${{ github.event.milestone.number || github.event.release.tag_name || github.run_id }}
+  group: milestone-mgmt-${{ github.event.milestone.number || github.event.release.tag_name || github.event.pull_request.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
-  create-next-stage-milestone:
+  close-released-milestone-and-create-next:
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      
-    - name: Create next-stage milestones
-      uses: ./.github/actions/versioning/manage-milestones
+
+    - name: Parse release version
+      id: parse
+      uses: ./.github/actions/versioning/parse-version
       with:
-        released-version: ${{ github.event.release.tag_name }}
+        version: ${{ github.event.release.tag_name }}
+
+    - name: Determine release context
+      id: release-context
+      shell: bash
+      run: |
+        set -euo pipefail
+        CORE="${{ steps.parse.outputs.major }}.${{ steps.parse.outputs.minor }}.${{ steps.parse.outputs.patch }}"
+        STAGE="${{ steps.parse.outputs.stage }}"
+
+        # The milestone title matches what pr-milestone uses: the stage name
+        # without the build/sequence number (e.g. 2.0.0-alpha.1 -> 2.0.0-alpha).
+        if [[ "$STAGE" == "stable" ]]; then
+          MILESTONE_TITLE="$CORE"
+          IS_STABLE=true
+        else
+          MILESTONE_TITLE="$CORE-$STAGE"
+          IS_STABLE=false
+        fi
+
+        echo "core=$CORE" >> "$GITHUB_OUTPUT"
+        echo "milestone-title=$MILESTONE_TITLE" >> "$GITHUB_OUTPUT"
+        echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
+        echo "is-stable=$IS_STABLE" >> "$GITHUB_OUTPUT"
+        echo "Release core: $CORE, milestone title: $MILESTONE_TITLE, stage: $STAGE"
+
+    - name: Calculate next milestone title
+      id: next-milestone
+      uses: ./.github/actions/versioning/calculate-version
+      with:
+        version: ${{ github.event.release.tag_name }}
+        increment: ${{ steps.release-context.outputs.is-stable == 'true' && 'minor' || 'none' }}
+        change-pre-release: ${{ steps.release-context.outputs.is-stable == 'true' && 'alpha' || steps.release-context.outputs.stage }}
+        strip-date: 'true'
+        strip-sequence: 'true'
+
+    - name: Close earlier stage milestones
+      id: close-previous
+      uses: actions/github-script@v7
+      env:
+        CORE: ${{ steps.release-context.outputs.core }}
+        STAGE: ${{ steps.release-context.outputs.stage }}
+        IS_STABLE: ${{ steps.release-context.outputs.is-stable }}
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const releaseCore = process.env.CORE;
+          const stage = process.env.STAGE;
+          const isStable = process.env.IS_STABLE === 'true';
+
+          const rank = {
+            dev: 0,
+            alpha: 1,
+            beta: 2,
+            rc: 3,
+            stable: 4
+          };
+          const currentRank = rank[stage] ?? 4;
+
+          function getStageRank(title) {
+            if (title === releaseCore) return 4; // stable
+            if (title.startsWith(`${releaseCore}-`)) {
+              const suffix = title.slice(releaseCore.length + 1);
+              const stageName = suffix.split('.')[0];
+              return rank[stageName] ?? 5; // unknown suffixes rank above all
+            }
+            return -1;
+          }
+
+          const milestones = await github.paginate(
+            github.rest.issues.listMilestones,
+            { owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100 }
+          );
+
+          // For a stable release, close every milestone belonging to that core.
+          // For a pre-release, close only earlier stages; the current stage stays open
+          // because the post-release bump will continue on the same stage (alpha.2, beta.2, ...).
+          const toClose = milestones.filter(m => {
+            const mRank = getStageRank(m.title);
+            if (mRank < 0) return false;
+            if (isStable) return mRank <= currentRank;
+            return mRank < currentRank;
+          });
+
+          console.log(`Closing ${toClose.length} milestone(s) for core ${releaseCore}: ${toClose.map(m => m.title).join(', ')}`);
+
+          for (const milestone of toClose) {
+            await github.rest.issues.updateMilestone({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              milestone_number: milestone.number,
+              state: 'closed'
+            });
+            console.log(`Closed milestone #${milestone.number}: ${milestone.title}`);
+          }
+
+          core.setOutput('titles', toClose.map(m => m.title).join('\n'));
+
+    - name: Create or get target milestone
+      id: create-next
+      uses: ./.github/actions/milestone/create-or-get
+      with:
+        title: ${{ steps.next-milestone.outputs.new-version }}
+        description: Next development milestone after ${{ github.event.release.tag_name }}
+        state: open
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Reopen target milestone if it existed closed
+      id: reopen-target
+      if: steps.create-next.outputs.milestone-title != ''
+      uses: actions/github-script@v7
+      env:
+        TARGET_TITLE: ${{ steps.next-milestone.outputs.new-version }}
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const targetTitle = process.env.TARGET_TITLE;
+          const milestones = await github.paginate(
+            github.rest.issues.listMilestones,
+            { owner: context.repo.owner, repo: context.repo.repo, state: 'all', per_page: 100 }
+          );
+          const milestone = milestones.find(m => m.title === targetTitle);
+          if (milestone && milestone.state !== 'open') {
+            await github.rest.issues.updateMilestone({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              milestone_number: milestone.number,
+              state: 'open'
+            });
+            console.log(`Reopened milestone #${milestone.number}: ${milestone.title}`);
+          }
+
+    # Required here because events generated by GITHUB_TOKEN do not trigger new workflow runs,
+    # so the existing move-open-items job on milestone would never fire.
+    - name: Move open issues and PRs to target milestone
+      if: steps.close-previous.outputs.titles != ''
+      uses: ./.github/actions/versioning/move-milestone-items
+      with:
+        closed-milestone-title: ${{ steps.release-context.outputs.milestone-title }}
+        closed-milestone-titles: ${{ steps.close-previous.outputs.titles }}
+        target-milestone-title: ${{ steps.next-milestone.outputs.new-version }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+  create-dev-alpha-milestone:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.title, 'chore: bump version to ')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout PR merge commit
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.merge_commit_sha }}
+        fetch-depth: 0
+
+    - name: Read new version from Solution.props
+      id: new-version
+      uses: ./.github/actions/versioning/get-version
+
+    - name: Check if this is a dev version bump
+      id: check-dev
+      shell: bash
+      run: |
+        set -euo pipefail
+        VERSION="${{ steps.new-version.outputs.version }}"
+
+        if [[ "$VERSION" == *-dev* ]]; then
+          echo "is-dev=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "is-dev=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Convert dev version to alpha milestone
+      id: alpha-version
+      if: steps.check-dev.outputs.is-dev == 'true'
+      uses: ./.github/actions/versioning/calculate-version
+      with:
+        version: ${{ steps.new-version.outputs.version }}
+        increment: none
+        change-pre-release: alpha
+        strip-date: 'true'
+        strip-sequence: 'true'
+
+    - name: Create alpha milestone
+      if: steps.check-dev.outputs.is-dev == 'true'
+      uses: ./.github/actions/milestone/create-or-get
+      with:
+        title: ${{ steps.alpha-version.outputs.new-version }}
+        description: Development milestone for ${{ steps.alpha-version.outputs.new-version }}
+        state: open
         token: ${{ secrets.GITHUB_TOKEN }}
 
   move-open-items:
     if: github.event_name == 'milestone'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      
+
     - name: Move open issues and PRs to next milestone
       uses: ./.github/actions/versioning/move-milestone-items
       with:

@@ -36,6 +36,9 @@ Many thanks to the following contributors to this release:
 - `tools/Sign-Authenticode.ps1` now Authenticode-signs `SmartHopper.Providers.LocalAI.dll` and `SmartHopper.Providers.Ollama.dll`. They were missing from the signing allowlist, so both providers shipped unsigned and Grasshopper refused to enable them as untrusted providers.
 - Hash-manifest validation now permits only bot-authored additions from release automation and continues to block manual edits.
 - Released-version validation now permits ordinary pull requests to inherit the target branch's already-released version while rejecting newly introduced reuse.
+- Milestone management now stays on the same pre-release stage for sequence releases (`alpha.1` → `alpha.2`) and only promotes when a new stage is released (`alpha.1` → `beta.1`). A stable release closes every milestone belonging to that core and opens `X.(Y+1).0-alpha`.
+- Post-release version bump now stays on the same pre-release stage and increments its sequence for alpha/beta/rc, and bumps to the next minor `dev` version only after a stable release.
+- Composite action `next-version` now uses the repository-root relative path for the `calculate-version` dependency and validates `bump` and `stage` inputs before processing.
 
 ## [2.0.0-dev.260821] - 2026-08-21
 

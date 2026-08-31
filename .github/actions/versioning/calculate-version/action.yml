@@ -2,7 +2,7 @@ name: 'Calculate Version'
 description: 'Calculate new version numbers based on semantic versioning rules'
 inputs:
   version:
-    description: 'Input version in format X.X.X or X.X.X-suffix.YYMMDD'
+    description: 'Input version in format X.Y.Z or X.Y.Z-suffix or X.Y.Z-suffix.YYMMDD or X.Y.Z-suffix.sequence'
     required: true
   increment:
     description: 'Type of increment to perform on version numbers'
@@ -30,6 +30,14 @@ inputs:
   pre-release-date:
     description: 'Date to use for pre-release in format YYMMDD (defaults to today)'
     required: false
+  strip-date:
+    description: 'If true, omit dates from suffixes (e.g., alpha → alpha not alpha.260831)'
+    required: false
+    default: 'false'
+  strip-sequence:
+    description: 'If true, strip sequence numbers from suffixes (e.g., alpha.1 → alpha)'
+    required: false
+    default: 'false'
 
 outputs:
   new-version:
@@ -60,22 +68,42 @@ runs:
     - name: Calculate new version
       id: calculate
       shell: bash
+      env:
+        STRIP_DATE: ${{ inputs.strip-date }}
+        STRIP_SEQUENCE: ${{ inputs.strip-sequence }}
       run: |
+        set -euo pipefail
+        
         # Parse input version
         INPUT_VERSION="${{ inputs.version }}"
         INCREMENT="${{ inputs.increment }}"
         CHANGE_PRE_RELEASE="${{ inputs.change-pre-release }}"
+        STRIP_DATE="${STRIP_DATE:-false}"
+        STRIP_SEQUENCE="${STRIP_SEQUENCE:-false}"
         
         echo "Input version: $INPUT_VERSION"
         echo "Increment type: $INCREMENT"
         echo "Change pre-release: $CHANGE_PRE_RELEASE"
+        echo "Strip date: $STRIP_DATE"
+        echo "Strip sequence: $STRIP_SEQUENCE"
         
         # Parse version components using regex
-        if [[ $INPUT_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
+        if [[ $INPUT_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9.]+)?$ ]]; then
           MAJOR="${BASH_REMATCH[1]}"
           MINOR="${BASH_REMATCH[2]}"
           PATCH="${BASH_REMATCH[3]}"
-          SUFFIX="${BASH_REMATCH[4]}"
+          FULL_SUFFIX="${BASH_REMATCH[4]:-}"
+          
+          # Strip sequence numbers from suffix if requested
+          # e.g., -alpha.1 → -alpha, -dev.260831.1 → -dev.260831
+          if [[ "$STRIP_SEQUENCE" == "true" && -n "$FULL_SUFFIX" ]]; then
+            # Extract stage (first part of suffix before any dot)
+            STAGE="${FULL_SUFFIX#-}"
+            STAGE="${STAGE%%.*}"  # Remove everything after first dot
+            SUFFIX="-$STAGE"
+          else
+            SUFFIX="$FULL_SUFFIX"
+          fi
           
           echo "Parsed version components:"
           echo "- Major: $MAJOR"
@@ -97,43 +125,49 @@ runs:
             PATCH=$((PATCH + 1))
             echo "Incremented patch version: $MAJOR.$MINOR.$PATCH"
           elif [[ "$INCREMENT" == "date" || "$INCREMENT" == "auto-date" ]]; then
-            # Check if this is a dated version (has suffix with date)
-            if [[ "$SUFFIX" =~ ^-([a-zA-Z]+)\.([0-9]{6})$ ]]; then
-              PRE_TYPE="${BASH_REMATCH[1]}"
-              DATE="${BASH_REMATCH[2]}"
-              
-              # For auto-date, only update if it's a dev version
-              if [[ "$INCREMENT" == "auto-date" && "$PRE_TYPE" != "dev" ]]; then
-                echo "Auto-date only updates dev versions, but this is a $PRE_TYPE version"
-                echo "new-version=$INPUT_VERSION" >> $GITHUB_OUTPUT
-                echo "is-prerelease=true" >> $GITHUB_OUTPUT
-                echo "was-date-updated=false" >> $GITHUB_OUTPUT
-                echo "major=$MAJOR" >> $GITHUB_OUTPUT
-                echo "minor=$MINOR" >> $GITHUB_OUTPUT
-                echo "patch=$PATCH" >> $GITHUB_OUTPUT
-                echo "suffix=$SUFFIX" >> $GITHUB_OUTPUT
-                exit 0
-              fi
-              
-              # Get today's date in YYMMDD format
-              if [[ -z "${{ inputs.pre-release-date }}" ]]; then
-                TODAY=$(date +%y%m%d)
-              else
-                TODAY="${{ inputs.pre-release-date }}"
-              fi
-              
-              # Only update if the date is different
-              if [[ "$DATE" != "$TODAY" ]]; then
-                SUFFIX="-$PRE_TYPE.$TODAY"
-                echo "Updated date in suffix: $SUFFIX"
-                echo "was-date-updated=true" >> $GITHUB_OUTPUT
-              else
-                echo "Date is already current: $DATE"
-                echo "was-date-updated=false" >> $GITHUB_OUTPUT
-              fi
-            else
-              echo "Not a dated version, no date to update"
+            # If strip-date is true, skip date updates
+            if [[ "$STRIP_DATE" == "true" ]]; then
+              echo "Skipping date update (strip-date=true)"
               echo "was-date-updated=false" >> $GITHUB_OUTPUT
+            else
+              # Check if this is a dated version (has suffix with date)
+              if [[ "$FULL_SUFFIX" =~ ^-([a-zA-Z]+)\.([0-9]{6})(\.[0-9]+)?$ ]]; then
+                PRE_TYPE="${BASH_REMATCH[1]}"
+                DATE="${BASH_REMATCH[2]}"
+                
+                # For auto-date, only update if it's a dev version
+                if [[ "$INCREMENT" == "auto-date" && "$PRE_TYPE" != "dev" ]]; then
+                  echo "Auto-date only updates dev versions, but this is a $PRE_TYPE version"
+                  echo "new-version=$MAJOR.$MINOR.$PATCH$SUFFIX" >> $GITHUB_OUTPUT
+                  echo "is-prerelease=true" >> $GITHUB_OUTPUT
+                  echo "was-date-updated=false" >> $GITHUB_OUTPUT
+                  echo "major=$MAJOR" >> $GITHUB_OUTPUT
+                  echo "minor=$MINOR" >> $GITHUB_OUTPUT
+                  echo "patch=$PATCH" >> $GITHUB_OUTPUT
+                  echo "suffix=$SUFFIX" >> $GITHUB_OUTPUT
+                  exit 0
+                fi
+                
+                # Get today's date in YYMMDD format
+                if [[ -z "${{ inputs.pre-release-date }}" ]]; then
+                  TODAY=$(date -u +%y%m%d)
+                else
+                  TODAY="${{ inputs.pre-release-date }}"
+                fi
+                
+                # Only update if the date is different
+                if [[ "$DATE" != "$TODAY" ]]; then
+                  SUFFIX="-$PRE_TYPE.$TODAY"
+                  echo "Updated date in suffix: $SUFFIX"
+                  echo "was-date-updated=true" >> $GITHUB_OUTPUT
+                else
+                  echo "Date is already current: $DATE"
+                  echo "was-date-updated=false" >> $GITHUB_OUTPUT
+                fi
+              else
+                echo "Not a dated version, no date to update"
+                echo "was-date-updated=false" >> $GITHUB_OUTPUT
+              fi
             fi
           else
             echo "No version increment (increment=none)"
@@ -149,14 +183,20 @@ runs:
             else
               # Get today's date in YYMMDD format for dated versions
               if [[ -z "${{ inputs.pre-release-date }}" ]]; then
-                TODAY=$(date +%y%m%d)
+                TODAY=$(date -u +%y%m%d)
               else
                 TODAY="${{ inputs.pre-release-date }}"
               fi
               
-              # Set the new suffix
-              SUFFIX="-$CHANGE_PRE_RELEASE.$TODAY"
-              echo "Changed pre-release suffix to: $SUFFIX"
+              # Strip date from suffix if requested
+              if [[ "$STRIP_DATE" == "true" ]]; then
+                SUFFIX="-$CHANGE_PRE_RELEASE"
+                echo "Changed pre-release suffix to: $SUFFIX (date stripped)"
+              else
+                # Set the new suffix with date
+                SUFFIX="-$CHANGE_PRE_RELEASE.$TODAY"
+                echo "Changed pre-release suffix to: $SUFFIX"
+              fi
             fi
           fi
           
@@ -172,11 +212,11 @@ runs:
           fi
           
           # Parse the new version components for output
-          if [[ $NEW_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
+          if [[ $NEW_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9.]+)?$ ]]; then
             NEW_MAJOR="${BASH_REMATCH[1]}"
             NEW_MINOR="${BASH_REMATCH[2]}"
             NEW_PATCH="${BASH_REMATCH[3]}"
-            NEW_SUFFIX="${BASH_REMATCH[4]}"
+            NEW_SUFFIX="${BASH_REMATCH[4]:-}"
             
             echo "major=$NEW_MAJOR" >> $GITHUB_OUTPUT
             echo "minor=$NEW_MINOR" >> $GITHUB_OUTPUT
@@ -186,8 +226,8 @@ runs:
           
           # Output the new version
           echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          
+
         else
-          echo "Error: Input version format doesn't follow semantic versioning: $INPUT_VERSION"
+          echo "::error::Input version format doesn't follow semantic versioning: $INPUT_VERSION"
           exit 1
         fi
