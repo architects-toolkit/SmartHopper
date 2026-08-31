@@ -29,6 +29,7 @@ Many thanks to the following contributors to this release:
 ### Removed
 
 - Removed the `dev` branch and its dev↔main synchronization workflows.
+- Removed the patch-propagation documentation and other documentation references to retired CI automation and the former `dev` branch.
 
 ### Fixed
 
