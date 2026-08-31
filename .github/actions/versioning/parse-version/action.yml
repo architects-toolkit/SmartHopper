@@ -1,5 +1,5 @@
 name: 'Parse Version'
-description: 'Parse semantic version string into components (major, minor, patch, suffix, stage)'
+description: 'Parse semantic version string into components (major, minor, patch, suffix, stage, sequence)'
 inputs:
   version:
     description: 'Version string to parse (e.g., 1.4.3 or 1.4.3-alpha.240101)'
@@ -19,8 +19,11 @@ outputs:
     description: 'Full suffix including stage and date (e.g., alpha.240101)'
     value: ${{ steps.parse.outputs.suffix }}
   stage:
-    description: 'Release stage extracted from suffix (alpha, beta, rc, or stable)'
+    description: 'Release stage extracted from suffix (alpha, beta, rc, dev, or stable)'
     value: ${{ steps.parse.outputs.stage }}
+  sequence:
+    description: 'Sequence/build number from the suffix (e.g., 1 from alpha.1 or dev.YYMMDD.1)'
+    value: ${{ steps.parse.outputs.sequence }}
   is-prerelease:
     description: 'Whether this is a pre-release version'
     value: ${{ steps.parse.outputs.is-prerelease }}
@@ -33,31 +36,57 @@ runs:
       shell: pwsh
       run: |
         $version = "${{ inputs.version }}"
-        
+
         # Parse semantic version: X.Y.Z or X.Y.Z-SUFFIX
         if ($version -match '^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.]+))?$') {
           $major = $Matches[1]
           $minor = $Matches[2]
           $patch = $Matches[3]
           $suffix = $Matches[4]
-          
-          # Extract stage from suffix (e.g., 'alpha' from 'alpha.240101')
-          $stage = if ($suffix) { $suffix.Split('.')[0].ToLower() } else { 'stable' }
+
+          # Split suffix into parts; keep it as an array to handle single-stage
+          # suffixes like "rc" without PowerShell unwrapping them to a string.
+          $parts = @()
+          if ($suffix) {
+            $parts = @($suffix -split '\.')
+          }
+
+          # Extract stage from suffix (e.g., 'alpha' from 'alpha.1')
+          $stage = if ($parts.Length -gt 0) { $parts[0].ToLower() } else { 'stable' }
           $isPrerelease = if ($suffix) { 'true' } else { 'false' }
-          
+
+          # Extract the sequence/build number.
+          # - dev.YYMMDD       -> no sequence
+          # - dev.YYMMDD.N     -> N
+          # - alpha            -> no sequence
+          # - alpha.N          -> N
+          # - beta.N           -> N
+          # - rc.N             -> N
+          if ($parts.Length -eq 1) {
+            $sequence = ''
+          } elseif ($stage -eq 'dev' -and $parts.Length -ge 3) {
+            $sequence = $parts[-1]
+          } elseif ($stage -ne 'dev' -and $parts.Length -ge 2) {
+            $sequence = $parts[1]
+          } else {
+            $sequence = ''
+          }
+
           Write-Host "Parsed version: $version"
           Write-Host "  Major: $major"
           Write-Host "  Minor: $minor"
           Write-Host "  Patch: $patch"
           Write-Host "  Suffix: $suffix"
           Write-Host "  Stage: $stage"
+          Write-Host "  Sequence: $sequence"
           Write-Host "  Is Pre-release: $isPrerelease"
-          
+
           "major=$major" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
           "minor=$minor" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
           "patch=$patch" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
           "suffix=$suffix" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
           "stage=$stage" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+          "sequence=$sequence" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
           "is-prerelease=$isPrerelease" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
         } else {
           Write-Error "Invalid version format: $version (expected X.Y.Z or X.Y.Z-SUFFIX)"

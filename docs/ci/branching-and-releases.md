@@ -215,7 +215,12 @@ from it, revert the offending change there, and ship a new patch release.
 - Repository variables: `SMARTHOPPER_BOT_NAME`, `SMARTHOPPER_BOT_EMAIL`, `PROMOTION_AGE_DAYS` (15).
 - Secrets: `MISTRAL_API_KEY` (LLM PR notes, changelog review, release notes), `YAK_AUTH_TOKEN`,
   signing secrets.
-- Milestones are **metadata only** — they group issues and PRs, and never trigger a release.
+- Milestones are **metadata only** — they group issues and PRs, and never trigger a release. A published release does trigger `milestone-management.yml`:
+  - `alpha.N` keeps the `X.Y.Z-alpha` milestone open.
+  - `beta.1` (first beta) closes `X.Y.Z-alpha` and moves open items to `X.Y.Z-beta`.
+  - `rc.1` (first rc) closes `X.Y.Z-alpha` and `X.Y.Z-beta` and moves items to `X.Y.Z-rc`.
+  - `stable X.Y.Z` closes every `X.Y.Z*` milestone and opens `X.(Y+1).0-alpha`.
+- The post-release development version stays on the same pre-release stage and increments its sequence (`alpha.1` → `alpha.2`); only a stable release bumps the minor version and returns to `dev`.
 
 ## 8. Workflow map
 
@@ -242,7 +247,7 @@ from it, revert the offending change there, and ship a new patch release.
 | `github-stale-management.yml` | schedule | Manages stale issues and pull requests. |
 | `hotfix-1-start.yml` | manual | Creates a hotfix branch from a stable tag. |
 | `hotfix-2-release.yml` | manual | Prepares a hotfix release and optional backports. |
-| `milestone-management.yml` | milestone events | Maintains milestone metadata. |
+| `milestone-management.yml` | milestone events, release published, pull request merged | Promotes milestones through the release cycle (alpha → beta → rc → stable → next minor alpha) and moves open issues/PRs. |
 | `model-verification.yml` | issue events / manual | Verifies provider models and opens update PRs. |
 | `pr-anonymize-public-key.yml` | pull requests on protected lines | Removes identifying public-key metadata. |
 | `pr-build-hash-validation.yml` | pull requests, merge queue | Validates build and provider hashes. |

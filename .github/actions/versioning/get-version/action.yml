@@ -1,5 +1,5 @@
 name: 'Get Version'
-description: 'Extract the current version from Solution.props'
+description: 'Extract the current version from Solution.props and parse it'
 inputs:
   branch:
     description: 'Branch name (for context)'
@@ -12,16 +12,25 @@ outputs:
     value: ${{ steps.get-version.outputs.version }}
   major:
     description: 'Major version component'
-    value: ${{ steps.parse-version.outputs.major }}
+    value: ${{ steps.parse.outputs.major }}
   minor:
     description: 'Minor version component'
-    value: ${{ steps.parse-version.outputs.minor }}
+    value: ${{ steps.parse.outputs.minor }}
   patch:
     description: 'Patch version component'
-    value: ${{ steps.parse-version.outputs.patch }}
+    value: ${{ steps.parse.outputs.patch }}
   suffix:
     description: 'Version suffix (if any)'
-    value: ${{ steps.parse-version.outputs.suffix }}
+    value: ${{ steps.parse.outputs.suffix }}
+  stage:
+    description: 'Release stage (stable, dev, alpha, beta, or rc)'
+    value: ${{ steps.parse.outputs.stage }}
+  sequence:
+    description: 'Sequence/build number from the suffix (e.g., 1 from alpha.1 or dev.YYMMDD.1)'
+    value: ${{ steps.parse.outputs.sequence }}
+  is-prerelease:
+    description: 'Whether this is a pre-release version'
+    value: ${{ steps.parse.outputs.is-prerelease }}
 
 runs:
   using: "composite"
@@ -35,26 +44,7 @@ runs:
         "version=$version" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
 
     - name: Parse version components
-      id: parse-version
-      shell: pwsh
-      run: |
-        $VERSION = '${{ steps.get-version.outputs.version }}'
-        if ($VERSION -match '^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.]+))?$') {
-          $major = $Matches[1]
-          $minor = $Matches[2]
-          $patch = $Matches[3]
-          $suffix = $Matches[4]
-          
-          # Extract stage from suffix (e.g., 'alpha' from 'alpha.240101')
-          $stage = if ($suffix) { $suffix.Split('.')[0].ToLower() } else { 'stable' }
-          
-          "major=$major" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
-          "minor=$minor" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
-          "patch=$patch" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
-          "suffix=$suffix" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
-          "stage=$stage" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
-          Write-Host "Parsed version: Major=$major, Minor=$minor, Patch=$patch, Suffix=$suffix, Stage=$stage"
-        } else {
-          Write-Error "Error: Version format doesn't follow semantic versioning: $VERSION"
-          exit 1
-        }
+      id: parse
+      uses: ./.github/actions/versioning/parse-version
+      with:
+        version: ${{ steps.get-version.outputs.version }}
