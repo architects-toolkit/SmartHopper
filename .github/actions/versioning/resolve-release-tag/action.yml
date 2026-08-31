@@ -1,0 +1,131 @@
+name: Resolve Release Tag
+description: Resolve and validate an immutable release tag.
+
+inputs:
+  tag:
+    description: Optional release tag to resolve; empty selects the newest matching tag.
+    required: false
+    default: ''
+  stable-only:
+    description: Whether to accept only stable X.Y.Z tags.
+    required: false
+    default: 'false'
+  line:
+    description: Optional X.Y release line the tag must belong to.
+    required: false
+    default: ''
+  reject-branches:
+    description: Whether branch refs must be rejected as tag inputs.
+    required: false
+    default: 'false'
+  ancestor-of:
+    description: Optional branch or ref whose history must contain the tag.
+    required: false
+    default: ''
+
+outputs:
+  tag:
+    description: Resolved release tag.
+    value: ${{ steps.resolve.outputs.tag }}
+  sha:
+    description: Commit SHA resolved from the release tag.
+    value: ${{ steps.resolve.outputs.sha }}
+  line:
+    description: X.Y release line from the tag.
+    value: ${{ steps.resolve.outputs.line }}
+  core:
+    description: X.Y.Z core version from the tag.
+    value: ${{ steps.resolve.outputs.core }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve release tag
+      id: resolve
+      shell: bash
+      env:
+        REQUESTED_TAG: ${{ inputs.tag }}
+        STABLE_ONLY: ${{ inputs.stable-only }}
+        REQUESTED_LINE: ${{ inputs.line }}
+        REJECT_BRANCHES: ${{ inputs.reject-branches }}
+        ANCESTOR_OF: ${{ inputs.ancestor-of }}
+      run: |
+        set -euo pipefail
+
+        if [[ "$STABLE_ONLY" != true && "$STABLE_ONLY" != false ]]; then
+          echo "::error::Invalid stable-only '$STABLE_ONLY'; expected true or false." >&2
+          exit 1
+        fi
+        if [[ "$REJECT_BRANCHES" != true && "$REJECT_BRANCHES" != false ]]; then
+          echo "::error::Invalid reject-branches '$REJECT_BRANCHES'; expected true or false." >&2
+          exit 1
+        fi
+
+        git fetch --all --tags
+
+        TAG="$REQUESTED_TAG"
+        if [[ -z "$TAG" ]]; then
+          if [[ "$STABLE_ONLY" == true ]]; then
+            TAG=$(git tag --sort=-v:refname |
+              grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)
+          else
+            TAG=$(git tag --sort=-v:refname |
+              grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-.*)?$' | head -n 1 || true)
+          fi
+          if [[ -z "$TAG" ]]; then
+            if [[ "$STABLE_ONLY" == true ]]; then
+              echo "::error::No stable release tag was found." >&2
+            else
+              echo "::error::No release tag was found." >&2
+            fi
+            exit 1
+          fi
+        fi
+
+        if [[ "$REJECT_BRANCHES" == true ]] &&
+           { [[ "$TAG" == main ]] ||
+             git rev-parse --verify "refs/heads/$TAG^{commit}" >/dev/null 2>&1 ||
+             git rev-parse --verify "refs/remotes/origin/$TAG^{commit}" >/dev/null 2>&1; }; then
+          echo "::error::Source '$TAG' is a branch; stabilization must start from a release tag." >&2
+          exit 1
+        fi
+
+        if [[ "$STABLE_ONLY" == true ]]; then
+          TAG_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+$'
+        else
+          TAG_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-.*)?$'
+        fi
+        RELEASE_TAG_NOT_FOUND="::error::Release tag '$TAG' does not exist."
+        if [[ ! "$TAG" =~ $TAG_PATTERN ]]; then
+          echo "$RELEASE_TAG_NOT_FOUND" >&2
+          exit 1
+        fi
+        if ! SHA=$(git rev-parse --verify "refs/tags/$TAG^{commit}" 2>/dev/null); then
+          if [[ "$REJECT_BRANCHES" == true ]]; then
+            echo "::error::Release tag '$TAG' does not exist; stabilization must start from an existing release tag." >&2
+          else
+            echo "$RELEASE_TAG_NOT_FOUND" >&2
+          fi
+          exit 1
+        fi
+
+        if [[ "$TAG" =~ ^([0-9]+)\.([0-9]+)\.[0-9]+(-.*)?$ ]]; then
+          TAG_LINE="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+        fi
+        if [[ -n "$REQUESTED_LINE" && "$TAG_LINE" != "$REQUESTED_LINE" ]]; then
+          echo "::error::Release tag '$TAG' belongs to release line '$TAG_LINE', not requested line '$REQUESTED_LINE'." >&2
+          exit 1
+        fi
+
+        if [[ -n "$ANCESTOR_OF" ]] &&
+           ! git merge-base --is-ancestor "$SHA" "origin/$ANCESTOR_OF"; then
+          echo "::error::Base tag '$TAG' is not an ancestor of '$ANCESTOR_OF'." >&2
+          exit 1
+        fi
+
+        {
+          echo "tag=$TAG"
+          echo "sha=$SHA"
+          echo "line=$TAG_LINE"
+          echo "core=${TAG%%-*}"
+        } >> "$GITHUB_OUTPUT"

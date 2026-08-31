@@ -84,27 +84,37 @@ jobs:
           fi
           echo "target-branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
 
-      - name: Parse and validate hotfix base tag
-        id: parse
+      - name: Parse hotfix branch
+        id: parse-branch
         shell: bash
         env:
           HOTFIX_BRANCH: ${{ inputs.hotfix-branch }}
         run: |
           set -euo pipefail
-          git fetch --all --tags
           if [[ ! "$HOTFIX_BRANCH" =~ ^hotfix/([0-9]+\.[0-9]+\.[0-9]+)-(.+)$ ]]; then
             echo "::error::Could not derive a stable base tag from '$HOTFIX_BRANCH'." >&2
             exit 1
           fi
           BASE_TAG="${BASH_REMATCH[1]}"
-          if ! git rev-parse --verify "refs/tags/$BASE_TAG^{commit}" >/dev/null 2>&1; then
-            echo "::error::Base tag '$BASE_TAG' does not exist." >&2
-            exit 1
-          fi
-          if ! git merge-base --is-ancestor "refs/tags/$BASE_TAG^{commit}" "origin/$HOTFIX_BRANCH"; then
-            echo "::error::Base tag '$BASE_TAG' is not an ancestor of '$HOTFIX_BRANCH'." >&2
-            exit 1
-          fi
+          echo "base-tag=$BASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "hotfix-branch=$HOTFIX_BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve hotfix base tag
+        id: resolve-tag
+        uses: ./.github/actions/versioning/resolve-release-tag
+        with:
+          tag: ${{ steps.parse-branch.outputs.base-tag }}
+          stable-only: 'true'
+          ancestor-of: ${{ inputs.hotfix-branch }}
+
+      - name: Publish validated hotfix inputs
+        id: parse
+        shell: bash
+        env:
+          BASE_TAG: ${{ steps.resolve-tag.outputs.tag }}
+          HOTFIX_BRANCH: ${{ steps.parse-branch.outputs.hotfix-branch }}
+        run: |
+          set -euo pipefail
           {
             echo "base-tag=$BASE_TAG"
             echo "hotfix-branch=$HOTFIX_BRANCH"
@@ -312,31 +322,9 @@ jobs:
 
       - name: Discover older active release lines
         id: discover
-        shell: bash
-        env:
-          VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          set -euo pipefail
-          LINES=$(git ls-remote --heads origin 'refs/heads/release/*' |
-            sed -n 's#.*refs/heads/release/\([0-9]\+\.[0-9]\+\)$#\1#p' | sort -V)
-          LINES_JSON=$(VERSION="$VERSION" LINES="$LINES" python3 - <<'PY'
-          import json
-          import os
-          import re
-
-          match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:-.+)?", os.environ["VERSION"])
-          if not match:
-              raise SystemExit(f"Invalid release version: {os.environ['VERSION']}")
-          target = tuple(map(int, match.groups()))
-          lines = []
-          for line in os.environ.get("LINES", "").splitlines():
-              major, minor = map(int, line.split("."))
-              if (major, minor, 0) < target:
-                  lines.append(line)
-          print(json.dumps(lines))
-          PY
-          )
-          echo "lines=$LINES_JSON" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/versioning/discover-release-lines
+        with:
+          older-than: ${{ needs.prepare.outputs.version }}
 
   backport:
     needs: [prepare, discover-backports]
