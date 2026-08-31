@@ -24,6 +24,7 @@ Many thanks to the following contributors to this release:
 - Maintenance workflows that open automatic pull requests now target `main`.
 - Development releases are supported as dated prereleases for testers, and promotion checks cover every version on a stabilization line.
 - Same-day development releases use a sequence suffix so `main` always advances beyond an existing tag.
+- Stabilization promotion no longer blocks on open PRs targeting the release branch or recently closed issues.
 
 ### Removed
 
