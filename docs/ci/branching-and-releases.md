@@ -110,7 +110,7 @@ The dated `-dev.YYMMDD` suffix is refreshed by `chore-version-sync.yml` when `sr
    inheriting the target branch's already-released version is allowed. The hash guard blocks
    edits, deletions, renames, and copies, while allowing only a single bot-authored
    `hashes/<version>.json` addition from a `hash-update/*` branch when its version matches the
-   PR head.
+   PR head or an existing release tag.
 4. Rebase-merge through the merge queue. The branch is deleted automatically.
 
 `CHANGELOG.md` entries go under `[Unreleased]` and stay there until a release moves them.
