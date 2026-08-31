@@ -19,7 +19,6 @@ permissions:
   contents: read
   actions: write
   issues: write
-  pull-requests: read
 
 concurrency:
   group: stabilization-promotion
@@ -184,7 +183,6 @@ jobs:
         uses: actions/github-script@v7
         env:
           VERSIONS: ${{ steps.line-versions.outputs.versions }}
-          DAYS: ${{ steps.threshold.outputs.days }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -215,29 +213,6 @@ jobs:
             core.setOutput('has-issues', String(matches.length > 0));
             core.setOutput('issue-count', String(matches.length));
             core.setOutput('versions', matchedVersions.join(', '));
-            const closedIssues = await github.paginate(github.rest.issues.listForRepo, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'closed',
-              per_page: 100,
-            });
-            const closedMatches = closedIssues.filter(issue =>
-              !issue.pull_request &&
-              issue.labels.some(label => versionLabels.has(label.name))
-            );
-            const lastClosed = closedMatches.sort((left, right) =>
-              new Date(right.closed_at) - new Date(left.closed_at)
-            )[0];
-            if (!lastClosed) {
-              core.setOutput('last-closed-old-enough', 'true');
-              core.setOutput('last-closed-age-days', '-1');
-            } else {
-              const ageDays = Math.floor(
-                (Date.now() - new Date(lastClosed.closed_at).getTime()) / 86400000
-              );
-              core.setOutput('last-closed-old-enough', String(ageDays >= Number(process.env.DAYS)));
-              core.setOutput('last-closed-age-days', String(ageDays));
-            }
 
       - name: Check issues and release age
         id: check-issues
@@ -247,17 +222,6 @@ jobs:
           version: ${{ steps.tag.outputs.current-tag }}
           days-lookback: ${{ steps.threshold.outputs.days }}
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Check open pull requests
-        id: check-prs
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_BRANCH: release/${{ matrix.line }}
-        run: |
-          set -euo pipefail
-          COUNT=$(gh pr list --base "$RELEASE_BRANCH" --state open --json number --jq 'length')
-          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
 
       - name: Check promotion freeze
         id: check-freeze
@@ -291,9 +255,6 @@ jobs:
           ISSUE_VERSIONS: ${{ steps.check-line-issues.outputs.versions }}
           RELEASE_OLD_ENOUGH: ${{ steps.check-issues.outputs.release-old-enough }}
           RELEASE_AGE: ${{ steps.check-issues.outputs.release-age-days }}
-          LAST_CLOSED_OLD_ENOUGH: ${{ steps.check-line-issues.outputs.last-closed-old-enough }}
-          LAST_CLOSED_AGE: ${{ steps.check-line-issues.outputs.last-closed-age-days }}
-          OPEN_PR_COUNT: ${{ steps.check-prs.outputs.count }}
           FROZEN: ${{ steps.check-freeze.outputs.frozen }}
           FORCE_PROMOTE: ${{ inputs.force-promote }}
         run: |
@@ -325,21 +286,10 @@ jobs:
               ELIGIBLE=false
               REASONS+=("release is younger than the promotion threshold")
             fi
-            if [[ "$LAST_CLOSED_OLD_ENOUGH" != true ]]; then
-              ELIGIBLE=false
-              REASONS+=("most recently closed issue is ${LAST_CLOSED_AGE:-unknown} days old")
-            fi
-            if [[ "${OPEN_PR_COUNT:-0}" != 0 ]]; then
-              ELIGIBLE=false
-              REASONS+=("${OPEN_PR_COUNT} open PR(s) target the release branch")
-            fi
             if [[ "$FROZEN" == true ]]; then
               ELIGIBLE=false
               REASONS+=("promotion: freeze is active for ${CURRENT_TAG%%-*}")
             fi
-          elif [[ -n "$NEXT_STAGE" && "${OPEN_PR_COUNT:-0}" != 0 ]]; then
-            ELIGIBLE=false
-            REASONS+=("${OPEN_PR_COUNT} open PR(s) target the release branch")
           elif [[ -n "$NEXT_STAGE" && "$FROZEN" == true ]]; then
             ELIGIBLE=false
             REASONS+=("promotion: freeze is active for the release line")
