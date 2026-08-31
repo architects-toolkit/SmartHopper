@@ -28,8 +28,8 @@ issue for manual resolution.
   release-line backports.
 - **`release-2-tag-on-merge.yml`** — tags the merged release-preparation PR and
   creates the draft GitHub release.
-- **`release-4-build.yml`**, **`release-5-deploy-pages.yml`**, and
-  **`release-6-upload-yak.yml`** — publish the release artifacts and package.
+- **`release-3-build.yml`**, **`release-4-deploy-pages.yml`**, and
+  **`release-5-upload-yak.yml`** — publish the release artifacts and package.
 
 ## Safety
 

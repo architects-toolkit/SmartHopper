@@ -22,7 +22,7 @@ This document outlines the implementation plan for SHA-256 hash-based verificati
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ GitHub Actions Workflow (release-4-build.yml)              │
+│ GitHub Actions Workflow (release-3-build.yml)              │
 │                                                             │
 │  1. Build provider DLLs                                    │
 │  2. Calculate SHA-256 for each DLL                         │
@@ -67,7 +67,7 @@ This document outlines the implementation plan for SHA-256 hash-based verificati
 
 ### 1.1 Add SHA-256 Calculation Step
 
-**Location**: `.github/workflows/release-4-build.yml`  
+**Location**: `.github/workflows/release-3-build.yml`  
 **Insert After**: "Create ZIP Archives" step (line ~298)
 
 ```yaml

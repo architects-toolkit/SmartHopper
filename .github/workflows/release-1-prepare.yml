@@ -96,7 +96,7 @@ jobs:
           new-version: ${{ steps.next-version.outputs.new-version }}
 
       # Keep yak-package/manifest.yml placeholders in the repository. They are
-      # resolved only when release-6-upload-yak.yml builds the Yak package.
+      # resolved only when release-5-upload-yak.yml builds the Yak package.
       - name: Include missing issues in changelog
         uses: ./.github/actions/documentation/update-changelog-issues
         with:

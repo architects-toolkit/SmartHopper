@@ -1,11 +1,11 @@
-name: 🚀 6 Upload to Yak Rhino Server
+name: 🚀 5 Upload to Yak Rhino Server
 
 # Related workflows (release pipeline — execute in numbered order):
 #   - release-1-prepare.yml (prepares the release branch)
 #   - release-2-tag-on-merge.yml (creates the tag and draft GitHub Release)
-#   - release-4-build.yml (builds platform artifacts on release publish)
-#   - release-5-deploy-pages.yml (deploys documentation pages)
-#   - release-6-upload-yak.yml (uploads to Yak package manager)
+#   - release-3-build.yml (builds platform artifacts on release publish)
+#   - release-4-deploy-pages.yml (deploys documentation pages)
+#   - release-5-upload-yak.yml (uploads to Yak package manager)
 
 # Description: This workflow uploads the release artifacts to the Yak Rhino Server.
 # It must be triggered manually after the release is built.
