@@ -96,13 +96,13 @@ runs:
         DATE: ${{ inputs.date }}
       run: |
         set -euo pipefail
-        
+
         if [[ -z "$DATE" ]]; then
           DATE=$(date -u +%y%m%d)
         fi
-        
+
         CORE="${BASE_VERSION%-*}"
-        
+
         HIGHEST=-1
         while IFS= read -r TAG; do
           if [[ "$TAG" =~ ^${CORE//./\\.}-dev\.${DATE}(\.([0-9]+))?$ ]]; then
@@ -116,7 +116,7 @@ runs:
           git ls-remote --tags --refs origin "refs/tags/$CORE-dev.$DATE*" |
             awk '{ sub("refs/tags/", "", $2); print $2 }'
         } | sort -u)
-        
+
         if (( HIGHEST >= 0 )); then
           NEW_VERSION="${BASE_VERSION}.$((HIGHEST + 1))"
         else
@@ -133,9 +133,9 @@ runs:
         STAGE: ${{ inputs.stage }}
       run: |
         set -euo pipefail
-        
+
         CORE="${BASE_VERSION%-*}"
-        
+
         HIGHEST=0
         LEGACY_TAG="$CORE-$STAGE"
         if git tag --list "$LEGACY_TAG" | grep -Fxq "$LEGACY_TAG"; then
@@ -174,7 +174,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        
+
         if [[ "${{ inputs.stage }}" == "dev" ]]; then
           FINAL_VERSION="${{ steps.add-dev-sequence.outputs.new-version }}"
         elif [[ "${{ inputs.stage }}" == "stable" ]]; then
@@ -182,24 +182,24 @@ runs:
         else
           FINAL_VERSION="${{ steps.add-abc-sequence.outputs.new-version }}"
         fi
-        
+
         # Check collision
         if git tag --list "$FINAL_VERSION" | grep -Fxq "$FINAL_VERSION" ||
           git ls-remote --exit-code --refs origin "refs/tags/$FINAL_VERSION" >/dev/null 2>&1; then
           echo "::error::Computed version '$FINAL_VERSION' already exists as a git tag." >&2
           exit 1
         fi
-        
+
         # Determine if prerelease
         if [[ "$FINAL_VERSION" == *-* ]]; then
           IS_PRERELEASE=true
         else
           IS_PRERELEASE=false
         fi
-        
+
         # Extract core
         CORE="${FINAL_VERSION%-*}"
-        
+
         {
           echo "new-version=$FINAL_VERSION"
           echo "tag=$FINAL_VERSION"

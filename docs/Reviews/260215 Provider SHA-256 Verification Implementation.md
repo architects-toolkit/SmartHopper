@@ -1,8 +1,8 @@
 # Provider SHA-256 Verification Implementation Review
 
-**Date**: February 15, 2026  
-**Purpose**: Enhance provider security on macOS by implementing SHA-256 hash verification  
-**Related Issue**: macOS Compatibility Review - Issue 6 (Assembly Loading Without Verification)  
+**Date**: February 15, 2026
+**Purpose**: Enhance provider security on macOS by implementing SHA-256 hash verification
+**Related Issue**: macOS Compatibility Review - Issue 6 (Assembly Loading Without Verification)
 **Severity**: CRITICAL
 
 ---
@@ -67,7 +67,7 @@ This document outlines the implementation plan for SHA-256 hash-based verificati
 
 ### 1.1 Add SHA-256 Calculation Step
 
-**Location**: `.github/workflows/release-3-build.yml`  
+**Location**: `.github/workflows/release-3-build.yml`
 **Insert After**: "Create ZIP Archives" step (line ~298)
 
 ```yaml
@@ -83,38 +83,38 @@ This document outlines the implementation plan for SHA-256 hash-based verificati
       generated = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
       providers = @{}
     }
-    
+
     foreach ($platform in $platforms) {
       $platformPath = Join-Path "artifacts" $platform
-      
+
       if (Test-Path $platformPath) {
         Write-Host "Calculating hashes for platform: $platform"
-        
+
         # Find all provider DLLs
         $providerDlls = Get-ChildItem -Path $platformPath -Filter "SmartHopper.Providers.*.dll" -File
-        
+
         foreach ($dll in $providerDlls) {
           # Calculate SHA-256 hash
           $hash = Get-FileHash -Path $dll.FullName -Algorithm SHA256
           $hashValue = $hash.Hash.ToLower()
-          
+
           # Store in manifest with platform suffix for cross-platform tracking
           $key = "$($dll.Name)-$platform"
           $hashManifest.providers[$key] = $hashValue
-          
+
           Write-Host "  $($dll.Name): $hashValue"
         }
       }
     }
-    
+
     # Convert to JSON and save
     $hashJson = ConvertTo-Json -InputObject $hashManifest -Depth 10
     $hashFile = "provider-hashes-$version.json"
     Set-Content -Path $hashFile -Value $hashJson -Encoding UTF8
-    
+
     Write-Host "Hash manifest saved to: $hashFile"
     Get-Content $hashFile | Write-Host
-    
+
     echo "HASH_FILE=$hashFile" >> $env:GITHUB_OUTPUT
 ```
 
@@ -146,29 +146,29 @@ This document outlines the implementation plan for SHA-256 hash-based verificati
   run: |
     $version = "${{ steps.determine_version.outputs.VERSION }}"
     $hashFile = "${{ steps.calculate_hashes.outputs.HASH_FILE }}"
-    
+
     # Configure git
     git config --global user.name "github-actions[bot]"
     git config --global user.email "github-actions[bot]@users.noreply.github.com"
-    
+
     # Checkout gh-pages branch (create if doesn't exist)
     git fetch origin gh-pages:gh-pages || git checkout --orphan gh-pages
     git checkout gh-pages
-    
+
     # Create hashes directory structure
     New-Item -ItemType Directory -Force -Path "hashes"
-    
+
     # Copy hash file with version-specific name
     Copy-Item $hashFile -Destination "hashes/$version.json" -Force
-    
+
     # Also copy as latest.json for convenience
     Copy-Item $hashFile -Destination "hashes/latest.json" -Force
-    
+
     # Commit and push
     git add hashes/
     git commit -m "Add provider hashes for $version" || echo "No changes to commit"
     git push origin gh-pages
-    
+
     Write-Host "Hash manifest published to: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/hashes/$version.json"
 ```
 
@@ -255,13 +255,13 @@ namespace SmartHopper.Infrastructure.AIProviders
         {
             /// <summary>Hash matches - provider is authentic</summary>
             Match,
-            
+
             /// <summary>Hash mismatch - potential security issue</summary>
             Mismatch,
-            
+
             /// <summary>Public hash unavailable - network or source issue</summary>
             Unavailable,
-            
+
             /// <summary>Hash not found in public manifest</summary>
             NotFound
         }
@@ -287,7 +287,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             try
             {
                 // Try version-specific hash first, fall back to latest
-                string[] urls = 
+                string[] urls =
                 {
                     $"{HashBaseUrl}/{version}.json",
                     $"{HashBaseUrl}/latest.json"
@@ -300,7 +300,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                         Debug.WriteLine($"[ProviderHashVerifier] Fetching hashes from: {url}");
                         var response = await HttpClient.GetStringAsync(url).ConfigureAwait(false);
                         var manifest = JsonConvert.DeserializeObject<Dictionary<string, object>>(response);
-                        
+
                         if (manifest.ContainsKey("providers"))
                         {
                             var providersJson = JsonConvert.SerializeObject(manifest["providers"]);
@@ -403,22 +403,22 @@ namespace SmartHopper.Infrastructure.AIProviders
 try
 {
     // Determine current platform
-    string platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) 
-        ? "net7.0-windows" 
+    string platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        ? "net7.0-windows"
         : "net7.0";
-    
+
     // Get version from assembly metadata or settings
     string version = GetSmartHopperVersion(); // Implement this helper
-    
+
     var hashResult = await ProviderHashVerifier.VerifyProviderAsync(assemblyPath, version, platform)
         .ConfigureAwait(false);
-    
+
     switch (hashResult.Status)
     {
         case ProviderVerificationStatus.Match:
             Debug.WriteLine($"[ProviderManager] SHA-256 verification passed for {Path.GetFileName(assemblyPath)}");
             break;
-            
+
         case ProviderVerificationStatus.Mismatch:
             // CRITICAL: Hash mismatch indicates potential tampering
             await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
@@ -434,7 +434,7 @@ try
                 );
             }))).ConfigureAwait(false);
             return;
-            
+
         case ProviderVerificationStatus.Unavailable:
         case ProviderVerificationStatus.NotFound:
             // WARNING: Cannot verify - proceed with caution
@@ -453,9 +453,9 @@ try
                       $"• From a different SmartHopper version\n" +
                       $"• Not yet published to the hash repository\n\n" +
                       $"Ensure you trust this provider's source before enabling it.";
-                
+
                 RhinoApp.WriteLine(warningMessage);
-                
+
                 // Optional: Show user dialog for hash verification failures
                 // Uncomment if you want interactive warning:
                 // StyledMessageDialog.ShowWarning(warningMessage, "Provider Verification - SmartHopper");
@@ -484,7 +484,7 @@ private string GetSmartHopperVersion()
     {
         var assembly = Assembly.GetExecutingAssembly();
         var version = assembly.GetName().Version;
-        
+
         // Convert to semantic version format (v1.2.3)
         return $"v{version.Major}.{version.Minor}.{version.Build}";
     }
@@ -525,7 +525,7 @@ private string GetSmartHopperVersion()
 3. Fetches public hash from GitHub
 4. Hashes DO NOT match ✗
 5. Shows ERROR dialog:
-   
+
    ┌─────────────────────────────────────────────┐
    │ SECURITY WARNING                            │
    │                                             │
@@ -543,7 +543,7 @@ private string GetSmartHopperVersion()
    │                                             │
    │              [ OK ]                         │
    └─────────────────────────────────────────────┘
-   
+
 6. Provider NOT loaded
 ```
 
@@ -555,12 +555,12 @@ private string GetSmartHopperVersion()
 3. Attempts to fetch public hash from GitHub
 4. Network error / source unavailable
 5. Shows WARNING in Rhino command line:
-   
+
    "WARNING: Could not retrieve SHA-256 hash for 'OpenAI'
     from public repository. This may be due to network
     connectivity issues. Hash verification skipped.
     Ensure you trust this provider's source."
-   
+
 6. Shows trust prompt: "Detected new AI provider 'OpenAI'. Enable it?"
 7. User decides whether to trust
 ```
@@ -573,11 +573,11 @@ private string GetSmartHopperVersion()
 3. Fetches public hash manifest successfully
 4. DLL not found in manifest (custom/third-party provider)
 5. Shows WARNING in Rhino command line:
-   
+
    "WARNING: SHA-256 hash for 'CustomProvider' not found
     in public repository. This may be a custom/third-party
     provider. Ensure you trust this provider's source."
-   
+
 6. Shows trust prompt: "Detected new AI provider 'CustomProvider'. Enable it?"
 7. User decides whether to trust
 ```
