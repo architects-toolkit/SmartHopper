@@ -42,7 +42,7 @@ runs:
         fi
 
         if [[ -n "$OLDER_THAN" && ! "$OLDER_THAN" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-.+)?$ ]]; then
-          echo "Invalid release version: $OLDER_THAN" >&2
+          echo "::error::Invalid release version: $OLDER_THAN" >&2
           exit 1
         fi
 
@@ -64,7 +64,6 @@ runs:
         LINES_JSON=$(RELEASE_LINES="$RELEASE_LINES" OLDER_THAN="$OLDER_THAN" REQUESTED_LINE="$REQUESTED_LINE" python3 - <<'PY'
         import json
         import os
-        import re
 
         requested_line = os.environ["REQUESTED_LINE"]
         older_than = os.environ["OLDER_THAN"]
@@ -74,13 +73,7 @@ runs:
             release_lines = [requested_line]
 
         if older_than:
-            match = re.fullmatch(
-                r"(\d+)\.(\d+)\.(\d+)(?:-.+)?",
-                older_than,
-            )
-            if not match:
-                raise SystemExit(f"Invalid release version: {older_than}")
-            target = tuple(map(int, match.groups()))
+            target = tuple(map(int, older_than.split("-", 1)[0].split(".")))
             filtered_lines = []
             for line in release_lines:
                 major, minor = map(int, line.split("."))

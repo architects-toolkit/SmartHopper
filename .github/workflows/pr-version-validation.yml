@@ -54,22 +54,6 @@ jobs:
       id: pr_version
       uses: ./.github/actions/versioning/get-version
 
-    - name: Reject released version reuse
-      shell: bash
-      env:
-        PR_VERSION: ${{ steps.pr_version.outputs.version }}
-      run: |
-        set -euo pipefail
-        if [[ -z "$PR_VERSION" ]]; then
-          echo "Could not read the PR version; skipping released-version reuse check."
-          exit 0
-        fi
-        git fetch --tags origin
-        if git rev-parse --verify "refs/tags/$PR_VERSION^{commit}" >/dev/null 2>&1; then
-          echo "::error::Version '$PR_VERSION' has already been released as tag '$PR_VERSION'. Move the version forward (date, sequence, stage, patch, minor, or major) instead of reusing a released version." >&2
-          exit 1
-        fi
-
     - name: Checkout Target Branch Solution.props
       shell: bash
       run: |
@@ -93,6 +77,32 @@ jobs:
         else
           echo "Target Version: ${{ steps.target_version.outputs.version }}"
           echo "SKIP_COMPARISON=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Reject released version reuse
+      shell: bash
+      env:
+        PR_VERSION: ${{ steps.pr_version.outputs.version }}
+        TARGET_VERSION: ${{ steps.target_version.outputs.version }}
+        SKIP_COMPARISON: ${{ steps.check_target.outputs.SKIP_COMPARISON }}
+      run: |
+        set -euo pipefail
+        if [[ -z "$PR_VERSION" ]]; then
+          echo "Could not read the PR version; skipping released-version reuse check."
+          exit 0
+        fi
+        if [[ "$SKIP_COMPARISON" == true || -z "$TARGET_VERSION" ]]; then
+          echo "::warning::Could not read the target branch version; skipping released-version reuse check."
+          exit 0
+        fi
+        if [[ "$PR_VERSION" == "$TARGET_VERSION" ]]; then
+          echo "Version '$PR_VERSION' is inherited from the target branch; skipping released-version reuse check."
+          exit 0
+        fi
+        git fetch --tags origin
+        if git rev-parse --verify "refs/tags/$PR_VERSION^{commit}" >/dev/null 2>&1; then
+          echo "::error::Version '$PR_VERSION' has already been released as tag '$PR_VERSION'. Move the version forward (date, sequence, stage, patch, minor, or major) instead of reusing a released version." >&2
+          exit 1
         fi
 
     - name: Compare Versions

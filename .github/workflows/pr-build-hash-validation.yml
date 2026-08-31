@@ -58,6 +58,8 @@ jobs:
       shell: bash
       env:
         INPUT_BASE_REF: ${{ github.event.inputs.base_ref }}
+        INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         echo "Checking for manual edits to hashes/ directory..."
         echo "Source of truth: main branch"
@@ -81,41 +83,86 @@ jobs:
         git fetch origin "$base_ref_name" --depth=1
         git fetch origin main --depth=1
 
-        # Get the list of changed files in the PR (relative to the PR base branch)
-        changed_files=$(git diff --name-only "origin/$base_ref_name"..HEAD)
+        # Get hash-file changes in the PR (relative to the PR base branch).
+        hash_changes=$(git diff --name-status "origin/$base_ref_name"..HEAD -- hashes/)
 
-        echo "Changed files:"
-        echo "$changed_files"
+        echo "Hash file changes:"
+        echo "$hash_changes"
         echo ""
 
-        # Check if any files in hashes/ were modified
-        hash_files_changed=$(echo "$changed_files" | grep -E "^hashes/" || true)
-
-        if [ -z "$hash_files_changed" ]; then
+        if [ -z "$hash_changes" ]; then
           echo "✅ No hash file edits detected."
           exit 0
         fi
 
-        # For each changed hash file, compare its PR content with the main branch content.
-        # Allowed case: file content exactly matches main (e.g. branch was updated from main
-        # and carries the hash commit verbatim).
-        # Blocked case: file content differs from main, or file does not exist on main.
-        mismatched_files=()
-        while IFS= read -r file; do
-          [ -z "$file" ] && continue
-          pr_hash=$(git rev-parse "HEAD:$file" 2>/dev/null || true)
-          main_hash=$(git rev-parse "origin/main:$file" 2>/dev/null || true)
-
-          if [ -z "$main_hash" ]; then
-            echo "  ✗ $file: does not exist on main (new hash file not allowed)"
-            mismatched_files+=("$file")
-          elif [ "$pr_hash" != "$main_hash" ]; then
-            echo "  ✗ $file: differs from main"
-            mismatched_files+=("$file")
-          else
-            echo "  ✓ $file: matches main exactly (allowed)"
+        # Resolve the source branch because only release automation may add manifests.
+        head_ref_name=""
+        if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+          head_ref_name="${GITHUB_HEAD_REF:-}"
+        elif [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+          if [[ "${GITHUB_REF_NAME:-}" =~ ^gh-readonly-queue/.+/pr-([0-9]+)-[0-9a-f]+$ ]]; then
+            pr_number="${BASH_REMATCH[1]}"
+            head_ref_name=$(gh pr view "$pr_number" --json headRefName --jq .headRefName 2>/dev/null || true)
           fi
-        done <<< "$hash_files_changed"
+        elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+          pr_number="${INPUT_PR_NUMBER:-}"
+          if [[ "$pr_number" =~ ^[0-9]+$ ]]; then
+            head_ref_name=$(gh pr view "$pr_number" --json headRefName --jq .headRefName 2>/dev/null || true)
+          fi
+        fi
+
+        hash_change_count=$(printf '%s\n' "$hash_changes" | awk 'NF { count++ } END { print count + 0 }')
+        mismatched_files=()
+        while IFS=$'\t' read -r status old_path new_path; do
+          [ -z "$status" ] && continue
+          status_code="${status:0:1}"
+
+          if [ "$status_code" != "A" ]; then
+            if [[ "$status_code" == R || "$status_code" == C ]]; then
+              mismatched_files+=("$old_path: status $status moves or copies the file to $new_path")
+            else
+              mismatched_files+=("$old_path: status $status is not an automated addition")
+            fi
+            continue
+          fi
+
+          reason=""
+          if [[ -z "$head_ref_name" ]]; then
+            reason="the pull request head branch could not be resolved"
+          elif [[ ! "$head_ref_name" == hash-update/* ]]; then
+            reason="head branch '$head_ref_name' is not a hash-update/* branch"
+          elif [ "$hash_change_count" -ne 1 ]; then
+            reason="it is not the only hashes/** change in the pull request"
+          elif [[ ! "$old_path" =~ ^hashes/[^/]+\.json$ ]]; then
+            reason="the added path is not hashes/<version>.json"
+          else
+            version="${old_path#hashes/}"
+            version="${version%.json}"
+            head_version=$(git show HEAD:Solution.props 2>/dev/null |
+              sed -n 's#.*<SolutionVersion>\([^<]*\)</SolutionVersion>.*#\1#p' | head -n 1)
+            if [ -z "$head_version" ]; then
+              reason="the PR head version could not be read from Solution.props"
+            elif [ "$version" != "$head_version" ]; then
+              reason="manifest version '$version' does not match PR head version '$head_version'"
+            else
+              author_email=$(git log --diff-filter=A --format=%ae -1 -- "$old_path" || true)
+              if [ -n "${SMARTHOPPER_BOT_EMAIL:-}" ]; then
+                if [ "$author_email" != "$SMARTHOPPER_BOT_EMAIL" ]; then
+                  reason="author email '$author_email' does not match SMARTHOPPER_BOT_EMAIL"
+                fi
+              elif [[ ! "$author_email" =~ \[bot\]@users\.noreply\.github\.com$ ]]; then
+                reason="author email '$author_email' is not a GitHub bot email"
+              fi
+            fi
+          fi
+
+          if [ -n "$reason" ]; then
+            echo "  ✗ $old_path: $reason"
+            mismatched_files+=("$old_path: $reason")
+          else
+            echo "  ✓ $old_path: automated release manifest addition allowed"
+          fi
+        done <<< "$hash_changes"
 
         echo ""
         if [ ${#mismatched_files[@]} -gt 0 ]; then
@@ -137,7 +184,7 @@ jobs:
           exit 1
         fi
 
-        echo "✅ Hash file changes match main exactly; allowed."
+        echo "✅ Hash file changes are valid automated additions; allowed."
 
   # Windows-only prep step: generates SNK, updates InternalsVisibleTo in csproj files
   # This ensures the public key is embedded in source files before cross-platform compilation

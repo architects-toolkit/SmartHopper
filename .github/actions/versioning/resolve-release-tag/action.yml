@@ -90,16 +90,7 @@ runs:
           exit 1
         fi
 
-        if [[ "$STABLE_ONLY" == true ]]; then
-          TAG_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+$'
-        else
-          TAG_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-.*)?$'
-        fi
         RELEASE_TAG_NOT_FOUND="::error::Release tag '$TAG' does not exist."
-        if [[ ! "$TAG" =~ $TAG_PATTERN ]]; then
-          echo "$RELEASE_TAG_NOT_FOUND" >&2
-          exit 1
-        fi
         if ! SHA=$(git rev-parse --verify "refs/tags/$TAG^{commit}" 2>/dev/null); then
           if [[ "$REJECT_BRANCHES" == true ]]; then
             echo "::error::Release tag '$TAG' does not exist; stabilization must start from an existing release tag." >&2
@@ -109,8 +100,14 @@ runs:
           exit 1
         fi
 
-        if [[ "$TAG" =~ ^([0-9]+)\.([0-9]+)\.[0-9]+(-.*)?$ ]]; then
-          TAG_LINE="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+        if [[ ! "$TAG" =~ ^([0-9]+)\.([0-9]+)\.[0-9]+(-.*)?$ ]]; then
+          echo "::error::Release tag '$TAG' does not contain a version in X.Y.Z[-suffix] format." >&2
+          exit 1
+        fi
+        TAG_LINE="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+        if [[ "$STABLE_ONLY" == true && "$TAG" == *-* ]]; then
+          echo "::error::Release tag '$TAG' is a prerelease; a stable X.Y.Z release tag is required." >&2
+          exit 1
         fi
         if [[ -n "$REQUESTED_LINE" && "$TAG_LINE" != "$REQUESTED_LINE" ]]; then
           echo "::error::Release tag '$TAG' belongs to release line '$TAG_LINE', not requested line '$REQUESTED_LINE'." >&2
