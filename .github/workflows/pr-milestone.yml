@@ -75,20 +75,20 @@ jobs:
             return;
           }
 
-          const core = `${match[1]}.${match[2]}.${match[3]}`;
+          const coreVersion = `${match[1]}.${match[2]}.${match[3]}`;
           const suffix = match[4] || '';
           let processedVersion;
 
           if (!suffix) {
             // Stable release target
-            processedVersion = core;
+            processedVersion = coreVersion;
           } else {
             // Stage is the first segment of the suffix; dev is pre-alpha
             const stage = suffix.split('.')[0].toLowerCase();
             if (stage === 'dev') {
-              processedVersion = `${core}-alpha`;
+              processedVersion = `${coreVersion}-alpha`;
             } else {
-              processedVersion = `${core}-${stage}`;
+              processedVersion = `${coreVersion}-${stage}`;
             }
           }
 
