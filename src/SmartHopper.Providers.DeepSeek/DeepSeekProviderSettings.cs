@@ -34,7 +34,7 @@ namespace SmartHopper.Providers.DeepSeek
     /// </summary>
     public class DeepSeekProviderSettings : AIProviderSettings
     {
-        private new readonly IAIProvider provider;
+        private readonly IAIProvider provider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DeepSeekProviderSettings"/> class.

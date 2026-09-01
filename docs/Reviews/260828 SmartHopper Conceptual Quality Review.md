@@ -51,22 +51,22 @@ The following review suggestions have been implemented since the review was writ
 | 7 | Use `IProviderHttpClientFactory` in `AIProvider.CallApi` / streaming / batch | `AIProvider.CreateHttpClient()` in `AIProvider.cs` (line 763) delegates to `ProviderSdkHost.HttpClientFactory`; `SmartHopperProviderHttpClientFactory` and `TestProviderHttpClientFactory` are wired in `SmartHopperInitializer.cs` (line 72) and `ProviderSdkHostAdapters.cs` (line 206) |
 | 8 | Provider contract / round-trip `Encode/Decode` tests | `FakeAIProvider` and `TestProviderHttpClientFactory` in `src/SmartHopper.ProviderSdk.Tests/TestHelpers` support deterministic text and tool-call round-trip tests in `src/SmartHopper.ProviderSdk.Tests/AIProviders/AIProviderCallTests.cs` |
 | 9 | macOS/WinForms `net48` reference-assembly workaround centralized | `Directory.Build.props` (lines 41-45) contains the workaround; no `net48` blocks remain in `src/**/*.csproj` |
+| 10 | `SmartHopper.Components.Test` Release build mapping | `SmartHopper.sln` no longer has `Release\|*.Build.0` entries for `{B932CFFA-0C82-4A1F-92F2-003CDE1C94AE}`; the test-only project is built only in Debug |
+| 11 | `TrustedProviderRecord` dead code removed | `TrustedProviderRecord.cs` has been removed; `SmartHopperSettings.TrustedProviders` remains the authoritative `Dictionary<string, bool>` trust list |
 
 ### Still pending / not implemented
 
 | # | Item | Evidence |
 | --- | --- | --- |
-| 1 | `SmartHopper.Components.Test` Release build mapping | `SmartHopper.sln` still has `Release\|*` build entries for `{B932CFFA-0C82-4A1F-92F2-003CDE1C94AE}` (Components.Test) |
-| 2 | Hardcoded model capability lists | Each provider still returns a large `List<AIModelCapabilities>` from `*ProviderModels.cs` (e.g. `OpenRouterProviderModels.cs` line 51) |
-| 3 | OpenAI-compatible role mapping consolidation | OpenAI, Mistral, LocalAI, Ollama, OpenRouter, and DeepSeek still contain identical `switch (interaction.Agent)` mappings (e.g. `OpenAIProvider.cs` lines 255-277) |
-| 4 | Structured logging/tracing and metrics export | `IProviderLogger` exists and is registered, but provider code still uses ad-hoc `Debug.WriteLine`; `AIMetrics` are not exported to an external sink |
+| 1 | Hardcoded model capability lists | Each provider still returns a large `List<AIModelCapabilities>` from `*ProviderModels.cs` (e.g. `OpenRouterProviderModels.cs` line 51) |
+| 2 | OpenAI-compatible role mapping consolidation | OpenAI, Mistral, LocalAI, Ollama, OpenRouter, and DeepSeek still contain identical `switch (interaction.Agent)` mappings (e.g. `OpenAIProvider.cs` lines 255-277) |
+| 3 | Structured logging/tracing and metrics export | `IProviderLogger` exists and is registered, but provider code still uses ad-hoc `Debug.WriteLine`; `AIMetrics` are not exported to an external sink |
 
 ### Partially implemented
 
 | # | Item | Evidence |
 | --- | --- | --- |
 | 1 | Provider logging abstraction | `IProviderLogger` and `SmartHopperProviderLogger` are wired into `ProviderSdkHost`, but provider code still calls `Debug.WriteLine` directly instead of routing through the abstraction |
-| 2 | `TrustedProviderRecord` / trusted-provider storage | `TrustedProviderRecord` exists in `SmartHopper.Infrastructure.Settings` but is never referenced; `SmartHopperSettings.TrustedProviders` remains a `Dictionary<string, bool>` |
 
 *The inconsistencies noted in the original review (Duplication Map and Prioritized Action Plan #3/#4) are now resolved in the tables above.*
 
@@ -77,11 +77,11 @@ The following review suggestions have been implemented since the review was writ
 | # | Dimension | Score | Justification |
 | --- | --- | --- | --- |
 | 1 | Base classes, base entities, and core abstractions | 3 | Deep 5-level hierarchy, but mitigated by composition cores. `AIStatefulAsyncComponentBase` is becoming a “god base class” and the adapter hierarchy is asymmetric. |
-| 2 | Project organization and maintainability | 3 | Clean layers and docs. The macOS WinForms workaround is centralized in `Directory.Build.props`, explicit GUID `ProjectReference` metadata is gone, but `Components.Test` is still mapped to Release builds and `StyleCop` remains warning-only. |
+| 2 | Project organization and maintainability | 3 | Clean layers and docs. The macOS WinForms workaround is centralized in `Directory.Build.props`, explicit GUID `ProjectReference` metadata is gone, `Components.Test` is no longer built in Release, and `StyleCop` remains warning-only. |
 | 3 | Conceptual correctness of data objects and domain model | 3 | Strong value objects and explicit lifecycle. `AIBody.InteractionsNew` is now `IReadOnlyList<int>`, `ResetNew()` is removed, and `AIInteractionBase`/`IAIInteraction` use `init`-only properties. `AIRequestBase` is still not abstract and its `Exec` method throws `NotImplementedException`. |
 | 4 | Duplication of code and responsibilities | 3 | Model selection, JSON schema wrapping, API-key, icon loading, and `MaxTokens`/`Temperature` validation are consolidated. The provider HTTP client factory is shared. OpenAI-compatible role mapping and hardcoded model capability lists are still repeated per provider. The ~43 per-provider test runners are intentional and share a `ProviderTestComponentBase`. |
-| 5 | Duplication and consistency of stored data | 3 | No heavy persisted denormalization. `AIModelCapabilityRegistry` is now the only model capability singleton; `TrustedProviderRecord` still exists alongside a legacy `Dictionary<string,bool>`. |
-| 6 | Unreferenced, orphaned, or dead code/data | 3 | `TrustedProviderRecord` is still unused. `AIBody.ResetNew()` and `ModelManager` have been removed. `Components.Test` build mappings still contradict the stated intent. |
+| 5 | Duplication and consistency of stored data | 3 | No heavy persisted denormalization. `AIModelCapabilityRegistry` is now the only model capability singleton; the unused `TrustedProviderRecord` class has been removed, leaving `SmartHopperSettings.TrustedProviders` as the authoritative trust list. |
+| 6 | Unreferenced, orphaned, or dead code/data | 3 | `TrustedProviderRecord` has been removed. `AIBody.ResetNew()` and `ModelManager` have been removed. `Components.Test` build mappings now align with the documented intent. |
 | 7 | Coupling, cohesion, and changeability | 3 | Provider SDK host abstractions provide clean seams, but `SmartHopper.Core` component bases directly depend on `SmartHopper.Infrastructure` managers. |
 | 8 | Security, auth, and lifecycle guardrails | 3 | Secrets, provider integrity checks, and trust classifications are modeled; trust is now enforced by `ProviderTrustPolicy` before the provider call, but `DEBUG` builds still weaken integrity and encryption failures are silent. |
 | 9 | API contracts and client/server alignment | 3 | `IAIProvider` and `AIRequestCall`/`AIReturn` are clear, and provider contract round-trip tests now exist. There is still no contract versioning, no OpenAPI/exported spec, and `IAIProvider` mixes the stateful provider singleton with the pure request/response contract. |
@@ -105,7 +105,7 @@ The following review suggestions have been implemented since the review was writ
 
 - **[Certain]** Project layering is mostly clean: `SmartHopper.ProviderSdk` has no project dependencies, `SmartHopper.Infrastructure` depends only on the SDK, `SmartHopper.Core` depends on Infrastructure, and each `SmartHopper.Providers.*` project depends only on `SmartHopper.ProviderSdk` (`src/SmartHopper.Providers.OpenAI/SmartHopper.Providers.OpenAI.csproj`).
 - **[Certain (remediated)]** The macOS WinForms workaround (NET Framework 4.8 reference assemblies) is centralized in `Directory.Build.props` (lines 41-45); no `net48` blocks remain in individual `src/**/*.csproj` files.
-- **[Certain]** `src/SmartHopper.Components.Test/SmartHopper.Components.Test.csproj` is mapped to `Release` build configurations in `SmartHopper.sln`, but `.devin/rules/solution-structure.md` states it “is not built in Release.”
+- **[Resolved]** `src/SmartHopper.Components.Test/SmartHopper.Components.Test.csproj` is no longer built in `Release` configurations in `SmartHopper.sln`; only Debug build entries remain, aligning with `.devin/rules/solution-structure.md`.
 - **[Resolved]** Project references no longer use explicit GUID metadata; all `ProjectReference` entries use simple references.
 - **[Suspicious]** `Directory.Build.props` enables `StyleCop.Analyzers` with `TreatWarningsAsErrors=false` and does not appear to run style enforcement in CI.
 - **[Question]** Is the `net48` reference-assembly workaround still required for Rhino 8.11+? The project comments say “Rhino 8.10 and earlier.”
@@ -134,17 +134,17 @@ The following review suggestions have been implemented since the review was writ
 
 ### 5. Duplication and consistency of stored data
 
-- **[Certain]** `SmartHopperSettings.TrustedProviders` is declared as `Dictionary<string, bool>` (`src/SmartHopper.Infrastructure/Settings/SmartHopperSettings.cs`, lines 74-78), while `TrustedProviderRecord` exists as a separate, more structured type that is never used (`src/SmartHopper.Infrastructure/Settings/TrustedProviderRecord.cs`).
+- **[Resolved]** `SmartHopperSettings.TrustedProviders` is declared as `Dictionary<string, bool>` (`src/SmartHopper.Infrastructure/Settings/SmartHopperSettings.cs`, lines 74-78). The unused `TrustedProviderRecord` class has been removed, so `SmartHopperSettings.TrustedProviders` is now the only trust-list storage.
 - **[Resolved]** `AIModelCapabilityRegistry` and `ModelManager` held overlapping in-memory capability data. `ModelManager` has been removed and `AIModelCapabilityRegistry.Instance` is now the only singleton.
 - **[Certain]** `AIModelCapabilities.Default` is a subset of `AIModelCapabilities.Capabilities`, but this invariant is not enforced in the type; `AIModelCapabilityRegistry.SetDefault` clears bits manually.
 - **[Question]** Are provider settings effectively persisted in both `SmartHopperSettings.ProviderSettings` and the per-provider `AIProvider._injectedSettings` cache? Which is the authoritative copy after `RefreshCachedSettings`?
 
 ### 6. Unreferenced, orphaned, or dead code/data
 
-- **[Certain]** `TrustedProviderRecord` in `SmartHopper.Infrastructure.Settings` is defined but has zero references outside its own file.
+- **[Resolved]** `TrustedProviderRecord` in `SmartHopper.Infrastructure.Settings` has been removed because it had zero references outside its own file.
 - **[Certain (remediated)]** `AIBody.ResetNew()` has been removed and the obsolete test coverage deleted.
 - **[Resolved]** `ModelManager` was a thin wrapper around `AIModelCapabilityRegistry` and was only used by `FallbackSettingsPage` and tests; it has been removed and `AIModelCapabilityRegistry` is used directly.
-- **[Suspicious]** `SmartHopper.Components.Test` is built in Release solution configurations, contradicting the rule that it is test-only.
+- **[Resolved]** `SmartHopper.Components.Test` is no longer built in Release solution configurations; it is now Debug-only, matching the rule that it is test-only.
 - **[Suspicious]** `AICapability` values `VideoInput`, `VideoOutput`, and `EmbedOutput` are now referenced in provider model lists (OpenRouter, OpenAI, Mistral, Gemini) but it is unclear whether the rest of the pipeline fully exercises them.
 
 ### 7. Coupling, cohesion, and changeability
@@ -207,10 +207,10 @@ The following review suggestions have been implemented since the review was writ
 
 | Artifact | Status | Evidence |
 | --- | --- | --- |
-| `SmartHopper.Infrastructure.Settings.TrustedProviderRecord` | **Dead** | Class is defined but referenced by no other file; `SmartHopperSettings.TrustedProviders` remains `Dictionary<string, bool>`. |
+| `SmartHopper.Infrastructure.Settings.TrustedProviderRecord` | **Removed** | The unused class has been deleted; `SmartHopperSettings.TrustedProviders` remains the authoritative `Dictionary<string, bool>` trust list. |
 | `SmartHopper.ProviderSdk.AICall.Core.Interactions.AIBody.ResetNew()` | **Removed** | `ResetNew()` has been removed and the obsolete test coverage deleted. |
 | `SmartHopper.Infrastructure.AIModels.ModelManager` | **Removed** | Removed; `AIModelCapabilityRegistry.Instance` is the single source of truth for model selection, defaults, and streaming validation. |
-| `SmartHopper.Components.Test` Release build mapping | **Contradicts intent** | `SmartHopper.sln` includes `Release` build entries, but `.devin/rules/solution-structure.md` says it is not built in Release. |
+| `SmartHopper.Components.Test` Release build mapping | **Resolved** | `SmartHopper.sln` no longer has `Release\|*.Build.0` entries for `{B932CFFA-0C82-4A1F-92F2-003CDE1C94AE}`; the test-only project is built only in Debug. |
 | `AICapability.VideoInput/VideoOutput/EmbedOutput` and related | **Future-facing / partially used** | Referenced in provider model lists (OpenRouter, OpenAI, Mistral, Gemini); unclear whether the runtime pipeline fully exercises them. |
 | `SmartHopper.Core.ComponentBase.AsyncComponentBase` → `SmartHopper.Infrastructure.Mcp` | **Suspicious coupling** | A generic async base class knows about MCP canvas lock state. |
 
@@ -226,7 +226,7 @@ The following review suggestions have been implemented since the review was writ
 | 4 | **Document and harness the `SmartHopper.Components.Test` suite.** Clarify that each `Test{Provider}{Feature}Component` is an intentional per-provider test runner; extract `ProviderTestComponentBase`. | Small | Medium. Preserves the intended test surface while reducing common boilerplate. **Done.** |
 | 5 | **Fix `AIBody` immutability and `AIInteractionBase` mutability.** Make `AIBody.InteractionsNew` immutable, remove `ResetNew()`, and use `init`-only setters or a builder for `AIInteractionBase`. | Small | Medium. Aligns the domain model with the documented immutability goal. **Done.** |
 | 6 | **Introduce a `ProviderTrustPolicy` that enforces integrity checks before the provider call.** | Small | High. Closes the security enforcement gap without changing the contract. **Done.** |
-| 7 | **Fix the `SmartHopper.Components.Test` Release build mapping.** Add `DisableBuild` condition or remove Release solution configurations for the project. | Small | Medium. Aligns build behavior with documented intent. **Pending.** |
+| 7 | **Fix the `SmartHopper.Components.Test` Release build mapping.** Remove `Release\|*.Build.0` entries so the test-only project is built only in Debug. | Small | Medium. Aligns build behavior with documented intent. **Done.** |
 | 8 | **Centralize macOS/WinForms workaround and standardize project references.** Move the `net48` reference-assembly logic to `Directory.Build.props` and remove explicit GUIDs from `ProjectReference`. | Small–Medium | Medium. Reduces csproj duplication and build maintenance. **Done.** |
 | 9 | **Add provider contract / round-trip tests and HTTP fakes.** Use `IProviderHttpClientFactory` in `AIProvider.CallApi` and provide a mock message handler. | Medium | Medium. Improves testability and catches provider drift. **Done.** |
 | 10 | **Introduce structured logging/tracing and metrics export.** Replace ad-hoc `Debug.WriteLine` with an `IProviderLogger` implementation that supports scopes/correlation; export `AIMetrics` to a sink. | Large | Medium. Needed for production observability but can follow the other items. |

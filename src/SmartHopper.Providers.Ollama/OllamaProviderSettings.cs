@@ -33,7 +33,7 @@ namespace SmartHopper.Providers.Ollama
     /// </summary>
     public class OllamaProviderSettings : AIProviderSettings
     {
-        private new readonly IAIProvider provider;
+        private readonly IAIProvider provider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="OllamaProviderSettings"/> class.

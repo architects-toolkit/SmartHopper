@@ -34,7 +34,7 @@ namespace SmartHopper.Providers.OpenAI
     /// </summary>
     public class OpenAIProviderSettings : AIProviderSettings
     {
-        private new readonly OpenAIProvider provider;
+        private readonly OpenAIProvider provider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="OpenAIProviderSettings"/> class.

@@ -32,7 +32,7 @@ namespace SmartHopper.Providers.OpenRouter
     /// </summary>
     public class OpenRouterProviderSettings : AIProviderSettings
     {
-        private new readonly OpenRouterProvider provider;
+        private readonly OpenRouterProvider provider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="OpenRouterProviderSettings"/> class.

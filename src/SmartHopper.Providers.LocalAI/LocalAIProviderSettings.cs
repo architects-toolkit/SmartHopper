@@ -33,7 +33,7 @@ namespace SmartHopper.Providers.LocalAI
     /// </summary>
     public class LocalAIProviderSettings : AIProviderSettings
     {
-        private new readonly IAIProvider provider;
+        private readonly IAIProvider provider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="LocalAIProviderSettings"/> class.

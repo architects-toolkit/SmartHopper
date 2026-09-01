@@ -29,9 +29,9 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
     public interface IAIRequest
     {
         /// <summary>
-        /// Gets or sets the AI provider name.
+        /// Gets or sets the AI provider name, or <c>null</c> when the provider has not been selected yet.
         /// </summary>
-        string Provider { get; set; }
+        string? Provider { get; set; }
 
         /// <summary>
         /// Gets the AI provider instance.
