@@ -42,6 +42,7 @@ Many thanks to the following contributors to this release:
 - `AIToolManager.ExecuteTool` now normalizes a `null` `AIInteractionToolCall.Arguments` value to an empty `JObject` at execution time when the tool schema has no required parameters, replacing the interaction in the immutable `AIBody` so downstream tool delegates receive the normalized value.
 - `ToolJsonSchemaValidator` now uses `AITool.GetRequiredParameters()` to determine required parameters instead of parsing the schema inline.
 - Bumped all `actions/github-script` references from `v7` to `v9` to run on Node 24 and remove Node 20 deprecation warnings.
+- ProviderTrustPolicy unknown-provider diagnostic now only suggests switching to `Hard` or `Strict` integrity mode when the current mode is `Soft`, avoiding misleading guidance when the provider is already blocked.
 
 ### Removed
 
