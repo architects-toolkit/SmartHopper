@@ -145,13 +145,19 @@ namespace SmartHopper.ProviderSdk.AICall.Validation
             if (trustHost.IsProviderUnknown(providerName))
             {
                 var (conditionVerdict, severity, code) = Decide(Condition.Unknown, effectiveMode);
+                var unknownMessage = $"Provider '{providerName}' is not known - it may be a custom or third-party provider. " +
+                    "Enable this provider only if you trust its source.";
+
+                if (effectiveMode == ProviderIntegrityCheckMode.Soft)
+                {
+                    unknownMessage += " Change 'Integrity Check Mode' to 'Hard' or 'Strict' in SmartHopper settings to block unknown providers.";
+                }
+
                 messages.Add(new SHRuntimeMessage(
                     severity,
                     SHRuntimeMessageOrigin.Validation,
                     code,
-                    $"Provider '{providerName}' is not known - it may be a custom or third-party provider. " +
-                    "Enable this provider only if you trust its source. " +
-                    "Change 'Integrity Check Mode' to 'Hard' or 'Strict' in SmartHopper settings to block unknown providers."));
+                    unknownMessage));
                 verdict = UpdateVerdict(verdict, conditionVerdict);
             }
 
