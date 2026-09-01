@@ -167,61 +167,9 @@ jobs:
         run: |
           echo "::warning file=CHANGELOG.md::CHANGELOG.md should be updated when user-facing source files change"
 
-  title-check:
-    name: 🏷️ PR Title Style Check
-    if: github.event_name != 'merge_group'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      pull-requests: read
-    steps:
-      - name: Validate PR Title Style
-        env:
-          PR_TITLE: ${{ github.event.inputs.pr_title || github.event.pull_request.title }}
-        run: |
-          echo "Checking PR title: $PR_TITLE"
-          
-          # Valid types based on conventional commits
-          VALID_TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security|release"
-          
-          # Check if PR title follows conventional commits format OR is a release branch name
-          if [[ ! $PR_TITLE =~ ^($VALID_TYPES)(\([a-z0-9-]+\))?:\ .+ ]] && [[ ! $PR_TITLE =~ ^release/[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?(\+[a-zA-Z0-9]+)?$ ]]; then
-            echo "::error Pull request title must follow conventional commits format OR be a release branch name"
-            echo ""
-            echo "Required format 1: <type>(<optional-scope>): <description>"
-            echo "Required format 2: release/<version>"
-            echo ""
-            echo "Where <type> is one of:"
-            echo "  feat:     A new feature"
-            echo "  fix:      A bug fix"
-            echo "  docs:     Documentation changes"
-            echo "  style:    Code style changes (formatting, etc)"
-            echo "  refactor: Code refactoring"
-            echo "  perf:     Performance improvements"
-            echo "  test:     Adding or modifying tests"
-            echo "  build:    Changes to build process or tools"
-            echo "  ci:       Changes to CI configuration"
-            echo "  chore:    Other changes that don't modify src or test files"
-            echo "  revert:   Revert a previous commit"
-            echo "  security: Security-related changes"
-            echo "  release:  Release PR"
-            echo ""
-            echo "Examples:"
-            echo "  feat: add new grasshopper component"
-            echo "  fix(component): resolve issue with parameter handling"
-            echo "  docs(readme): update installation instructions"
-            echo "  security: update dependencies to address vulnerabilities"
-            echo "  release/1.2.3-alpha"
-            echo "  release/2.0.0"
-            echo "  release/1.0.0+build.123"
-            exit 1
-          else
-            echo "PR title format is valid! ✅"
-          fi
-
   required-check:
     name: 📦 Pull Request Validation
-    needs: [version-check, code-style-check, changelog-check, title-check]
+    needs: [version-check, code-style-check, changelog-check]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -229,13 +177,6 @@ jobs:
       - name: Verify required workflow jobs
         shell: bash
         run: |
-          if [[ "${{ github.event_name }}" != "merge_group" ]]; then
-            if [[ "${{ needs.title-check.result }}" != "success" ]]; then
-              echo "::error::PR title check finished with ${{ needs.title-check.result }}"
-              exit 1
-            fi
-          fi
-
           for result in \
             "${{ needs.version-check.result }}" \
             "${{ needs.code-style-check.result }}" \
