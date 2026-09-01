@@ -51,12 +51,11 @@ The following review suggestions have been implemented since the review was writ
 | --- | --- | --- |
 | 1 | `ProviderTrustPolicy` enforcement before provider calls | `ProviderTrustPolicy` in `src/SmartHopper.ProviderSdk/AICall/Validation/ProviderTrustPolicy.cs` now decides block/warn/allow; `AIRequestCall.IsValid()` and `AIRequestCall.Exec()` enforce it |
 | 2 | `SmartHopper.Components.Test` Release build mapping | `SmartHopper.sln` still has `Release\|*` build entries for `{B932CFFA-0C82-4A1F-92F2-003CDE1C94AE}` (Components.Test) |
-| 3 | Centralize macOS/WinForms `net48` reference-assembly workaround | The workaround is still duplicated in ~18 `.csproj` files, including `SmartHopper.Components.Test.csproj` |
-| 4 | Use `IProviderHttpClientFactory` in `AIProvider.CallApi` / streaming / batch | `IProviderHttpClientFactory` exists and is registered in `SmartHopperInitializer`, but `AIProvider.CallApi` and `AIProviderStreamingAdapter.CreateHttpClient` still call `new HttpClient()` |
-| 5 | Provider contract / round-trip `Encode/Decode` tests | No round-trip contract tests for text/tool/image/audio interactions across providers |
-| 6 | Structured logging/tracing and metrics export | `IProviderLogger` exists and is registered, but provider code still uses ad-hoc `Debug.WriteLine`; `AIMetrics` are not exported to an external sink |
-| 7 | Hardcoded model capability lists | Each provider still returns a large `List<AIModelCapabilities>` from `*ProviderModels.cs` |
-| 8 | OpenAI-compatible role mapping consolidation | OpenAI, Mistral, LocalAI, and Ollama still contain identical `switch` role mappings in their `EncodeToJToken` paths |
+| 3 | Use `IProviderHttpClientFactory` in `AIProvider.CallApi` / streaming / batch | `IProviderHttpClientFactory` exists and is registered in `SmartHopperInitializer`, but `AIProvider.CallApi` and `AIProviderStreamingAdapter.CreateHttpClient` still call `new HttpClient()` |
+| 4 | Provider contract / round-trip `Encode/Decode` tests | No round-trip contract tests for text/tool/image/audio interactions across providers |
+| 5 | Structured logging/tracing and metrics export | `IProviderLogger` exists and is registered, but provider code still uses ad-hoc `Debug.WriteLine`; `AIMetrics` are not exported to an external sink |
+| 6 | Hardcoded model capability lists | Each provider still returns a large `List<AIModelCapabilities>` from `*ProviderModels.cs` |
+| 7 | OpenAI-compatible role mapping consolidation | OpenAI, Mistral, LocalAI, and Ollama still contain identical `switch` role mappings in their `EncodeToJToken` paths |
 
 ### Partially implemented
 
@@ -199,7 +198,7 @@ The following review suggestions have been implemented since the review was writ
 | OpenAI-compatible role mapping | `OpenAIProvider`, `MistralAIProvider`, `LocalAIProvider`, `OllamaProvider` | `StandardRoleMapper` in Provider SDK | Medium |
 | Per-provider test runner components | 43 files in `src/SmartHopper.Components.Test/Providers/` | Keep as independent provider test runners; extract a shared test-harness base for setup/teardown | Intentional (not duplication) — **Harness added** |
 | Hardcoded model capability lists | Every `*ProviderModels.cs` | JSON/fluent builder or external model manifest loaded by `AIProviderModels` | Medium |
-| WinForms/macOS reference workaround | ~20 `.csproj` files | Centralized in `Directory.Build.props` | High |
+| WinForms/macOS reference workaround | ~20 `.csproj` files | Centralized in `Directory.Build.props` | High — **Remediated** |
 
 ---
 
@@ -227,8 +226,10 @@ The following review suggestions have been implemented since the review was writ
 | 5 | **Fix `AIBody` immutability and `AIInteractionBase` mutability.** Make `AIBody.InteractionsNew` immutable, remove `ResetNew()` if unused, and use init-only setters or a builder for `AIInteractionBase`. | Small | Medium. Aligns the domain model with the documented immutability goal. **Done.** |
 | 6 | **Introduce a `ProviderTrustPolicy` that enforces integrity checks before the provider call.** In `Soft`/`Hard`/`Strict` modes, decide whether to block, warn, or allow; do not rely only on `IsValid` messages. | Small | High. Closes the security enforcement gap without changing the contract. **Done.** |
 | 7 | **Fix the `SmartHopper.Components.Test` Release build mapping.** Add `DisableBuild` condition or remove Release solution configurations for the project. | Small | Medium. Aligns build behavior with documented intent. **Done.** |
-| 8 | **Centralize macOS/WinForms workaround and standardize project references.** Move the `net48` reference-assembly logic to `Directory.Build.props` and remove explicit GUIDs from `ProjectReference`. | Small–Medium | Medium. Reduces csproj duplication and build maintenance. |
+| 8 | **Centralize macOS/WinForms workaround and standardize project references.** Move the `net48` reference-assembly logic to `Directory.Build.props` and remove explicit GUIDs from `ProjectReference`. | Small–Medium | Medium. Reduces csproj duplication and build maintenance. **Done.** |
 | 9 | **Add provider contract / round-trip tests and HTTP fakes.** Use `IProviderHttpClientFactory` in `AIProvider.CallApi` and provide a mock message handler. | Medium | Medium. Improves testability and catches provider drift. |
 | 10 | **Introduce structured logging/tracing and metrics export.** Replace ad-hoc `Debug.WriteLine` with an `IProviderLogger` implementation that supports scopes/correlation; export `AIMetrics` to a sink. | Large | Medium. Needed for production observability but can follow the other items. |
 
 *Implementation status updated to reflect the `ProviderTrustPolicy` work on branch `feature/2.0.0-provider-trust-policy`.*
+
+*Implementation status for the macOS/WinForms workaround updated to reflect the work on branch `chore/2.0.0-dev.260901-centralize-winforms`.*
