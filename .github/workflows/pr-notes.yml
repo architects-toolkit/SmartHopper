@@ -379,6 +379,8 @@ jobs:
           llm_body = blocks[1].strip() if len(blocks) >= 2 else ""
           ai_ok = os.environ.get("AI_SUCCESS") == "true" and bool(llm_title and llm_body)
 
+          static_body = _read_file_or_empty(".github/prompts/pr-notes-static.md").strip()
+
           def normalize_ai_body(body):
               matches = list(re.finditer(r"(?m)^##\s+(Description|Breaking Changes)\s*$", body))
               sections = {}
@@ -394,15 +396,7 @@ jobs:
                   "## Breaking Changes",
                   sections["Breaking Changes"],
                   "",
-                  "## Testing Done",
-                  "_Not verified by automation — to be completed by the author._",
-                  "",
-                  "## Checklist",
-                  "- [ ] This PR is focused on a single feature or bug fix",
-                  "- [ ] Version in Solution.props was updated, if necessary, and follows semantic versioning",
-                  "- [ ] CHANGELOG.md has been updated",
-                  "- [ ] PR title follows Conventional Commits format",
-                  "- [ ] PR description follows the Pull Request Description Template",
+                  static_body,
               ]).strip()
 
           def fallback_title():
@@ -429,15 +423,7 @@ jobs:
                   "## Breaking Changes",
                   "No breaking changes identified from the available metadata.",
                   "",
-                  "## Testing Done",
-                  "_Not verified by automation — to be completed by the author._",
-                  "",
-                  "## Checklist",
-                  "- [ ] This PR is focused on a single feature or bug fix",
-                  "- [ ] Version in Solution.props was updated, if necessary, and follows semantic versioning",
-                  "- [ ] CHANGELOG.md has been updated",
-                  "- [ ] PR title follows Conventional Commits format",
-                  "- [ ] PR description follows the Pull Request Description Template",
+                  static_body,
                   "",
                   "### Commits",
                   *(f"- {item}" for item in commits[:20]),

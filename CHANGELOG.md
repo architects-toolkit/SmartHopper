@@ -67,6 +67,7 @@ Many thanks to the following contributors to this release:
 - Hardened `pr-notes.yml` context step by writing the diff, commit messages, changed files, and unreleased changelog to files before the Python script reads them, instead of passing them as environment strings. The diff budget is now computed from the `mistral-medium-latest` 256k-token context window, allowing the largest diff that still leaves room for the prompt, output, and overhead.
 - `pr-notes.yml` now hashes the diff and skips the main LLM when the diff is unchanged. The diff hash uses `git patch-id --stable`, which ignores whitespace, line numbers and context-only formatting noise. On subsequent iterations it asks a severity LLM whether new changes are substantial enough to update the title/description; if not, no new suggestion is generated.
 - `pr-notes.yml` no longer posts fallback suggestions on subsequent runs, so only the first run uses the branch-based fallback.
+- The deterministic `## Testing Done` and `## Checklist` body sections have been moved from `pr-notes.yml` to `.github/prompts/pr-notes-static.md` so they can be edited independently.
 - Hardened `ComponentStateManager` debounce logic so stale timer callbacks are ignored after `StartDebounce`/`CancelDebounce`, preventing a race where an old or cancelled debounce could still trigger a state transition.
 
 ## [2.0.0-dev.260821] - 2026-08-21
