@@ -1,0 +1,56 @@
+name: 'Normalize Version'
+description: 'Normalize a version to its milestone-aligned form (e.g. 2.0.0-dev.260901 -> 2.0.0-alpha).'
+
+inputs:
+  version:
+    description: 'Version string to normalize (e.g., 2.0.0 or 2.0.0-dev.260901)'
+    required: true
+
+outputs:
+  normalized-version:
+    description: 'The milestone-aligned version'
+    value: ${{ steps.normalize.outputs.normalized-version }}
+  major:
+    description: 'Major version component'
+    value: ${{ steps.parse-version.outputs.major }}
+  minor:
+    description: 'Minor version component'
+    value: ${{ steps.parse-version.outputs.minor }}
+  patch:
+    description: 'Patch version component'
+    value: ${{ steps.parse-version.outputs.patch }}
+  stage:
+    description: 'Release stage extracted from suffix (alpha, beta, rc, dev, or stable)'
+    value: ${{ steps.parse-version.outputs.stage }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Parse version
+      id: parse-version
+      uses: ./.github/actions/versioning/parse-version
+      with:
+        version: ${{ inputs.version }}
+
+    - name: Normalize version
+      id: normalize
+      shell: pwsh
+      run: |
+        $major = "${{ steps.parse-version.outputs.major }}"
+        $minor = "${{ steps.parse-version.outputs.minor }}"
+        $patch = "${{ steps.parse-version.outputs.patch }}"
+        $stage = "${{ steps.parse-version.outputs.stage }}"
+
+        $core = "$major.$minor.$patch"
+
+        if ($stage -and $stage -ne 'stable') {
+          if ($stage -eq 'dev') {
+            $stage = 'alpha'
+          }
+          $normalized = "$core-$stage"
+        } else {
+          $normalized = $core
+        }
+
+        Write-Host "Normalized version: $normalized"
+        "normalized-version=$normalized" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8

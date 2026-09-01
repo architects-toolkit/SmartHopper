@@ -1,12 +1,12 @@
 name: 'Apply Version Label'
-description: 'Creates the version: label if needed and applies it to an issue or PR.'
+description: 'Creates a milestone-aligned version: label if needed and applies it to an issue or PR.'
 
 inputs:
   issue-number:
     description: 'Issue or PR number to label'
     required: true
   version:
-    description: 'Version to use for the label (e.g., 2.0.0-alpha)'
+    description: 'Version to use for the label (e.g., 2.0.0, 2.0.0-dev.260901, or 2.0.0-alpha.2)'
     required: true
   token:
     description: 'GitHub token with issues:write permission'
@@ -22,27 +22,45 @@ inputs:
     default: ''
 
 outputs:
+  normalized-version:
+    description: 'The milestone-aligned version used for the label'
+    value: ${{ steps.normalize-version.outputs.normalized-version }}
   label-name:
     description: 'The full version label name applied'
     value: ${{ steps.apply-label.outputs.label-name }}
+  label-exists:
+    description: 'Whether the version label already existed (true) or was newly created (false)'
+    value: ${{ steps.apply-label.outputs.label-exists }}
+  label-created:
+    description: 'Whether the version label was newly created by this run'
+    value: ${{ steps.apply-label.outputs.label-created }}
 
 runs:
   using: "composite"
   steps:
+    - name: Normalize version
+      id: normalize-version
+      uses: ./.github/actions/versioning/normalize-version
+      with:
+        version: ${{ inputs.version }}
+
     - name: Ensure and apply version label
       id: apply-label
       uses: actions/github-script@v9
       with:
         github-token: ${{ inputs.token }}
         script: |
-          const version = '${{ inputs.version }}';
+          const version = '${{ steps.normalize-version.outputs.normalized-version }}';
           const issueNumber = parseInt('${{ inputs.issue-number }}', 10);
           const color = '${{ inputs.color }}';
           const description = '${{ inputs.description }}' || `Items related to version ${version}`;
           const labelName = `version: ${version}`;
-          
+
           core.setOutput('label-name', labelName);
-          
+
+          let labelExists = false;
+          let labelCreated = false;
+
           // Ensure the label exists (create it if missing).
           try {
             await github.rest.issues.getLabel({
@@ -51,6 +69,7 @@ runs:
               name: labelName,
             });
             console.log(`Label "${labelName}" already exists.`);
+            labelExists = true;
           } catch (error) {
             if (error.status === 404) {
               console.log(`Creating label "${labelName}"...`);
@@ -63,10 +82,13 @@ runs:
                   description: description,
                 });
                 console.log(`Created label "${labelName}".`);
+                labelExists = true;
+                labelCreated = true;
               } catch (createError) {
                 const msg = createError.message || '';
                 if (createError.status === 422 && /already[_ ]exists/i.test(msg)) {
                   console.log(`Label "${labelName}" was created concurrently.`);
+                  labelExists = true;
                 } else {
                   console.error(`Failed to create label "${labelName}":`, createError);
                   core.setFailed(`Failed to create version label: ${createError.message}`);
@@ -79,7 +101,10 @@ runs:
               return;
             }
           }
-          
+
+          core.setOutput('label-exists', String(labelExists));
+          core.setOutput('label-created', String(labelCreated));
+
           // Apply the label to the issue/PR.
           try {
             await github.rest.issues.addLabels({

@@ -1,5 +1,5 @@
 name: 'Assign PR to Milestone'
-description: 'Reads version from Solution.props and assigns a PR to the appropriate milestone and version: label, creating them if necessary. Mimics pr-milestone.yml behavior.'
+description: 'Reads version from Solution.props, normalizes it to the milestone version, and assigns a PR to the appropriate milestone and version: label, creating them if necessary.'
 
 inputs:
   pr-number:
@@ -69,31 +69,23 @@ runs:
             console.log('Using provided version:', fullVersion);
           }
           
-          // Parse and process version
-          // - Build numbers (e.g., ".250720") are removed because they are not relevant for milestone assignment.
-          // - The suffix "-dev" is replaced with "-alpha" because there are no milestones for development versions.
-          
-          let processedVersion = fullVersion;
-          const lastDotIndex = processedVersion.lastIndexOf('.');
-          const dashIndex = processedVersion.indexOf('-');
-          if (dashIndex !== -1 && lastDotIndex > dashIndex) {
-            // Only remove if the dot is after the dash (part of build number)
-            processedVersion = processedVersion.substring(0, lastDotIndex);
-          }
-          
-          // Replace -dev with -alpha (there are no dev milestones)
-          processedVersion = processedVersion.replace('-dev', '-alpha');
-          
-          console.log('Processed version for milestone:', processedVersion);
-          core.setOutput('milestone-title', processedVersion);
+          console.log('Raw version for milestone:', fullVersion);
+          core.setOutput('raw-version', fullVersion);
+
+    - name: Normalize version
+      id: normalize-version
+      if: steps.read-version.outputs.raw-version != ''
+      uses: ./.github/actions/versioning/normalize-version
+      with:
+        version: ${{ steps.read-version.outputs.raw-version }}
 
     - name: Create or get milestone
       id: create-or-get
-      if: steps.read-version.outputs.milestone-title != ''
+      if: steps.normalize-version.outputs.normalized-version != ''
       uses: ./.github/actions/milestone/create-or-get
       with:
-        title: ${{ steps.read-version.outputs.milestone-title }}
-        description: 'Milestone for version ${{ steps.read-version.outputs.milestone-title }}'
+        title: ${{ steps.normalize-version.outputs.normalized-version }}
+        description: 'Milestone for version ${{ steps.normalize-version.outputs.normalized-version }}'
         state: 'open'
         token: ${{ inputs.token }}
 
@@ -137,5 +129,5 @@ runs:
       uses: ./.github/actions/versioning/apply-version-label
       with:
         issue-number: ${{ inputs.pr-number }}
-        version: ${{ steps.create-or-get.outputs.milestone-title }}
+        version: ${{ steps.read-version.outputs.raw-version }}
         token: ${{ inputs.token }}
