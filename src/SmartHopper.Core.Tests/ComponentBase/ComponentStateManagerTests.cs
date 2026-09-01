@@ -671,7 +671,7 @@ namespace SmartHopper.Core.Tests.ComponentBase
 
                 // Wait for the debounce timer to actually fire, with a generous
                 // timeout to avoid race conditions on slow or saturated CI runners.
-                var completed = await Task.WhenAny(tcs.Task, Task.Delay(1000));
+                var completed = await Task.WhenAny(tcs.Task, Task.Delay(1000)).ConfigureAwait(false);
                 Assert.True(completed == tcs.Task, "Debounce timer did not fire within the expected timeout");
 
                 Assert.Equal(ComponentState.NeedsRun, this.manager.CurrentState);
@@ -701,7 +701,7 @@ namespace SmartHopper.Core.Tests.ComponentBase
                 // Wait longer than the cancelled debounce would have taken, and
                 // make sure no state change happened.
                 var timeoutTask = Task.Delay(150);
-                var completed = await Task.WhenAny(tcs.Task, timeoutTask);
+                var completed = await Task.WhenAny(tcs.Task, timeoutTask).ConfigureAwait(false);
                 Assert.True(completed == timeoutTask, "A cancelled debounce still caused a state transition");
 
                 Assert.Equal(ComponentState.Completed, this.manager.CurrentState);
@@ -732,7 +732,7 @@ namespace SmartHopper.Core.Tests.ComponentBase
                 this.manager.StartDebounce(ComponentState.Processing, 50);
 
                 // Wait for the final debounce to actually fire.
-                var completed = await Task.WhenAny(tcs.Task, Task.Delay(1000));
+                var completed = await Task.WhenAny(tcs.Task, Task.Delay(1000)).ConfigureAwait(false);
                 Assert.True(completed == tcs.Task, "Restarted debounce timer did not fire within the expected timeout");
 
                 // Should be Processing, not NeedsRun
