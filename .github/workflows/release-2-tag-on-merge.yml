@@ -97,7 +97,7 @@ jobs:
 
       - name: Generate GitHub release notes
         id: github-release-notes
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           RELEASE_VERSION: ${{ steps.release-info.outputs.version }}
           TARGET_COMMIT: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
@@ -247,7 +247,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Open or update release failure issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           RELEASE_VERSION: ${{ needs.release.outputs.version || inputs.version || 'unknown' }}
         with:

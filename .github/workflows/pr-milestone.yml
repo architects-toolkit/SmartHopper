@@ -31,7 +31,7 @@ jobs:
         repository: ${{ github.event.pull_request.head.repo.full_name }}
       
     - name: Read version from Solution.props and assign to milestone
-      uses: actions/github-script@v7
+      uses: actions/github-script@v9
       with:
         script: |
           const fs = require('fs');

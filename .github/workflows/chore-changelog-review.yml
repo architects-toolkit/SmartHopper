@@ -146,7 +146,7 @@ jobs:
 
       - name: Post review summary comment
         if: steps.context.outputs.skip != 'true' && steps.ai-review.outputs.success == 'true' && steps.safe-commit.outputs.method != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           CHANGES_MADE: ${{ steps.ai-review.outputs.changes-made }}
         with:

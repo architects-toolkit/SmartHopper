@@ -42,7 +42,7 @@ jobs:
           fetch-depth: 0
 
       - name: Find and delete stale branches
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           MAX_AGE_DAYS: ${{ github.event.inputs.max-age-days || '7' }}
         with:

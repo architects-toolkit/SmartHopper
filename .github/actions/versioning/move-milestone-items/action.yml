@@ -30,7 +30,7 @@ runs:
   steps:
     - name: Move items to target milestone
       id: move
-      uses: actions/github-script@v7
+      uses: actions/github-script@v9
       env:
         CLOSED_MILESTONE_TITLE: ${{ inputs.closed-milestone-title }}
         CLOSED_MILESTONE_TITLES: ${{ inputs.closed-milestone-titles }}

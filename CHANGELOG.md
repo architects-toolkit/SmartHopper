@@ -41,6 +41,7 @@ Many thanks to the following contributors to this release:
 - `SmartHopper.Infrastructure` project file now conditionally emits `InternalsVisibleTo` public keys only when `SignAssembly` is not disabled, allowing unsigned `dotnet build -p:SignAssembly=false` runs to compile test projects.
 - `AIToolManager.ExecuteTool` now normalizes a `null` `AIInteractionToolCall.Arguments` value to an empty `JObject` at execution time when the tool schema has no required parameters, replacing the interaction in the immutable `AIBody` so downstream tool delegates receive the normalized value.
 - `ToolJsonSchemaValidator` now uses `AITool.GetRequiredParameters()` to determine required parameters instead of parsing the schema inline.
+- Bumped all `actions/github-script` references from `v7` to `v9` to run on Node 24 and remove Node 20 deprecation warnings.
 
 ### Removed
 
@@ -58,6 +59,7 @@ Many thanks to the following contributors to this release:
 - Post-release version bump now stays on the same pre-release stage and increments its sequence for alpha/beta/rc, and bumps to the next minor `dev` version only after a stable release.
 - Composite action `next-version` now uses the repository-root relative path for the `calculate-version` dependency and validates `bump` and `stage` inputs before processing.
 - Fixed documentation validation failures by adding the required sections, metadata, and valid cross-references to `docs/Providers/AICall/JsonSchemaAdapters.md` and `docs/Testing/index.md`.
+- Fixed a JavaScript `SyntaxError` in the `pr-milestone.yml` milestone-assignment script caused by redeclaring the `core` object injected by `actions/github-script`.
 
 ## [2.0.0-dev.260821] - 2026-08-21
 
