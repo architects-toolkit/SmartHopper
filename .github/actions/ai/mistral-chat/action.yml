@@ -14,12 +14,21 @@ inputs:
     required: false
     default: 'mistral-medium-latest'
   system-prompt:
-    description: 'System message content'
+    description: 'System message content (use only for short strings; prefer system-prompt-file for large prompts)'
+    required: false
+    default: ''
+  system-prompt-file:
+    description: 'Path to a file containing the system message content'
     required: false
     default: ''
   user-prompt:
-    description: 'User message content'
-    required: true
+    description: 'User message content (use only for short strings; prefer user-prompt-file for large prompts)'
+    required: false
+    default: ''
+  user-prompt-file:
+    description: 'Path to a file containing the user message content'
+    required: false
+    default: ''
   temperature:
     description: 'Sampling temperature'
     required: false
@@ -56,24 +65,38 @@ runs:
         API_KEY: ${{ inputs.api-key }}
         MODEL: ${{ inputs.model }}
         SYSTEM_PROMPT: ${{ inputs.system-prompt }}
+        SYSTEM_PROMPT_FILE: ${{ inputs.system-prompt-file }}
         USER_PROMPT: ${{ inputs.user-prompt }}
+        USER_PROMPT_FILE: ${{ inputs.user-prompt-file }}
         TEMPERATURE: ${{ inputs.temperature }}
         MAX_TOKENS: ${{ inputs.max-tokens }}
       run: |
         # Large prompts can exceed the Linux MAX_ARG_STRLEN limit (~128 KiB)
-        # when passed as command-line arguments. Write prompts and the request
-        # body to files and use jq/curl file-based options instead.
+        # when passed as command-line arguments or environment strings.
+        # Callers should use user-prompt-file / system-prompt-file for prompts
+        # that could exceed this limit, so the bash process itself can start.
         PAYLOAD_DIR="$RUNNER_TEMP/mistral-chat"
         mkdir -p "$PAYLOAD_DIR"
 
-        USER_PROMPT_FILE="$PAYLOAD_DIR/user-prompt.txt"
-        SYSTEM_PROMPT_FILE="$PAYLOAD_DIR/system-prompt.txt"
+        USER_PROMPT_TARGET="$PAYLOAD_DIR/user-prompt.txt"
+        SYSTEM_PROMPT_TARGET="$PAYLOAD_DIR/system-prompt.txt"
         PAYLOAD_FILE="$PAYLOAD_DIR/payload.json"
 
-        # Bash built-in printf can write arbitrarily large variables to a file
-        # without subjecting external commands to oversized argv/envp strings.
-        printf -- '%s' "$USER_PROMPT" > "$USER_PROMPT_FILE"
-        printf -- '%s' "$SYSTEM_PROMPT" > "$SYSTEM_PROMPT_FILE"
+        # Use the explicit file input when provided; otherwise fall back to the
+        # inline prompt input and write it to a file ourselves. This keeps the
+        # (possibly large) prompt off the jq/curl argv and out of oversized env
+        # strings that would prevent bash itself from starting.
+        if [ -n "$USER_PROMPT_FILE" ] && [ -f "$USER_PROMPT_FILE" ]; then
+          cp "$USER_PROMPT_FILE" "$USER_PROMPT_TARGET"
+        else
+          printf -- '%s' "$USER_PROMPT" > "$USER_PROMPT_TARGET"
+        fi
+
+        if [ -n "$SYSTEM_PROMPT_FILE" ] && [ -f "$SYSTEM_PROMPT_FILE" ]; then
+          cp "$SYSTEM_PROMPT_FILE" "$SYSTEM_PROMPT_TARGET"
+        else
+          printf -- '%s' "$SYSTEM_PROMPT" > "$SYSTEM_PROMPT_TARGET"
+        fi
 
         # Clear the prompt variables from the environment so they are not passed
         # to jq/curl, which would otherwise hit argument-size limits on execve.
@@ -82,7 +105,7 @@ runs:
         export USER_PROMPT SYSTEM_PROMPT
 
         # Build JSON payload using jq, reading prompts from files instead of args.
-        jq -n --arg model "$MODEL" --rawfile system "$SYSTEM_PROMPT_FILE" --rawfile user "$USER_PROMPT_FILE" --argjson temperature "$TEMPERATURE" --argjson max_tokens "$MAX_TOKENS" '{ model: $model, messages: ( if ($system | length) > 0 then [{role: "system", content: $system}, {role: "user", content: $user}] else [{role: "user", content: $user}] end ), temperature: $temperature, max_tokens: $max_tokens }' > "$PAYLOAD_FILE"
+        jq -n --arg model "$MODEL" --rawfile system "$SYSTEM_PROMPT_TARGET" --rawfile user "$USER_PROMPT_TARGET" --argjson temperature "$TEMPERATURE" --argjson max_tokens "$MAX_TOKENS" '{ model: $model, messages: ( if ($system | length) > 0 then [{role: "system", content: $system}, {role: "user", content: $user}] else [{role: "user", content: $user}] end ), temperature: $temperature, max_tokens: $max_tokens }' > "$PAYLOAD_FILE"
 
         # Call the API. Use --data @file so curl never receives the (possibly
         # large) JSON body as a command-line argument.

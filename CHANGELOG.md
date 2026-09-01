@@ -61,7 +61,7 @@ Many thanks to the following contributors to this release:
 - Composite action `next-version` now uses the repository-root relative path for the `calculate-version` dependency and validates `bump` and `stage` inputs before processing.
 - Fixed documentation validation failures by adding the required sections, metadata, and valid cross-references to `docs/Providers/AICall/JsonSchemaAdapters.md` and `docs/Testing/index.md`.
 - Fixed a JavaScript `SyntaxError` in the `pr-milestone.yml` milestone-assignment script caused by redeclaring the `core` object injected by `actions/github-script`.
-- Fixed `mistral-chat` composite action to write prompts and request payloads to files instead of passing them as command-line arguments, preventing `Argument list too long` failures for large diffs.
+- Fixed `mistral-chat` composite action to write prompts and request payloads to files instead of passing them as command-line arguments, added `user-prompt-file` and `system-prompt-file` inputs, and updated `pr-notes.yml` to pass the generated prompt via a file path, preventing `Argument list too long` failures for large diffs.
 
 ## [2.0.0-dev.260821] - 2026-08-21
 

@@ -97,6 +97,7 @@ jobs:
           }), encoding="utf-8")
           PY
           {
+            echo "prompt-file=$CONTEXT_DIR/prompt"
             echo "prompt<<EOF_PROMPT"
             cat "$CONTEXT_DIR/prompt"
             echo "EOF_PROMPT"
@@ -116,7 +117,7 @@ jobs:
           model: mistral-medium-latest
           temperature: '0.3'
           max-tokens: '4096'
-          user-prompt: ${{ steps.context.outputs.prompt }}
+          user-prompt-file: ${{ steps.context.outputs.prompt-file }}
 
       - name: Apply PR notes
         if: always()
