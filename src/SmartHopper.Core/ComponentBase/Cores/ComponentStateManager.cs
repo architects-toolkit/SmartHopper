@@ -284,7 +284,6 @@ namespace SmartHopper.Core.ComponentBase.Cores
         public ComponentStateManager(string componentName = null)
         {
             this.componentName = componentName ?? "Component";
-            this.debounceTimer = new Timer(this.OnDebounceElapsed, null, Timeout.Infinite, Timeout.Infinite);
         }
 
         #endregion
@@ -824,6 +823,38 @@ namespace SmartHopper.Core.ComponentBase.Cores
         #region Debounce
 
         /// <summary>
+        /// Immutable state captured when a debounce timer is scheduled. It is passed
+        /// back to the timer callback so the callback can detect whether the timer
+        /// was cancelled or restarted before it fired.
+        /// </summary>
+        private sealed class DebounceTimerState
+        {
+            public DebounceTimerState(ComponentStateManager manager, int generation, ComponentState targetState)
+            {
+                this.Manager = manager;
+                this.Generation = generation;
+                this.TargetState = targetState;
+            }
+
+            public ComponentStateManager Manager { get; }
+
+            public int Generation { get; }
+
+            public ComponentState TargetState { get; }
+        }
+
+        /// <summary>
+        /// Static entry point for debounce timer callbacks. The timer fires with the
+        /// <see cref="DebounceTimerState"/> captured at scheduling time, which lets
+        /// us ignore callbacks that were invalidated by a later Start/Cancel.
+        /// </summary>
+        private static void DebounceTimerCallback(object state)
+        {
+            var timerState = (DebounceTimerState)state;
+            timerState.Manager.OnDebounceElapsed(timerState.Generation, timerState.TargetState);
+        }
+
+        /// <summary>
         /// Starts or restarts the debounce timer.
         /// When the timer elapses, a transition to the target state will be requested.
         /// </summary>
@@ -840,18 +871,31 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 return;
             }
 
+            Timer oldTimer = null;
+            int currentGeneration;
+
             lock (this.stateLock)
             {
-                // Increment generation to invalidate any pending callbacks
-                this.debounceGeneration++;
+                // Increment generation and capture the values used for this timer.
+                // Each StartDebounce gets its own Timer instance so stale callbacks
+                // can be rejected by comparing the captured generation.
+                currentGeneration = ++this.debounceGeneration;
                 this.debounceTargetState = targetState;
                 this.debounceTimeMs = milliseconds;
 
-                Debug.WriteLine($"[{this.componentName}] Starting debounce: {milliseconds}ms -> {targetState} (gen: {this.debounceGeneration})");
+                Debug.WriteLine($"[{this.componentName}] Starting debounce: {milliseconds}ms -> {targetState} (gen: {currentGeneration})");
 
-                // Restart timer
-                this.debounceTimer.Change(milliseconds, Timeout.Infinite);
+                // Replace any pending timer. Dispose the old one outside the lock
+                // so its callback cannot block this method and vice versa.
+                oldTimer = this.debounceTimer;
+                this.debounceTimer = new Timer(
+                    DebounceTimerCallback,
+                    new DebounceTimerState(this, currentGeneration, targetState),
+                    milliseconds,
+                    Timeout.Infinite);
             }
+
+            oldTimer?.Dispose();
 
             // Fire event outside the lock to prevent re-entrant deadlocks
             this.DebounceStarted?.Invoke(targetState, milliseconds);
@@ -863,18 +907,22 @@ namespace SmartHopper.Core.ComponentBase.Cores
         public void CancelDebounce()
         {
             bool wasCancelled = false;
+            Timer oldTimer = null;
 
             lock (this.stateLock)
             {
                 if (this.debounceTimeMs > 0)
                 {
                     Debug.WriteLine($"[{this.componentName}] Cancelling debounce");
-                    this.debounceTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                    oldTimer = this.debounceTimer;
+                    this.debounceTimer = null;
                     this.debounceTimeMs = 0;
                     this.debounceGeneration++; // Invalidate any pending callbacks
                     wasCancelled = true;
                 }
             }
+
+            oldTimer?.Dispose();
 
             // Fire event outside the lock to prevent re-entrant deadlocks
             if (wasCancelled)
@@ -884,26 +932,29 @@ namespace SmartHopper.Core.ComponentBase.Cores
         }
 
         /// <summary>
-        /// Called when the debounce timer elapses.
+        /// Called when a debounce timer elapses.
         /// </summary>
-        /// <param name="state">Timer callback state (unused).</param>
-        private void OnDebounceElapsed(object state)
+        /// <param name="generation">The generation captured when the timer was scheduled.</param>
+        /// <param name="targetState">The state requested by the timer that fired.</param>
+        private void OnDebounceElapsed(int generation, ComponentState targetState)
         {
-            int capturedGeneration;
-            ComponentState targetState;
+            // If the manager was disposed while the callback was queued, nothing to do.
+            if (this.isDisposed)
+            {
+                return;
+            }
 
             // Single lock acquisition to capture all required data and validate
             lock (this.stateLock)
             {
-                // If debounce time is 0, timer has already been cancelled/reset
-                if (this.debounceTimeMs == 0)
+                // If the manager has been disposed, or the debounce has already
+                // elapsed/cancelled, or a newer Start/Cancel changed the generation,
+                // this callback is stale and must be ignored.
+                if (this.isDisposed || this.debounceTimeMs == 0 || generation != this.debounceGeneration)
                 {
-                    Debug.WriteLine($"[{this.componentName}] Debounce callback: timer already cancelled");
+                    Debug.WriteLine($"[{this.componentName}] Debounce callback: stale (gen {generation} vs current {this.debounceGeneration}) or already cancelled");
                     return;
                 }
-
-                capturedGeneration = this.debounceGeneration;
-                targetState = this.debounceTargetState;
 
                 // Validate target state is still compatible with current state
                 if (!this.IsValidTransition(this.currentState, targetState))
