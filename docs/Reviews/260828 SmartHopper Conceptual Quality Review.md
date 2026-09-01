@@ -43,7 +43,7 @@ The following review suggestions have been implemented since the review was writ
 | 3 | Common provider helpers moved to base classes (`AIProvider.GetApiKey`, `AIProvider.LoadIconFromResources`, `AIProviderSettings.ValidateMaxTokens`/`ValidateTemperature`) | `AIProvider.cs` (lines 563, 573, 600); `AIProviderSettings.cs` (lines 103, 136); all providers now call `this.GetApiKey()` and `this.LoadIconFromResources(...)`; settings classes call base `ValidateMaxTokens`/`ValidateTemperature` |
 | 4 | Shared test-harness base for `SmartHopper.Components.Test` | `ProviderTestComponentBase` at `src/SmartHopper.Components.Test/Providers/ProviderTestComponentBase.cs`; ~43 per-provider test components inherit from it |
 | 5 | `AIBody` immutability and `AIInteractionBase` init-only properties | `AIBody` is a `sealed record` with `IReadOnlyList<int> InteractionsNew` and no `ResetNew()`; `AIInteractionBase` properties use `init` and provide `With...` helpers |
-|| 6 | `ProviderTrustPolicy` enforcement before provider calls | `ProviderTrustPolicy` in `src/SmartHopper.ProviderSdk/AICall/Validation/ProviderTrustPolicy.cs`; evaluated by `AIRequestCall.IsValid()` and `AIRequestCall.Exec()`; tests in `src/SmartHopper.ProviderSdk.Tests/AICall/Validation/ProviderTrustPolicyTests.cs` |
+| 6 | `ProviderTrustPolicy` enforcement before provider calls | `ProviderTrustPolicy` in `src/SmartHopper.ProviderSdk/AICall/Validation/ProviderTrustPolicy.cs`; evaluated by `AIRequestCall.IsValid()` and `AIRequestCall.Exec()`; tests in `src/SmartHopper.ProviderSdk.Tests/AICall/Validation/ProviderTrustPolicyTests.cs` |
 
 ### Still pending / not implemented
 
