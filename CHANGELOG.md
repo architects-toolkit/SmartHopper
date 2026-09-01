@@ -57,6 +57,7 @@ Many thanks to the following contributors to this release:
 - Milestone management now stays on the same pre-release stage for sequence releases (`alpha.1` → `alpha.2`) and only promotes when a new stage is released (`alpha.1` → `beta.1`). A stable release closes every milestone belonging to that core and opens `X.(Y+1).0-alpha`.
 - Post-release version bump now stays on the same pre-release stage and increments its sequence for alpha/beta/rc, and bumps to the next minor `dev` version only after a stable release.
 - Composite action `next-version` now uses the repository-root relative path for the `calculate-version` dependency and validates `bump` and `stage` inputs before processing.
+- Fixed documentation validation failures by adding the required sections, metadata, and valid cross-references to `docs/Providers/AICall/JsonSchemaAdapters.md` and `docs/Testing/index.md`.
 
 ## [2.0.0-dev.260821] - 2026-08-21
 
