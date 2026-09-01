@@ -751,6 +751,21 @@ namespace SmartHopper.ProviderSdk.AIProviders
         }
 
         /// <summary>
+        /// Creates an <see cref="HttpClient"/> from the configured
+        /// <see cref="ProviderSdkHost.HttpClientFactory"/> for this provider.
+        /// </summary>
+        /// <param name="timeout">The total request timeout.</param>
+        /// <returns>An <see cref="HttpClient"/> configured for the provider.</returns>
+        /// <remarks>
+        /// This is the single source of truth for provider HTTP client creation.
+        /// Callers own the returned client and should dispose it.
+        /// </remarks>
+        protected internal HttpClient CreateHttpClient(TimeSpan timeout)
+        {
+            return ProviderSdkHost.HttpClientFactory.CreateClient(this.Name, timeout);
+        }
+
+        /// <summary>
         /// Creates an HttpClient configured for batch operations with the specified timeout.
         /// The timeout should be resolved by RequestTimeoutPolicy before calling this method.
         /// If no timeout is provided, falls back to <see cref="TimeoutDefaults.DefaultTimeoutSeconds"/>.
@@ -759,8 +774,6 @@ namespace SmartHopper.ProviderSdk.AIProviders
         /// <returns>A new HttpClient with appropriate timeout configured.</returns>
         protected HttpClient CreateBatchHttpClient(int? requestTimeoutSeconds = null)
         {
-            var client = new HttpClient();
-
             // Use provided timeout or shared default.
             // Actual timeout resolution from settings is handled by RequestTimeoutPolicy upstream.
             int timeoutSeconds = requestTimeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds;
@@ -768,17 +781,9 @@ namespace SmartHopper.ProviderSdk.AIProviders
             // Clamp to shared bounds
             timeoutSeconds = Math.Max(TimeoutDefaults.MinTimeoutSeconds, Math.Min(timeoutSeconds, TimeoutDefaults.MaxTimeoutSeconds));
 
-            try
-            {
-                client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
-                Debug.WriteLine($"[{this.Name}] Batch HttpClient timeout set to {timeoutSeconds}s");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[{this.Name}] Warning: could not set batch HttpClient timeout: {ex.Message}");
-            }
+            Debug.WriteLine($"[{this.Name}] Batch HttpClient timeout set to {timeoutSeconds}s");
 
-            return client;
+            return this.CreateHttpClient(TimeSpan.FromSeconds(timeoutSeconds));
         }
 
         /// <summary>
@@ -922,20 +927,12 @@ namespace SmartHopper.ProviderSdk.AIProviders
 
             Debug.WriteLine($"[{this.Name}] Call - Method: {httpMethod.ToUpper(CultureInfo.InvariantCulture)}, URL: {fullUri}");
 
-            using (var httpClient = new HttpClient())
-            {
-                // Apply timeout from request (should be resolved by RequestTimeoutPolicy).
-                // If somehow still null, fall back to the shared default so all layers stay aligned.
-                try
-                {
-                    int seconds = request?.TimeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds;
-                    httpClient.Timeout = TimeSpan.FromSeconds(seconds);
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[{this.Name}] Warning: could not set HttpClient timeout: {ex.Message}");
-                }
+            // Resolve and clamp the timeout so all layers share the same bounds.
+            int seconds = request?.TimeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds;
+            seconds = Math.Max(TimeoutDefaults.MinTimeoutSeconds, Math.Min(seconds, TimeoutDefaults.MaxTimeoutSeconds));
 
+            using (var httpClient = this.CreateHttpClient(TimeSpan.FromSeconds(seconds)))
+            {
                 // Set up authentication from request
                 var auth = authentication?.Trim().ToLowerInvariant();
 

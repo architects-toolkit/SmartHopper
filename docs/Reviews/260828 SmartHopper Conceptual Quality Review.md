@@ -44,6 +44,8 @@ The following review suggestions have been implemented since the review was writ
 | 4 | Shared test-harness base for `SmartHopper.Components.Test` | `ProviderTestComponentBase` at `src/SmartHopper.Components.Test/Providers/ProviderTestComponentBase.cs`; ~43 per-provider test components inherit from it |
 | 5 | `AIBody` immutability and `AIInteractionBase` init-only properties | `AIBody` is a `sealed record` with `IReadOnlyList<int> InteractionsNew` and no `ResetNew()`; `AIInteractionBase` properties use `init` and provide `With...` helpers |
 | 6 | `ProviderTrustPolicy` enforcement before provider calls | `ProviderTrustPolicy` in `src/SmartHopper.ProviderSdk/AICall/Validation/ProviderTrustPolicy.cs`; evaluated by `AIRequestCall.IsValid()` and `AIRequestCall.Exec()`; tests in `src/SmartHopper.ProviderSdk.Tests/AICall/Validation/ProviderTrustPolicyTests.cs` |
+| 7 | Use `IProviderHttpClientFactory` in `AIProvider.CallApi` / streaming / batch | `AIProvider.CallApi`, `AIProvider.CreateBatchHttpClient`, `AIProviderStreamingAdapter.CreateHttpClient`, and Gemini streaming/batch helpers now create clients via `ProviderSdkHost.HttpClientFactory`; `SmartHopperProviderHttpClientFactory` caches one `HttpClient` per provider and applies `User-Agent`/timeout. Tests in `src/SmartHopper.ProviderSdk.Tests/AIProviders/AIProviderCallTests.cs` use an in-memory `TestProviderHttpClientFactory`. |
+| 8 | Provider contract / round-trip `Encode/Decode` tests | `FakeAIProvider` and `TestProviderHttpClientFactory` in `src/SmartHopper.ProviderSdk.Tests/TestHelpers` support deterministic text and tool-call round-trip tests in `src/SmartHopper.ProviderSdk.Tests/AIProviders/AIProviderCallTests.cs`. |
 
 ### Still pending / not implemented
 
@@ -51,8 +53,8 @@ The following review suggestions have been implemented since the review was writ
 | --- | --- | --- |
 | 1 | `ProviderTrustPolicy` enforcement before provider calls | `ProviderTrustPolicy` in `src/SmartHopper.ProviderSdk/AICall/Validation/ProviderTrustPolicy.cs` now decides block/warn/allow; `AIRequestCall.IsValid()` and `AIRequestCall.Exec()` enforce it |
 | 2 | `SmartHopper.Components.Test` Release build mapping | `SmartHopper.sln` still has `Release\|*` build entries for `{B932CFFA-0C82-4A1F-92F2-003CDE1C94AE}` (Components.Test) |
-| 3 | Use `IProviderHttpClientFactory` in `AIProvider.CallApi` / streaming / batch | `IProviderHttpClientFactory` exists and is registered in `SmartHopperInitializer`, but `AIProvider.CallApi` and `AIProviderStreamingAdapter.CreateHttpClient` still call `new HttpClient()` |
-| 4 | Provider contract / round-trip `Encode/Decode` tests | No round-trip contract tests for text/tool/image/audio interactions across providers |
+| 3 | Use `IProviderHttpClientFactory` in `AIProvider.CallApi` / streaming / batch | `IProviderHttpClientFactory` exists and is registered in `SmartHopperInitializer`, implemented on branch `feature/2.0.0-dev.260901-provider-http-client-factory`; see Completed items 7 and 8 |
+| 4 | Provider contract / round-trip `Encode/Decode` tests | implemented on branch `feature/2.0.0-dev.260901-provider-http-client-factory`; see Completed item 8 |
 | 5 | Structured logging/tracing and metrics export | `IProviderLogger` exists and is registered, but provider code still uses ad-hoc `Debug.WriteLine`; `AIMetrics` are not exported to an external sink |
 | 6 | Hardcoded model capability lists | Each provider still returns a large `List<AIModelCapabilities>` from `*ProviderModels.cs` |
 | 7 | OpenAI-compatible role mapping consolidation | OpenAI, Mistral, LocalAI, and Ollama still contain identical `switch` role mappings in their `EncodeToJToken` paths |
@@ -62,7 +64,7 @@ The following review suggestions have been implemented since the review was writ
 | # | Item | Evidence |
 | --- | --- | --- |
 | 1 | Provider logging abstraction | `IProviderLogger` and `SmartHopperProviderLogger` exist and are wired into `ProviderSdkHost`, but `AIProvider` and streaming adapters still use `Debug.WriteLine` directly |
-| 2 | Provider HTTP client factory | `IProviderHttpClientFactory` and `SmartHopperProviderHttpClientFactory` exist and are wired, but not consumed by the provider HTTP call paths |
+| 2 | Provider HTTP client factory | `IProviderHttpClientFactory` and `SmartHopperProviderHttpClientFactory` exist and are wired, but now consumed by `AIProvider.CallApi`, batch, and streaming paths; see Completed item 7 |
 
 ### Inconsistencies with this review's original claims
 
@@ -180,9 +182,9 @@ The following review suggestions have been implemented since the review was writ
 - **[Certain]** `SmartHopper.ProviderSdk.Tests` has 19 test files covering `AIBody`, `AIRequestBase`, `AIReturn`, `AICapability`, `AIMetrics`, etc.
 - **[Certain]** `ConversationSessionTests` uses `TestableAIRequestCall` and `MockProviderExecutor` to bypass real providers.
 - **[Suspicious]** Logging is ad-hoc `Debug.WriteLine` and `RhinoApp.WriteLine`. `IProviderLogger` exists in the Provider SDK and is wired to a `SmartHopperProviderLogger` in the host, but provider code still writes directly to `Debug.WriteLine` rather than through the abstraction, so there is no effective structured logging or correlation ID in practice.
-- **[Suspicious]** `AIProvider.CallApi` and `AIProviderStreamingAdapter` still create `new HttpClient()` directly (`src/SmartHopper.ProviderSdk/AIProviders/AIProvider.cs` and `AIProviderStreamingAdapter.cs`) rather than using `IProviderHttpClientFactory`. The factory abstraction and a host-side pooled implementation exist and are registered, but provider call paths do not consume them yet, making provider HTTP calls hard to fake.
+- **[Resolved]** `AIProvider.CallApi`, `AIProviderStreamingAdapter.CreateHttpClient`, and `AIProvider.CreateBatchHttpClient` now create `HttpClient` instances through `ProviderSdkHost.HttpClientFactory`. Gemini streaming and batch helpers were also updated. `SmartHopperProviderHttpClientFactory` caches one client per provider, sets a provider-specific `User-Agent`, and applies per-request timeouts. `TestProviderHttpClientFactory` in `src/SmartHopper.ProviderSdk.Tests/TestHelpers` enables deterministic, network-free HTTP fakes.
 - **[Suspicious]** `AIMetrics` are collected but not exported to external monitoring; they appear to be used only for in-memory validation and UI display.
-- **[Question]** Do provider `Encode/Decode` paths have deterministic fakes, or are the only tests integration-style?
+- **[Resolved]** `FakeAIProvider` and `TestProviderHttpClientFactory` in `src/SmartHopper.ProviderSdk.Tests/TestHelpers` provide deterministic fakes for `Encode/Decode` and HTTP round-trips. `AIProviderCallTests` exercises text and tool-call round-trips without network access.
 
 ---
 
@@ -227,9 +229,11 @@ The following review suggestions have been implemented since the review was writ
 | 6 | **Introduce a `ProviderTrustPolicy` that enforces integrity checks before the provider call.** In `Soft`/`Hard`/`Strict` modes, decide whether to block, warn, or allow; do not rely only on `IsValid` messages. | Small | High. Closes the security enforcement gap without changing the contract. **Done.** |
 | 7 | **Fix the `SmartHopper.Components.Test` Release build mapping.** Add `DisableBuild` condition or remove Release solution configurations for the project. | Small | Medium. Aligns build behavior with documented intent. **Done.** |
 | 8 | **Centralize macOS/WinForms workaround and standardize project references.** Move the `net48` reference-assembly logic to `Directory.Build.props` and remove explicit GUIDs from `ProjectReference`. | Small–Medium | Medium. Reduces csproj duplication and build maintenance. **Done.** |
-| 9 | **Add provider contract / round-trip tests and HTTP fakes.** Use `IProviderHttpClientFactory` in `AIProvider.CallApi` and provide a mock message handler. | Medium | Medium. Improves testability and catches provider drift. |
+| 9 | **Add provider contract / round-trip tests and HTTP fakes.** Use `IProviderHttpClientFactory` in `AIProvider.CallApi` and provide a mock message handler. | Medium | Medium. Improves testability and catches provider drift. **Done.** |
 | 10 | **Introduce structured logging/tracing and metrics export.** Replace ad-hoc `Debug.WriteLine` with an `IProviderLogger` implementation that supports scopes/correlation; export `AIMetrics` to a sink. | Large | Medium. Needed for production observability but can follow the other items. |
 
 *Implementation status updated to reflect the `ProviderTrustPolicy` work on branch `feature/2.0.0-provider-trust-policy`.*
 
 *Implementation status for the macOS/WinForms workaround updated to reflect the work on branch `chore/2.0.0-dev.260901-centralize-winforms`.*
+
+*Implementation status for the provider HTTP client factory and contract/round-trip tests updated to reflect the work on branch `feature/2.0.0-dev.260901-provider-http-client-factory`.*

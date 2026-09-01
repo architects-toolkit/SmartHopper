@@ -46,6 +46,12 @@ Many thanks to the following contributors to this release:
 - `pr-notes.yml` now updates the PR title automatically and posts description suggestions as PR comments (first suggestion in code blocks, later updates inside a `<details>` block with a reason), instead of editing the PR description directly.
 - `pr-validation.yml` now runs on `pull_request` again instead of being dispatched by `pr-notes.yml`, since title validation is handled by `pr-notes.yml`.
 - Centralized the macOS/WinForms `net48` reference-assembly workaround in `Directory.Build.props` and removed the duplicated workaround blocks from all affected `.csproj` files. `SmartHopper.Components` now conditions its `System.Drawing.Common` reference on the Windows TFM, and `SmartHopper.Core.Grasshopper` now uses a simple `ProjectReference` without explicit GUID metadata.
+- `AIProvider.CallApi`, `AIProvider.CreateBatchHttpClient`, and `AIProviderStreamingAdapter.CreateHttpClient` now use `IProviderHttpClientFactory` instead of creating `new HttpClient()` directly. The host-side factory caches one `HttpClient` per provider, applies the provider `User-Agent`, and honors per-request timeouts. Gemini streaming and batch paths were also updated to use the shared factory.
+
+### Added
+
+- Added `TestProviderHttpClientFactory`, `FakeAIProvider`, `FakeProviderModels`, and `FakeProviderRegistryHost` to `SmartHopper.ProviderSdk.Tests/TestHelpers` to support deterministic, network-free provider contract/round-trip tests.
+- Added `AIProviderCallTests` in `SmartHopper.ProviderSdk.Tests/AIProviders` covering text and tool-call round-trips, authorization header propagation, request encoding, and provider error handling using an in-memory HTTP fake.
 
 ### Removed
 

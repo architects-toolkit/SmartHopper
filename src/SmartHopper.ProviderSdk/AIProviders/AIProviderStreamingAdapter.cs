@@ -25,6 +25,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 
 namespace SmartHopper.ProviderSdk.AIProviders
@@ -74,12 +75,16 @@ namespace SmartHopper.ProviderSdk.AIProviders
         }
 
         /// <summary>
-        /// Creates a new HttpClient instance with common defaults.
+        /// Creates an <see cref="HttpClient"/> from the configured <see cref="IProviderHttpClientFactory"/>.
         /// </summary>
-        protected HttpClient CreateHttpClient()
+        /// <param name="timeoutSeconds">Optional per-request timeout in seconds. Defaults to <see cref="TimeoutDefaults.DefaultTimeoutSeconds"/>.</param>
+        /// <returns>An <see cref="HttpClient"/> configured for the provider.</returns>
+        protected HttpClient CreateHttpClient(int? timeoutSeconds = null)
         {
-            var client = new HttpClient();
-            return client;
+            int seconds = timeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds;
+            seconds = Math.Max(TimeoutDefaults.MinTimeoutSeconds, Math.Min(seconds, TimeoutDefaults.MaxTimeoutSeconds));
+
+            return this.Provider.CreateHttpClient(TimeSpan.FromSeconds(seconds));
         }
 
         /// <summary>
