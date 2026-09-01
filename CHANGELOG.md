@@ -20,6 +20,8 @@ Many thanks to the following contributors to this release:
 - Added `AITool.GetRequiredParameters()` helper to parse required parameter names from a tool's JSON schema.
 - Added `ProviderTestComponentBase` to `SmartHopper.Components.Test/Providers` and converted all ~43 `Test{Provider}{Feature}Component` classes to inherit from it. The base centralizes common setup/teardown (provider selection, `RunOnlyOnInputChanges`, category/exposure) while each component remains an independent per-provider test runner.
 - Added nested mutable `Builder` classes to `AIInteractionText` and `AIBody` for streaming aggregation and body construction. Builders accumulate local state and emit immutable snapshots via `Build()`.
+- Added `ProviderTrustPolicy` in `SmartHopper.ProviderSdk.AICall.Validation` to centralize provider integrity/trust decisions. `AIRequestCall.IsValid()` and `AIRequestCall.Exec()` now use this policy to block, warn, or allow provider calls based on the configured `ProviderIntegrityCheckMode` (Soft/Hard/Strict) instead of only emitting validation messages.
+- Added `SHMessageCode.ProviderTrustBlocked` and `AIReturn.AddRuntimeMessage(SHRuntimeMessage)` to support structured trust-policy diagnostics.
 
 ### Changed
 

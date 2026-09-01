@@ -406,6 +406,18 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
             this.PrivateStructuredMessages.Add(new SHRuntimeMessage(severity, origin, SHMessageCode.Unknown, text ?? string.Empty));
         }
 
+        /// <summary>
+        /// Adds a structured message to this return without modifying <see cref="ErrorMessage"/>.
+        /// </summary>
+        /// <param name="message">The structured message to add.</param>
+        public void AddRuntimeMessage(SHRuntimeMessage message)
+        {
+            if (message != null)
+            {
+                this.PrivateStructuredMessages.Add(message);
+            }
+        }
+
         /// <inheritdoc/>
         public void SetBody(AIBody body)
         {

@@ -27,6 +27,7 @@ using System.Threading.Tasks;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AICall.Validation;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
@@ -112,74 +113,14 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
             }
             else
             {
-                // Check for provider integrity verification warning
-                var trustHost = ProviderSdkHost.ProviderTrust;
-                var effectiveMode = trustHost.EffectiveIntegrityCheckMode;
+                // Evaluate provider trust/integrity through the centralized policy.
+                var trustResult = ProviderTrustPolicy.Evaluate(this);
+                messages.AddRange(trustResult.Messages);
+                Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' trust verdict: {trustResult.Verdict}");
 
-                if (trustHost.IsProviderMismatched(this.Provider))
+                if (trustResult.Verdict == ProviderTrustVerdict.Block)
                 {
-                    var integrityMessage = $"Provider '{this.Provider}' failed SHA-256 integrity verification. " +
-                        "The provider's hash does not match the official published hash. " +
-                        "This could indicate file corruption or tampering, and your data could be compromised.";
-                    messages.Add(new SHRuntimeMessage(
-                        effectiveMode == ProviderIntegrityCheckMode.Soft ? SHRuntimeMessageSeverity.Warning : SHRuntimeMessageSeverity.Error,
-                        SHRuntimeMessageOrigin.Validation,
-                        SHMessageCode.UnknownProvider,
-                        integrityMessage));
-                    Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' is unverified - adding warning");
-                }
-
-                // Check for unavailable hash verification (network/repository issues)
-                if (trustHost.IsProviderUnavailable(this.Provider))
-                {
-                    // Hash repository was unavailable - add warning
-                    var unavailableMessage = $"Provider '{this.Provider}' could not be verified - hash check unavailable due to network issues. " +
-                        "Use this provider only if you trust its source.";
-                    messages.Add(new SHRuntimeMessage(
-                        effectiveMode == ProviderIntegrityCheckMode.Strict ? SHRuntimeMessageSeverity.Error : SHRuntimeMessageSeverity.Warning,
-                        SHRuntimeMessageOrigin.Validation,
-                        SHMessageCode.UnknownProvider,
-                        unavailableMessage));
-                    Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' hash verification unavailable - adding warning");
-                }
-
-                // Check for unknown provider (not in hash manifest - custom/third-party)
-                if (trustHost.IsProviderUnknown(this.Provider))
-                {
-                    // Provider not found in official hash manifest - add warning
-                    var unknownMessage = $"Provider '{this.Provider}' is not known - it may be a custom or third-party provider. " +
-                        "Enable this provider only if you trust its source. " +
-                        "Change 'Integrity Check Mode' to 'Hard' or 'Strict' in SmartHopper settings to block unknown providers.";
-                    messages.Add(new SHRuntimeMessage(
-                        effectiveMode == ProviderIntegrityCheckMode.Soft ? SHRuntimeMessageSeverity.Warning : SHRuntimeMessageSeverity.Error,
-                        SHRuntimeMessageOrigin.Validation,
-                        SHMessageCode.UnknownProvider,
-                        unknownMessage));
-                    Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' is unknown - adding warning");
-                }
-
-                // Surface community/unsigned warnings on every component using this provider.
-                if (trustHost.IsProviderCommunity(this.Provider))
-                {
-                    var communityMessage = $"Provider '{this.Provider}' is a community provider, not signed by SmartHopper. " +
-                        "Use it only if you trust its source — community providers run with full plugin privileges.";
-                    messages.Add(new SHRuntimeMessage(
-                        SHRuntimeMessageSeverity.Warning,
-                        SHRuntimeMessageOrigin.Validation,
-                        SHMessageCode.UnknownProvider,
-                        communityMessage));
-                    Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' is community - adding warning");
-                }
-                else if (trustHost.IsProviderUnsigned(this.Provider))
-                {
-                    var unsignedMessage = $"Provider '{this.Provider}' is unsigned. " +
-                        "Use it only if you trust its source.";
-                    messages.Add(new SHRuntimeMessage(
-                        SHRuntimeMessageSeverity.Warning,
-                        SHRuntimeMessageOrigin.Validation,
-                        SHMessageCode.UnknownProvider,
-                        unsignedMessage));
-                    Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' is unsigned - adding warning");
+                    return (false, messages);
                 }
             }
 
@@ -332,6 +273,27 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
 
                 // Always-on: run request policies before validation/provider call
                 await ProviderSdkHost.PolicyPipeline.ApplyRequestPoliciesAsync(this).ConfigureAwait(false);
+
+                // Enforce provider trust/integrity policy before the provider call.
+                // This is a security boundary: the policy decides block/warn/allow based on the
+                // configured integrity mode, independent of the structural validation below.
+                var trustResult = ProviderTrustPolicy.Evaluate(this);
+                if (trustResult.Verdict == ProviderTrustVerdict.Block)
+                {
+                    stopwatch.Stop();
+
+                    var errorResult = new AIReturn();
+                    errorResult.Request = this;
+                    errorResult.Status = AICallStatus.Finished;
+                    errorResult.SetBody(AIBodyBuilder.Create().AddError("Provider trust check failed", null).Build());
+
+                    foreach (var message in trustResult.Messages)
+                    {
+                        errorResult.AddRuntimeMessage(message);
+                    }
+
+                    return errorResult;
+                }
 
                 // Validate early to avoid provider calls when request is invalid
                 var (rqOk, rqErrors) = this.IsValid();
