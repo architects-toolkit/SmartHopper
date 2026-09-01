@@ -1,5 +1,5 @@
 name: 'Assign PR to Milestone'
-description: 'Reads version from Solution.props and assigns a PR to the appropriate milestone, creating it if necessary. Mimics pr-milestone.yml behavior.'
+description: 'Reads version from Solution.props and assigns a PR to the appropriate milestone and version: label, creating them if necessary. Mimics pr-milestone.yml behavior.'
 
 inputs:
   pr-number:
@@ -123,7 +123,7 @@ runs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: prNumber,
-                body: `🏷️ This PR has been automatically assigned to milestone **${milestoneTitle}** based on the version in \`Solution.props\`.`
+                body: `🏷️ This PR has been automatically assigned to milestone **${milestoneTitle}** and labeled \`version: ${milestoneTitle}\` based on the version in \`Solution.props\`.`
               });
             }
             
@@ -131,3 +131,11 @@ runs:
             console.error('Error assigning PR to milestone:', error);
             core.setFailed(`Failed to assign PR to milestone: ${error.message}`);
           }
+
+    - name: Apply version label to PR
+      if: steps.create-or-get.outputs.milestone-title != ''
+      uses: ./.github/actions/versioning/apply-version-label
+      with:
+        issue-number: ${{ inputs.pr-number }}
+        version: ${{ steps.create-or-get.outputs.milestone-title }}
+        token: ${{ inputs.token }}

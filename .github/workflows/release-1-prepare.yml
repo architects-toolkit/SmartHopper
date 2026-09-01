@@ -39,7 +39,7 @@ permissions:
   contents: write
   # Required to dispatch the protected-branch checks for the PR created below.
   actions: write
-  issues: read
+  issues: write
   pull-requests: write
 
 concurrency:

@@ -31,6 +31,7 @@ jobs:
         repository: ${{ github.event.pull_request.head.repo.full_name }}
       
     - name: Read version from Solution.props and assign to milestone
+      id: assign-milestone
       uses: actions/github-script@v9
       with:
         script: |
@@ -153,6 +154,8 @@ jobs:
             console.log(`Found existing milestone: ${targetMilestone.title} (${targetMilestone.state})`);
           }
           
+          core.setOutput('milestone-title', targetMilestone.title);
+          
           // Assign PR to milestone
           try {
             await github.rest.issues.update({
@@ -169,10 +172,18 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
-              body: `🏷️ This PR has been automatically assigned to milestone **${targetMilestone.title}** based on the version in \`Solution.props\`.`
+              body: `🏷️ This PR has been automatically assigned to milestone **${targetMilestone.title}** and labeled \`version: ${targetMilestone.title}\` based on the version in \`Solution.props\`.`
             });
             
           } catch (error) {
             console.error('Error assigning PR to milestone:', error);
             core.setFailed(`Failed to assign PR to milestone: ${error.message}`);
           }
+
+    - name: Apply version label to PR
+      if: steps.assign-milestone.outputs.milestone-title != ''
+      uses: ./.github/actions/versioning/apply-version-label
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        version: ${{ steps.assign-milestone.outputs.milestone-title }}
+        token: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,95 @@
+name: 'Apply Version Label'
+description: 'Creates the version: label if needed and applies it to an issue or PR.'
+
+inputs:
+  issue-number:
+    description: 'Issue or PR number to label'
+    required: true
+  version:
+    description: 'Version to use for the label (e.g., 2.0.0-alpha)'
+    required: true
+  token:
+    description: 'GitHub token with issues:write permission'
+    required: true
+    default: ${{ github.token }}
+  color:
+    description: 'Label color as a hex string without the leading # (default: FFFFFF)'
+    required: false
+    default: 'FFFFFF'
+  description:
+    description: 'Optional label description; defaults to "Items related to version {version}"'
+    required: false
+    default: ''
+
+outputs:
+  label-name:
+    description: 'The full version label name applied'
+    value: ${{ steps.apply-label.outputs.label-name }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Ensure and apply version label
+      id: apply-label
+      uses: actions/github-script@v9
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          const version = '${{ inputs.version }}';
+          const issueNumber = parseInt('${{ inputs.issue-number }}', 10);
+          const color = '${{ inputs.color }}';
+          const description = '${{ inputs.description }}' || `Items related to version ${version}`;
+          const labelName = `version: ${version}`;
+          
+          core.setOutput('label-name', labelName);
+          
+          // Ensure the label exists (create it if missing).
+          try {
+            await github.rest.issues.getLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: labelName,
+            });
+            console.log(`Label "${labelName}" already exists.`);
+          } catch (error) {
+            if (error.status === 404) {
+              console.log(`Creating label "${labelName}"...`);
+              try {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: labelName,
+                  color: color,
+                  description: description,
+                });
+                console.log(`Created label "${labelName}".`);
+              } catch (createError) {
+                const msg = createError.message || '';
+                if (createError.status === 422 && /already[_ ]exists/i.test(msg)) {
+                  console.log(`Label "${labelName}" was created concurrently.`);
+                } else {
+                  console.error(`Failed to create label "${labelName}":`, createError);
+                  core.setFailed(`Failed to create version label: ${createError.message}`);
+                  return;
+                }
+              }
+            } else {
+              console.error(`Failed to look up label "${labelName}":`, error);
+              core.setFailed(`Failed to look up version label: ${error.message}`);
+              return;
+            }
+          }
+          
+          // Apply the label to the issue/PR.
+          try {
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: [labelName],
+            });
+            console.log(`Applied label "${labelName}" to #${issueNumber}.`);
+          } catch (error) {
+            console.error(`Failed to apply label "${labelName}" to #${issueNumber}:`, error);
+            core.setFailed(`Failed to apply version label: ${error.message}`);
+          }
