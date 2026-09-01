@@ -6,7 +6,7 @@
 ## Branch Protection Model
 
 | Pattern | Protection |
-|---------|-----------|
+| --------- | ----------- |
 | `main` | PR + codeowner approval required |
 | `hotfix/*` | PR + codeowner approval required |
 | `release/**` | PR + codeowner approval required |
@@ -18,7 +18,7 @@ changes must go through a PR created by `peter-evans/create-pull-request@v6`
 ## Action Version Pinning
 
 | Action | Pin style |
-|--------|-----------|
+| -------- | ----------- |
 | First-party (`actions/*`) | **Tag** — e.g. `actions/checkout@v4` |
 | Third-party (community) | **Tag** — e.g. `peter-evans/create-pull-request@v6` |
 | Local composite actions | **Path** — e.g. `./.github/actions/…` |
@@ -33,14 +33,15 @@ files in the working tree. Use `gh pr create` only when constructing PRs
 from existing branches (e.g. release pipeline).
 
 Every automated PR must:
+
 1. Carry the `automated` label.
-2. Call `./.github/actions/milestone/assign-pr` to assign the current milestone.
+2. Call `./.github/actions/milestone/assign-pr` to assign the current milestone and the matching `version:` label.
 3. Call `./.github/actions/dispatch-required-pr-checks` to trigger status checks.
 
 ## Concurrency & `cancel-in-progress`
 
 | Workflow type | `cancel-in-progress` | Rationale |
-|---------------|---------------------|-----------|
+| --------------- | --------------------- | ----------- |
 | PR validation / CI checks | `true` | Superseded by newer pushes |
 | Chore (version-date, badge, manifest, …) | `false` | Must complete to avoid stale state |
 | Release pipeline (`release-1` … `release-6`) | `false` | Irreversible side-effects |
@@ -51,7 +52,7 @@ Every automated PR must:
 Every job **must** declare `timeout-minutes`. Defaults:
 
 | Job type | Timeout |
-|----------|---------|
+| ---------- | --------- |
 | Lightweight (label, comment, branch delete) | 5 min |
 | Standard (checkout + script) | 10 min |
 | Build / test (.NET CI) | 30 min |
@@ -86,7 +87,7 @@ run: |
 ### PR Validation (`pr-validation.yml`)
 
 | Check | Blocks merge? | Notes |
-|-------|---------------|-------|
+| ------- | --------------- | ------- |
 | Version format | Yes | Must be valid semver |
 | Code style | Yes | Trailing whitespace, namespace, using order |
 | Changelog | **Warning only** | Skipped for `chore/ci/style/build/revert/docs` PRs. |
