@@ -78,6 +78,7 @@ a new script. All these tools are available to the provider to use while chattin
 in the AI Chat component.
 
 | Tool Name | Category | Description | Planned | In Progress | Testing | Released |
+| Tool Name | Category | Description | Planned | In Progress | Testing | Released |
 |-----------|----------|-------------|:-------:|:-----------:|:-------:|:--------:|
 | `text2boolean` | DataProcessing | Evaluates a text against a true/false question with optional fallback value | ⚪ | 🟡 | 🟠 | 🟢 |
 | `text2text` | DataProcessing | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
