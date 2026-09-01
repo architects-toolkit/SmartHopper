@@ -48,6 +48,11 @@ jobs:
           FILES=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" || true)
           DIFF=$(git diff --no-ext-diff --unified=3 "$BASE_SHA...$HEAD_SHA" || true)
 
+          # git patch-id produces a hash that ignores whitespace, line numbers and
+          # context-only changes, so formatting/merge noise does not look like a new
+          # diff on the next run.
+          DIFF_PATCH_ID=$(printf '%s' "$DIFF" | git patch-id --stable 2>/dev/null | cut -d' ' -f1 || true)
+
           UNRELEASED=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' CHANGELOG.md || true)
 
           COMMITS_FILE="$CONTEXT_DIR/commits.txt"
@@ -60,9 +65,10 @@ jobs:
           printf '%s' "$DIFF" > "$DIFF_FILE"
           printf '%s' "$UNRELEASED" > "$UNRELEASED_FILE"
 
-          COMMITS_FILE="$COMMITS_FILE" FILES_FILE="$FILES_FILE" DIFF_FILE="$DIFF_FILE" \
-          UNRELEASED_FILE="$UNRELEASED_FILE" \
+          CONTEXT_DIR="$CONTEXT_DIR" COMMITS_FILE="$COMMITS_FILE" FILES_FILE="$FILES_FILE" DIFF_FILE="$DIFF_FILE" \
+          UNRELEASED_FILE="$UNRELEASED_FILE" DIFF_PATCH_ID="$DIFF_PATCH_ID" \
           python3 - "$CONTEXT_DIR/data.json" "$CONTEXT_DIR/prompt" <<'PY'
+          import hashlib
           import json
           import os
           import pathlib
@@ -86,11 +92,19 @@ jobs:
               (CONTEXT_WINDOW_TOKENS - MAX_OUTPUT_TOKENS - SAFETY_TOKENS) * CHARS_PER_TOKEN
           )
 
+          context_dir = pathlib.Path(os.environ["CONTEXT_DIR"])
+
           commits = pathlib.Path(os.environ["COMMITS_FILE"]).read_text(encoding="utf-8")
           files = pathlib.Path(os.environ["FILES_FILE"]).read_text(encoding="utf-8")
           raw_diff = pathlib.Path(os.environ["DIFF_FILE"]).read_text(encoding="utf-8")
           unreleased = pathlib.Path(os.environ["UNRELEASED_FILE"]).read_text(encoding="utf-8")
           head_branch = os.environ["HEAD_BRANCH"]
+
+          # Prefer git patch-id (whitespace/context-insensitive) for diff equality
+          # comparisons, but fall back to the raw diff hash if patch-id is empty.
+          diff_hash = os.environ.get("DIFF_PATCH_ID", "").strip()
+          if not diff_hash:
+              diff_hash = hashlib.sha256(raw_diff.encode("utf-8")).hexdigest()
 
           diff_truncated = "false"
           raw_diff_truncated_note = "The raw diff was not truncated."
@@ -130,9 +144,16 @@ jobs:
           for key, value in values.items():
               template = template.replace("{{" + key + "}}", value)
 
+          (context_dir / "diff-truncated.txt").write_text(raw_diff, encoding="utf-8")
+
           prompt_path.write_text(template, encoding="utf-8")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as gh_out:
+              gh_out.write(f"diff-hash={diff_hash}\n")
+              gh_out.write(f"diff-truncated-file={context_dir / 'diff-truncated.txt'}\n")
+
           output_path.write_text(json.dumps({
               "head_sha": os.environ["HEAD_SHA"],
+              "diff_hash": diff_hash,
               "head_branch": head_branch,
               "commits": commits,
               "files": files,
@@ -144,8 +165,161 @@ jobs:
             echo "commits-file=$COMMITS_FILE"
             echo "files-file=$FILES_FILE"
           } >> "$GITHUB_OUTPUT"
+      - name: Assess previous suggestion and diff
+        id: assess-prep
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          DIFF_HASH: ${{ steps.context.outputs.diff-hash }}
+          DIFF_TRUNCATED_FILE: ${{ steps.context.outputs.diff-truncated-file }}
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          import pathlib
+          import re
+          import subprocess
+
+          pr_number = os.environ["PR_NUMBER"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          diff_hash = os.environ["DIFF_HASH"]
+          diff_truncated_file = os.environ["DIFF_TRUNCATED_FILE"]
+          context_dir = pathlib.Path(os.environ["RUNNER_TEMP"]) / "pr-notes"
+          context_dir.mkdir(parents=True, exist_ok=True)
+
+          def gh_api(*args):
+              return subprocess.check_output(["gh", "api"] + list(args), text=True, env=os.environ)
+
+          first_run = "true"
+          diff_changed = "true"
+          needs_severity = "false"
+          should_generate = "true"
+          previous_comment_id = ""
+          previous_title = ""
+          previous_body = ""
+          previous_title_file = str(context_dir / "previous-title.txt")
+          previous_body_file = str(context_dir / "previous-body.txt")
+          severity_prompt_file = str(context_dir / "severity-prompt.txt")
+
+          try:
+              result = gh_api(
+                  f"repos/{repo}/issues/{pr_number}/comments",
+                  "--paginate",
+                  "--jq",
+                  'map(select(.body | contains("<!-- pr-notes:suggestion -->"))) | if length > 0 then last | {id, body} else null end',
+              )
+              data = json.loads(result)
+              if data and data.get("body"):
+                  previous_comment_id = str(data.get("id", ""))
+                  previous_comment_body = data.get("body", "")
+                  meta_match = re.search(r"<!-- pr-notes:meta\s+([^>]+)\s*-->", previous_comment_body)
+                  previous_diff_hash = ""
+                  if meta_match:
+                      try:
+                          meta = json.loads(base64.b64decode(meta_match.group(1)).decode("utf-8"))
+                          previous_title = meta.get("title", "")
+                          previous_body = meta.get("body", "")
+                          previous_diff_hash = meta.get("diff_hash", "")
+                      except Exception:
+                          pass
+
+                  pathlib.Path(previous_title_file).write_text(previous_title, encoding="utf-8")
+                  pathlib.Path(previous_body_file).write_text(previous_body, encoding="utf-8")
+
+                  first_run = "false"
+                  if diff_hash == previous_diff_hash:
+                      diff_changed = "false"
+                      needs_severity = "false"
+                      should_generate = "false"
+                  else:
+                      diff_changed = "true"
+                      needs_severity = "true"
+                      should_generate = ""
+              else:
+                  first_run = "true"
+                  diff_changed = "true"
+                  needs_severity = "false"
+                  should_generate = "true"
+          except Exception as e:
+              print(f"::warning::Failed to fetch previous suggestion: {e}")
+              first_run = "true"
+              diff_changed = "true"
+              needs_severity = "false"
+              should_generate = "true"
+
+          if needs_severity == "true":
+              diff_text = pathlib.Path(diff_truncated_file).read_text(encoding="utf-8")
+              severity_template = pathlib.Path(".github/prompts/pr-notes-severity.md").read_text(encoding="utf-8")
+              prompt = (
+                  severity_template
+                  .replace("{{PREVIOUS_TITLE}}", previous_title)
+                  .replace("{{PREVIOUS_BODY}}", previous_body)
+                  .replace("{{RAW_DIFF}}", diff_text)
+              )
+              pathlib.Path(severity_prompt_file).write_text(prompt, encoding="utf-8")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"first_run={first_run}\n")
+              f.write(f"diff_changed={diff_changed}\n")
+              f.write(f"previous-title-file={previous_title_file}\n")
+              f.write(f"previous-body-file={previous_body_file}\n")
+              f.write(f"needs_severity={needs_severity}\n")
+              f.write(f"severity-prompt-file={severity_prompt_file}\n")
+              f.write(f"should_generate={should_generate}\n")
+              f.write(f"previous-comment-id={previous_comment_id}\n")
+          PY
+
+      - name: Determine change severity with Mistral
+        id: severity
+        if: steps.assess-prep.outputs.needs_severity == 'true'
+        uses: ./.github/actions/ai/mistral-chat
+        with:
+          api-key: ${{ secrets.MISTRAL_API_KEY }}
+          model: mistral-medium-latest
+          temperature: '0.0'
+          max-tokens: '10'
+          user-prompt-file: ${{ steps.assess-prep.outputs.severity-prompt-file }}
+
+      - name: Decide whether to generate PR notes
+        id: assess-decide
+        if: always() && steps.assess-prep.outputs.needs_severity == 'true'
+        shell: bash
+        env:
+          SEVERITY_SUCCESS: ${{ steps.severity.outputs.success || 'false' }}
+          SEVERITY_RESPONSE: ${{ steps.severity.outputs.response || '' }}
+          GITHUB_OUTPUT: ${{ github.output }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import re
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as gh_out:
+              if os.environ.get("SEVERITY_SUCCESS") != "true":
+                  gh_out.write("should_generate=false\n")
+                  print("Changes are minor; skipping PR notes generation.")
+                  raise SystemExit(0)
+
+              text = os.environ.get("SEVERITY_RESPONSE", "").lower()
+              # Strip common Markdown/LLM decoration around the single word.
+              text = re.sub(r"[`'*#\"]+", "", text)
+              matches = re.findall(r"\b(yes|no|true|false)\b", text)
+
+              if matches and matches[0] in ("yes", "true"):
+                  gh_out.write("should_generate=true\n")
+                  print("Changes are substantial; will generate PR notes.")
+              else:
+                  gh_out.write("should_generate=false\n")
+                  print("Changes are minor; skipping PR notes generation.")
+          PY
+
       - name: Generate PR notes
         id: ai
+        if: steps.assess-prep.outputs.should_generate == 'true' || steps.assess-decide.outputs.should_generate == 'true'
         uses: ./.github/actions/ai/mistral-chat
         with:
           api-key: ${{ secrets.MISTRAL_API_KEY }}
@@ -153,9 +327,8 @@ jobs:
           temperature: '0.3'
           max-tokens: '4096'
           user-prompt-file: ${{ steps.context.outputs.prompt-file }}
-
       - name: Post PR notes suggestion and update title
-        if: always()
+        if: always() && (steps.assess-prep.outputs.should_generate == 'true' || steps.assess-decide.outputs.should_generate == 'true')
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -167,20 +340,14 @@ jobs:
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           HEAD_REF: ${{ github.head_ref }}
+          FIRST_RUN: ${{ steps.assess-prep.outputs.first_run }}
+          PREVIOUS_TITLE_FILE: ${{ steps.assess-prep.outputs.previous-title-file }}
+          PREVIOUS_BODY_FILE: ${{ steps.assess-prep.outputs.previous-body-file }}
+          DIFF_HASH: ${{ steps.context.outputs.diff-hash }}
           COMMITS_FILE: ${{ steps.context.outputs.commits-file }}
           FILES_FILE: ${{ steps.context.outputs.files-file }}
         run: |
           set -euo pipefail
-
-          PREVIOUS_COMMENT_JSON=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" --paginate --jq 'map(select(.body | contains("<!-- pr-notes:suggestion -->"))) | if length > 0 then last | {id, body} else null end')
-          if [ "$PREVIOUS_COMMENT_JSON" != "null" ] && [ -n "$PREVIOUS_COMMENT_JSON" ]; then
-            PREVIOUS_COMMENT_ID=$(echo "$PREVIOUS_COMMENT_JSON" | jq -r '.id // empty')
-            PREVIOUS_COMMENT_BODY=$(echo "$PREVIOUS_COMMENT_JSON" | jq -r '.body // empty')
-          else
-            PREVIOUS_COMMENT_ID=""
-            PREVIOUS_COMMENT_BODY=""
-          fi
-          export PREVIOUS_COMMENT_ID PREVIOUS_COMMENT_BODY
 
           python3 - "$RUNNER_TEMP/pr-notes-result.json" <<'PY'
           import base64
@@ -196,27 +363,16 @@ jobs:
           current_title = os.environ.get("CURRENT_TITLE", "")
           head_sha = os.environ["HEAD_SHA"]
           head_branch = os.environ["HEAD_BRANCH"]
+          first_run = os.environ.get("FIRST_RUN") == "true"
+          diff_hash = os.environ.get("DIFF_HASH", "")
+
           def _read_file_or_empty(path):
               return pathlib.Path(path).read_text(encoding="utf-8") if path else ""
 
           commits = _read_file_or_empty(os.environ.get("COMMITS_FILE", "")).splitlines()
           files = _read_file_or_empty(os.environ.get("FILES_FILE", "")).splitlines()
-          previous_comment_body = os.environ.get("PREVIOUS_COMMENT_BODY", "")
-
-          previous_title = ""
-          previous_body = ""
-          previous_sha = ""
-          meta_match = re.search(r"<!-- pr-notes:meta\s+([^>]+)\s*-->", previous_comment_body)
-          if meta_match:
-              try:
-                  meta = json.loads(base64.b64decode(meta_match.group(1)).decode("utf-8"))
-                  previous_title = meta.get("title", "")
-                  previous_body = meta.get("body", "")
-                  previous_sha = meta.get("sha", "")
-              except Exception:
-                  previous_title = ""
-                  previous_body = ""
-                  previous_sha = ""
+          previous_title = _read_file_or_empty(os.environ.get("PREVIOUS_TITLE_FILE", ""))
+          previous_body = _read_file_or_empty(os.environ.get("PREVIOUS_BODY_FILE", ""))
 
           blocks = re.findall(r"```[^\n]*\n([\s\S]*?)```", response)
           llm_title = blocks[0].strip() if len(blocks) >= 2 else ""
@@ -293,7 +449,16 @@ jobs:
           if not re.fullmatch(title_pattern, llm_title):
               llm_title = fallback_title()
 
-          suggestion_changed = not previous_comment_body or previous_title != llm_title or previous_body != llm_body
+          if not first_run and not ai_ok:
+              # Do not post fallback suggestions on subsequent runs.
+              json.dump({
+                  "skip": True,
+                  "suggested_title": llm_title,
+                  "suggested_body": llm_body,
+              }, open(sys.argv[1], "w", encoding="utf-8"))
+              raise SystemExit(0)
+
+          suggestion_changed = first_run or previous_title != llm_title or previous_body != llm_body
           title_needs_update = current_title != llm_title
 
           if not suggestion_changed and not title_needs_update:
@@ -306,6 +471,7 @@ jobs:
 
           meta = base64.b64encode(json.dumps({
               "sha": head_sha,
+              "diff_hash": diff_hash,
               "title": llm_title,
               "body": llm_body,
           }, ensure_ascii=False).encode("utf-8")).decode("ascii")
@@ -313,7 +479,7 @@ jobs:
           title_code = f"```text\n{llm_title}\n```"
           body_code = f"```markdown\n{llm_body}\n```"
 
-          if not previous_comment_body:
+          if first_run:
               comment = "\n".join([
                   "<!-- pr-notes:suggestion -->",
                   "",
