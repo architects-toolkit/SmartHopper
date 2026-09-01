@@ -199,35 +199,33 @@ namespace SmartHopper.Infrastructure.Hosting
     }
 
     /// <summary>
-    /// Host-side <see cref="HttpClient"/> factory that reuses one client per provider
-    /// while honoring per-request timeout overrides.
+    /// Host-side <see cref="HttpClient"/> factory that reuses one <see cref="HttpMessageHandler"/>
+    /// per provider while returning a fresh <see cref="HttpClient"/> on each call.
+    /// Callers own the returned client and should dispose it; the shared handler is pooled.
     /// </summary>
     public sealed class SmartHopperProviderHttpClientFactory : IProviderHttpClientFactory
     {
-        private static readonly ConcurrentDictionary<string, HttpClient> Clients = new ConcurrentDictionary<string, HttpClient>();
+        private static readonly ConcurrentDictionary<string, HttpMessageHandler> Handlers = new ConcurrentDictionary<string, HttpMessageHandler>();
 
         /// <inheritdoc />
         public HttpClient CreateClient(string providerName, TimeSpan timeout)
         {
             var name = string.IsNullOrEmpty(providerName) ? "default" : providerName;
-            var client = Clients.GetOrAdd(name, _ =>
-            {
-                var c = new HttpClient();
-                try
-                {
-                    c.DefaultRequestHeaders.Add("User-Agent", $"SmartHopper/{name}");
-                }
-                catch
-                {
-                    // Header may already exist or be restricted; ignore.
-                }
-
-                return c;
-            });
+            var handler = Handlers.GetOrAdd(name, _ => new HttpClientHandler());
+            var client = new HttpClient(handler, disposeHandler: false);
 
             if (timeout > TimeSpan.Zero)
             {
                 client.Timeout = timeout;
+            }
+
+            try
+            {
+                client.DefaultRequestHeaders.Add("User-Agent", $"SmartHopper/{name}");
+            }
+            catch
+            {
+                // Header may already exist or be restricted; ignore.
             }
 
             return client;

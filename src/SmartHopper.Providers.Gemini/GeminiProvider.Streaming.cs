@@ -74,18 +74,10 @@ namespace SmartHopper.Providers.Gemini
 
                 Debug.WriteLine($"[{this.provider.Name}] Stream - Method: {httpMethod.ToUpper()}, URL: {fullUri}");
 
-                using (var httpClient = new HttpClient())
-                {
-                    try
-                    {
-                        int seconds = request?.TimeoutSeconds > 0 ? request.TimeoutSeconds.Value : TimeoutDefaults.DefaultTimeoutSeconds;
-                        httpClient.Timeout = TimeSpan.FromSeconds(seconds);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[{this.provider.Name}] Warning: could not set HttpClient timeout: {ex.Message}");
-                    }
+                int seconds = request?.TimeoutSeconds > 0 ? request.TimeoutSeconds.Value : TimeoutDefaults.DefaultTimeoutSeconds;
 
+                using (var httpClient = this.provider.CreateHttpClient(TimeSpan.FromSeconds(seconds)))
+                {
                     var auth = authentication?.Trim().ToLowerInvariant();
                     var apiKey = this.provider.GetApiKey();
 
