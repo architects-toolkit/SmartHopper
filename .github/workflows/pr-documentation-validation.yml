@@ -1,7 +1,7 @@
 name: 📚 Documentation Validation
 
 # Related workflows (PR validation suite):
-#   - pr-validation.yml (version, code style, changelog, title checks)
+#   - pr-validation.yml (version, code style, changelog)
 #   - pr-license-headers.yml (license header compliance)
 #   - pr-build-hash-validation.yml (build hash integrity)
 #   - pr-version-validation.yml (version consistency)

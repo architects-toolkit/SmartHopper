@@ -43,6 +43,8 @@ Many thanks to the following contributors to this release:
 - `ToolJsonSchemaValidator` now uses `AITool.GetRequiredParameters()` to determine required parameters instead of parsing the schema inline.
 - Bumped all `actions/github-script` references from `v7` to `v9` to run on Node 24 and remove Node 20 deprecation warnings.
 - ProviderTrustPolicy unknown-provider diagnostic now only suggests switching to `Hard` or `Strict` integrity mode when the current mode is `Soft`, avoiding misleading guidance when the provider is already blocked.
+- `pr-notes.yml` now updates the PR title automatically and posts description suggestions as PR comments (first suggestion in code blocks, later updates inside a `<details>` block with a reason), instead of editing the PR description directly.
+- `pr-validation.yml` is now triggered by `workflow_dispatch` from `pr-notes.yml` rather than `pull_request`, ensuring it runs against the finalized Conventional Commits title.
 
 ### Removed
 
@@ -62,6 +64,7 @@ Many thanks to the following contributors to this release:
 - Fixed documentation validation failures by adding the required sections, metadata, and valid cross-references to `docs/Providers/AICall/JsonSchemaAdapters.md` and `docs/Testing/index.md`.
 - Fixed a JavaScript `SyntaxError` in the `pr-milestone.yml` milestone-assignment script caused by redeclaring the `core` object injected by `actions/github-script`.
 - Fixed `mistral-chat` composite action to write prompts and request payloads to files instead of passing them as command-line arguments, added `user-prompt-file` and `system-prompt-file` inputs, and updated `pr-notes.yml` to pass the generated prompt via a file path, preventing `Argument list too long` failures for large diffs.
+- Hardened `pr-notes.yml` context step by writing the diff, commit messages, changed files, and unreleased changelog to files before the Python script reads them, instead of passing them as environment strings. The diff budget is now computed from the `mistral-medium-latest` 256k-token context window, allowing the largest diff that still leaves room for the prompt, output, and overhead.
 
 ## [2.0.0-dev.260821] - 2026-08-21
 
