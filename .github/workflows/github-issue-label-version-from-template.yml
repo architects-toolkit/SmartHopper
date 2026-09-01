@@ -36,7 +36,7 @@ jobs:
 
       - name: Parse issue body for version
         id: parse-version
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const issueBody = context.payload.issue.body || '';
@@ -78,7 +78,7 @@ jobs:
 
       - name: Apply version label to issue
         if: steps.parse-version.outputs.detected_version != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const issueNumber = context.payload.issue.number;

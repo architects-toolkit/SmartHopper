@@ -33,7 +33,7 @@ runs:
   steps:
     - name: Create or get milestone
       id: create-or-get
-      uses: actions/github-script@v7
+      uses: actions/github-script@v9
       with:
         github-token: ${{ inputs.token }}
         script: |

@@ -34,7 +34,7 @@ runs:
   steps:
     - name: Read version from Solution.props
       id: read-version
-      uses: actions/github-script@v7
+      uses: actions/github-script@v9
       with:
         github-token: ${{ inputs.token }}
         script: |
@@ -99,7 +99,7 @@ runs:
 
     - name: Assign PR to milestone
       if: steps.create-or-get.outputs.milestone-number != ''
-      uses: actions/github-script@v7
+      uses: actions/github-script@v9
       with:
         github-token: ${{ inputs.token }}
         script: |

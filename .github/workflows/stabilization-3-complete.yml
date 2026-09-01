@@ -129,7 +129,7 @@ jobs:
 
       - name: Report backport conflict
         if: steps.backport.outputs.conflict == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           VERSION: ${{ inputs.version || github.event.release.tag_name }}
           LINE: ${{ steps.determine.outputs.line }}
@@ -229,7 +229,7 @@ jobs:
 
       - name: Close matching milestone
         if: steps.determine.outputs.should-run == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           VERSION: ${{ inputs.version || github.event.release.tag_name }}
         with:

@@ -145,7 +145,7 @@ jobs:
 
       - name: Report hotfix cherry-pick conflict
         if: steps.cherry-pick.outputs.conflict == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           VERSION: ${{ steps.next-version.outputs.new-version }}
           BASE_TAG: ${{ steps.parse.outputs.base-tag }}
@@ -361,7 +361,7 @@ jobs:
 
       - name: Report backport conflict
         if: steps.cherry-pick.outputs.conflict == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
           LINE: ${{ matrix.line }}
