@@ -652,15 +652,34 @@ namespace SmartHopper.Core.Tests.ComponentBase
 #endif
         public async Task DebounceTimer_TransitionsAfterDelay()
         {
-            this.manager.StartDebounce(ComponentState.NeedsRun, 50);
+            var tcs = new TaskCompletionSource<ComponentState>();
+            Action<ComponentState, ComponentState> handler = (oldState, newState) =>
+            {
+                if (newState == ComponentState.NeedsRun)
+                {
+                    tcs.TrySetResult(newState);
+                }
+            };
 
-            // State should still be Completed immediately
-            Assert.Equal(ComponentState.Completed, this.manager.CurrentState);
+            this.manager.StateChanged += handler;
+            try
+            {
+                this.manager.StartDebounce(ComponentState.NeedsRun, 50);
 
-            // Wait for debounce
-            await Task.Delay(100);
+                // State should still be Completed immediately
+                Assert.Equal(ComponentState.Completed, this.manager.CurrentState);
 
-            Assert.Equal(ComponentState.NeedsRun, this.manager.CurrentState);
+                // Wait for the debounce timer to actually fire, with a generous
+                // timeout to avoid race conditions on slow or saturated CI runners.
+                var completed = await Task.WhenAny(tcs.Task, Task.Delay(1000));
+                Assert.True(completed == tcs.Task, "Debounce timer did not fire within the expected timeout");
+
+                Assert.Equal(ComponentState.NeedsRun, this.manager.CurrentState);
+            }
+            finally
+            {
+                this.manager.StateChanged -= handler;
+            }
         }
 
 #if NET7_WINDOWS
@@ -670,12 +689,27 @@ namespace SmartHopper.Core.Tests.ComponentBase
 #endif
         public async Task CancelDebounce_PreventsTransition()
         {
-            this.manager.StartDebounce(ComponentState.NeedsRun, 100);
-            this.manager.CancelDebounce();
+            var tcs = new TaskCompletionSource<ComponentState>();
+            Action<ComponentState, ComponentState> handler = (oldState, newState) => tcs.TrySetResult(newState);
 
-            await Task.Delay(150);
+            this.manager.StateChanged += handler;
+            try
+            {
+                this.manager.StartDebounce(ComponentState.NeedsRun, 100);
+                this.manager.CancelDebounce();
 
-            Assert.Equal(ComponentState.Completed, this.manager.CurrentState);
+                // Wait longer than the cancelled debounce would have taken, and
+                // make sure no state change happened.
+                var timeoutTask = Task.Delay(150);
+                var completed = await Task.WhenAny(tcs.Task, timeoutTask);
+                Assert.True(completed == timeoutTask, "A cancelled debounce still caused a state transition");
+
+                Assert.Equal(ComponentState.Completed, this.manager.CurrentState);
+            }
+            finally
+            {
+                this.manager.StateChanged -= handler;
+            }
         }
 
 #if NET7_WINDOWS
@@ -685,16 +719,29 @@ namespace SmartHopper.Core.Tests.ComponentBase
 #endif
         public async Task RestartDebounce_InvalidatesPrevious()
         {
-            // Start debounce to NeedsRun
-            this.manager.StartDebounce(ComponentState.NeedsRun, 50);
+            var tcs = new TaskCompletionSource<ComponentState>();
+            Action<ComponentState, ComponentState> handler = (oldState, newState) => tcs.TrySetResult(newState);
 
-            // Immediately restart to Processing
-            this.manager.StartDebounce(ComponentState.Processing, 50);
+            this.manager.StateChanged += handler;
+            try
+            {
+                // Start debounce to NeedsRun
+                this.manager.StartDebounce(ComponentState.NeedsRun, 50);
 
-            await Task.Delay(100);
+                // Immediately restart to Processing
+                this.manager.StartDebounce(ComponentState.Processing, 50);
 
-            // Should be Processing, not NeedsRun
-            Assert.Equal(ComponentState.Processing, this.manager.CurrentState);
+                // Wait for the final debounce to actually fire.
+                var completed = await Task.WhenAny(tcs.Task, Task.Delay(1000));
+                Assert.True(completed == tcs.Task, "Restarted debounce timer did not fire within the expected timeout");
+
+                // Should be Processing, not NeedsRun
+                Assert.Equal(ComponentState.Processing, this.manager.CurrentState);
+            }
+            finally
+            {
+                this.manager.StateChanged -= handler;
+            }
         }
 
         #endregion
