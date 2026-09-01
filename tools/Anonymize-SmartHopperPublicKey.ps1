@@ -63,9 +63,14 @@ try {
         exit 1
     }
 
-    $existingKey = $keyElement.InnerText
     if ([string]::IsNullOrWhiteSpace($PlaceholderKey)) {
         $PlaceholderKey = "This value is automatically replaced by the build tooling before official builds."
+    }
+
+    $existingKey = $keyElement.InnerText
+    if ($existingKey -eq $PlaceholderKey) {
+        Write-Host "SmartHopperPublicKey is already the placeholder. No anonymization needed."
+        exit 0
     }
 
     Write-Host "Replacing key (length $($existingKey.Length)) with placeholder (length $($PlaceholderKey.Length))."
@@ -73,6 +78,7 @@ try {
     $settings = New-Object System.Xml.XmlWriterSettings
     $settings.Encoding = [System.Text.UTF8Encoding]::new($false)
     $settings.Indent = $true
+    $settings.OmitXmlDeclaration = $true
     $writer = [System.Xml.XmlWriter]::Create($CsprojPath, $settings)
     $xml.Save($writer)
     $writer.Close()
