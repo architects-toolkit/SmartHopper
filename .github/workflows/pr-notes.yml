@@ -143,12 +143,6 @@ jobs:
             echo "prompt-file=$CONTEXT_DIR/prompt"
             echo "commits-file=$COMMITS_FILE"
             echo "files-file=$FILES_FILE"
-            echo "commits<<EOF_COMMITS"
-            cat "$COMMITS_FILE"
-            echo "EOF_COMMITS"
-            echo "files<<EOF_FILES"
-            cat "$FILES_FILE"
-            echo "EOF_FILES"
           } >> "$GITHUB_OUTPUT"
       - name: Generate PR notes
         id: ai
@@ -192,6 +186,7 @@ jobs:
           import base64
           import json
           import os
+          import pathlib
           import re
           import sys
 
