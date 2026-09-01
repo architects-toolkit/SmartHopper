@@ -24,8 +24,8 @@ namespace SmartHopper.Infrastructure.Tests.AICall
 
     public class AIInteractionImageTests
     {
-        [Fact(DisplayName = "CreateVisionInput_WithValidUri_SetsImageUrl")]
-        public void CreateVisionInput_WithValidUri_SetsImageUrl()
+        [Fact(DisplayName = "WithVisionInput_WithValidUri_SetsImageUrl")]
+        public void WithVisionInput_WithValidUri_SetsImageUrl()
         {
             var interaction = new AIInteractionImage();
             var uri = new Uri("https://example.com/image.png");
@@ -33,15 +33,15 @@ namespace SmartHopper.Infrastructure.Tests.AICall
             Assert.Equal(uri, interaction.ImageUrl);
         }
 
-        [Fact(DisplayName = "CreateVisionInput_WithNullUri_ThrowsArgumentNull")]
-        public void CreateVisionInput_WithNullUri_ThrowsArgumentNull()
+        [Fact(DisplayName = "WithVisionInput_WithNullUri_ThrowsArgumentNull")]
+        public void WithVisionInput_WithNullUri_ThrowsArgumentNull()
         {
             var interaction = new AIInteractionImage();
             Assert.Throws<ArgumentNullException>(() => interaction.WithVisionInput((Uri)null));
         }
 
-        [Fact(DisplayName = "CreateVisionInput_WithValidString_SetsImageUrl")]
-        public void CreateVisionInput_WithValidString_SetsImageUrl()
+        [Fact(DisplayName = "WithVisionInput_WithValidString_SetsImageUrl")]
+        public void WithVisionInput_WithValidString_SetsImageUrl()
         {
             var interaction = new AIInteractionImage();
             interaction = interaction.WithVisionInput("https://example.com/image.png");
@@ -49,22 +49,22 @@ namespace SmartHopper.Infrastructure.Tests.AICall
             Assert.Equal("https://example.com/image.png", interaction.ImageUrl.ToString());
         }
 
-        [Fact(DisplayName = "CreateVisionInput_WithInvalidString_ThrowsArgument")]
-        public void CreateVisionInput_WithInvalidString_ThrowsArgument()
+        [Fact(DisplayName = "WithVisionInput_WithInvalidString_ThrowsArgument")]
+        public void WithVisionInput_WithInvalidString_ThrowsArgument()
         {
             var interaction = new AIInteractionImage();
             Assert.Throws<ArgumentException>(() => interaction.WithVisionInput("not a valid url"));
         }
 
-        [Fact(DisplayName = "CreateVisionInput_WithEmptyString_ThrowsArgument")]
-        public void CreateVisionInput_WithEmptyString_ThrowsArgument()
+        [Fact(DisplayName = "WithVisionInput_WithEmptyString_ThrowsArgument")]
+        public void WithVisionInput_WithEmptyString_ThrowsArgument()
         {
             var interaction = new AIInteractionImage();
             Assert.Throws<ArgumentException>(() => interaction.WithVisionInput(string.Empty));
         }
 
-        [Fact(DisplayName = "CreateVisionInputFromBase64_SetsDataAndMime")]
-        public void CreateVisionInputFromBase64_SetsDataAndMime()
+        [Fact(DisplayName = "WithVisionInputFromBase64_SetsDataAndMime")]
+        public void WithVisionInputFromBase64_SetsDataAndMime()
         {
             var interaction = new AIInteractionImage();
             var base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
@@ -73,15 +73,15 @@ namespace SmartHopper.Infrastructure.Tests.AICall
             Assert.Equal("image/jpeg", interaction.MimeType);
         }
 
-        [Fact(DisplayName = "CreateVisionInputFromBase64_WithNullData_Throws")]
-        public void CreateVisionInputFromBase64_WithNullData_Throws()
+        [Fact(DisplayName = "WithVisionInputFromBase64_WithNullData_Throws")]
+        public void WithVisionInputFromBase64_WithNullData_Throws()
         {
             var interaction = new AIInteractionImage();
             Assert.Throws<ArgumentException>(() => interaction.WithVisionInputFromBase64(null));
         }
 
-        [Fact(DisplayName = "CreateVisionInputFromBase64_NullMime_DefaultsToImagePng")]
-        public void CreateVisionInputFromBase64_NullMime_DefaultsToImagePng()
+        [Fact(DisplayName = "WithVisionInputFromBase64_NullMime_DefaultsToImagePng")]
+        public void WithVisionInputFromBase64_NullMime_DefaultsToImagePng()
         {
             var interaction = new AIInteractionImage();
             var base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
@@ -89,8 +89,8 @@ namespace SmartHopper.Infrastructure.Tests.AICall
             Assert.Equal("image/png", interaction.MimeType);
         }
 
-        [Fact(DisplayName = "MimeType_IsCorrectlySet_AfterCreateVisionInputFromBase64")]
-        public void MimeType_IsCorrectlySet_AfterCreateVisionInputFromBase64()
+        [Fact(DisplayName = "MimeType_IsCorrectlySet_AfterWithVisionInputFromBase64")]
+        public void MimeType_IsCorrectlySet_AfterWithVisionInputFromBase64()
         {
             var interaction = new AIInteractionImage();
             var base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
@@ -151,8 +151,8 @@ namespace SmartHopper.Infrastructure.Tests.AICall
             Assert.Equal("A beautiful sunset over the ocean", interaction.RevisedPrompt);
         }
 
-        [Fact(DisplayName = "CreateRequest_SetsPromptAndDefaults")]
-        public void CreateRequest_SetsPromptAndDefaults()
+        [Fact(DisplayName = "WithRequest_SetsPromptAndDefaults")]
+        public void WithRequest_SetsPromptAndDefaults()
         {
             var interaction = new AIInteractionImage();
             interaction = interaction.WithRequest("A cat wearing sunglasses");
@@ -162,8 +162,8 @@ namespace SmartHopper.Infrastructure.Tests.AICall
             Assert.Equal("vivid", interaction.ImageStyle);
         }
 
-        [Fact(DisplayName = "CreateRequest_WithCustomSize_OverridesDefault")]
-        public void CreateRequest_WithCustomSize_OverridesDefault()
+        [Fact(DisplayName = "WithRequest_WithCustomSize_OverridesDefault")]
+        public void WithRequest_WithCustomSize_OverridesDefault()
         {
             var interaction = new AIInteractionImage();
             interaction = interaction.WithRequest("A cat", "512x512");
