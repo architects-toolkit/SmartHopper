@@ -18,6 +18,7 @@ Do not write Testing Done, Checklist, or any other human-authored section. Do no
 testing claims, even when the supplied evidence mentions commands or checks.
 
 Rules:
+
 - Return English only.
 - Do not invent issue numbers, links, test results, or user-visible behavior.
 - Generate only the Description and Breaking Changes content; testing and checklist
