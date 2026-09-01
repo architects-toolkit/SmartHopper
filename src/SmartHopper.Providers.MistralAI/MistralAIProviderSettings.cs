@@ -32,7 +32,7 @@ namespace SmartHopper.Providers.MistralAI
     /// </summary>
     public class MistralAIProviderSettings : AIProviderSettings
     {
-        private new readonly MistralAIProvider provider;
+        private readonly MistralAIProvider provider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MistralAIProviderSettings"/> class.

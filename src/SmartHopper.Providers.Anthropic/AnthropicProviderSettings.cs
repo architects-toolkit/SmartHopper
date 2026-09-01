@@ -32,7 +32,7 @@ namespace SmartHopper.Providers.Anthropic
     /// </summary>
     public class AnthropicProviderSettings : AIProviderSettings
     {
-        private new readonly AnthropicProvider provider;
+        private readonly AnthropicProvider provider;
 
         public AnthropicProviderSettings(AnthropicProvider provider)
             : base(provider)

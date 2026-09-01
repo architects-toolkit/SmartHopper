@@ -27,6 +27,7 @@ Many thanks to the following contributors to this release:
 
 ### Changed
 
+- Removed redundant `new` modifiers on `provider` fields in first-party `*ProviderSettings` classes; the base `AIProviderSettings` does not expose a conflicting accessible member, so the modifier only produced compiler warnings.
 - Releases now come from a single `main` branch with on-demand stabilization lines: a release is prepared on demand, tagged when its pull request merges, and published as a draft release. Version tags are the source of truth for released versions.
 - Hotfixes now branch from the release tag they patch and are backported automatically to active release lines.
 - Maintenance workflows that open automatic pull requests now target `main`.
@@ -52,6 +53,7 @@ Many thanks to the following contributors to this release:
 
 ### Removed
 
+- Removed the unused `SmartHopper.Infrastructure.Settings.TrustedProviderRecord` class. `SmartHopperSettings.TrustedProviders` remains the authoritative `Dictionary<string, bool>` trust list; no migration is required.
 - Removed the `dev` branch and its dev↔main synchronization workflows.
 - Removed the patch-propagation documentation and other documentation references to retired CI automation and the former `dev` branch.
 - Removed the redundant `SmartHopper.Infrastructure.AIModels.ModelManager` singleton. All model capabilities, defaults, selection, and streaming validation now flow through `SmartHopper.ProviderSdk.AIModels.AIModelCapabilityRegistry.Instance`, making it the single source of truth for model selection.
@@ -59,6 +61,8 @@ Many thanks to the following contributors to this release:
 
 ### Fixed
 
+- `SmartHopper.sln` no longer maps `SmartHopper.Components.Test` to `Release` build configurations; the test-only project is now built only in Debug, aligning with `.devin/rules/solution-structure.md`.
+- Fixed a nullability mismatch in `AIRequestBase.Provider` by updating `IAIRequest.Provider` to `string?`, matching the fact that a provider may be unset until the request is initialized.
 - `tools/Sign-Authenticode.ps1` now Authenticode-signs `SmartHopper.Providers.LocalAI.dll` and `SmartHopper.Providers.Ollama.dll`. They were missing from the signing allowlist, so both providers shipped unsigned and Grasshopper refused to enable them as untrusted providers.
 - Hash-manifest validation now permits only bot-authored additions from release automation and continues to block manual edits.
 - Released-version validation now permits ordinary pull requests to inherit the target branch's already-released version while rejecting newly introduced reuse.

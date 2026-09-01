@@ -29,7 +29,7 @@ _Note: This documentation was written by AI on its own. It may contain some mist
   - `AllowCommunityProviders` (default `false`): community providers are blocked unless this is on.
   - `BlockNonOfficialProviders` (default `false`): hard override that allows only `Official` providers.
   - `ProviderIntegrityCheckMode` continues to govern hash-mismatch behavior for Official providers.
-  - `TrustedProviderRecords` — structured per-provider trust records (legacy `TrustedProviders` boolean map is migrated automatically).
+  - `TrustedProviders` — per-provider trust decisions persisted as a `Dictionary<string, bool>` keyed by provider name.
 - Registration & initialization
   - Duplicate provider ids: Official > Community > everything else. Tampered/Invalid never win.
   - `InitializeProviderAsync()` is wrapped in a 30-second per-provider timeout so a hanging provider can't block discovery.
