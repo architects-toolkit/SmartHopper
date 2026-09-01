@@ -66,6 +66,7 @@ namespace SmartHopper.ProviderSdk.Diagnostics
         NoCapableModel = 4,
         CapabilityMismatch = 5,
         ProviderTrustBlocked = 15,
+        ProviderTrustWarning = 16,
 
         // Streaming
         StreamingDisabledProvider = 6,
