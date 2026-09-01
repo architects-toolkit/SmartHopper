@@ -123,36 +123,36 @@ The following review suggestions have been implemented since the review was writ
 
 ### 4. Duplication of code and responsibilities
 
-- **[Certain]** **Model selection is duplicated.** `AIModelCapabilityRegistry.SelectBestModel` and `ModelManager.SelectBestModel` implement the same fallback algorithm: user model → preferred default → exact default → compatible default → any registered (`src/SmartHopper.ProviderSdk/AIModels/AIModelCapabilityRegistry.cs`, lines 278-353 and `src/SmartHopper.Infrastructure/AIModels/ModelManager.cs`, lines 282-383). *[Remediated: `ModelManager` removed; `AIModelCapabilityRegistry.Instance` is the single source of truth.]*
-- **[Certain (remediated)]** JSON schema object-root wrapping is consolidated in `OpenAICompatibleJsonSchemaAdapter` in the Provider SDK. OpenAI, Mistral, LocalAI, and Ollama register it directly; `DeepSeekJsonSchemaAdapter` inherits from it and overrides only `Unwrap`.
-- **[Certain (remediated)]** API-key access is consolidated in `AIProvider.GetApiKey()` (`AIProvider.cs` line 563). All first-party providers call it from their `CallApi`, `Batch`, and streaming paths.
-- **[Certain (remediated)]** Icon loading is consolidated in `AIProvider.LoadIconFromResources(byte[])` and `LoadIconFromResources(Image)` (`AIProvider.cs` lines 573 and 600). All first-party providers use them for their `Icon` property.
-- **[Certain (remediated)]** `MaxTokens`/`Temperature` validation is consolidated in `AIProviderSettings.ValidateMaxTokens()` and `ValidateTemperature()` (`AIProviderSettings.cs` lines 103 and 136). All provider settings classes call them.
-- **[Certain]** **OpenAI role mapping is duplicated.** `OpenAI`, `MistralAI`, `LocalAI`, `Ollama`, `OpenRouter`, and `DeepSeek` each implement the same `switch (interaction.Agent)` mapping from `AIAgent` values to OpenAI-compatible role strings. `AIAgent.System/Context` → `"system"`, `User` → `"user"`, `Assistant/ToolCall` → `"assistant"`, `ToolResult` → `"tool"`.
-- **[Certain (intentional)]** **Per-provider test runner components in `SmartHopper.Components.Test`.** The ~43 files under `src/SmartHopper.Components.Test/Providers/` (e.g., `Test{Provider}{Feature}Component.cs`) are an intended test suite. Each component is a separate Grasshopper test runner that the developer executes to validate a specific provider, similar to running unit tests. They are not accidental duplication and should not be consolidated into a single generic component. *[Updated: a shared `ProviderTestComponentBase` has been extracted for common setup/teardown; each per-provider runner still remains independent.]*
+- **[Certain (remediated)]** **Model selection is consolidated.** `ModelManager` has been removed; `AIModelCapabilityRegistry.Instance` is the single source of truth for model selection, defaults, and streaming validation.
+- **[Certain (remediated)]** **JSON schema wrapping is consolidated.** `OpenAICompatibleJsonSchemaAdapter` in the Provider SDK now owns the shared object-root wrapping logic; OpenAI, Mistral, LocalAI, and Ollama register it directly, and `DeepSeekJsonSchemaAdapter` inherits from it and overrides only `Unwrap`.
+- **[Certain (remediated)]** **API-key access is consolidated in `AIProvider.GetApiKey()`.** All first-party providers call the protected base helper from their `CallApi`, `Batch`, and streaming paths.
+- **[Certain (remediated)]** **Icon loading is consolidated in `AIProvider.LoadIconFromResources()`.** All first-party providers use the protected base helpers for their `Icon` property.
+- **[Certain (remediated)]** **Settings validation is consolidated in `AIProviderSettings`.** `ValidateMaxTokens()` and `ValidateTemperature()` are protected base helpers called by every provider settings class.
+- **[Certain]** **OpenAI role mapping is duplicated.** OpenAI, Mistral, LocalAI, Ollama, OpenRouter, and DeepSeek each implement the same `switch (interaction.Agent)` mapping from `AIAgent` values to OpenAI-compatible role strings.
+- **[Certain (intentional)]** **Per-provider test runner components in `SmartHopper.Components.Test`.** The ~43 files under `src/SmartHopper.Components.Test/Providers/` are an intended test suite; each is a separate Grasshopper test runner. They are not accidental duplication. A shared `ProviderTestComponentBase` has been extracted for common setup/teardown.
 - **[Certain]** **Model lists are hardcoded per provider.** Each `*ProviderModels.cs` returns a large `List<AIModelCapabilities>` with the same property assignments.
 
 ### 5. Duplication and consistency of stored data
 
 - **[Certain]** `SmartHopperSettings.TrustedProviders` is declared as `Dictionary<string, bool>` (`src/SmartHopper.Infrastructure/Settings/SmartHopperSettings.cs`, lines 74-78), while `TrustedProviderRecord` exists as a separate, more structured type that is never used (`src/SmartHopper.Infrastructure/Settings/TrustedProviderRecord.cs`).
 - **[Resolved]** `AIModelCapabilityRegistry` and `ModelManager` held overlapping in-memory capability data. `ModelManager` has been removed and `AIModelCapabilityRegistry.Instance` is now the only singleton.
-- **[Certain]** `AIModelCapabilities.Default` is a subset of `AIModelCapabilities.Capabilities`, but this invariant is not enforced in the type; `ModelManager.SetDefault` and `AIModelCapabilityRegistry.SetDefault` both clear bits manually.
+- **[Certain]** `AIModelCapabilities.Default` is a subset of `AIModelCapabilities.Capabilities`, but this invariant is not enforced in the type; `AIModelCapabilityRegistry.SetDefault` clears bits manually.
 - **[Question]** Are provider settings effectively persisted in both `SmartHopperSettings.ProviderSettings` and the per-provider `AIProvider._injectedSettings` cache? Which is the authoritative copy after `RefreshCachedSettings`?
 
 ### 6. Unreferenced, orphaned, or dead code/data
 
 - **[Certain]** `TrustedProviderRecord` in `SmartHopper.Infrastructure.Settings` is defined but has zero references outside its own file.
-- **[Certain]** `AIBody.ResetNew()` is declared but is only invoked by `AIBodyValidationTests`; no production usage. *[Remediated: `ResetNew()` removed and the obsolete test coverage deleted.]*
+- **[Certain (remediated)]** `AIBody.ResetNew()` has been removed and the obsolete test coverage deleted.
 - **[Resolved]** `ModelManager` was a thin wrapper around `AIModelCapabilityRegistry` and was only used by `FallbackSettingsPage` and tests; it has been removed and `AIModelCapabilityRegistry` is used directly.
 - **[Suspicious]** `SmartHopper.Components.Test` is built in Release solution configurations, contradicting the rule that it is test-only.
-- **[Suspicious]** Some `AICapability` values such as `VideoInput`, `VideoOutput`, and `EmbedOutput` appear to be declared for future use; no production references were found.
+- **[Suspicious]** `AICapability` values `VideoInput`, `VideoOutput`, and `EmbedOutput` are now referenced in provider model lists (OpenRouter, OpenAI, Mistral, Gemini) but it is unclear whether the rest of the pipeline fully exercises them.
 
 ### 7. Coupling, cohesion, and changeability
 
 - **[Certain]** `ProviderSdkHost` provides clean static seams (`IProviderTrustHost`, `IProviderRegistryHost`, `IPolicyPipelineHost`, etc.) with null/default implementations, at `src/SmartHopper.ProviderSdk/Hosting/ProviderSdkHost.cs`.
 - **[Certain]** `SmartHopper.Core` component bases import `SmartHopper.Infrastructure.AIModels` and `SmartHopper.Infrastructure.AITools` (`src/SmartHopper.Core/ComponentBase/AIStatefulAsyncComponentBase.Main.cs`, lines 34-35), coupling presentation/component logic to infrastructure managers.
 - **[Certain]** `AsyncComponentBase` in `SmartHopper.Core` imports `SmartHopper.Infrastructure.Mcp` and toggles `McpCanvasLockState` (`src/SmartHopper.Core/ComponentBase/AsyncComponentBase.cs`, lines 39-40), meaning a generic async base knows about MCP.
-- **[Suspicious]** `AIOutputAdapterBase` and `AIStatefulAsyncComponentBase` pass a merged body through a string key `"_MergedBody"` (`src/SmartHopper.Core/ComponentBase/AIOutputAdapterBase.cs`, lines 385-767), which is stringly typed and not part of the `AIBody` contract.
+- **[Suspicious]** `AIOutputAdapterBase` and `AIStatefulAsyncComponentBase` pass a merged body through a string key `_MergedBody` (`src/SmartHopper.Core/ComponentBase/AIOutputAdapterBase.cs`, lines 385-767), which is stringly typed and not part of the `AIBody` contract.
 - **[Question]** Should `AIStatefulAsyncComponentBase` be split into a smaller orchestrator (state/Grasshopper) plus a composed `AICallOrchestrator` that lives in Infrastructure?
 
 ### 8. Security, auth, and lifecycle guardrails
@@ -160,9 +160,9 @@ The following review suggestions have been implemented since the review was writ
 - **[Certain]** Secret storage uses OS secure store (DPAPI/Keychain) with AES-256 and versioned prefixes (`SH03:`, legacy `SH02:`). `SmartHopperSettings.GetSetting` masks secrets in debug output (`src/SmartHopper.Infrastructure/Settings/SmartHopperSettings.cs`, lines 428-430).
 - **[Certain]** `ProviderManager` performs Authenticode (Windows), strong-name, and SHA-256 hash checks with three integrity modes, at `src/SmartHopper.Infrastructure/AIProviders/ProviderManager.cs`.
 - **[Certain]** `SmartHopperSettings.EffectiveProviderIntegrityCheckMode` forces `Soft` in `DEBUG` builds (`src/SmartHopper.Infrastructure/Settings/SmartHopperSettings.cs`, lines 92-103).
-- **[Suspicious]** `AIRequestCall.IsValid` adds trust/integrity warnings, but the request still executes in `Soft` mode; there is no centralized `ProviderTrustPolicy` that blocks the call (`src/SmartHopper.ProviderSdk/AICall/Core/Requests/AIRequestCall.cs`, lines 115-184).
+- **[Certain (remediated)]** `ProviderTrustPolicy` is evaluated by `AIRequestCall.IsValid()` (line 117) and `AIRequestCall.Exec()` (line 280) and blocks the call in `ProviderTrustVerdict.Block` before the provider executes; warnings are still allowed in `Soft` mode.
 - **[Suspicious]** `SmartHopperSettings.SetSetting` catches encryption exceptions and silently removes the secret (`src/SmartHopper.Infrastructure/Settings/SmartHopperSettings.cs`, lines 261-270); `Decrypt` returns `null` on any failure (`src/SmartHopper.Infrastructure/Settings/SmartHopperSettings.cs`, lines 477-510). Users could lose configured secrets without notice.
-- **[Suspicious]** The settings file (`%AppData%\Grasshopper\SmartHopper.json`) is unencrypted; only individual secret values are encrypted inside it.
+- **[Suspicious]** The settings file at `%AppData%/Grasshopper/SmartHopper.json` is unencrypted; only individual secret values are encrypted inside it.
 - **[Question]** Is there a centralized authorization decision point for `SmartHopperCloud` settings sync, or does the OAuth bearer token alone govern all `/context/settings` access?
 
 ### 9. API contracts and client/server alignment
@@ -170,7 +170,7 @@ The following review suggestions have been implemented since the review was writ
 - **[Certain]** `IAIProvider` is a clear contract: `Encode/Decode`, `Call`, `PreCall/PostCall`, `SelectModel`, `GetDefaultModel`, `GetStreamingAdapter`, at `src/SmartHopper.ProviderSdk/AIProviders/IAIProvider.cs`.
 - **[Certain]** `AIRequestCall`/`AIReturn` are the central request/response DTOs, and providers adapt to/from them. `SmartHopperCloudProvider.PreCall` sets the `X-Smarthopper-Environment` header.
 - **[Suspicious]** `IAIProvider` has no version. A breaking change to `Encode`/`Decode` signatures requires coordinated updates to all 9+ providers.
-- **[Suspicious]** There are no automated contract/round-trip tests for provider `Encode/Decode` across text, tool, image, and audio interactions.
+- **[Certain (remediated)]** Automated provider contract / round-trip `Encode/Decode` tests now exist in `AIProviderCallTests` using `FakeAIProvider` and the in-memory HTTP client factory, covering text and tool-call interactions.
 - **[Suspicious]** `SchemaAttachRequestPolicy` and `SchemaValidateRequestPolicy` are separate; it is not documented which providers support which or why both exist.
 - **[Question]** Should `IAIProvider` separate the stateful provider singleton (`AIProvider`) from pure request/response contract interfaces to make fakes and versioning easier?
 
@@ -179,10 +179,10 @@ The following review suggestions have been implemented since the review was writ
 - **[Certain]** `ProviderSdkHost` uses default null/fake implementations (`NullProviderTrustHost`, `InMemoryProviderSettingsStore`, `DebugProviderLogger`), at `src/SmartHopper.ProviderSdk/Hosting/ProviderSdkHost.cs`.
 - **[Certain]** `SmartHopper.ProviderSdk.Tests` has 19 test files covering `AIBody`, `AIRequestBase`, `AIReturn`, `AICapability`, `AIMetrics`, etc.
 - **[Certain]** `ConversationSessionTests` uses `TestableAIRequestCall` and `MockProviderExecutor` to bypass real providers.
-- **[Suspicious]** Logging is ad-hoc `Debug.WriteLine` and `RhinoApp.WriteLine`. `IProviderLogger` exists in the Provider SDK and is wired to a `SmartHopperProviderLogger` in the host, but provider code still writes directly to `Debug.WriteLine` rather than through the abstraction, so there is no effective structured logging or correlation ID in practice.
-- **[Resolved]** `AIProvider.CallApi`, `AIProviderStreamingAdapter.CreateHttpClient`, and `AIProvider.CreateBatchHttpClient` now create `HttpClient` instances through `ProviderSdkHost.HttpClientFactory`. Gemini streaming and batch helpers were also updated. `SmartHopperProviderHttpClientFactory` caches one `HttpMessageHandler` per provider while returning a fresh `HttpClient` on each call, sets a provider-specific `User-Agent`, and applies per-request timeouts. `TestProviderHttpClientFactory` in `src/SmartHopper.ProviderSdk.Tests/TestHelpers` enables deterministic, network-free HTTP fakes.
+- **[Suspicious]** Logging is ad-hoc `Debug.WriteLine` and `RhinoApp.WriteLine`. `IProviderLogger` exists and is wired to `SmartHopperProviderLogger`, but provider code still calls `Debug.WriteLine` directly, so there is no effective structured logging or correlation ID in practice.
+- **[Resolved]** Provider HTTP client creation is now centralized through `ProviderSdkHost.HttpClientFactory`. `SmartHopperProviderHttpClientFactory` caches one `HttpMessageHandler` per provider while returning a fresh `HttpClient` on each call, sets a provider-specific `User-Agent`, and applies per-request timeouts. `TestProviderHttpClientFactory` enables deterministic, network-free HTTP fakes.
 - **[Suspicious]** `AIMetrics` are collected but not exported to external monitoring; they appear to be used only for in-memory validation and UI display.
-- **[Resolved]** `FakeAIProvider` and `TestProviderHttpClientFactory` in `src/SmartHopper.ProviderSdk.Tests/TestHelpers` provide deterministic fakes for `Encode/Decode` and HTTP round-trips. `AIProviderCallTests` exercises text and tool-call round-trips without network access.
+- **[Resolved]** `FakeAIProvider` and `TestProviderHttpClientFactory` provide deterministic fakes for `Encode/Decode` and HTTP round-trips. `AIProviderCallTests` exercises text and tool-call round-trips without network access.
 
 ---
 
@@ -191,12 +191,13 @@ The following review suggestions have been implemented since the review was writ
 | Concept | Locations | Proposed Single Source of Truth | Certainty |
 | --- | --- | --- | --- |
 | Model selection / fallback | `AIModelCapabilityRegistry.SelectBestModel` and `ModelManager.SelectBestModel` | `AIModelCapabilityRegistry` in Provider SDK (delete `ModelManager`) | High — **Remediated** |
-| JSON schema object-root wrapping | `OpenAIJsonSchemaAdapter`, `MistralAIJsonSchemaAdapter`, `LocalAIJsonSchemaAdapter`, `OllamaJsonSchemaAdapter`, `DeepSeekJsonSchemaAdapter` | `OpenAICompatibleJsonSchemaAdapter` in `SmartHopper.ProviderSdk.AICall.JsonSchemas`; providers override only `Unwrap` | High — **Remediated** |
-| Provider API-key accessor | Eight providers’ `internal string GetApiKey()` | `AIProvider` protected helper or direct `GetSetting<string>("ApiKey")` | High — **Remediated** |
-| Provider icon loading | Eight providers’ `Image Icon` properties | `AIProvider` protected helper such as `LoadIconFromResources(byte[])` | High — **Remediated** |
-| Settings validation (MaxTokens/Temperature) | `OpenAIProviderSettings`, `AnthropicProviderSettings`, `DeepSeekProviderSettings`, etc. | `AIProviderSettings` protected helpers `ValidateMaxTokens` / `ValidateTemperature` | High — **Remediated** |
-| OpenAI-compatible role mapping | `OpenAIProvider`, `MistralAIProvider`, `LocalAIProvider`, `OllamaProvider` | `StandardRoleMapper` in Provider SDK | Medium |
-| Per-provider test runner components | 43 files in `src/SmartHopper.Components.Test/Providers/` | Keep as independent provider test runners; extract a shared test-harness base for setup/teardown | Intentional (not duplication) — **Harness added** |
+| JSON schema object-root wrapping | Former `OpenAIJsonSchemaAdapter`, `MistralAIJsonSchemaAdapter`, `LocalAIJsonSchemaAdapter`, `OllamaJsonSchemaAdapter`, `DeepSeekJsonSchemaAdapter` | `OpenAICompatibleJsonSchemaAdapter` in `SmartHopper.ProviderSdk.AICall.JsonSchemas`; providers override only `Unwrap` | High — **Remediated** |
+| Provider API-key accessor | Former eight providers’ `GetApiKey` methods | `AIProvider.GetApiKey()` protected helper | High — **Remediated** |
+| Provider icon loading | Former eight providers’ `Icon` properties | `AIProvider.LoadIconFromResources()` protected helpers | High — **Remediated** |
+| Settings validation (MaxTokens/Temperature) | Former `OpenAIProviderSettings`, `AnthropicProviderSettings`, `DeepSeekProviderSettings`, etc. | `AIProviderSettings.ValidateMaxTokens()` / `ValidateTemperature()` | High — **Remediated** |
+| Provider HTTP client creation | `new HttpClient()` and per-provider handlers in first-party providers | `ProviderSdkHost.HttpClientFactory` backed by `SmartHopperProviderHttpClientFactory` | High — **Remediated** |
+| OpenAI-compatible role mapping | `OpenAIProvider`, `MistralAIProvider`, `LocalAIProvider`, `OllamaProvider`, `OpenRouterProvider`, `DeepSeekProvider` | `StandardRoleMapper` in Provider SDK | Medium |
+| Per-provider test runner components | 43 files in `src/SmartHopper.Components.Test/Providers/` | Keep as independent provider test runners; shared `ProviderTestComponentBase` for setup/teardown | Intentional (not duplication) — **Harness added** |
 | Hardcoded model capability lists | Every `*ProviderModels.cs` | JSON/fluent builder or external model manifest loaded by `AIProviderModels` | Medium |
 | WinForms/macOS reference workaround | ~20 `.csproj` files | Centralized in `Directory.Build.props` | High — **Remediated** |
 
@@ -210,7 +211,7 @@ The following review suggestions have been implemented since the review was writ
 | `SmartHopper.ProviderSdk.AICall.Core.Interactions.AIBody.ResetNew()` | **Removed** | `ResetNew()` has been removed and the obsolete test coverage deleted. |
 | `SmartHopper.Infrastructure.AIModels.ModelManager` | **Removed** | Removed; `AIModelCapabilityRegistry.Instance` is the single source of truth for model selection, defaults, and streaming validation. |
 | `SmartHopper.Components.Test` Release build mapping | **Contradicts intent** | `SmartHopper.sln` includes `Release` build entries, but `.devin/rules/solution-structure.md` says it is not built in Release. |
-| `AICapability.VideoInput/VideoOutput/EmbedOutput` and related | **Suspicious** | Declared but no production references were located; may be future-proofing flags. |
+| `AICapability.VideoInput/VideoOutput/EmbedOutput` and related | **Future-facing / partially used** | Referenced in provider model lists (OpenRouter, OpenAI, Mistral, Gemini); unclear whether the runtime pipeline fully exercises them. |
 | `SmartHopper.Core.ComponentBase.AsyncComponentBase` → `SmartHopper.Infrastructure.Mcp` | **Suspicious coupling** | A generic async base class knows about MCP canvas lock state. |
 
 ---
@@ -219,19 +220,15 @@ The following review suggestions have been implemented since the review was writ
 
 | Rank | Change | Effort | Expected Impact |
 | --- | --- | --- | --- |
-| 1 | **Make `AIModelCapabilityRegistry` the single source of truth for model selection and remove/repurpose `ModelManager`.** Eliminate duplicated `SelectBestModel`, `SetDefault`, `GetDefaultModel`, and streaming validation. | Small | High. Removes the most dangerous source of model-selection divergence and simplifies every provider call. **Done.** |
-| 2 | **Add a shared `OpenAICompatibleJsonSchemaAdapter` in the Provider SDK.** Make OpenAI/Mistral/Local/Ollama use it; only DeepSeek inherits and overrides `Unwrap`. | Small | High. Cuts ~4 copy-paste adapters and makes schema changes safe. **Done.** |
-| 3 | **Move common provider helpers into the base classes.** Add `AIProvider.GetApiKey()`, `AIProvider.LoadIconFromResources()`, and `AIProviderSettings.ValidateMaxTokens`/`ValidateTemperature`. | Small | High. Removes the bulk of per-provider boilerplate. **Done.** |
-| 4 | **Document and, if needed, harness the `SmartHopper.Components.Test` suite.** Clarify that each `Test{Provider}{Feature}Component` is an intentional per-provider test runner. Only extract a shared test-harness base for common setup/teardown; do not collapse the ~43 provider-specific runners into a single component. | Small | Medium. Preserves the intended test surface while reducing common boilerplate. **Done.** |
-| 5 | **Fix `AIBody` immutability and `AIInteractionBase` mutability.** Make `AIBody.InteractionsNew` immutable, remove `ResetNew()` if unused, and use init-only setters or a builder for `AIInteractionBase`. | Small | Medium. Aligns the domain model with the documented immutability goal. **Done.** |
-| 6 | **Introduce a `ProviderTrustPolicy` that enforces integrity checks before the provider call.** In `Soft`/`Hard`/`Strict` modes, decide whether to block, warn, or allow; do not rely only on `IsValid` messages. | Small | High. Closes the security enforcement gap without changing the contract. **Done.** |
-| 7 | **Fix the `SmartHopper.Components.Test` Release build mapping.** Add `DisableBuild` condition or remove Release solution configurations for the project. | Small | Medium. Aligns build behavior with documented intent. **Done.** |
+| 1 | **Make `AIModelCapabilityRegistry` the single source of truth for model selection and remove/repurpose `ModelManager`.** | Small | High. Removes the most dangerous source of model-selection divergence and simplifies every provider call. **Done.** |
+| 2 | **Add a shared `OpenAICompatibleJsonSchemaAdapter` in the Provider SDK.** | Small | High. Cuts ~4 copy-paste adapters and makes schema changes safe. **Done.** |
+| 3 | **Move common provider helpers into the base classes.** Add `AIProvider.GetApiKey()`, `AIProvider.LoadIconFromResources()`, and `AIProviderSettings.ValidateMaxTokens`/`ValidateTemperature()`. | Small | High. Removes the bulk of per-provider boilerplate. **Done.** |
+| 4 | **Document and harness the `SmartHopper.Components.Test` suite.** Clarify that each `Test{Provider}{Feature}Component` is an intentional per-provider test runner; extract `ProviderTestComponentBase`. | Small | Medium. Preserves the intended test surface while reducing common boilerplate. **Done.** |
+| 5 | **Fix `AIBody` immutability and `AIInteractionBase` mutability.** Make `AIBody.InteractionsNew` immutable, remove `ResetNew()`, and use `init`-only setters or a builder for `AIInteractionBase`. | Small | Medium. Aligns the domain model with the documented immutability goal. **Done.** |
+| 6 | **Introduce a `ProviderTrustPolicy` that enforces integrity checks before the provider call.** | Small | High. Closes the security enforcement gap without changing the contract. **Done.** |
+| 7 | **Fix the `SmartHopper.Components.Test` Release build mapping.** Add `DisableBuild` condition or remove Release solution configurations for the project. | Small | Medium. Aligns build behavior with documented intent. **Pending.** |
 | 8 | **Centralize macOS/WinForms workaround and standardize project references.** Move the `net48` reference-assembly logic to `Directory.Build.props` and remove explicit GUIDs from `ProjectReference`. | Small–Medium | Medium. Reduces csproj duplication and build maintenance. **Done.** |
 | 9 | **Add provider contract / round-trip tests and HTTP fakes.** Use `IProviderHttpClientFactory` in `AIProvider.CallApi` and provide a mock message handler. | Medium | Medium. Improves testability and catches provider drift. **Done.** |
 | 10 | **Introduce structured logging/tracing and metrics export.** Replace ad-hoc `Debug.WriteLine` with an `IProviderLogger` implementation that supports scopes/correlation; export `AIMetrics` to a sink. | Large | Medium. Needed for production observability but can follow the other items. |
-
-*Implementation status updated to reflect the `ProviderTrustPolicy` work on branch `feature/2.0.0-provider-trust-policy`.*
-
-*Implementation status for the macOS/WinForms workaround updated to reflect the work on branch `chore/2.0.0-dev.260901-centralize-winforms`.*
-
-*Implementation status for the provider HTTP client factory and contract/round-trip tests updated to reflect the work on branch `feature/2.0.0-dev.260901-provider-http-client-factory`.*
+| 11 | **Consolidate OpenAI-compatible role mapping into a `StandardRoleMapper` in the Provider SDK.** | Small | High. Removes ~6 copy-paste `switch (interaction.Agent)` blocks and makes role changes safe. |
+| 12 | **Move hardcoded model capability lists into a shared builder or external manifest.** | Medium | High. Removes the largest remaining per-provider duplication and makes model metadata easier to maintain. |

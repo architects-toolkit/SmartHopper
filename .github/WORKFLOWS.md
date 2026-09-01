@@ -79,10 +79,10 @@ run: |
 
 ### Provider Model Validation (`Update-ProviderModels.ps1`)
 
-| Tier | Severity | Blocks merge? | Examples |
-|------|----------|---------------|----------|
-| Error | `::error::` | Yes | Invalid capability expression, realtime model in list, pending capability |
-| Warning | `::warning::` | No | Missing default for a composite capability category |
+| Tier    | Severity      | Blocks merge? | Examples                                                                  |
+|---------|---------------|---------------|---------------------------------------------------------------------------|
+| Error   | `::error::`   | Yes           | Invalid capability expression, realtime model in list, pending capability |
+| Warning | `::warning::` | No            | Missing default for a composite capability category                       |
 
 ### PR Validation (`pr-validation.yml`)
 
