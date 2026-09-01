@@ -983,9 +983,9 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 // Reserved headers are applied internally via authentication helpers: 'Authorization', 'x-api-key'.
                 HttpHeadersHelper.ApplyExtraHeaders(httpClient, request.Headers);
 
+                HttpResponseMessage response = null;
                 try
                 {
-                    HttpResponseMessage response;
                     switch (httpMethod.ToUpper(CultureInfo.InvariantCulture))
                     {
                         case "GET":
@@ -1078,6 +1078,10 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 {
                     Debug.WriteLine($"[{this.Name}] Call - Exception: {ex.Message}");
                     throw new Exception($"Error calling {this.Name} API: {ex.Message}", ex);
+                }
+                finally
+                {
+                    response?.Dispose();
                 }
             }
         }

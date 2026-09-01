@@ -21,7 +21,9 @@ Many thanks to the following contributors to this release:
 - Added `ProviderTestComponentBase` to `SmartHopper.Components.Test/Providers` and converted all ~43 `Test{Provider}{Feature}Component` classes to inherit from it. The base centralizes common setup/teardown (provider selection, `RunOnlyOnInputChanges`, category/exposure) while each component remains an independent per-provider test runner.
 - Added nested mutable `Builder` classes to `AIInteractionText` and `AIBody` for streaming aggregation and body construction. Builders accumulate local state and emit immutable snapshots via `Build()`.
 - Added `ProviderTrustPolicy` in `SmartHopper.ProviderSdk.AICall.Validation` to centralize provider integrity/trust decisions. `AIRequestCall.IsValid()` and `AIRequestCall.Exec()` now use this policy to block, warn, or allow provider calls based on the configured `ProviderIntegrityCheckMode` (Soft/Hard/Strict) instead of only emitting validation messages.
-- Added `SHMessageCode.ProviderTrustBlocked` and `SHMessageCode.ProviderTrustWarning` to support structured trust-policy diagnostics, using `ProviderTrustBlocked` only for blocking errors and `ProviderTrustWarning` for non-blocking warnings.
+- Added automatic `version:` labeling for pull requests. Both `pr-milestone.yml` and the `milestone/assign-pr` action now apply a `version:` label matching the target milestone (e.g. `version: 2.0.0-alpha` for `2.0.0-dev.260901`), creating the label if it does not exist.
+- Added `TestProviderHttpClientFactory`, `FakeAIProvider`, `FakeProviderModels`, and `FakeProviderRegistryHost` to `SmartHopper.ProviderSdk.Tests/TestHelpers` to support deterministic, network-free provider contract/round-trip tests.
+- Added `AIProviderCallTests` in `SmartHopper.ProviderSdk.Tests/AIProviders` covering text and tool-call round-trips, authorization header propagation, request encoding, and provider error handling using an in-memory HTTP fake.
 
 ### Changed
 
@@ -46,12 +48,7 @@ Many thanks to the following contributors to this release:
 - `pr-notes.yml` now updates the PR title automatically and posts description suggestions as PR comments (first suggestion in code blocks, later updates inside a `<details>` block with a reason), instead of editing the PR description directly.
 - `pr-validation.yml` now runs on `pull_request` again instead of being dispatched by `pr-notes.yml`, since title validation is handled by `pr-notes.yml`.
 - Centralized the macOS/WinForms `net48` reference-assembly workaround in `Directory.Build.props` and removed the duplicated workaround blocks from all affected `.csproj` files. `SmartHopper.Components` now conditions its `System.Drawing.Common` reference on the Windows TFM, and `SmartHopper.Core.Grasshopper` now uses a simple `ProjectReference` without explicit GUID metadata.
-- `AIProvider.CallApi`, `AIProvider.CreateBatchHttpClient`, and `AIProviderStreamingAdapter.CreateHttpClient` now use `IProviderHttpClientFactory` instead of creating `new HttpClient()` directly. The host-side factory caches one `HttpClient` per provider, applies the provider `User-Agent`, and honors per-request timeouts. Gemini streaming and batch paths were also updated to use the shared factory.
-
-### Added
-
-- Added `TestProviderHttpClientFactory`, `FakeAIProvider`, `FakeProviderModels`, and `FakeProviderRegistryHost` to `SmartHopper.ProviderSdk.Tests/TestHelpers` to support deterministic, network-free provider contract/round-trip tests.
-- Added `AIProviderCallTests` in `SmartHopper.ProviderSdk.Tests/AIProviders` covering text and tool-call round-trips, authorization header propagation, request encoding, and provider error handling using an in-memory HTTP fake.
+- `AIProvider.CallApi`, `AIProvider.CreateBatchHttpClient`, and `AIProviderStreamingAdapter.CreateHttpClient` now use `IProviderHttpClientFactory` instead of creating `new HttpClient()` directly. The host-side factory caches one `HttpMessageHandler` per provider while returning a fresh `HttpClient` on each call, applies the provider `User-Agent`, and honors per-request timeouts. Gemini streaming and batch paths were also updated to use the shared factory.
 
 ### Removed
 
@@ -77,6 +74,8 @@ Many thanks to the following contributors to this release:
 - The deterministic `## Testing Done` and `## Checklist` body sections have been moved from `pr-notes.yml` to `.github/prompts/pr-notes-static.md` so they can be edited independently.
 - Hardened `ComponentStateManager` debounce logic so stale timer callbacks are ignored after `StartDebounce`/`CancelDebounce`, preventing a race where an old or cancelled debounce could still trigger a state transition.
 - Fixed `pr-notes.yml` crash when the previous-suggestion lookup fails or returns unparsable output by always writing `previous-title.txt` and `previous-body.txt`, and by making the post-processing `_read_file_or_empty` helper tolerate missing files.
+- `AIProvider.CallApi` now disposes the `HttpResponseMessage` after reading the response body, avoiding connection-pool stalls.
+- `GeminiProvider` streaming now clamps the per-request HTTP timeout to the same `[MinTimeoutSeconds, MaxTimeoutSeconds]` bounds used by other provider HTTP paths.
 
 ## [2.0.0-dev.260821] - 2026-08-21
 
