@@ -41,8 +41,8 @@ runs:
           const description = '${{ inputs.description }}' || `Milestone for ${title}`;
           const state = '${{ inputs.state }}';
           
-          // List milestones to check if it exists
-          const { data: milestones } = await github.rest.issues.listMilestones({
+          // List milestones to check if it exists (paginate to handle more than 100)
+          const milestones = await github.paginate(github.rest.issues.listMilestones, {
             owner: context.repo.owner,
             repo: context.repo.repo,
             state: 'all',
@@ -80,7 +80,7 @@ runs:
               console.log(`Milestone "${title}" already exists (concurrent creation). Fetching...`);
               
               // Re-fetch to get the existing milestone
-              const { data: allMilestones } = await github.rest.issues.listMilestones({
+              const allMilestones = await github.paginate(github.rest.issues.listMilestones, {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 state: 'all',

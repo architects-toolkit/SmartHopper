@@ -68,37 +68,14 @@ jobs:
 
             core.setOutput('detected_version', detectedVersion);
 
-      - name: Create version label if doesn't exist
-        id: create-label
+      - name: Apply version label to issue
+        id: apply-label
         if: steps.parse-version.outputs.detected_version != ''
-        uses: ./.github/actions/versioning/create-version-label
+        uses: ./.github/actions/versioning/apply-version-label
         with:
+          issue-number: ${{ github.event.issue.number }}
           version: ${{ steps.parse-version.outputs.detected_version }}
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Apply version label to issue
-        if: steps.parse-version.outputs.detected_version != ''
-        uses: actions/github-script@v9
-        with:
-          script: |
-            const issueNumber = context.payload.issue.number;
-            const versionLabel = '${{ steps.create-label.outputs.label-name }}';
-
-            console.log(`Applying label "${versionLabel}" to issue #${issueNumber}`);
-
-            try {
-              await github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                labels: [versionLabel]
-              });
-
-              console.log(`✅ Successfully labeled issue #${issueNumber} with "${versionLabel}"`);
-            } catch (error) {
-              console.error(`❌ Failed to label issue: ${error.message}`);
-              core.setFailed(error.message);
-            }
 
       - name: Summary
         if: always()
@@ -106,8 +83,8 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           DETECTED_VERSION: ${{ steps.parse-version.outputs.detected_version }}
-          LABEL_NAME: ${{ steps.create-label.outputs.label-name }}
-          LABEL_CREATED: ${{ steps.create-label.outputs.label-created }}
+          LABEL_NAME: ${{ steps.apply-label.outputs.label-name }}
+          LABEL_CREATED: ${{ steps.apply-label.outputs.label-created }}
         run: |
           echo "## Issue Auto-Tagging Summary"
           echo ""
