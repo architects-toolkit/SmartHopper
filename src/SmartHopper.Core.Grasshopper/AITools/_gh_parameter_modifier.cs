@@ -90,6 +90,27 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 annotations: new AIToolAnnotations(destructiveHint: false));
 
             yield return new AITool(
+                name: "gh_parameter_data_mapping_none",
+                description: "Set a parameter's data mapping to None",
+                category: "NotTested",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""componentGuid"": { ""type"": ""string"", ""description"": ""GUID of the component"" },
+                        ""parameterIndex"": { ""type"": ""integer"", ""description"": ""Index of the parameter (0-based)"" },
+                        ""isInput"": { ""type"": ""boolean"", ""description"": ""true for input, false for output"", ""default"": true }
+                    },
+                    ""required"": [""componentGuid"", ""parameterIndex""]
+                }",
+                execute: this.NoneParameterAsync,
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""parameterIndex"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
+
+            yield return new AITool(
                 name: "gh_parameter_reverse",
                 description: "Reverse the order of items in a parameter",
                 category: "NotTested",
@@ -191,6 +212,36 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Instances.RedrawCanvas();
 
                 return $"Grafted {(isInput ? "input" : "output")} parameter '{param.Name}'";
+            }).ConfigureAwait(false);
+        }
+
+        private async Task<AIReturn> NoneParameterAsync(AIToolCall toolCall)
+        {
+            return await this.ExecuteParameterModification(toolCall, "gh_parameter_data_mapping_none", (args) =>
+            {
+                var componentGuid = Guid.Parse(args["componentGuid"]?.ToString() ?? throw new ArgumentException("Missing componentGuid"));
+                if (CanvasProtection.IsProtected(componentGuid))
+                {
+                    throw new InvalidOperationException("Cannot modify this component because it is protected.");
+                }
+                var parameterIndex = args["parameterIndex"]?.ToObject<int>() ?? throw new ArgumentException("Missing parameterIndex");
+                var isInput = args["isInput"]?.ToObject<bool>() ?? true;
+
+                var obj = CanvasAccess.FindInstance(componentGuid);
+                if (obj == null) throw new ArgumentException("Component not found");
+                if (!(obj is IGH_Component component)) throw new ArgumentException("Object is not a component");
+
+                var paramList = isInput ? component.Params.Input : component.Params.Output;
+                if (parameterIndex < 0 || parameterIndex >= paramList.Count)
+                    throw new ArgumentException($"Parameter index {parameterIndex} out of range");
+
+                var param = paramList[parameterIndex];
+                component.RecordUndoEvent("[SH] None Parameter");
+                ParameterModifier.SetDataMapping(param, GH_DataMapping.None);
+                component.ExpireSolution(true);
+                Instances.RedrawCanvas();
+
+                return $"Set data mapping to None for {(isInput ? "input" : "output")} parameter '{param.Name}'";
             }).ConfigureAwait(false);
         }
 
