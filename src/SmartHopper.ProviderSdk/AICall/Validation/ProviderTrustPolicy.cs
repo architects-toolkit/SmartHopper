@@ -119,11 +119,11 @@ namespace SmartHopper.ProviderSdk.AICall.Validation
 
             if (trustHost.IsProviderMismatched(providerName))
             {
-                var (conditionVerdict, severity) = Decide(Condition.Mismatched, effectiveMode);
+                var (conditionVerdict, severity, code) = Decide(Condition.Mismatched, effectiveMode);
                 messages.Add(new SHRuntimeMessage(
                     severity,
                     SHRuntimeMessageOrigin.Validation,
-                    SHMessageCode.ProviderTrustBlocked,
+                    code,
                     $"Provider '{providerName}' failed SHA-256 integrity verification. " +
                     "The provider's hash does not match the official published hash. " +
                     "This could indicate file corruption or tampering, and your data could be compromised."));
@@ -132,11 +132,11 @@ namespace SmartHopper.ProviderSdk.AICall.Validation
 
             if (trustHost.IsProviderUnavailable(providerName))
             {
-                var (conditionVerdict, severity) = Decide(Condition.Unavailable, effectiveMode);
+                var (conditionVerdict, severity, code) = Decide(Condition.Unavailable, effectiveMode);
                 messages.Add(new SHRuntimeMessage(
                     severity,
                     SHRuntimeMessageOrigin.Validation,
-                    SHMessageCode.ProviderTrustBlocked,
+                    code,
                     $"Provider '{providerName}' could not be verified - hash check unavailable due to network issues. " +
                     "Use this provider only if you trust its source."));
                 verdict = UpdateVerdict(verdict, conditionVerdict);
@@ -144,11 +144,11 @@ namespace SmartHopper.ProviderSdk.AICall.Validation
 
             if (trustHost.IsProviderUnknown(providerName))
             {
-                var (conditionVerdict, severity) = Decide(Condition.Unknown, effectiveMode);
+                var (conditionVerdict, severity, code) = Decide(Condition.Unknown, effectiveMode);
                 messages.Add(new SHRuntimeMessage(
                     severity,
                     SHRuntimeMessageOrigin.Validation,
-                    SHMessageCode.ProviderTrustBlocked,
+                    code,
                     $"Provider '{providerName}' is not known - it may be a custom or third-party provider. " +
                     "Enable this provider only if you trust its source. " +
                     "Change 'Integrity Check Mode' to 'Hard' or 'Strict' in SmartHopper settings to block unknown providers."));
@@ -157,22 +157,22 @@ namespace SmartHopper.ProviderSdk.AICall.Validation
 
             if (trustHost.IsProviderCommunity(providerName))
             {
-                var (conditionVerdict, severity) = Decide(Condition.Community, effectiveMode);
+                var (conditionVerdict, severity, code) = Decide(Condition.Community, effectiveMode);
                 messages.Add(new SHRuntimeMessage(
                     severity,
                     SHRuntimeMessageOrigin.Validation,
-                    SHMessageCode.ProviderTrustBlocked,
+                    code,
                     $"Provider '{providerName}' is a community provider, not signed by SmartHopper. " +
                     "Use it only if you trust its source — community providers run with full plugin privileges."));
                 verdict = UpdateVerdict(verdict, conditionVerdict);
             }
             else if (trustHost.IsProviderUnsigned(providerName))
             {
-                var (conditionVerdict, severity) = Decide(Condition.Unsigned, effectiveMode);
+                var (conditionVerdict, severity, code) = Decide(Condition.Unsigned, effectiveMode);
                 messages.Add(new SHRuntimeMessage(
                     severity,
                     SHRuntimeMessageOrigin.Validation,
-                    SHMessageCode.ProviderTrustBlocked,
+                    code,
                     $"Provider '{providerName}' is unsigned. " +
                     "Use it only if you trust its source."));
                 verdict = UpdateVerdict(verdict, conditionVerdict);
@@ -190,27 +190,27 @@ namespace SmartHopper.ProviderSdk.AICall.Validation
             Unsigned,
         }
 
-        private static (ProviderTrustVerdict Verdict, SHRuntimeMessageSeverity Severity) Decide(Condition condition, ProviderIntegrityCheckMode mode)
+        private static (ProviderTrustVerdict Verdict, SHRuntimeMessageSeverity Severity, SHMessageCode Code) Decide(Condition condition, ProviderIntegrityCheckMode mode)
         {
             return condition switch
             {
                 Condition.Mismatched => mode == ProviderIntegrityCheckMode.Soft
-                    ? (ProviderTrustVerdict.Warn, SHRuntimeMessageSeverity.Warning)
-                    : (ProviderTrustVerdict.Block, SHRuntimeMessageSeverity.Error),
+                    ? (ProviderTrustVerdict.Warn, SHRuntimeMessageSeverity.Warning, SHMessageCode.ProviderTrustWarning)
+                    : (ProviderTrustVerdict.Block, SHRuntimeMessageSeverity.Error, SHMessageCode.ProviderTrustBlocked),
 
                 Condition.Unavailable => mode == ProviderIntegrityCheckMode.Soft || mode == ProviderIntegrityCheckMode.Hard
-                    ? (ProviderTrustVerdict.Warn, SHRuntimeMessageSeverity.Warning)
-                    : (ProviderTrustVerdict.Block, SHRuntimeMessageSeverity.Error),
+                    ? (ProviderTrustVerdict.Warn, SHRuntimeMessageSeverity.Warning, SHMessageCode.ProviderTrustWarning)
+                    : (ProviderTrustVerdict.Block, SHRuntimeMessageSeverity.Error, SHMessageCode.ProviderTrustBlocked),
 
                 Condition.Unknown => mode == ProviderIntegrityCheckMode.Soft
-                    ? (ProviderTrustVerdict.Warn, SHRuntimeMessageSeverity.Warning)
-                    : (ProviderTrustVerdict.Block, SHRuntimeMessageSeverity.Error),
+                    ? (ProviderTrustVerdict.Warn, SHRuntimeMessageSeverity.Warning, SHMessageCode.ProviderTrustWarning)
+                    : (ProviderTrustVerdict.Block, SHRuntimeMessageSeverity.Error, SHMessageCode.ProviderTrustBlocked),
 
-                Condition.Community => (ProviderTrustVerdict.Warn, SHRuntimeMessageSeverity.Warning),
+                Condition.Community => (ProviderTrustVerdict.Warn, SHRuntimeMessageSeverity.Warning, SHMessageCode.ProviderTrustWarning),
 
-                Condition.Unsigned => (ProviderTrustVerdict.Warn, SHRuntimeMessageSeverity.Warning),
+                Condition.Unsigned => (ProviderTrustVerdict.Warn, SHRuntimeMessageSeverity.Warning, SHMessageCode.ProviderTrustWarning),
 
-                _ => (ProviderTrustVerdict.Warn, SHRuntimeMessageSeverity.Warning),
+                _ => (ProviderTrustVerdict.Warn, SHRuntimeMessageSeverity.Warning, SHMessageCode.ProviderTrustWarning),
             };
         }
 
