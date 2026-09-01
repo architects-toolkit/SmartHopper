@@ -60,30 +60,33 @@ runs:
         TEMPERATURE: ${{ inputs.temperature }}
         MAX_TOKENS: ${{ inputs.max-tokens }}
       run: |
-        # Build JSON payload using jq to safely handle special characters
-        PAYLOAD=$(jq -n \
-          --arg model "$MODEL" \
-          --arg system "$SYSTEM_PROMPT" \
-          --arg user "$USER_PROMPT" \
-          --argjson temperature "$TEMPERATURE" \
-          --argjson max_tokens "$MAX_TOKENS" \
-          '{
-            model: $model,
-            messages: (
-              if ($system | length) > 0
-              then [{role: "system", content: $system}, {role: "user", content: $user}]
-              else [{role: "user", content: $user}]
-              end
-            ),
-            temperature: $temperature,
-            max_tokens: $max_tokens
-          }')
+        # Large prompts can exceed the Linux MAX_ARG_STRLEN limit (~128 KiB)
+        # when passed as command-line arguments. Write prompts and the request
+        # body to files and use jq/curl file-based options instead.
+        PAYLOAD_DIR="$RUNNER_TEMP/mistral-chat"
+        mkdir -p "$PAYLOAD_DIR"
 
-        # Call the API
-        HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://api.mistral.ai/v1/chat/completions" \
-          -H "Content-Type: application/json" \
-          -H "Authorization: Bearer $API_KEY" \
-          -d "$PAYLOAD")
+        USER_PROMPT_FILE="$PAYLOAD_DIR/user-prompt.txt"
+        SYSTEM_PROMPT_FILE="$PAYLOAD_DIR/system-prompt.txt"
+        PAYLOAD_FILE="$PAYLOAD_DIR/payload.json"
+
+        # Bash built-in printf can write arbitrarily large variables to a file
+        # without subjecting external commands to oversized argv/envp strings.
+        printf -- '%s' "$USER_PROMPT" > "$USER_PROMPT_FILE"
+        printf -- '%s' "$SYSTEM_PROMPT" > "$SYSTEM_PROMPT_FILE"
+
+        # Clear the prompt variables from the environment so they are not passed
+        # to jq/curl, which would otherwise hit argument-size limits on execve.
+        USER_PROMPT=''
+        SYSTEM_PROMPT=''
+        export USER_PROMPT SYSTEM_PROMPT
+
+        # Build JSON payload using jq, reading prompts from files instead of args.
+        jq -n --arg model "$MODEL" --rawfile system "$SYSTEM_PROMPT_FILE" --rawfile user "$USER_PROMPT_FILE" --argjson temperature "$TEMPERATURE" --argjson max_tokens "$MAX_TOKENS" '{ model: $model, messages: ( if ($system | length) > 0 then [{role: "system", content: $system}, {role: "user", content: $user}] else [{role: "user", content: $user}] end ), temperature: $temperature, max_tokens: $max_tokens }' > "$PAYLOAD_FILE"
+
+        # Call the API. Use --data @file so curl never receives the (possibly
+        # large) JSON body as a command-line argument.
+        HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://api.mistral.ai/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d @"$PAYLOAD_FILE")
 
         # Split body and status code
         HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
