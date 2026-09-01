@@ -210,8 +210,8 @@ jobs:
                   "--paginate",
                   "--jq",
                   'map(select(.body | contains("<!-- pr-notes:suggestion -->"))) | if length > 0 then last | {id, body} else null end',
-              )
-              data = json.loads(result)
+              ).strip()
+              data = json.loads(result) if result else None
               if data and data.get("body"):
                   previous_comment_id = str(data.get("id", ""))
                   previous_comment_body = data.get("body", "")
@@ -225,9 +225,6 @@ jobs:
                           previous_diff_hash = meta.get("diff_hash", "")
                       except Exception:
                           pass
-
-                  pathlib.Path(previous_title_file).write_text(previous_title, encoding="utf-8")
-                  pathlib.Path(previous_body_file).write_text(previous_body, encoding="utf-8")
 
                   first_run = "false"
                   if diff_hash == previous_diff_hash:
@@ -249,6 +246,9 @@ jobs:
               diff_changed = "true"
               needs_severity = "false"
               should_generate = "true"
+
+          pathlib.Path(previous_title_file).write_text(previous_title, encoding="utf-8")
+          pathlib.Path(previous_body_file).write_text(previous_body, encoding="utf-8")
 
           if needs_severity == "true":
               diff_text = pathlib.Path(diff_truncated_file).read_text(encoding="utf-8")
@@ -364,7 +364,10 @@ jobs:
           diff_hash = os.environ.get("DIFF_HASH", "")
 
           def _read_file_or_empty(path):
-              return pathlib.Path(path).read_text(encoding="utf-8") if path else ""
+              if not path:
+                  return ""
+              p = pathlib.Path(path)
+              return p.read_text(encoding="utf-8") if p.exists() else ""
 
           commits = _read_file_or_empty(os.environ.get("COMMITS_FILE", "")).splitlines()
           files = _read_file_or_empty(os.environ.get("FILES_FILE", "")).splitlines()

@@ -70,6 +70,7 @@ Many thanks to the following contributors to this release:
 - `pr-notes.yml` no longer posts fallback suggestions on subsequent runs, so only the first run uses the branch-based fallback.
 - The deterministic `## Testing Done` and `## Checklist` body sections have been moved from `pr-notes.yml` to `.github/prompts/pr-notes-static.md` so they can be edited independently.
 - Hardened `ComponentStateManager` debounce logic so stale timer callbacks are ignored after `StartDebounce`/`CancelDebounce`, preventing a race where an old or cancelled debounce could still trigger a state transition.
+- Fixed `pr-notes.yml` crash when the previous-suggestion lookup fails or returns unparsable output by always writing `previous-title.txt` and `previous-body.txt`, and by making the post-processing `_read_file_or_empty` helper tolerate missing files.
 
 ## [2.0.0-dev.260821] - 2026-08-21
 
