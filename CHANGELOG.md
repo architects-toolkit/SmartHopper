@@ -96,16 +96,6 @@ Many thanks to the following contributors to this release:
 - Added `AIProvider.GetApiKey()` and `AIProvider.LoadIconFromResources(...)` helpers in `SmartHopper.ProviderSdk.AIProviders`. All built-in providers now use these shared helpers, removing the duplicated per-provider `GetApiKey()` methods and icon-loading code.
 - Added `AIProviderSettings.ValidateMaxTokens(...)` and `AIProviderSettings.ValidateTemperature(...)` helpers. All built-in provider settings classes now delegate `MaxTokens` and `Temperature` validation to the shared helpers, using stricter parsing that fails on unparseable values.
 
-### Added
-
-- Added `ProviderTestComponentBase` to `SmartHopper.Components.Test/Providers` and converted all ~43 `Test{Provider}{Feature}Component` classes to inherit from it. The base centralizes common setup/teardown (provider selection, `RunOnlyOnInputChanges`, category/exposure) while each component remains an independent per-provider test runner.
-- Converted `AIInteractionBase`, `IAIInteraction`, concrete interaction types, `AIBody`, `AIReturn`, and `AIMetrics` to immutable record contracts with `init`-only properties and copy-returning `With...` helpers.
-- `AIMetrics.Combine(...)` replaced by `AIMetrics.WithCombined(...)`, returning a new metrics record instead of mutating in place.
-- Streaming and session code now uses mutable local builders and `with` expressions instead of mutating interactions or metrics after construction.
-- `SmartHopper.Infrastructure` project file now conditionally emits `InternalsVisibleTo` public keys only when `SignAssembly` is not disabled, allowing unsigned `dotnet build -p:SignAssembly=false` runs to compile test projects.
-- `AIToolManager.ExecuteTool` now normalizes a `null` `AIInteractionToolCall.Arguments` value to an empty `JObject` at execution time when the tool schema has no required parameters, replacing the interaction in the immutable `AIBody` so downstream tool delegates receive the normalized value.
-- `ToolJsonSchemaValidator` now uses `AITool.GetRequiredParameters()` to determine required parameters instead of parsing the schema inline.
-
 ### Removed
 
 - Removed the redundant `SmartHopper.Infrastructure.AIModels.ModelManager` singleton. All model capabilities, defaults, selection, and streaming validation now flow through `SmartHopper.ProviderSdk.AIModels.AIModelCapabilityRegistry.Instance`, making it the single source of truth for model selection.
