@@ -312,6 +312,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Validation
                 Assert.NotNull(result);
                 Assert.Contains(result.Messages, m => m.Severity == SHRuntimeMessageSeverity.Warning);
                 Assert.Contains(result.Messages, m => m.Message.Contains("not known", StringComparison.Ordinal));
+                Assert.DoesNotContain(result.Messages, m => m.Severity == SHRuntimeMessageSeverity.Error && m.Code == SHMessageCode.ProviderTrustBlocked);
             }
             finally
             {
