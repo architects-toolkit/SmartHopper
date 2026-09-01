@@ -43,12 +43,13 @@ The following review suggestions have been implemented since the review was writ
 | 3 | Common provider helpers moved to base classes (`AIProvider.GetApiKey`, `AIProvider.LoadIconFromResources`, `AIProviderSettings.ValidateMaxTokens`/`ValidateTemperature`) | `AIProvider.cs` (lines 563, 573, 600); `AIProviderSettings.cs` (lines 103, 136); all providers now call `this.GetApiKey()` and `this.LoadIconFromResources(...)`; settings classes call base `ValidateMaxTokens`/`ValidateTemperature` |
 | 4 | Shared test-harness base for `SmartHopper.Components.Test` | `ProviderTestComponentBase` at `src/SmartHopper.Components.Test/Providers/ProviderTestComponentBase.cs`; ~43 per-provider test components inherit from it |
 | 5 | `AIBody` immutability and `AIInteractionBase` init-only properties | `AIBody` is a `sealed record` with `IReadOnlyList<int> InteractionsNew` and no `ResetNew()`; `AIInteractionBase` properties use `init` and provide `With...` helpers |
+|| 6 | `ProviderTrustPolicy` enforcement before provider calls | `ProviderTrustPolicy` in `src/SmartHopper.ProviderSdk/AICall/Validation/ProviderTrustPolicy.cs`; evaluated by `AIRequestCall.IsValid()` and `AIRequestCall.Exec()`; tests in `src/SmartHopper.ProviderSdk.Tests/AICall/Validation/ProviderTrustPolicyTests.cs` |
 
 ### Still pending / not implemented
 
 | # | Item | Evidence |
 | --- | --- | --- |
-| 1 | `ProviderTrustPolicy` enforcement before provider calls | `AIRequestCall.IsValid` still only adds warnings in `Soft` mode; no centralized policy blocks execution |
+| 1 | `ProviderTrustPolicy` enforcement before provider calls | `ProviderTrustPolicy` in `src/SmartHopper.ProviderSdk/AICall/Validation/ProviderTrustPolicy.cs` now decides block/warn/allow; `AIRequestCall.IsValid()` and `AIRequestCall.Exec()` enforce it |
 | 2 | `SmartHopper.Components.Test` Release build mapping | `SmartHopper.sln` still has `Release\|*` build entries for `{B932CFFA-0C82-4A1F-92F2-003CDE1C94AE}` (Components.Test) |
 | 3 | Centralize macOS/WinForms `net48` reference-assembly workaround | The workaround is still duplicated in ~18 `.csproj` files, including `SmartHopper.Components.Test.csproj` |
 | 4 | Use `IProviderHttpClientFactory` in `AIProvider.CallApi` / streaming / batch | `IProviderHttpClientFactory` exists and is registered in `SmartHopperInitializer`, but `AIProvider.CallApi` and `AIProviderStreamingAdapter.CreateHttpClient` still call `new HttpClient()` |
@@ -83,7 +84,7 @@ The following review suggestions have been implemented since the review was writ
 | 5 | Duplication and consistency of stored data | 3 | No heavy persisted denormalization. `AIModelCapabilityRegistry` is now the only model capability singleton; `TrustedProviderRecord` still exists alongside a legacy `Dictionary<string,bool>`. |
 | 6 | Unreferenced, orphaned, or dead code/data | 3 | `TrustedProviderRecord` is still unused. `AIBody.ResetNew()` and `ModelManager` have been removed. `Components.Test` build mappings still contradict the stated intent. |
 | 7 | Coupling, cohesion, and changeability | 3 | Provider SDK host abstractions provide clean seams, but `SmartHopper.Core` component bases directly depend on `SmartHopper.Infrastructure` managers. |
-| 8 | Security, auth, and lifecycle guardrails | 3 | Secrets, provider integrity checks, and trust classifications are modeled, but trust is not enforced at a security boundary, `DEBUG` builds weaken integrity, and encryption failures are silent. |
+| 8 | Security, auth, and lifecycle guardrails | 3 | Secrets, provider integrity checks, and trust classifications are modeled; trust is now enforced by `ProviderTrustPolicy` in `AIRequestCall.Exec` before the provider call, but `DEBUG` builds still weaken integrity and encryption failures are silent. |
 | 9 | API contracts and client/server alignment | 3 | `IAIProvider` and `AIRequestCall`/`AIReturn` are clear, but there is no contract versioning, no round-trip contract tests, and no OpenAPI/exported spec. |
 | 10 | Testability and observability | 3 | Good DI seams, fakes, and a dedicated `SmartHopper.ProviderSdk.Tests` project. `IProviderLogger` and `IProviderHttpClientFactory` abstractions exist and are registered, but provider code still uses `Debug.WriteLine` and creates `new HttpClient()` directly; `AIMetrics` are not exported to an external sink. |
 
@@ -224,10 +225,10 @@ The following review suggestions have been implemented since the review was writ
 | 3 | **Move common provider helpers into the base classes.** Add `AIProvider.GetApiKey()`, `AIProvider.LoadIconFromResources()`, and `AIProviderSettings.ValidateMaxTokens`/`ValidateTemperature`. | Small | High. Removes the bulk of per-provider boilerplate. **Done.** |
 | 4 | **Document and, if needed, harness the `SmartHopper.Components.Test` suite.** Clarify that each `Test{Provider}{Feature}Component` is an intentional per-provider test runner. Only extract a shared test-harness base for common setup/teardown; do not collapse the ~43 provider-specific runners into a single component. | Small | Medium. Preserves the intended test surface while reducing common boilerplate. **Done.** |
 | 5 | **Fix `AIBody` immutability and `AIInteractionBase` mutability.** Make `AIBody.InteractionsNew` immutable, remove `ResetNew()` if unused, and use init-only setters or a builder for `AIInteractionBase`. | Small | Medium. Aligns the domain model with the documented immutability goal. **Done.** |
-| 6 | **Introduce a `ProviderTrustPolicy` that enforces integrity checks before the provider call.** In `Soft`/`Hard`/`Strict` modes, decide whether to block, warn, or allow; do not rely only on `IsValid` messages. | Small | High. Closes the security enforcement gap without changing the contract. |
+| 6 | **Introduce a `ProviderTrustPolicy` that enforces integrity checks before the provider call.** In `Soft`/`Hard`/`Strict` modes, decide whether to block, warn, or allow; do not rely only on `IsValid` messages. | Small | High. Closes the security enforcement gap without changing the contract. **Done.** |
 | 7 | **Fix the `SmartHopper.Components.Test` Release build mapping.** Add `DisableBuild` condition or remove Release solution configurations for the project. | Small | Medium. Aligns build behavior with documented intent. **Done.** |
 | 8 | **Centralize macOS/WinForms workaround and standardize project references.** Move the `net48` reference-assembly logic to `Directory.Build.props` and remove explicit GUIDs from `ProjectReference`. | Small–Medium | Medium. Reduces csproj duplication and build maintenance. |
 | 9 | **Add provider contract / round-trip tests and HTTP fakes.** Use `IProviderHttpClientFactory` in `AIProvider.CallApi` and provide a mock message handler. | Medium | Medium. Improves testability and catches provider drift. |
 | 10 | **Introduce structured logging/tracing and metrics export.** Replace ad-hoc `Debug.WriteLine` with an `IProviderLogger` implementation that supports scopes/correlation; export `AIMetrics` to a sink. | Large | Medium. Needed for production observability but can follow the other items. |
 
-*Implementation status updated on 2026-09-01 based on the current `src/` tree. No source code was modified to produce this review.*
+*Implementation status updated to reflect the `ProviderTrustPolicy` work on branch `feature/2.0.0-provider-trust-policy`.*
