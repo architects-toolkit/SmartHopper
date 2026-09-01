@@ -89,8 +89,8 @@ run: |
 |-------|---------------|-------|
 | Version format | Yes | Must be valid semver |
 | Code style | Yes | Trailing whitespace, namespace, using order |
-| Changelog | **Warning only** | Skipped for `chore/ci/style/build/revert/docs` PRs; only runs after `pr-notes.yml` has set the title. |
-| PR title | Yes | Must follow conventional commits; `pr-notes.yml` dispatches this workflow after generating the title. |
+| Changelog | **Warning only** | Skipped for `chore/ci/style/build/revert/docs` PRs. |
+| PR title | No | Validated by `pr-notes.yml`, which updates the title automatically. |
 
 ## Node.js Runtime
 

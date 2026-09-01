@@ -14,8 +14,7 @@ name: 📦 Pull Request Validation
 # to maintain code integrity before merging.
 #
 # Triggers:
-# - Dispatched by pr-notes.yml after PR notes have been generated, so the changelog
-#   skip logic run against the finalized Conventional Commits title.
+# - Automatically when a pull request is created or updated targeting main, hotfix, or release branches.
 # - merge_group events for the merge queue.
 # - workflow_dispatch for manual reruns.
 #
@@ -24,9 +23,13 @@ name: 📦 Pull Request Validation
 # - pull-requests:read - Required to read pull request information
 
 on:
-  # Dispatched by the pr-notes workflow after it has generated a compliant
-  # Conventional Commits title for the pull request, so title-sensitive checks
-  # run against the finalized title rather than the branch name.
+  pull_request:
+    branches:
+      - main
+      - 'hotfix/**'
+      - 'release/**'
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -41,15 +44,13 @@ on:
         description: Pull request title.
         required: false
         type: string
-  merge_group:
-    types: [checks_requested]
 
 permissions:
   contents: read
   pull-requests: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.inputs.pr_number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -112,7 +113,7 @@ jobs:
       - name: Check PR type
         id: pr-type
         run: |
-          PR_TITLE="${{ github.event.inputs.pr_title || '' }}"
+          PR_TITLE="${{ github.event.pull_request.title || github.event.inputs.pr_title || '' }}"
           # Skip changelog check for non-user-facing PR types
           if [[ "$PR_TITLE" =~ ^(chore|ci|style|build|revert|docs)(\(.*\))?:\ .+ ]]; then
             echo "skip=true" >> $GITHUB_OUTPUT

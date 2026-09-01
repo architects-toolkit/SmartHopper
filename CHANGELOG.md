@@ -44,7 +44,7 @@ Many thanks to the following contributors to this release:
 - Bumped all `actions/github-script` references from `v7` to `v9` to run on Node 24 and remove Node 20 deprecation warnings.
 - ProviderTrustPolicy unknown-provider diagnostic now only suggests switching to `Hard` or `Strict` integrity mode when the current mode is `Soft`, avoiding misleading guidance when the provider is already blocked.
 - `pr-notes.yml` now updates the PR title automatically and posts description suggestions as PR comments (first suggestion in code blocks, later updates inside a `<details>` block with a reason), instead of editing the PR description directly.
-- `pr-validation.yml` is now triggered by `workflow_dispatch` from `pr-notes.yml` rather than `pull_request`, ensuring it runs against the finalized Conventional Commits title.
+- `pr-validation.yml` now runs on `pull_request` again instead of being dispatched by `pr-notes.yml`, since title validation is handled by `pr-notes.yml`.
 
 ### Removed
 
