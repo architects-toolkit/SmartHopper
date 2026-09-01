@@ -77,7 +77,6 @@ read your selected components, get the available Grasshopper components, or writ
 a new script. All these tools are available to the provider to use while chatting
 in the AI Chat component.
 
-| Tool Name | Category | Description | Planned | In Progress | Testing | Released 🎉 |
 | Tool Name | Category | Description | Planned | In Progress | Testing | Released |
 |-----------|----------|-------------|:-------:|:-----------:|:-------:|:--------:|
 | `text2boolean` | DataProcessing | Evaluates a text against a true/false question with optional fallback value | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -87,11 +86,9 @@ in the AI Chat component.
 | `list_filter` | DataProcessing | Manipulates a list based on natural language criteria: filter, sort, reorder, select, shuffle, expand, or rearrange items | ⚪ | 🟡 | 🟠 | 🟢 |
 | `text2textlist` | DataProcessing | Generates a list of items based on a prompt, count and type | ⚪ | 🟡 | 🟠 | 🟢 |
 | `img2text` | Img | Describes or analyzes an image using a vision AI model. Provide either an image URL or base64-encoded image data. Returns a text description of the image content. | ⚪ | 🟡 | 🟠 | 🟢 |
-| `text2json` | DataProcessing | Generates a JSON object from a prompt, conforming strictly to a provided JSON Schema | ⚪ | 🟡 | - | - |
-| `get_input` | DataProcessing | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
-| `get_output` | DataProcessing | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
-| `get_available_providers` | Providers | Retrieve the list of enabled AI providers registered in SmartHopper, including a `configured` flag that reflects whether the provider has the required settings in the current environment. | ⚪ | 🟡 | 🟠 | - |
-| `get_available_models` | Providers | Retrieve the list of available models for a given AI provider. Uses live provider APIs when possible and falls back to the static model list. | ⚪ | 🟡 | 🟠 | - |
+| `text2json` | DataProcessing | Generates a JSON object from a prompt, conforming strictly to a provided JSON Schema | ⚪ | 🟡 | 🟠 | 🟢 |
+| `get_available_providers` | Providers | Retrieve the list of enabled AI providers registered in SmartHopper, including a `configured` flag that reflects whether the provider has the required settings in the current environment. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `get_available_models` | Providers | Retrieve the list of available models for a given AI provider. Uses live provider APIs when possible and falls back to the static model list. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_review` | Scripting | Return a code review for the script component specified by its GUID. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_generate` | Hidden | Generate a new Grasshopper script component from natural language instructions. Returns GhJSON representing the script component (does not place it on canvas). | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_generate_and_place_on_canvas` | Scripting | Generate a new Grasshopper script component from natural language instructions and place it on the canvas. This wrapper combines script_generate and gh_put into a single operation. | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -137,9 +134,9 @@ in the AI Chat component.
 | `gh_get_end_with_data` | Components | Read end nodes (data sinks) WITH their runtime data. Use this to inspect the final computed outputs of the definition. Returns GhJSON with 'runtimeData'. This is token-expansive! | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_put` | Components | Add new components to the canvas from GhJSON format. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_merge` | Components | Merge two GhJSON documents into one. The target document takes priority on conflicts (duplicate components by GUID are skipped from source). Connections and groups from both documents are combined with proper ID remapping and deduplication. | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_diff` | Components | Diff two GhJSON documents and produce a structured `.ghpatch` document describing the differences (added/removed/modified components, connections, groups, and metadata). Components are matched by instanceGuid, then id, then structural fingerprint (componentGuid + name + optional pivot). Connections are matched by their endpoints (paramName preferred, paramIndex fallback). By default, runtime messages, metadata counters and metadata timestamps are ignored. | ⚪ | 🟡 | - | - |
-| `gh_patch_apply` | Components | Apply a `.ghpatch` patch document to a base GhJSON document. Components are matched by instanceGuid, then id, then structural fingerprint. By default, the patch's recorded base checksum is verified against the supplied base document — on mismatch, the apply is refused (no partial application). Conflicts (match not found, connection already present, dangling group members, ...) are recorded in the result. | - | - | - | - |
-| `gh_patch_validate` | Components | Structurally validate a `.ghpatch` document. Checks the patch kind, that components/groups in remove/modify ops carry at least one identity field, and that connections have valid endpoints. | ⚪ | 🟡 | - | - |
+| `gh_diff` | Components | Diff two GhJSON documents and produce a structured `.ghpatch` document describing the differences (added/removed/modified components, connections, groups, and metadata). Components are matched by instanceGuid, then id, then structural fingerprint (componentGuid + name + optional pivot). Connections are matched by their endpoints (paramName preferred, paramIndex fallback). By default, runtime messages, metadata counters and metadata timestamps are ignored. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_patch_apply` | Components | Apply a `.ghpatch` patch document to a base GhJSON document. Components are matched by instanceGuid, then id, then structural fingerprint. By default, the patch's recorded base checksum is verified against the supplied base document — on mismatch, the apply is refused (no partial application). Conflicts (match not found, connection already present, dangling group members, ...) are recorded in the result. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_patch_validate` | Components | Structurally validate a `.ghpatch` document. Checks the patch kind, that components/groups in remove/modify ops carry at least one identity field, and that connections have valid endpoints. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_component_toggle_preview` | Components | Show or hide component geometry preview in the Rhino viewport. Hiding preview improves performance for complex definitions. Only affects components that generate geometry. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_component_hide_preview_selected` | Components | Hide geometry preview for currently selected components. Quick way to hide preview for selected items without needing to specify GUIDs manually. Improves performance for complex definitions. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_component_show_preview_selected` | Components | Show geometry preview for currently selected components. Quick way to enable preview for selected items without needing to specify GUIDs manually. | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -148,14 +145,14 @@ in the AI Chat component.
 | `gh_component_unlock_selected` | Components | Unlock (enable) currently selected components. Quick way to enable selected items without needing to specify GUIDs manually. Unlocked components will execute normally. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_move` | Components | Reposition components on the canvas by specifying target coordinates. Use absolute coordinates (canvas position) or relative offsets (move by delta). Useful for organizing layouts or separating component groups. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_tidy_up` | Components | Automatically arrange components into a clean grid layout respecting data flow direction. Organizes components left-to-right based on their connections. Use this to clean up messy definitions. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_tidy_up_selected` | Components | Organize currently selected components into a tidy grid layout. Quick way to clean up selected items without needing to specify GUIDs manually. Arranges components left-to-right based on connections. | - | - | - | - |
-| `gh_generate` | NotTested | Generate GhJSON for creating a set of Grasshopper components by name and parameters. Returns a valid GhJSON structure that can be passed to gh_put to place components on canvas. Use this to create individual components or small networks when you know the exact component names. For complex networks, consider using the full gh_put workflow with AI-generated GhJSON. | ⚪ | 🟡 | 🟠 | - |
-| `gh_generate_and_place_on_canvas` | Components | Generate a GhJSON document from instructions and immediately place it on the canvas. This wraps gh_generate followed by gh_put with editMode=false. Example: gh_generate_and_place_on_canvas({ instructions: 'Create a number slider connected to a panel' }). | ⚪ | 🟡 | 🟠 | - |
-| `gh_connect` | NotTested | Connect Grasshopper components together by creating wires between outputs and inputs. Use this to establish data flow between existing components on the canvas. Requires component GUIDs (use gh_get_selected or gh_get to find them first). | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_disconnect` | NotTested | Disconnect Grasshopper components by removing wires between outputs and inputs. Use this to break data flow between existing components on the canvas. Requires component GUIDs (use gh_get_selected or gh_get to find them first). | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_tidy_up_selected` | Components | Organize currently selected components into a tidy grid layout. Quick way to clean up selected items without needing to specify GUIDs manually. Arranges components left-to-right based on connections. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_generate` | Components | Generate GhJSON for creating a set of Grasshopper components by name and parameters. Returns a valid GhJSON structure that can be passed to gh_put to place components on canvas. Use this to create individual components or small networks when you know the exact component names. For complex networks, consider using the full gh_put workflow with AI-generated GhJSON. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_generate_and_place_on_canvas` | Components | Generate a GhJSON document from instructions and immediately place it on the canvas. This wraps gh_generate followed by gh_put with editMode=false. Example: gh_generate_and_place_on_canvas({ instructions: 'Create a number slider connected to a panel' }). | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_connect` | Components | Connect Grasshopper components together by creating wires between outputs and inputs. Use this to establish data flow between existing components on the canvas. Requires component GUIDs (use gh_get_selected or gh_get to find them first). | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_disconnect` | Components | Disconnect Grasshopper components by removing wires between outputs and inputs. Use this to break data flow between existing components on the canvas. Requires component GUIDs (use gh_get_selected or gh_get to find them first). | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_group` | Components | Create a visual group container around components to organize and annotate them. Use this to highlight related components, mark areas of interest, or add notes to the canvas. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_group_selected` | Components | Create a group around currently selected components. Quick way to organize selected items without needing to specify GUIDs manually. | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_parameter_data_mapping_none` | Parameters | Set a parameter's data mapping to None | ⚪ | 🟡 | - | - |
+| `gh_parameter_data_mapping_none` | NotTested | Set a parameter's data mapping to None | ⚪ | 🟡 | - | - |
 | `gh_parameter_data_mapping_flatten` | NotTested | Set a parameter's data mapping to Flatten | ⚪ | 🟡 | - | - |
 | `gh_parameter_data_mapping_graft` | NotTested | Set a parameter's data mapping to Graft | ⚪ | 🟡 | - | - |
 | `gh_parameter_reverse` | NotTested | Reverse the order of items in a parameter | ⚪ | 🟡 | - | - |
@@ -172,16 +169,14 @@ in the AI Chat component.
 | `script_toggle_std_output` | NotTested | Show or hide the standard output parameter ('out') in a script component | ⚪ | 🟡 | - | - |
 | `script_set_principal_input` | NotTested | Set which input parameter drives the component's iteration | ⚪ | 🟡 | - | - |
 | `script_parameter_set_optional` | NotTested | Set whether a script input parameter is required or optional | ⚪ | 🟡 | - | - |
-| `speech_generate` | Speech | Generates speech audio from text input | - | - | - | - |
-| `button_click` | Components | Simulate a momentary click on Grasshopper Buttons (not Boolean Toggles). The button is pressed for 100 ms, then released. Provide the instance GUIDs of the buttons. | ⚪ | 🟡 | 🟠 | - |
-| `gh_document_save` | Document | Save the current Grasshopper document. If no filePath is provided, the document is saved to its existing location. Provide a full file path to save a copy or unnamed document. | ⚪ | 🟡 | 🟠 | - |
-| `gh_remove` | Components | Remove components from the Grasshopper canvas by their instance GUIDs. The operation records an undo event so the user can reverse it with Ctrl+Z. Use GUIDs from gh_get or similar tools. | ⚪ | 🟡 | 🟠 | - |
-| `gh_clear` | Components | Clear all components from the Grasshopper canvas. Optionally keep locked (disabled) components. Protected components (and their direct neighbors) are always preserved. This is a destructive operation - use with caution. Supports undo (Ctrl+Z). | ⚪ | 🟡 | 🟠 | - |
+| `speech_generate` | Speech | Generates speech audio from text input | ⚪ | 🟡 | 🟠 | 🟢 |
+| `button_click` | Components | Simulate a momentary click on Grasshopper Buttons (not Boolean Toggles). The button is pressed for 100 ms, then released. Provide the instance GUIDs of the buttons. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_document_save` | Document | Save the current Grasshopper document. If no filePath is provided, the document is saved to its existing location. Provide a full file path to save a copy or unnamed document. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_remove` | Components | Remove components from the Grasshopper canvas by their instance GUIDs. The operation records an undo event so the user can reverse it with Ctrl+Z. Use GUIDs from gh_get or similar tools. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_clear` | Components | Clear all components from the Grasshopper canvas. Optionally keep locked (disabled) components. Protected components (and their direct neighbors) are always preserved. This is a destructive operation - use with caution. Supports undo (Ctrl+Z). | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_report` | Components | Generate a comprehensive status report of the current Grasshopper canvas. Returns a structured markdown summary including object counts by type/topology, unique component names, group titles, scribble texts, viewport contents, file metadata, and all errors/warnings. Optionally includes an AI-generated summary of the file purpose. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_smart_connect` | Components | AI-powered smart connection tool. Given a set of component GUIDs and a purpose description, retrieves their structure via gh_get, asks an AI model to suggest optimal connections, and executes them via gh_connect. Returns the connection results and the AI reasoning. | ⚪ | 🟡 | 🟠 | 🟢 |
-| `set_ai_provider_and_model` | Components | Configure an `IProviderComponent` by setting its selected AI provider and wiring a new Panel with the model name into its Settings input. Supports undo and respects `CanvasProtection`. | ⚪ | 🟡 | 🟠 | - |
-| `gh_generate_and_place_on_canvas` | Components | Generate a GhJSON document from instructions and immediately place it on the canvas. This wraps gh_generate followed by gh_put with editMode=false. Example: gh_generate_and_place_on_canvas({ instructions: 'Create a number slider connected to a panel' }). | - | - | - | - |
-| `smarthopper_ghjson_reference` | Instructions | Returns GhJSON and GhPatch format reference documentation. Pass `topic` to retrieve the full specification or a focused section. Use this whenever you need to generate, edit, or validate GhJSON/GhPatch documents instead of relying on internalized format knowledge. | - | - | - | - |
+| `set_ai_provider_and_model` | Components | Configure an `IProviderComponent` by setting its selected AI provider and wiring a new Panel with the model name into its Settings input. Supports undo and respects `CanvasProtection`. | ⚪ | 🟡 | 🟠 | 🟢 |
 
 Notes:
 
@@ -200,10 +195,10 @@ SmartHopper currently supports the following AI providers and features:
 | MistralAI | ✅ Supported | Le Plateforme | Yes | Yes (thinking blocks) | Yes | Yes | Yes | Yes | No | ✅ Yes |
 | DeepSeek | ✅ Supported | DeepSeek Platform | Yes | Yes (reasoning_content) | Yes | Yes | Yes | Yes | No | ❌ No |
 | Anthropic | ✅ Supported | Claude Console | Yes | Yes (thinking blocks) | No | Yes | Yes | Yes | No | ✅ Yes |
-| OpenRouter | ✅ Supported | OpenRouter | Yes | No (varies by routed model) | No | Varies | Varies | Varies | Varies | ❌ No |
-| Gemini | 🟠 Testing | Google AI Studio | Yes | Yes (thinking_level) | Yes | Yes | Yes | Yes | ✅ Yes | ✅ Yes |
-| Ollama | 🟠 Testing | Local Ollama server (OpenAI-compatible) | Yes | Varies by model | Varies | Yes | Yes | Yes | No | ❌ No |
-| LocalAI | 🟠 Testing | LocalAI server (OpenAI-compatible) | Yes | Varies by model | Varies | Yes | Yes | Yes | No | ❌ No |
+| OpenRouter | ✅ Supported | OpenRouter | Yes | No (varies by routed model) | No | Varies | Varies | Varies | Varies | ✅ Yes |
+| Gemini | ✅ Supported | Google AI Studio | Yes | Yes (thinking_level) | Yes | Yes | Yes | Yes | ✅ Yes | ✅ Yes |
+| Ollama | ✅ Supported | Local Ollama server (OpenAI-compatible) | Yes | Varies by model | Varies | Yes | Yes | Yes | No | ❌ No |
+| LocalAI | ✅ Supported | LocalAI server (OpenAI-compatible) | Yes | Varies by model | Varies | Yes | Yes | Yes | No | ❌ No |
 | Black Forest Labs | ⚪ Planned | Black Forest Labs API | Planned | No | No | Planned | No | No | Planned | Planned |
 | Stable Diffusion | ⚪ Planned | Local/API Stable Diffusion endpoint | Planned | No | No | Planned | No | No | Planned | Planned |
 
@@ -230,7 +225,7 @@ The following table summarizes the models explicitly registered as defaults or v
 Notes:
 - "Default For" lists the feature areas the model is set as default for (e.g., `Text2Text`, `ToolChat`).
 - "Capabilities" lists the core capability flags registered for the model.
-- "Verified" reflects the `Verified` flag in the registry; "Deprecated" reflects the `Deprecated` flag (none of the current documented models are flagged deprecated).
+- "Verified" reflects the `Verified` flag in the registry; "Deprecated" reflects the `Deprecated` flag (some default models, such as OpenAI `dall-e-3`, are flagged deprecated).
 
 | Provider | Model | Verified | Streaming | Deprecated | Default For | Capabilities |
 |---|---|:---:|:---:|:---:|---|---|
@@ -238,20 +233,32 @@ Notes:
 | Anthropic | `claude-haiku-4-5-20251001` | ⭐ | ✅ | - | Text2Text, ReasoningChat, ToolReasoningChat, ToolChat, Image2Text | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Anthropic | `claude-sonnet-4-5-20250929` | ⭐ | ✅ | - | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning |
 | DeepSeek | `deepseek-v4-flash` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json | TextInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| DeepSeek | `deepseek-reasoner` | - | ✅ | ✅ | ToolReasoningChat | TextInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-3.1-flash-image-preview` | - | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-flash-image` | ⭐ | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput |
 | Gemini | `gemini-3-pro-image-preview` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
-| Gemini | `gemini-2.5-flash-lite` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Gemini | `gemini-2.5-flash-lite` | ⭐ | ✅ | - |  | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-flash` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-pro` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Gemini | `gemini-1.5-flash` | ⭐ | ✅ | ✅ | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, AudioInput |
+| Gemini | `gemini-1.5-pro` | ⭐ | ✅ | ✅ | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, AudioInput |
+| Gemini | `gemini-2.0-flash` | ⭐ | ✅ | ✅ | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, AudioInput |
+| Gemini | `gemini-2.5-flash-preview-tts` | - | ✅ | ✅ | Text2Speech | TextInput, SpeechOutput |
+| Gemini | `gemini-2.5-pro-preview-tts` | - | ✅ | ✅ | Text2Speech | TextInput, SpeechOutput |
+| Gemini | `gemini-3.1-flash-preview` | - | ✅ | ✅ | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning, AudioInput |
+| Gemini | `lyria-3-clip` | - | - | ✅ | Text2Audio | TextInput, AudioOutput |
+| Gemini | `lyria-3-pro` | - | - | ✅ | Text2Audio | TextInput, ImageInput, AudioOutput |
 | MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | MistralAI | `voxtral-mini-2602` | - | - | - | Speech2Text | AudioInput, TextOutput |
 | MistralAI | `voxtral-mini-tts-2603` | - | - | - | Text2Speech | TextInput, AudioInput, AudioOutput |
+| MistralAI | `mistral-medium-2508` | ⭐ | ✅ | ✅ |  | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
+| MistralAI | `voxtral-mini-tts-mellon-greek-2606-solutions` | - | ✅ | ✅ | Text2Speech | TextInput, AudioInput, AudioOutput |
 | OpenAI | `gpt-5.4-mini-2026-03-17` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | OpenAI | `gpt-audio-mini-2025-12-15` | - | - | - | Text2Speech, Speech2Text | TextInput, AudioInput, TextOutput, AudioOutput, FunctionCalling |
 | OpenAI | `gpt-5-mini-2025-08-07` | ⭐ | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | OpenAI | `gpt-image-2-2026-04-21` | - | - | - | Image2Image | TextInput, ImageInput, ImageOutput |
 | OpenAI | `whisper-1` | - | - | - | Speech2Text | SpeechInput, TextOutput |
+| OpenAI | `dall-e-3` | ⭐ | - | ✅ | Text2Image | TextInput, ImageOutput |
 | OpenRouter | `openai/gpt-5.6-luna` | - | - | - | ToolChat, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | OpenRouter | `google/gemini-3.1-flash-lite-image` | - | - | - | Text2Image, Image2Image, Image2Text | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | OpenRouter | `google/lyria-3-pro-preview` | - | ✅ | - | Text2Speech | TextInput, ImageInput, TextOutput, AudioOutput, JsonOutput |
@@ -284,6 +291,7 @@ The following custom goo types are persisted via `SafeGooCodec` when components 
 
 - `GH_VersatileImage` — Wraps `Bitmap`, file paths, URLs, base64, data-URIs, and document-extracted images with metadata. Persisted as a compact JSON payload with base64 PNG encoding for in-memory bitmaps.
 - `GH_VersatileAudio` — Wraps file paths, URLs, base64, data-URIs, and document-extracted audio with metadata. Persisted as a compact JSON payload.
+- `GH_AIInputPayload` — Wraps an `AIInputPayload` (a collection of `IAIInteraction` items with a capability hint and payload type). Persisted as JSON via `AIInputPayloadCodec`.
 
 See [`docs/Components/IO/Persistence.md`](./docs/Components/IO/Persistence.md) for the full persistence format.
 
