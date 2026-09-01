@@ -74,7 +74,8 @@ namespace SmartHopper.Providers.Gemini
 
                 Debug.WriteLine($"[{this.provider.Name}] Stream - Method: {httpMethod.ToUpper()}, URL: {fullUri}");
 
-                int seconds = request?.TimeoutSeconds > 0 ? request.TimeoutSeconds.Value : TimeoutDefaults.DefaultTimeoutSeconds;
+                int seconds = request?.TimeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds;
+                seconds = Math.Max(TimeoutDefaults.MinTimeoutSeconds, Math.Min(seconds, TimeoutDefaults.MaxTimeoutSeconds));
 
                 using (var httpClient = this.provider.CreateHttpClient(TimeSpan.FromSeconds(seconds)))
                 {

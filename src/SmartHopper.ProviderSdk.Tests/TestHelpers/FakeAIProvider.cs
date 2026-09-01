@@ -23,6 +23,7 @@ namespace SmartHopper.ProviderSdk.Tests.TestHelpers
     using System.Drawing;
     using System.Linq;
     using System.Threading.Tasks;
+    using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
@@ -137,7 +138,7 @@ namespace SmartHopper.ProviderSdk.Tests.TestHelpers
                         {
                             argsObj = arguments is JObject jo ? jo : JObject.Parse(arguments.ToString());
                         }
-                        catch
+                        catch (JsonException)
                         {
                             argsObj = new JObject();
                         }

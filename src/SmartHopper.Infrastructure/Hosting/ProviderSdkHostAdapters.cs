@@ -219,14 +219,7 @@ namespace SmartHopper.Infrastructure.Hosting
                 client.Timeout = timeout;
             }
 
-            try
-            {
-                client.DefaultRequestHeaders.Add("User-Agent", $"SmartHopper/{name}");
-            }
-            catch
-            {
-                // Header may already exist or be restricted; ignore.
-            }
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", $"SmartHopper/{name}");
 
             return client;
         }
