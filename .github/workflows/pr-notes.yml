@@ -6,7 +6,6 @@ on:
     branches: ['**']
 
 permissions:
-  actions: write
   contents: read
   pull-requests: write
 
@@ -338,8 +337,6 @@ jobs:
           CURRENT_TITLE: ${{ github.event.pull_request.title }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
-          HEAD_REF: ${{ github.head_ref }}
           FIRST_RUN: ${{ steps.assess-prep.outputs.first_run }}
           PREVIOUS_TITLE_FILE: ${{ steps.assess-prep.outputs.previous-title-file }}
           PREVIOUS_BODY_FILE: ${{ steps.assess-prep.outputs.previous-body-file }}
@@ -543,8 +540,3 @@ jobs:
 
           gh api --method POST "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" -f body="$COMMENT_BODY" >/dev/null
           echo "Posted PR notes suggestion comment."
-
-          if [[ "$BASE_REF" == "main" || "$BASE_REF" == hotfix/* || "$BASE_REF" == release/* ]]; then
-            gh workflow run pr-validation.yml --ref "$HEAD_REF" -f pr_number="$PR_NUMBER" -f base_ref="$BASE_REF" -f pr_title="$SUGGESTED_TITLE" >/dev/null
-            echo "Dispatched pr-validation workflow."
-          fi
