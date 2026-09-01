@@ -45,6 +45,7 @@ Many thanks to the following contributors to this release:
 - ProviderTrustPolicy unknown-provider diagnostic now only suggests switching to `Hard` or `Strict` integrity mode when the current mode is `Soft`, avoiding misleading guidance when the provider is already blocked.
 - `pr-notes.yml` now updates the PR title automatically and posts description suggestions as PR comments (first suggestion in code blocks, later updates inside a `<details>` block with a reason), instead of editing the PR description directly.
 - `pr-validation.yml` now runs on `pull_request` again instead of being dispatched by `pr-notes.yml`, since title validation is handled by `pr-notes.yml`.
+- Centralized the macOS/WinForms `net48` reference-assembly workaround in `Directory.Build.props` and removed the duplicated workaround blocks from all affected `.csproj` files. `SmartHopper.Components` now conditions its `System.Drawing.Common` reference on the Windows TFM, and `SmartHopper.Core.Grasshopper` now uses a simple `ProjectReference` without explicit GUID metadata.
 
 ### Removed
 
