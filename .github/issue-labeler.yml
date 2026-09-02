@@ -13,6 +13,10 @@
   - '/\bOpenRouter\b/i'
 "provider: Gemini":
   - '/\bGemini\b/i'
+"provider: LocalAI":
+  - '/\bLocalAI\b/i'
+"provider: Ollama":
+  - '/\bOllama\b/i'
 
 "scope: Mcp":
   - '/\bMCP\b|\bMcpServer\b|\bSmartHopperMcpServer\b/i'
