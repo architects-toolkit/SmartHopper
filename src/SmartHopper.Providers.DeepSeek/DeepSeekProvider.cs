@@ -521,27 +521,10 @@ namespace SmartHopper.Providers.DeepSeek
             }
 
             // Map role
-            var agent = interaction.Agent;
-            string role;
-
-            switch (agent)
+            var role = OpenAICompatibleRoleMapper.MapRole(interaction.Agent);
+            if (role == null)
             {
-                case AIAgent.System:
-                case AIAgent.Context:
-                    role = "system";
-                    break;
-                case AIAgent.User:
-                    role = "user";
-                    break;
-                case AIAgent.Assistant:
-                case AIAgent.ToolCall:
-                    role = "assistant";
-                    break;
-                case AIAgent.ToolResult:
-                    role = "tool";
-                    break;
-                default:
-                    return null;
+                return null;
             }
 
             var messageObj = new JObject { ["role"] = role };

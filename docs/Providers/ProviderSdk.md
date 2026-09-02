@@ -8,7 +8,7 @@ The SDK is **API-connection only**:
 
 - **Contracts** — `IAIProvider`, `IAIProviderFactory`, `IAIProviderSettings`, `IAIProviderModels`, `IAIBatchProvider`.
 - **Base classes** — `AIProvider`, `AIProvider<T>`, `AIProviderSettings`, `AIProviderModels`, `AIProviderStreamingAdapter`.
-- **Request / response DTOs** — `AICall.Core.{Base, Interactions, Requests, Returns}`, `AICall.Metrics`, `AICall.JsonSchemas` (`JsonSchemaService`, `IJsonSchemaAdapter`, `OpenAICompatibleJsonSchemaAdapter`), and `AICall.Batch` contracts.
+- **Request / response DTOs** — `AICall.Core.{Base, Interactions, Requests, Returns}`, `AICall.Metrics`, `AICall.JsonSchemas` (`JsonSchemaService`, `IJsonSchemaAdapter`, `OpenAICompatibleJsonSchemaAdapter`), `AICall.Core.Interactions.OpenAICompatibleRoleMapper`, and `AICall.Batch` contracts.
 - **Model capabilities** — `AIModels.*`, `AIExtraDescriptor`, `AIModelCapabilityRegistry` singleton.
 - **Settings descriptors** — `SettingDescriptor`, secret flags, validation result types.
 - **Streaming** — `IStreamingAdapter` and provider-facing delta/result types.
@@ -24,6 +24,22 @@ JsonSchemaAdapterRegistry.Register(new OpenAICompatibleJsonSchemaAdapter(this.Na
 ```
 
 This shared adapter wraps non-object root schemas into an object root (`array` → `items`, primitives → `value`, unknown → `data`) so providers that require object-root structured-output schemas can consume them. See [AICall/JsonSchemaAdapters.md](./AICall/JsonSchemaAdapters.md) for the full contract.
+
+## Role mapping
+
+OpenAI-compatible providers can use `OpenAICompatibleRoleMapper` to map `AIAgent` values to provider-facing chat message roles:
+
+```csharp
+var role = OpenAICompatibleRoleMapper.MapRole(interaction.Agent);
+if (role == null)
+{
+    return null;
+}
+```
+
+`MapRole` returns `system` for `AIAgent.System` and `AIAgent.Context`, `user` for `AIAgent.User`, `assistant` for `AIAgent.Assistant` and `AIAgent.ToolCall`, and `tool` for `AIAgent.ToolResult`. It returns `null` for agents that should not be sent to the provider (e.g., UI-only diagnostics or unknown agents). A `MapRoleOrThrow` overload is available for providers that fail fast on unsupported agents.
+
+The built-in `OpenAI`, `MistralAI`, `LocalAI`, `Ollama`, `OpenRouter`, and `DeepSeek` providers all use this shared mapper, removing the duplicated `switch (interaction.Agent)` blocks.
 
 ## What is NOT in the SDK
 
@@ -98,7 +114,7 @@ Trusting a community provider grants it full SmartHopper process privileges. The
 
 - Source Code: See source repository.
 - Since Version: 2.0.0
-- Last Updated: 2026-07-21
+- Last Updated: 2026-09-02
 - Documentation Maintainer: Marc Roca Musach
 
 ---

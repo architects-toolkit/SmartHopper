@@ -159,31 +159,15 @@ namespace SmartHopper.Providers.MistralAI
                 return null;
             }
 
-            var messageObj = new JObject();
-
             // Map role
-            switch (interaction.Agent)
+            var role = OpenAICompatibleRoleMapper.MapRole(interaction.Agent);
+            if (role == null)
             {
-                case AIAgent.System:
-                case AIAgent.Context:
-                    messageObj["role"] = "system";
-                    break;
-                case AIAgent.User:
-                    messageObj["role"] = "user";
-                    break;
-                case AIAgent.Assistant:
-                    messageObj["role"] = "assistant";
-                    break;
-                case AIAgent.ToolResult:
-                    messageObj["role"] = "tool";
-                    break;
-                case AIAgent.ToolCall:
-                    messageObj["role"] = "assistant";
-                    break;
-                default:
-                    // Unknown/unsupported -> skip
-                    return null;
+                // Unknown/unsupported -> skip
+                return null;
             }
+
+            var messageObj = new JObject { ["role"] = role };
 
             // Handle content and tool fields per interaction type
             if (interaction is AIInteractionText textInteraction)
