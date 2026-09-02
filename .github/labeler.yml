@@ -26,6 +26,14 @@
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Providers.Gemini/**'
 
+"provider: LocalAI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.LocalAI/**'
+
+"provider: Ollama":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.Ollama/**'
+
 # --- Scope labels ---
 "scope: UI":
   - changed-files:
