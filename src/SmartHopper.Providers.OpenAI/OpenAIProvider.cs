@@ -250,31 +250,8 @@ namespace SmartHopper.Providers.OpenAI
                 }
             }
 
-            var messageObj = new JObject();
-
-            switch (interaction.Agent)
-            {
-                case AIAgent.System:
-                    messageObj["role"] = "system";
-                    break;
-                case AIAgent.Context:
-                    messageObj["role"] = "system";
-                    break;
-                case AIAgent.User:
-                    messageObj["role"] = "user";
-                    break;
-                case AIAgent.Assistant:
-                    messageObj["role"] = "assistant";
-                    break;
-                case AIAgent.ToolCall:
-                    messageObj["role"] = "assistant";
-                    break;
-                case AIAgent.ToolResult:
-                    messageObj["role"] = "tool";
-                    break;
-                default:
-                    throw new ArgumentException($"Agent {interaction.Agent} not supported by OpenAI");
-            }
+            var role = OpenAICompatibleRoleMapper.MapRoleOrThrow(interaction.Agent, this.Name);
+            var messageObj = new JObject { ["role"] = role };
 
             // Handle different interaction types
             if (interaction is AIInteractionText textInteraction)
