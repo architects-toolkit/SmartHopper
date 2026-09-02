@@ -1,22 +1,22 @@
 # Issue auto-labeling configuration for github/issue-labeler@v3
 # Maps issue title/body regex patterns to labels.
 
-"provider: OpenAI":
-  - '/\bOpenAI\b/i'
-"provider: MistralAI":
-  - '/\bMistral\b/i'
 "provider: Anthropic":
   - '/\bAnthropic\b|\bClaude\b/i'
 "provider: DeepSeek":
   - '/\bDeepSeek\b/i'
-"provider: OpenRouter":
-  - '/\bOpenRouter\b/i'
 "provider: Gemini":
   - '/\bGemini\b/i'
 "provider: LocalAI":
   - '/\bLocalAI\b/i'
+"provider: MistralAI":
+  - '/\bMistral\b/i'
 "provider: Ollama":
   - '/\bOllama\b/i'
+"provider: OpenAI":
+  - '/\bOpenAI\b/i'
+"provider: OpenRouter":
+  - '/\bOpenRouter\b/i'
 
 "scope: Mcp":
   - '/\bMCP\b|\bMcpServer\b|\bSmartHopperMcpServer\b/i'

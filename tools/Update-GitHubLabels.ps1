@@ -16,6 +16,7 @@ $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 
 $labelsPath = Resolve-Path ".github\labels.yml"
 $labelerPath = Resolve-Path ".github\labeler.yml"
+$issueLabelerPath = Resolve-Path ".github\issue-labeler.yml"
 
 # ─── Helpers ────────────────────────────────────────────────────────
 
@@ -198,6 +199,8 @@ $labelerEntries = @()
 $labelerEntries += ""
 $labelerEntries += "# --- Component labels ---"
 
+# --- Component entries ---
+
 foreach ($entry in ($componentEntries | Sort-Object Label)) {
     $labelerEntries += @"
 "$($entry.Label)":
@@ -205,6 +208,88 @@ foreach ($entry in ($componentEntries | Sort-Object Label)) {
       - any-glob-to-any-file: '$($entry.Path)'
 "@
 }
+
+$componentLabelerSection = ($labelerEntries | Select-Object -Skip 1) -join "`n"
+
+# --- Build provider section for labeler.yml ---
+
+$providerLabelerEntries = @()
+$providerLabelerEntries += "# --- Provider labels ---"
+
+foreach ($label in ($providerLabels.Values | Sort-Object Name)) {
+    $providerName = $label.Name -replace '^provider: ',''
+    $providerLabelerEntries += @"
+"$($label.Name)":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.$providerName/**'
+"@
+    $providerLabelerEntries += ""
+}
+
+# --- Build provider section for issue-labeler.yml ---
+
+$existingIssueRegexes = @{}
+$issueHeaderLines = [System.Collections.ArrayList]@()
+$issueRestLines = [System.Collections.ArrayList]@()
+
+if (Test-Path $issueLabelerPath) {
+    $issueLines = Get-Content $issueLabelerPath
+    $i = 0
+    $state = 'header'
+    while ($i -lt $issueLines.Count) {
+        $line = $issueLines[$i]
+        switch ($state) {
+            'header' {
+                if ($line -match '^"provider: ') {
+                    $state = 'provider'
+                } else {
+                    [void]$issueHeaderLines.Add($line)
+                    $i++
+                }
+            }
+            'provider' {
+                if ($line -match '^"provider: ([^"]+)":$') {
+                    $labelName = $matches[1]
+                    if ($i + 1 -lt $issueLines.Count) {
+                        $valueLine = $issueLines[$i + 1]
+                        if ($valueLine -match '^\s*- (.+)$') {
+                            $existingIssueRegexes[$labelName] = $matches[1]
+                        }
+                    }
+                    $i += 2
+                } else {
+                    $state = 'rest'
+                    if ([string]::IsNullOrWhiteSpace($line)) { $i++ }
+                }
+            }
+            'rest' {
+                if ([string]::IsNullOrWhiteSpace($line) -and $issueRestLines.Count -eq 0) {
+                    $i++
+                } else {
+                    [void]$issueRestLines.Add($line)
+                    $i++
+                }
+            }
+        }
+    }
+}
+
+$sbIssue = [System.Text.StringBuilder]::new()
+foreach ($line in $issueHeaderLines) { [void]$sbIssue.AppendLine($line) }
+
+foreach ($label in ($providerLabels.Values | Sort-Object Name)) {
+    $providerName = $label.Name -replace '^provider: ',''
+    $regex = if ($existingIssueRegexes.ContainsKey($providerName)) { $existingIssueRegexes[$providerName] } else { "'/\b$providerName\b/i'" }
+    [void]$sbIssue.AppendLine('"' + $label.Name + '":')
+    [void]$sbIssue.AppendLine("  - $regex")
+}
+
+if ($issueRestLines.Count -gt 0) {
+    [void]$sbIssue.AppendLine()
+    foreach ($line in $issueRestLines) { [void]$sbIssue.AppendLine($line) }
+}
+
+$issueContent = $sbIssue.ToString()
 
 # ─── 6. Check / Apply ───────────────────────────────────────────────
 
@@ -225,24 +310,38 @@ if ($Check -or $Apply) {
     # Check labeler.yml
     if (Test-Path $labelerPath) {
         $existingContent = Get-Content -Raw $labelerPath
-        $componentSectionPattern = '(?ms)\n# --- Component labels ---.*?(?=\n# --- |\z)'
-        $cleanContent = [regex]::Replace($existingContent, $componentSectionPattern, "")
-        $newLabelerContent = $cleanContent + ($labelerEntries -join "`n")
+        $providerSectionPattern = '(?ms)\n# --- Provider labels ---.*?(?=\n# --- |\z)'
+        $componentSectionPattern = '(?ms)\n+# --- Component labels ---.*?(?=\n# --- |\z)'
+        $newLabelerContent = $existingContent
+        $newLabelerContent = [regex]::Replace($newLabelerContent, $providerSectionPattern, "`n" + ($providerLabelerEntries -join "`n"))
+        $newLabelerContent = [regex]::Replace($newLabelerContent, $componentSectionPattern, "`n`n$componentLabelerSection")
         $oldNorm = $existingContent -replace "\r\n", "\n"
         $newNorm = $newLabelerContent -replace "\r\n", "\n"
         if ($oldNorm -ne $newNorm) { $labelerChanged = $true }
     } else {
         $labelerChanged = $true
     }
+
+    # Check issue-labeler.yml
+    $issueLabelerChanged = $false
+    if (Test-Path $issueLabelerPath) {
+        $existingIssueContent = Get-Content -Raw $issueLabelerPath
+        $oldNorm = $existingIssueContent -replace "\r\n", "\n"
+        $newNorm = $issueContent -replace "\r\n", "\n"
+        if ($oldNorm -ne $newNorm) { $issueLabelerChanged = $true }
+    } else {
+        $issueLabelerChanged = $true
+    }
 }
 
 if ($Check) {
-    if (-not $labelsChanged -and -not $labelerChanged) {
-        Write-Host "Both labels.yml and labeler.yml are up to date." -ForegroundColor Green
+    if (-not $labelsChanged -and -not $labelerChanged -and -not $issueLabelerChanged) {
+        Write-Host "All label files are up to date." -ForegroundColor Green
         exit 0
     }
     if ($labelsChanged) { Write-Host "labels.yml would be updated." -ForegroundColor Yellow }
     if ($labelerChanged) { Write-Host "labeler.yml would be updated." -ForegroundColor Yellow }
+    if ($issueLabelerChanged) { Write-Host "issue-labeler.yml would be updated." -ForegroundColor Yellow }
     exit 1
 }
 
@@ -253,11 +352,19 @@ if ($Apply) {
 
     # Write labeler.yml
     $existingContent = if (Test-Path $labelerPath) { Get-Content -Raw $labelerPath } else { "" }
-    $componentSectionPattern = '(?ms)\n# --- Component labels ---.*?(?=\n# --- |\z)'
-    $cleanContent = [regex]::Replace($existingContent, $componentSectionPattern, "")
-    $newLabelerContent = $cleanContent + ($labelerEntries -join "`n")
+    $providerSectionPattern = '(?ms)\n# --- Provider labels ---.*?(?=\n# --- |\z)'
+    $componentSectionPattern = '(?ms)\n+# --- Component labels ---.*?(?=\n# --- |\z)'
+    $newLabelerContent = $existingContent
+    $newLabelerContent = [regex]::Replace($newLabelerContent, $providerSectionPattern, "`n" + ($providerLabelerEntries -join "`n"))
+    $newLabelerContent = [regex]::Replace($newLabelerContent, $componentSectionPattern, "`n`n$componentLabelerSection")
     [System.IO.File]::WriteAllText($labelerPath, $newLabelerContent, $utf8NoBom)
-    Write-Host "Updated $labelerPath with $($componentEntries.Count) component entries" -ForegroundColor Green
+    Write-Host "Updated $labelerPath with $($providerLabels.Count) provider and $($componentEntries.Count) component entries" -ForegroundColor Green
+
+    # Write issue-labeler.yml
+    if ($issueContent -ne '') {
+        [System.IO.File]::WriteAllText($issueLabelerPath, $issueContent, $utf8NoBom)
+        Write-Host "Updated $issueLabelerPath with $($providerLabels.Count) provider entries" -ForegroundColor Green
+    }
 
     exit 0
 }

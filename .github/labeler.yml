@@ -2,14 +2,6 @@
 # Maps file path patterns to labels applied automatically on PR open/sync.
 
 # --- Provider labels ---
-"provider: OpenAI":
-  - changed-files:
-      - any-glob-to-any-file: 'src/SmartHopper.Providers.OpenAI/**'
-
-"provider: MistralAI":
-  - changed-files:
-      - any-glob-to-any-file: 'src/SmartHopper.Providers.MistralAI/**'
-
 "provider: Anthropic":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Providers.Anthropic/**'
@@ -17,10 +9,6 @@
 "provider: DeepSeek":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Providers.DeepSeek/**'
-
-"provider: OpenRouter":
-  - changed-files:
-      - any-glob-to-any-file: 'src/SmartHopper.Providers.OpenRouter/**'
 
 "provider: Gemini":
   - changed-files:
@@ -30,9 +18,21 @@
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Providers.LocalAI/**'
 
+"provider: MistralAI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.MistralAI/**'
+
 "provider: Ollama":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Providers.Ollama/**'
+
+"provider: OpenAI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.OpenAI/**'
+
+"provider: OpenRouter":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.OpenRouter/**'
 
 # --- Scope labels ---
 "scope: UI":
