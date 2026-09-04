@@ -15,7 +15,6 @@ on:
 
 permissions:
   contents: write
-  workflows: write
 
 concurrency:
   group: hotfix-start-${{ inputs.tag || github.run_id }}
@@ -44,7 +43,9 @@ jobs:
         shell: bash
         env:
           TAG: ${{ steps.resolve-tag.outputs.tag }}
+          SHA: ${{ steps.resolve-tag.outputs.sha }}
           DESCRIPTION: ${{ inputs.description }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -63,8 +64,14 @@ jobs:
             echo "::error::Hotfix branch '$BRANCH' already exists." >&2
             exit 1
           fi
-          git checkout -b "$BRANCH" "refs/tags/$TAG"
-          git push origin "$BRANCH"
+          # Create the branch via the REST API. Using git push would require a
+          # token with the `workflow` scope because the tag contains an older
+          # `.github/workflows/HOTFIX_WORKFLOW.md`; the API create-ref endpoint
+          # honours the workflow's `contents: write` permission instead.
+          gh api "repos/${{ github.repository }}/git/refs" \
+            -f "ref=refs/heads/${BRANCH}" \
+            -f "sha=${SHA}" \
+            --silent
           {
             echo "tag=$TAG"
             echo "branch=$BRANCH"
