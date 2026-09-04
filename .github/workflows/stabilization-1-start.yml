@@ -74,10 +74,18 @@ jobs:
           LINE: ${{ inputs.line }}
           SOURCE_TAG: ${{ steps.resolve-tag.outputs.tag }}
           SOURCE_SHA: ${{ steps.resolve-tag.outputs.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           RELEASE_BRANCH="release/${LINE}"
-          git push origin "$SOURCE_SHA:refs/heads/$RELEASE_BRANCH"
+          # Create the branch via the REST API. Using git push would require a
+          # token with the `workflow` scope because the tag contains an older
+          # `.github/workflows/HOTFIX_WORKFLOW.md`; the API create-ref endpoint
+          # honours the workflow's `contents: write` permission instead.
+          gh api "repos/${{ github.repository }}/git/refs" \
+            -f "ref=refs/heads/${RELEASE_BRANCH}" \
+            -f "sha=${SOURCE_SHA}" \
+            --silent
           echo "release-branch=$RELEASE_BRANCH" >> "$GITHUB_OUTPUT"
           echo "source-sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
           echo "source-tag=$SOURCE_TAG" >> "$GITHUB_OUTPUT"

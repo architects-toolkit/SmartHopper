@@ -75,12 +75,29 @@ jobs:
         env:
           VERSION: ${{ steps.release-info.outputs.version }}
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAGGER_NAME: ${{ vars.SMARTHOPPER_BOT_NAME || 'github-actions' }}
+          TAGGER_EMAIL: ${{ vars.SMARTHOPPER_BOT_EMAIL || 'github-actions@users.noreply.github.com' }}
         run: |
           set -euo pipefail
-          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
-          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
-          git tag -a "$VERSION" -m "Release $VERSION" "$MERGE_SHA"
-          git push origin "$VERSION"
+          # Create the annotated tag via the REST API. Using git push would
+          # require a token with the `workflow` scope because the tag may be
+          # created on a stabilization line whose commit contains an older
+          # `.github/workflows/HOTFIX_WORKFLOW.md`; the API git/tags and
+          # git/refs endpoints honour the workflow's `contents: write` instead.
+          TAG_OBJECT=$(gh api -X POST "repos/${{ github.repository }}/git/tags" \
+            -f "tag=${VERSION}" \
+            -f "message=Release ${VERSION}" \
+            -f "object=${MERGE_SHA}" \
+            -f "type=commit" \
+            -f "tagger[name]=${TAGGER_NAME}" \
+            -f "tagger[email]=${TAGGER_EMAIL}" \
+            -f "tagger[date]=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --jq '.sha')
+          gh api -X POST "repos/${{ github.repository }}/git/refs" \
+            -f "ref=refs/tags/${VERSION}" \
+            -f "sha=${TAG_OBJECT}" \
+            --silent
 
       - name: Determine prerelease status
         id: prerelease
