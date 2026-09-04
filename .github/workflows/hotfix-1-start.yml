@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: write
+  workflows: write
 
 concurrency:
   group: hotfix-start-${{ inputs.tag || github.run_id }}
