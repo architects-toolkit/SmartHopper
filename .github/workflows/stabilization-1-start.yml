@@ -74,15 +74,16 @@ jobs:
           LINE: ${{ inputs.line }}
           SOURCE_TAG: ${{ steps.resolve-tag.outputs.tag }}
           SOURCE_SHA: ${{ steps.resolve-tag.outputs.sha }}
-          GH_TOKEN: ${{ secrets.PAT }}
+          GH_TOKEN: ${{ secrets.STABILITY_PAT_TOKEN }}
         run: |
           set -euo pipefail
           RELEASE_BRANCH="release/${LINE}"
           # Old release tags contain `.github/workflows/HOTFIX_WORKFLOW.md` and
           # `RELEASE_WORKFLOW.md` before those guides were moved to `docs/`.
           # The GITHUB_TOKEN cannot hold the `workflow` scope, so both `git push`
-          # and the REST API reject the ref creation. Use the repo's `PAT` secret
-          # (a classic PAT with `repo` + `workflow` scopes) instead.
+          # and the REST API reject the ref creation. Use the repo's
+          # `STABILITY_PAT_TOKEN` secret (a classic PAT with `repo` + `workflow`
+          # scopes) instead.
           gh api "repos/${{ github.repository }}/git/refs" \
             -f "ref=refs/heads/${RELEASE_BRANCH}" \
             -f "sha=${SOURCE_SHA}" \

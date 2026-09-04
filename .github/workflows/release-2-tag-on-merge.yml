@@ -75,7 +75,7 @@ jobs:
         env:
           VERSION: ${{ steps.release-info.outputs.version }}
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
-          GH_TOKEN: ${{ secrets.PAT }}
+          GH_TOKEN: ${{ secrets.STABILITY_PAT_TOKEN }}
           TAGGER_NAME: ${{ vars.SMARTHOPPER_BOT_NAME || 'github-actions' }}
           TAGGER_EMAIL: ${{ vars.SMARTHOPPER_BOT_EMAIL || 'github-actions@users.noreply.github.com' }}
         run: |
@@ -83,8 +83,9 @@ jobs:
           # Old stabilization lines may still contain `.github/workflows/HOTFIX_WORKFLOW.md`
           # and `RELEASE_WORKFLOW.md` from before those guides were moved to `docs/`.
           # The GITHUB_TOKEN cannot hold the `workflow` scope, so both `git push`
-          # and the REST API reject the tag creation. Use the repo's `PAT` secret
-          # (a classic PAT with `repo` + `workflow` scopes) instead.
+          # and the REST API reject the tag creation. Use the repo's
+          # `STABILITY_PAT_TOKEN` secret (a classic PAT with `repo` + `workflow`
+          # scopes) instead.
           TAG_OBJECT=$(gh api -X POST "repos/${{ github.repository }}/git/tags" \
             -f "tag=${VERSION}" \
             -f "message=Release ${VERSION}" \
