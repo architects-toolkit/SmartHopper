@@ -224,9 +224,12 @@ function Validate-AllDocumentation {
     Write-Log "Path: $DocsPath" "Info"
     Write-Log ""
     
-    # Find all markdown files (exclude TEMPLATES folder itself)
+    # Find all markdown files (exclude TEMPLATES and Reviews folders, and workflow
+    # process guides that follow their own README-style structure).
     $mdFiles = Get-ChildItem -Path $DocsPath -Filter "*.md" -Recurse |
-        Where-Object { $_.FullName -notlike "*\TEMPLATES\*" -and $_.FullName -notlike "*\Reviews\*" }
+        Where-Object { $_.FullName -notlike "*\TEMPLATES\*" -and
+            $_.FullName -notlike "*\Reviews\*" -and
+            $_.FullName -notlike "*_WORKFLOW.md" }
     
     if ($mdFiles.Count -eq 0) {
         Write-Log "No markdown files found in $DocsPath" "Warning"
