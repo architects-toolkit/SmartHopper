@@ -26,7 +26,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
@@ -45,7 +45,7 @@ jobs:
           TAG: ${{ steps.resolve-tag.outputs.tag }}
           SHA: ${{ steps.resolve-tag.outputs.sha }}
           DESCRIPTION: ${{ inputs.description }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT }}
         run: |
           set -euo pipefail
 
@@ -64,10 +64,11 @@ jobs:
             echo "::error::Hotfix branch '$BRANCH' already exists." >&2
             exit 1
           fi
-          # Create the branch via the REST API. Using git push would require a
-          # token with the `workflow` scope because the tag contains an older
-          # `.github/workflows/HOTFIX_WORKFLOW.md`; the API create-ref endpoint
-          # honours the workflow's `contents: write` permission instead.
+          # Old release tags contain `.github/workflows/HOTFIX_WORKFLOW.md` and
+          # `RELEASE_WORKFLOW.md` before those guides were moved to `docs/`.
+          # The GITHUB_TOKEN cannot hold the `workflow` scope, so both `git push`
+          # and the REST API reject the ref creation. Use the repo's `PAT` secret
+          # (a classic PAT with `repo` + `workflow` scopes) instead.
           gh api "repos/${{ github.repository }}/git/refs" \
             -f "ref=refs/heads/${BRANCH}" \
             -f "sha=${SHA}" \

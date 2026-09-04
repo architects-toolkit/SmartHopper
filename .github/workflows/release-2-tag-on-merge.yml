@@ -35,7 +35,7 @@ jobs:
       version: ${{ steps.release-info.outputs.version }}
     steps:
       - name: Checkout release merge commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
           fetch-depth: 0
@@ -75,16 +75,16 @@ jobs:
         env:
           VERSION: ${{ steps.release-info.outputs.version }}
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT }}
           TAGGER_NAME: ${{ vars.SMARTHOPPER_BOT_NAME || 'github-actions' }}
           TAGGER_EMAIL: ${{ vars.SMARTHOPPER_BOT_EMAIL || 'github-actions@users.noreply.github.com' }}
         run: |
           set -euo pipefail
-          # Create the annotated tag via the REST API. Using git push would
-          # require a token with the `workflow` scope because the tag may be
-          # created on a stabilization line whose commit contains an older
-          # `.github/workflows/HOTFIX_WORKFLOW.md`; the API git/tags and
-          # git/refs endpoints honour the workflow's `contents: write` instead.
+          # Old stabilization lines may still contain `.github/workflows/HOTFIX_WORKFLOW.md`
+          # and `RELEASE_WORKFLOW.md` from before those guides were moved to `docs/`.
+          # The GITHUB_TOKEN cannot hold the `workflow` scope, so both `git push`
+          # and the REST API reject the tag creation. Use the repo's `PAT` secret
+          # (a classic PAT with `repo` + `workflow` scopes) instead.
           TAG_OBJECT=$(gh api -X POST "repos/${{ github.repository }}/git/tags" \
             -f "tag=${VERSION}" \
             -f "message=Release ${VERSION}" \
@@ -140,7 +140,7 @@ jobs:
           mistral-api-key: ${{ secrets.MISTRAL_API_KEY }}
 
       - name: Create draft GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
