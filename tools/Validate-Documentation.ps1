@@ -192,7 +192,7 @@ function Test-Placeholders {
     return $issues
 }
 
-function Validate-DocumentationFile {
+function Test-DocumentationFile {
     param([string]$FilePath)
     
     Write-Log "Validating: $FilePath" "Info"
@@ -217,7 +217,7 @@ function Validate-DocumentationFile {
     }
 }
 
-function Validate-AllDocumentation {
+function Test-AllDocumentation {
     param([string]$DocsPath)
     
     Write-Log "Starting documentation validation..." "Info"
@@ -243,7 +243,7 @@ function Validate-AllDocumentation {
     $failCount = 0
     
     foreach ($file in $mdFiles) {
-        if (Validate-DocumentationFile $file.FullName) {
+        if (Test-DocumentationFile $file.FullName) {
             $passCount++
         } else {
             $failCount++
@@ -266,7 +266,7 @@ function Validate-AllDocumentation {
 
 # Main execution
 if (Test-Path $Path) {
-    $result = Validate-AllDocumentation $Path
+    $result = Test-AllDocumentation $Path
     exit $result
 } else {
     Write-Log "Path not found: $Path" "Error"
