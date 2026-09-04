@@ -46,6 +46,7 @@ Many thanks to the following contributors to this release:
 - `AIToolManager.ExecuteTool` now normalizes a `null` `AIInteractionToolCall.Arguments` value to an empty `JObject` at execution time when the tool schema has no required parameters, replacing the interaction in the immutable `AIBody` so downstream tool delegates receive the normalized value.
 - `ToolJsonSchemaValidator` now uses `AITool.GetRequiredParameters()` to determine required parameters instead of parsing the schema inline.
 - Bumped all `actions/github-script` references from `v7` to `v9` to run on Node 24 and remove Node 20 deprecation warnings.
+- Updated all GitHub Actions and reusable action references to Node 24-compatible versions, replacing deprecated Node 20 actions.
 - ProviderTrustPolicy unknown-provider diagnostic now only suggests switching to `Hard` or `Strict` integrity mode when the current mode is `Soft`, avoiding misleading guidance when the provider is already blocked.
 - `pr-notes.yml` now updates the PR title automatically and posts description suggestions as PR comments (first suggestion in code blocks, later updates inside a `<details>` block with a reason), instead of editing the PR description directly.
 - `pr-validation.yml` now runs on `pull_request` again instead of being dispatched by `pr-notes.yml`, since title validation is handled by `pr-notes.yml`.

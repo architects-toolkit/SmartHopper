@@ -47,7 +47,7 @@ runs:
 
     - name: 'Setup .NET'
       if: ${{ steps.check-dotnet.outputs.installed == 'false' }}
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: '7.0.x'
 
@@ -74,7 +74,7 @@ runs:
         & tools/Update-InternalsVisibleTo.ps1
 
     - name: 'Checkout unlicensed lib'
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         repository: 'architects-toolkit/SmartHopper-unlicensed-lib'
         token: ${{ inputs.libs_repo_pat }}

@@ -38,7 +38,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ github.ref_name }}
@@ -291,7 +291,7 @@ jobs:
       - name: Create Pull Request
         if: steps.identify-contributors.outputs.has_contributors == 'true' && steps.update-changelog.outputs.changelog_updated == 'true'
         id: create-pr
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "docs: update contributors section for ${{ env.TARGET_BRANCH }}"

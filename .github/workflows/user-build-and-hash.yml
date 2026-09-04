@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 30
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         ref: ${{ github.event.inputs.branch }}
         fetch-depth: 0
@@ -70,13 +70,13 @@ jobs:
         Write-Host ""
 
     - name: Upload Hash Manifest as Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: test-provider-hashes
         path: ${{ steps.calculate_hashes.outputs.HASH_FILE }}
 
     - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: test-build-artifacts
         path: artifacts/

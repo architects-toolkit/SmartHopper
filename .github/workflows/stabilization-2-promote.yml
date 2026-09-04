@@ -32,7 +32,7 @@ jobs:
       lines: ${{ steps.discover.outputs.lines }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
@@ -57,7 +57,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout release line
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: release/${{ matrix.line }}
           fetch-depth: 0
@@ -65,7 +65,7 @@ jobs:
       # The release line may predate the composite actions used by this
       # workflow, so use the actions from the workflow's main branch.
       - name: Check out CI tooling from main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           path: .ci-tooling

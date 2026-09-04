@@ -42,7 +42,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Parse release version
       id: parse
@@ -201,7 +201,7 @@ jobs:
 
     steps:
     - name: Checkout PR merge commit
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         ref: ${{ github.event.pull_request.merge_commit_sha }}
         fetch-depth: 0
@@ -250,7 +250,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Move open issues and PRs to next milestone
       uses: ./.github/actions/versioning/move-milestone-items

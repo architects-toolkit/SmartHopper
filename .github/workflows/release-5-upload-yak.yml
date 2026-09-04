@@ -64,7 +64,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -119,7 +119,7 @@ jobs:
         
       - name: Download Windows release asset
         if: inputs.platform == 'windows' || inputs.platform == 'both'
-        uses: robinraju/release-downloader@v1
+        uses: robinraju/release-downloader@v1.13
         with:
           repository: ${{ github.repository }}
           tag: ${{ steps.get_version.outputs.version }}
@@ -129,7 +129,7 @@ jobs:
       
       - name: Download Mac release asset
         if: inputs.platform == 'macos' || inputs.platform == 'both'
-        uses: robinraju/release-downloader@v1
+        uses: robinraju/release-downloader@v1.13
         with:
           repository: ${{ github.repository }}
           tag: ${{ steps.get_version.outputs.version }}
@@ -197,7 +197,7 @@ jobs:
 
       - name: Upload Windows Yak package artifact
         if: inputs.platform == 'windows' || inputs.platform == 'both'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: windows-yak-package
           path: yak-windows/*.yak
@@ -224,7 +224,7 @@ jobs:
 
       - name: Upload macOS Yak package artifact
         if: inputs.platform == 'macos' || inputs.platform == 'both'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: macos-yak-package
           path: yak-macos/*.yak

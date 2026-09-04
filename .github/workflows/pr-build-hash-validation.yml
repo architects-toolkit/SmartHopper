@@ -50,7 +50,7 @@ jobs:
     timeout-minutes: 10
     steps:
     - name: Checkout PR Branch
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
@@ -194,10 +194,10 @@ jobs:
     timeout-minutes: 10
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: '7.0.x'
 
@@ -223,7 +223,7 @@ jobs:
         pwsh tools/Update-InternalsVisibleTo.ps1
 
     - name: Upload pre-processed source
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: preprocessed-source
         path: |
@@ -244,12 +244,12 @@ jobs:
     timeout-minutes: 10
     steps:
     - name: Checkout PR Branch
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
     - name: Download pre-processed source
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         name: preprocessed-source
 

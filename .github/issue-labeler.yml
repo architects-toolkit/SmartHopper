@@ -1,4 +1,4 @@
-# Issue auto-labeling configuration for github/issue-labeler@v3
+# Issue auto-labeling configuration for the content-based issue labeler
 # Maps issue title/body regex patterns to labels.
 
 "provider: Anthropic":

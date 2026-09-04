@@ -8,7 +8,9 @@ name: 🏷️ Issue Label by Content
 #   - github-issue-label-by-content.yml (labels issues based on title/body content)
 
 # Description: Automatically labels issues based on title and body content
-# using regex patterns defined in .github/issue-labeler.yml.
+# using regex patterns defined in .github/issue-labeler.yml. The labelling is
+# performed by actions/github-script rather than an external action so that the
+# workflow stays on a Node 24 runtime.
 # Complements github-issue-label-version-from-template.yml which handles version labels specifically.
 #
 # Triggers:
@@ -31,8 +33,66 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: github/issue-labeler@v3.4
+      - name: Apply content-based labels
+        uses: actions/github-script@v9
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          configuration-path: .github/issue-labeler.yml
-          enable-versioned-regex: 0
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: file } = await github.rest.repos.getContent({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              path: '.github/issue-labeler.yml'
+            });
+            const content = Buffer.from(file.content, 'base64').toString('utf-8');
+
+            const rules = new Map();
+            let currentLabel = null;
+            for (const raw of content.split(/\r?\n/)) {
+              const line = raw.trim();
+              if (line === '' || line.startsWith('#')) continue;
+              const keyMatch = line.match(/^"([^"]+)":\s*$/);
+              if (keyMatch) {
+                currentLabel = keyMatch[1];
+                rules.set(currentLabel, []);
+                continue;
+              }
+              const patMatch = line.match(/^-\s*['"]?\/(.+)\/([gimuy]*)\s*['"]?$/);
+              if (patMatch && currentLabel) {
+                rules.get(currentLabel).push(new RegExp(patMatch[1], patMatch[2] || ''));
+              }
+            }
+
+            const text = `${context.payload.issue.title || ''}\n${context.payload.issue.body || ''}`;
+            const managed = new Set(rules.keys());
+            const matched = new Set();
+            for (const [label, patterns] of rules) {
+              if (patterns.some(p => p.test(text))) matched.add(label);
+            }
+
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            const current = new Set(issue.labels.map(l => l.name));
+
+            const toAdd = [...matched].filter(l => !current.has(l));
+            const toRemove = [...current].filter(l => managed.has(l) && !matched.has(l));
+
+            if (toAdd.length) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: toAdd
+              });
+            }
+
+            for (const label of toRemove) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: label
+              });
+            }

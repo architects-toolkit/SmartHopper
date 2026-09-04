@@ -43,7 +43,7 @@ jobs:
       targets: ${{ steps.discover.outputs.targets }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 1
@@ -98,7 +98,7 @@ jobs:
 
       - name: Checkout ${{ matrix.target.branch }}
         if: steps.check.outputs.skipped == 'false'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ matrix.target.branch }}
           fetch-depth: 0
@@ -372,7 +372,7 @@ jobs:
       - name: Create Pull Request
         if: steps.check.outputs.skipped == 'false' && steps.models.outputs.changed == 'true'
         id: create-pr
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore(models): update ${{ matrix.provider }} model list"

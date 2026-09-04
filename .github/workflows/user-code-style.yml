@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Process trailing whitespace
         uses: ./.github/actions/code-style/trailing-whitespace
@@ -38,7 +38,7 @@ jobs:
         run: git diff --unified=0 > trailing-whitespace.patch
       - name: Upload trailing-whitespace patch
         if: ${{ github.event.inputs.mode == 'fix' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: trailing-whitespace-patch
           path: trailing-whitespace.patch
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Process using directives
         uses: ./.github/actions/code-style/using-sorter
@@ -59,7 +59,7 @@ jobs:
         run: git diff --unified=0 > using-sorter.patch
       - name: Upload using-sorter patch
         if: ${{ github.event.inputs.mode == 'fix' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: using-sorter-patch
           path: using-sorter.patch
@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Run Namespace Fixer
         uses: ./.github/actions/code-style/namespace-fixer
@@ -80,7 +80,7 @@ jobs:
         run: git diff --unified=0 > namespace-check.patch
       - name: Upload namespace-check patch
         if: ${{ github.event.inputs.mode == 'fix' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: namespace-check-patch
           path: namespace-check.patch
@@ -93,7 +93,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.ref }}
       - name: Configure Git
@@ -101,17 +101,17 @@ jobs:
           git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
           git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
       - name: Download trailing-whitespace patch
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: trailing-whitespace-patch
           path: .
       - name: Download using-sorter patch
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: using-sorter-patch
           path: .
       - name: Download namespace-check patch
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: namespace-check-patch
           path: .

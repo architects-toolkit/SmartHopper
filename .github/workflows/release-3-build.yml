@@ -62,7 +62,7 @@ jobs:
       is_release: ${{ steps.determine_version.outputs.IS_RELEASE }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0  # Fetch all history for all tags and branches
     
@@ -163,7 +163,7 @@ jobs:
         pwsh tools/Update-InternalsVisibleTo.ps1
 
     - name: Upload pre-processed source
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: preprocessed-source-release
         path: |
@@ -178,13 +178,13 @@ jobs:
     timeout-minutes: 45
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
         ref: ${{ needs.prep.outputs.version }}
     
     - name: Download pre-processed source
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         name: preprocessed-source-release
 
@@ -213,7 +213,7 @@ jobs:
         repository: ${{ github.repository }}
 
     - name: Upload Windows Artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: windows-build
         path: |
@@ -227,13 +227,13 @@ jobs:
     timeout-minutes: 45
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
         ref: ${{ needs.prep.outputs.version }}
     
     - name: Download pre-processed source
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         name: preprocessed-source-release
 
@@ -260,7 +260,7 @@ jobs:
         repository: ${{ github.repository }}
 
     - name: Upload macOS Artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: macos-build
         path: |
@@ -274,18 +274,18 @@ jobs:
     timeout-minutes: 45
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
     - name: Download Windows Artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         name: windows-build
         path: windows-build
 
     - name: Download macOS Artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         name: macos-build
         path: macos-build
@@ -490,20 +490,20 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Upload Hash Manifest
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: provider-hashes
         path: ${{ steps.merge_hashes.outputs.HASH_FILE }}
 
     - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: plugin-package
         path: artifacts/
 
     - name: Upload Release Assets
       if: needs.prep.outputs.is_release == 'true'
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v3
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
