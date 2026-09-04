@@ -5,6 +5,12 @@ All notable changes to SmartHopper will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Chat UI**: Run the WebChat greeting through `ConversationSession.ExecuteSpecialTurnAsync` with `OverrideToolFilter = "-*"` and `ProcessTools = false`. This prevents the greeting from emitting a tool call that is then left unprocessed, which would leave a dangling `tool_calls` message and break DeepSeek's required tool-call ordering.
+
 ## [1.4.4] - 2026-07-14
 
 ### Added
