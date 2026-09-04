@@ -90,6 +90,8 @@ This is the root documentation hub for SmartHopper. It organizes all guides, ref
 ### Development
 
 - [Authenticode Signing](Development/authenticode-signing.md) -- assembly signing for provider trust
+- [Release workflow](RELEASE_WORKFLOW.md) -- branching, stabilization, and release promotion
+- [Hotfix workflow](HOTFIX_WORKFLOW.md) -- shipping urgent fixes from a stable release tag
 
 ### Testing
 
