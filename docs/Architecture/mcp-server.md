@@ -292,7 +292,7 @@ Phases 2 and 3 are implemented as static providers sourced from existing AITools
 
 - [Architecture overview](../Architecture.md)
 - [Tool catalogue](../Tools/index.md)
-- Cordyceps source: https://github.com/brookstalley/cordyceps
-- MCP specification: https://modelcontextprotocol.io/
-- GhJSON specification: https://github.com/architects-toolkit/ghjson-spec
-- `ghjson-dotnet`: https://github.com/architects-toolkit/ghjson-dotnet
+- Cordyceps source: <https://github.com/brookstalley/cordyceps>
+- MCP specification: <https://modelcontextprotocol.io/>
+- GhJSON specification: <https://github.com/architects-toolkit/ghjson-spec>
+- `ghjson-dotnet`: <https://github.com/architects-toolkit/ghjson-dotnet>
