@@ -19,8 +19,10 @@
 
     Use -OutErrors and/or -OutWarnings to restrict dotnet build console output to only compilation
     errors and/or warnings. These switches are useful for CI scenarios that need to inspect
-    compilation results concisely. They may be used together with -Testing. When neither switch is
-    specified, the default output filter (ErrorsOnly;Summary) is used.
+    compilation results concisely. They may be used together with -Testing. When both switches are
+    specified, minimal verbosity (-v:m) is used to show errors and warnings without informational
+    output. When neither switch is specified, quiet verbosity (-v:q -clp:Summary) shows only the
+    build summary; MSBuild still prints errors when they occur.
 .PARAMETER Configuration
     Build configuration: Debug or Release (default: Debug).
 .PARAMETER PfxPassword
@@ -121,12 +123,21 @@ if (Test-Path $solutionPropsPath) {
 }
 
 Write-Host "Building solution $solutionPath with configuration '$Configuration'" -ForegroundColor Cyan
-$loggerParams = @()
-if ($OutErrors) { $loggerParams += "ErrorsOnly" }
-if ($OutWarnings) { $loggerParams += "WarningsOnly" }
-if ($loggerParams.Count -eq 0) { $loggerParams = @("ErrorsOnly", "Summary") }
-$clp = $loggerParams -join ";"
-& dotnet build $solutionPath -c $Configuration -clp:$clp
+$dotnetBuildArgs = @($solutionPath, "-c", $Configuration)
+if ($OutErrors -and $OutWarnings) {
+    # ErrorsOnly and WarningsOnly are mutually exclusive in the console logger;
+    # minimal verbosity shows both without informational output.
+    $dotnetBuildArgs += "-v:m"
+} elseif ($OutErrors) {
+    $dotnetBuildArgs += "-clp:ErrorsOnly;Summary"
+} elseif ($OutWarnings) {
+    $dotnetBuildArgs += "-clp:WarningsOnly;Summary"
+} else {
+    # Quiet verbosity hides warnings and informational output; Summary keeps the
+    # final build result block. Note: MSBuild always prints errors if they occur.
+    $dotnetBuildArgs += "-v:q", "-clp:Summary"
+}
+& dotnet build @dotnetBuildArgs
 if ($LASTEXITCODE -ne 0) {
     Write-Error "dotnet build failed with exit code $LASTEXITCODE"
     exit $LASTEXITCODE
