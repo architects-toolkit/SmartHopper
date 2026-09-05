@@ -38,7 +38,4 @@ Describe the testing you've done to validate your changes.
 ## Checklist
 
 - [ ] This PR is focused on a single feature or bug fix
-- [ ] Version in Solution.props was updated, if necessary, and follows semantic versioning
-- [ ] CHANGELOG.md has been updated
-- [ ] PR title follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format
-- [ ] PR description follows [Pull Request Description Template](#pull-request-description-template)
+- [ ] CHANGELOG.md has been updated with relevant information to end user
