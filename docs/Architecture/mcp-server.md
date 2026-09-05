@@ -6,12 +6,12 @@ Loopback-only MCP transport that exposes SmartHopper's existing `AITool` catalog
 
 ## Metadata
 
-| Property | Value |
-| --- | --- |
-| **Source Code** | `src/SmartHopper.Infrastructure/Mcp/` |
-| **Since Version** | ? |
-| **Last Updated** | 2026-07-04 |
-| **Documentation Maintainer** | Devin AI |
+|| Property | Value |
+|| --- | --- |
+|| **Source Code** | `src/SmartHopper.Infrastructure/Mcp/` |
+|| **Since Version** | ? |
+|| **Last Updated** | 2026-09-06 |
+|| **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
 
@@ -27,6 +27,7 @@ You should also read this if you are:
 - adding or renaming `AITool` implementations that should appear in MCP
 - changing the server's security posture, tool allow-list behavior, or mutating-tool policy
 - debugging how `tools/list` and `tools/call` map to `AIToolManager` and `AIToolCall`
+- adding static MCP resources or prompts
 
 ## End-User Guide
 
@@ -47,15 +48,15 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 
 ### Default Configuration
 
-| Setting | Default | Notes |
-| --- | --- | --- |
-| Port | `26929` | Matches Cordyceps' default for easier documentation parity. |
-| Bearer token | empty | Empty means no bearer auth; loopback-only still applies. |
-| Enabled tools | `null` | Null or empty means the full read-only surface is eligible. |
-| Expose mutating tools | `false` | Mutating tools stay hidden unless explicitly allowed. |
-| Server name | `smarthopper` | Reported during MCP `initialize`. |
-| Server version | assembly informational version fallback | Can be overridden from options. |
-| Bind address | loopback only | `127.0.0.1` only in phase 1. IPv6 loopback is not registered. |
+|| Setting | Default | Notes |
+|| --- | --- | --- |
+|| Port | `26929` | Matches Cordyceps' default for easier documentation parity. |
+|| Bearer token | empty | Empty means no bearer auth; loopback-only still applies. |
+|| Enabled tools | `null` | Null or empty means the full read-only surface is eligible. |
+|| Expose mutating tools | `false` | Mutating tools stay hidden unless explicitly allowed. |
+|| Server name | `smarthopper` | Reported during MCP `initialize`. |
+|| Server version | assembly informational version fallback | Can be overridden from options. |
+|| Bind address | loopback only | `127.0.0.1` only in phase 1. IPv6 loopback is not registered. |
 
 ### Security Posture
 
@@ -88,27 +89,30 @@ A tool is considered enabled when its `AITool.Enabled` flag is `true` (the defau
 
 `JsonRpcDispatcher` exposes the following MCP methods:
 
-| MCP method | SmartHopper behavior |
-| --- | --- |
-| `initialize` | Returns protocol version `2025-03-26`, server name, version, and supported capabilities. |
-| `tools/list` | Uses `AIToolMcpAdapter.BuildDescriptors()` to project the `AIToolManager` catalog. Each tool descriptor includes `inputSchema`, `outputSchema`, `tags`, and MCP `annotations`. |
-| `tools/call` | Resolves the named tool, builds `AIToolCall`, executes it through the adapter, and wraps the result in MCP `text` content. |
-| `notifications/initialized` | Acknowledged as a notification. |
-| `ping` | Lightweight health check. |
-| `resources/*` and `prompts/*` | Reserved for later phases. |
-| `GET /health` | HTTP-only endpoint returning `{"status":"ok"}`; not a JSON-RPC method. |
+|| MCP method | SmartHopper behavior |
+|| --- | --- |
+|| `initialize` | Returns protocol version `2025-03-26`, server name, version, and supported capabilities. |
+|| `tools/list` | Uses `AIToolMcpAdapter.BuildDescriptors()` to project the `AIToolManager` catalog. Each tool descriptor includes `inputSchema`, `outputSchema`, `tags`, and MCP `annotations`. |
+|| `tools/call` | Resolves the named tool, builds `AIToolCall`, executes it through the adapter, and wraps the result in MCP `text` content. |
+|| `notifications/initialized` | Acknowledged as a notification. |
+|| `ping` | Lightweight health check. |
+|| `resources/list` | Returns static documentation URIs exposed by `IMcpResourceProvider`. |
+|| `resources/read` | Returns `{ "contents": [ { "uri", "mimeType", "text" } ] }` for the requested URI. |
+|| `prompts/list` | Returns reusable prompt names and descriptions from `IMcpPromptProvider`. |
+|| `prompts/get` | Returns `{ "description", "messages": [ { "role", "content": { "type", "text" } } ] }` for the requested prompt name. |
+|| `GET /health` | HTTP-only endpoint returning `{"status":"ok"}`; not a JSON-RPC method. |
 
 ### Tool Metadata
 
 Every `AITool` now carries metadata that the adapter projects into the MCP `tools/list` response:
 
-| Field | Source | Purpose |
-| --- | --- | --- |
-| `description` | `AITool.Description` | Prefixed with `[Read-only]` or `[Mutates canvas]` and appended with category tags for broad client compatibility. |
-| `inputSchema` | `AITool.ParametersSchema` | JSON schema for tool arguments. |
-| `outputSchema` | `AITool.OutputSchema` | JSON schema describing the tool's result payload. |
-| `tags` | `AITool.Tags` | Category and behavior tags (e.g., `canvas`, `scripting`, `read-only`, `mutating`). |
-| `annotations` | `AITool.Annotations` | MCP hints: `readOnlyHint`, `destructiveHint`, `openWorldHint`, `idempotentHint`, `title`. |
+|| Field | Source | Purpose |
+|| --- | --- | --- |
+|| `description` | `AITool.Description` | Prefixed with `[Read-only]` or `[Mutates canvas]` and appended with category tags for broad client compatibility. |
+|| `inputSchema` | `AITool.ParametersSchema` | JSON schema for tool arguments. |
+|| `outputSchema` | `AITool.OutputSchema` | JSON schema describing the tool's result payload. |
+|| `tags` | `AITool.Tags` | Category and behavior tags (e.g., `canvas`, `scripting`, `read-only`, `mutating`). |
+|| `annotations` | `AITool.Annotations` | MCP hints: `readOnlyHint`, `destructiveHint`, `openWorldHint`, `idempotentHint`, `title`. |
 
 Two self-documenting tools help clients discover the surface:
 
@@ -125,6 +129,27 @@ The adapter expects MCP clients to send a tool name and a JSON object of argumen
 3. `AIToolMcpAdapter` checks the tool exists, then `AITool.Enabled`, then `EnabledTools`, then `ExposeMutatingTools`/`AITool.MutatesCanvas`.
 4. `AIToolMcpAdapter` builds an `AIToolCall` and invokes it through the configured executor (`AIToolCall.Exec()` by default).
 5. The adapter extracts the last `AIInteractionToolResult` from `AIReturn.Body` and returns it as the MCP response payload; if no tool result is present, the adapter falls back to the first Tool/Provider/Network error or an empty object.
+
+### Resources and Prompts
+
+MCP `resources/*` and `prompts/*` are served by `StaticMcpResourceProvider` and `StaticMcpPromptProvider`.
+
+Resources (`StaticMcpResourceProvider`):
+
+- `docs:///ghjson-schema` — GhJSON/GhPatch specification from `smarthopper_ghjson_reference`.
+- `docs:///smarthopper-readme` — SmartHopper operational instructions from `smarthopper_readme`.
+- `docs:///smarthopper-workflows` — canonical workflows from `smarthopper_workflows`.
+- `docs:///tool-help/{toolName}` — per-tool metadata from `smarthopper_tool_help`.
+
+Resources execute existing AITools to retrieve content and fall back to `/docs` Markdown on disk. They are the read-only, URI-addressable data surface.
+
+Prompts (`StaticMcpPromptProvider`):
+
+- `prompts:///grasshopper-expert` — general Grasshopper and SmartHopper guidance.
+- `prompts:///script-writer` — script component creation and editing.
+- `prompts:///canvas-debugger` — canvas diagnosis and debugging workflow.
+
+Prompts are pure templates. They do not execute tools or read files; they reference resources and tools by name/URI so the client can fetch live data through `resources/read` or `tools/call` when needed. This keeps the prompt surface separate from the tool execution surface.
 
 ### Thread Safety and Concurrency
 
@@ -219,19 +244,25 @@ Phase 1 is implemented under `src/SmartHopper.Infrastructure/Mcp/` rather than a
 - `McpServerOptions.cs` — port, token, allow-list, and mutating-tool settings
 - `McpServerLifecycle.cs` — ref-counted singleton server manager
 - `McpToolDescriptor.cs` / `McpToolCallResult.cs` — protocol DTOs
+- `McpResource.cs` / `McpPrompt.cs` / `McpPromptMessage.cs` — resource and prompt DTOs
+- `IMcpResourceProvider.cs` / `IMcpPromptProvider.cs` — provider contracts
+- `StaticMcpResourceProvider.cs` / `StaticMcpPromptProvider.cs` — documentation-backed providers
+- `McpToolExecutor.cs` — helper that executes AITools for resource/prompt content
 
 The component entry point lives in `src/SmartHopper.Components/Mcp/SmartHopperMcpServerComponent.cs`.
 
 ### Phased Rollout
 
-| Phase | Deliverable | Scope |
-| --- | --- | --- |
-| 0 | Design doc | No code. |
-| 1 | Transport and tool bridge | Loopback server, `tools/list`, `tools/call`, read-only tools by default. |
-| 2 | Resources | `resources/list`, `resources/read`, embedded docs. |
-| 3 | Prompts | `prompts/list`, `prompts/get`. |
-| 4 | LAN exposure and stronger auth | Opt-in networking and stricter security. |
-| 5 | Streamable HTTP / SSE | Long-running streaming transport support. |
+|| Phase | Deliverable | Scope |
+|| --- | --- | --- |
+|| 0 | Design doc | No code. |
+|| 1 | Transport and tool bridge | Loopback server, `tools/list`, `tools/call`, read-only tools by default. |
+|| 2 | Resources | `resources/list`, `resources/read`, embedded docs. |
+|| 3 | Prompts | `prompts/list`, `prompts/get`. |
+|| 4 | LAN exposure and stronger auth | Opt-in networking and stricter security. |
+|| 5 | Streamable HTTP / SSE | Long-running streaming transport support. |
+
+Phases 2 and 3 are implemented as static providers sourced from existing AITools and `/docs` Markdown.
 
 ### Decision Points
 
@@ -240,6 +271,7 @@ The component entry point lives in `src/SmartHopper.Components/Mcp/SmartHopperMc
 - **Mutating tools off by default.** `McpServerOptions.ExposeMutatingTools = false` and `AITool.MutatesCanvas` control exposure.
 - **Component path.** The component lives at `SmartHopper.Components/Mcp/SmartHopperMcpServerComponent.cs`.
 - **Component-name aliasing.** The orchestration layer already handles aliasing through `ComponentNameAliases` in `SmartHopper.Core.Grasshopper.Utils.Canvas`; no extra MCP-side alias layer is introduced.
+- **No duplicated docs.** `StaticMcpResourceProvider` delegates to existing AITools and `/docs` Markdown; it does not maintain its own copies. `StaticMcpPromptProvider` keeps prompt text as pure templates and refers clients to resources/tools for live content.
 
 ### Relationship to GhJSON and Cordyceps
 
