@@ -145,7 +145,13 @@ jobs:
           VERSION: ${{ steps.next-version.outputs.new-version }}
         run: |
           set -euo pipefail
-          unexpected=$(git status --porcelain | awk '{print $2}' | grep -vE '^(Solution.props|README.md|CHANGELOG.md)$' || true)
+          # The composite-action sync above intentionally replaces
+          # .github/actions with the workflow ref's copies; that churn is
+          # expected on release lines cut before a CI tooling refactor and is
+          # never staged, so it must not trip the guard.
+          unexpected=$(git status --porcelain | awk '{print $2}' \
+            | grep -vE '^(Solution\.props|README\.md|CHANGELOG\.md)$' \
+            | grep -v '^\.github/actions/' || true)
           if [[ -n "$unexpected" ]]; then
             echo "::error::Unexpected files changed by release preparation:" >&2
             printf '%s\n' "$unexpected" >&2
