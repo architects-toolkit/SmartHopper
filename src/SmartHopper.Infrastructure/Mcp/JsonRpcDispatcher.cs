@@ -50,15 +50,32 @@ namespace SmartHopper.Infrastructure.Mcp
 
         private readonly McpServerOptions options;
         private readonly AIToolMcpAdapter adapter;
+        private readonly IMcpResourceProvider? resourceProvider;
+        private readonly IMcpPromptProvider? promptProvider;
         private readonly SemaphoreSlim gate = new SemaphoreSlim(1, 1);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonRpcDispatcher"/> class.
         /// </summary>
         public JsonRpcDispatcher(McpServerOptions options, AIToolMcpAdapter adapter)
+            : this(options, adapter, null, null)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="JsonRpcDispatcher"/> class
+        /// with optional MCP resource and prompt providers.
+        /// </summary>
+        public JsonRpcDispatcher(
+            McpServerOptions options,
+            AIToolMcpAdapter adapter,
+            IMcpResourceProvider? resourceProvider,
+            IMcpPromptProvider? promptProvider)
         {
             this.options = options ?? throw new ArgumentNullException(nameof(options));
             this.adapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
+            this.resourceProvider = resourceProvider;
+            this.promptProvider = promptProvider;
         }
 
         /// <summary>
@@ -110,6 +127,18 @@ namespace SmartHopper.Infrastructure.Mcp
                     case "tools/call":
                         result = await this.HandleToolsCallAsync(paramsToken).ConfigureAwait(false);
                         break;
+                    case "resources/list":
+                        result = await this.HandleResourcesListAsync().ConfigureAwait(false);
+                        break;
+                    case "resources/read":
+                        result = await this.HandleResourcesReadAsync(paramsToken).ConfigureAwait(false);
+                        break;
+                    case "prompts/list":
+                        result = await this.HandlePromptsListAsync().ConfigureAwait(false);
+                        break;
+                    case "prompts/get":
+                        result = await this.HandlePromptsGetAsync(paramsToken).ConfigureAwait(false);
+                        break;
                     default:
                         return SerializeError(id, MethodNotFound, $"Method not found: {method}");
                 }
@@ -156,6 +185,8 @@ namespace SmartHopper.Infrastructure.Mcp
                 ["capabilities"] = new JObject
                 {
                     ["tools"] = new JObject { ["listChanged"] = false },
+                    ["resources"] = new JObject { ["listChanged"] = false },
+                    ["prompts"] = new JObject { ["listChanged"] = false },
                 },
                 ["serverInfo"] = new JObject
                 {
@@ -207,6 +238,137 @@ namespace SmartHopper.Infrastructure.Mcp
 
             var result = await this.adapter.ExecuteAsync(toolName!, arguments).ConfigureAwait(false);
             return BuildToolCallEnvelope(result);
+        }
+
+        private async Task<JToken> HandleResourcesListAsync()
+        {
+            if (this.resourceProvider == null)
+            {
+                return new JObject { ["resources"] = new JArray() };
+            }
+
+            var resources = await this.resourceProvider.ListResourcesAsync().ConfigureAwait(false);
+            var list = new JArray();
+            foreach (var resource in resources)
+            {
+                list.Add(new JObject
+                {
+                    ["uri"] = resource.Uri.ToString(),
+                    ["name"] = resource.Name,
+                    ["mimeType"] = resource.MimeType,
+                    ["description"] = resource.Description ?? string.Empty,
+                });
+            }
+
+            return new JObject { ["resources"] = list };
+        }
+
+        private async Task<JToken> HandleResourcesReadAsync(JObject? paramsToken)
+        {
+            if (this.resourceProvider == null)
+            {
+                return new JObject { ["contents"] = new JArray() };
+            }
+
+            var uriString = paramsToken?["uri"]?.ToString();
+            if (string.IsNullOrWhiteSpace(uriString) || !Uri.TryCreate(uriString, UriKind.RelativeOrAbsolute, out var uri))
+            {
+                return BuildResourceError("Missing or invalid 'uri'");
+            }
+
+            var resource = await this.resourceProvider.GetResourceAsync(uri).ConfigureAwait(false);
+            if (resource == null)
+            {
+                return BuildResourceError($"Resource not found: {uri}");
+            }
+
+            var text = await resource.GetTextAsync().ConfigureAwait(false);
+            var contents = new JArray
+            {
+                new JObject
+                {
+                    ["uri"] = resource.Uri.ToString(),
+                    ["mimeType"] = resource.MimeType,
+                    ["text"] = text ?? string.Empty,
+                },
+            };
+
+            return new JObject { ["contents"] = contents };
+        }
+
+        private async Task<JToken> HandlePromptsListAsync()
+        {
+            if (this.promptProvider == null)
+            {
+                return new JObject { ["prompts"] = new JArray() };
+            }
+
+            var prompts = await this.promptProvider.ListPromptsAsync().ConfigureAwait(false);
+            var list = new JArray();
+            foreach (var prompt in prompts)
+            {
+                list.Add(new JObject
+                {
+                    ["name"] = prompt.Name,
+                    ["description"] = prompt.Description,
+                });
+            }
+
+            return new JObject { ["prompts"] = list };
+        }
+
+        private async Task<JToken> HandlePromptsGetAsync(JObject? paramsToken)
+        {
+            if (this.promptProvider == null)
+            {
+                return BuildResourceError("Prompts are not available");
+            }
+
+            var name = paramsToken?["name"]?.ToString();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return BuildResourceError("Missing 'name'");
+            }
+
+            if (!Uri.TryCreate($"prompts:///{name}", UriKind.Absolute, out var uri))
+            {
+                return BuildResourceError($"Invalid prompt name: {name}");
+            }
+
+            var prompt = await this.promptProvider.GetPromptAsync(uri).ConfigureAwait(false);
+            if (prompt == null)
+            {
+                return BuildResourceError($"Prompt not found: {name}");
+            }
+
+            var messages = await prompt.GetMessagesAsync().ConfigureAwait(false);
+            var messageArray = new JArray();
+            foreach (var message in messages)
+            {
+                messageArray.Add(new JObject
+                {
+                    ["role"] = message.Role,
+                    ["content"] = new JObject
+                    {
+                        ["type"] = message.ContentType,
+                        ["text"] = message.Text,
+                    },
+                });
+            }
+
+            return new JObject
+            {
+                ["description"] = prompt.Description,
+                ["messages"] = messageArray,
+            };
+        }
+
+        private static JObject BuildResourceError(string message)
+        {
+            return new JObject
+            {
+                ["error"] = message ?? string.Empty,
+            };
         }
 
         private static JObject BuildToolCallEnvelope(McpToolCallResult result)

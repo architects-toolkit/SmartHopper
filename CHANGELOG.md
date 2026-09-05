@@ -25,6 +25,7 @@ Many thanks to the following contributors to this release:
 - Added `TestProviderHttpClientFactory`, `FakeAIProvider`, `FakeProviderModels`, and `FakeProviderRegistryHost` to `SmartHopper.ProviderSdk.Tests/TestHelpers` to support deterministic, network-free provider contract/round-trip tests.
 - Added `AIProviderCallTests` in `SmartHopper.ProviderSdk.Tests/AIProviders` covering text and tool-call round-trips, authorization header propagation, request encoding, and provider error handling using an in-memory HTTP fake.
 - Added `SelectionContextProvider` and `ViewportContextProvider` in `SmartHopper.Core/AIContext`, registered by default through `AIContextBootstrapper`. WebChat now includes `selection` and `viewport` in its default context filter.
+- Added MCP `resources/list`, `resources/read`, `prompts/list`, and `prompts/get` support in `SmartHopper.Infrastructure/Mcp/JsonRpcDispatcher`. Added `McpResource`, `McpPrompt`, `IMcpResourceProvider`, `IMcpPromptProvider`, `StaticMcpResourceProvider`, and `StaticMcpPromptProvider`. Resource and prompt content is sourced from existing AITools and `/docs` Markdown.
 
 ### Changed
 
