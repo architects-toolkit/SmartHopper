@@ -28,6 +28,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <summary>
         /// When true, the session will execute pending tool calls and allow providers to call tools.
         /// Tool passes are bounded by <see cref="MaxToolPasses"/> and do not consume <see cref="MaxTurns"/>.
+        /// When false, the session also hides every tool from the provider for the duration of the run
+        /// (tool filter <c>-*</c>), so no tool call can be emitted that would then be left without a result.
         /// </summary>
         public bool ProcessTools { get; set; } = true;
 

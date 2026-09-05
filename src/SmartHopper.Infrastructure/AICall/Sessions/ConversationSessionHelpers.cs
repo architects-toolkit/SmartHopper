@@ -137,11 +137,65 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
 
         /// <summary>
-        /// Drains any pending tool calls before a provider turn begins.
+        /// Tool filter expression that hides every tool from the provider.
         /// </summary>
-        private async Task<List<AIReturn>> ResolvePendingToolsAsync(SessionOptions options, string turnId, CancellationToken ct)
+        private const string DisableAllToolsFilter = "-*";
+
+        /// <summary>
+        /// Appends a synthetic failed <see cref="AIInteractionToolResult"/> for every pending tool call so the
+        /// history never carries a tool call without a matching result.
+        /// </summary>
+        /// <remarks>
+        /// OpenAI-compatible chat APIs (DeepSeek, OpenAI, Mistral, OpenRouter, ...) reject any assistant
+        /// <c>tool_calls</c> message that is not immediately followed by one <c>tool</c> message per call id.
+        /// The session therefore guarantees the invariant "no pending tool calls when a provider is invoked" by
+        /// calling this method whenever a turn ends abnormally (cancellation, error, exhausted tool passes or
+        /// turns) and as a safety net at the start of every turn. Synthetic results reuse the shape produced by
+        /// <see cref="ExecuteSingleToolAsync"/> for failed tools so observers and providers need no special casing.
+        /// </remarks>
+        /// <param name="reason">Human-readable reason recorded in each synthetic result.</param>
+        /// <returns>The number of tool calls that were reconciled.</returns>
+        private int ReconcilePendingToolCalls(string reason)
         {
-            return await this.ProcessPendingToolsAsync(options, turnId, ct).ConfigureAwait(false);
+            var pending = this.Request.Body?.PendingToolCallsList();
+            if (pending == null || pending.Count == 0)
+            {
+                return 0;
+            }
+
+            foreach (var tc in pending)
+            {
+                var turnId = string.IsNullOrWhiteSpace(tc.TurnId) ? InteractionUtility.GenerateTurnId() : tc.TurnId;
+                var result = new AIInteractionToolResult
+                {
+                    Id = tc.Id,
+                    Name = tc.Name,
+                    Agent = AIAgent.ToolResult,
+                    TurnId = turnId,
+                    Result = new JObject
+                    {
+                        ["success"] = false,
+                        ["cancelled"] = true,
+                        ["messages"] = new JArray(reason),
+                    },
+                };
+
+                this.PersistToolResult(result, turnId);
+            }
+
+            Debug.WriteLine($"[ConversationSession.ReconcilePendingToolCalls] Reconciled {pending.Count} pending tool call(s): {reason}");
+            return pending.Count;
+        }
+
+        /// <summary>
+        /// Replaces the session body's tool filter, preserving interactions, new-markers and other filters.
+        /// </summary>
+        private void SetToolFilter(string toolFilter)
+        {
+            if (this.Request.Body != null)
+            {
+                this.Request.Body = this.Request.Body with { ToolFilter = toolFilter };
+            }
         }
 
         /// <summary>
@@ -851,14 +905,21 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <summary>
         /// Creates a provider error return, surfaces error interactions to observers, and notifies error.
         /// Centralizes error handling to avoid duplication across catch blocks.
+        /// Any tool call left without a result by the aborted turn is closed with a synthetic failed result
+        /// so the history stays valid for the next provider call.
         /// </summary>
         /// <param name="ex">The exception that occurred.</param>
         /// <returns>The error AIReturn.</returns>
         private AIReturn HandleAndNotifyError(Exception ex)
         {
-            var errorMessage = ex is OperationCanceledException
+            var cancelled = ex is OperationCanceledException;
+            var errorMessage = cancelled
                 ? "Call cancelled or timed out"
                 : ex.Message;
+
+            this.ReconcilePendingToolCalls(cancelled
+                ? "Tool execution was cancelled before completion."
+                : $"Tool execution was aborted by an error: {ex.Message}");
 
             var error = new AIReturn();
             error.CreateProviderError(errorMessage, this.Request);

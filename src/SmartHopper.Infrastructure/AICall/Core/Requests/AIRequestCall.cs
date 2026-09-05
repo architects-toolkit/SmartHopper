@@ -277,7 +277,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// </summary>
         /// <param name="stream">If true, uses streaming mode via provider's streaming adapter.</param>
         /// <returns>The result of the provider call in <see cref="AIReturn"/> format.</returns>
-        public async Task<AIReturn> Exec(bool stream = false)
+        public virtual async Task<AIReturn> Exec(bool stream = false)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
