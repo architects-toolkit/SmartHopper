@@ -14,7 +14,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Tool-call history integrity** (`invalid_request_error: An assistant message with 'tool_calls' must be followed by tool messages…` on DeepSeek and other OpenAI-compatible providers): a run aborted by cancellation, timeout, error, or an exhausted tool-pass/turn budget could leave a tool call in the conversation history without a result, and every subsequent request was then rejected. `ConversationSession` now closes such calls with a synthetic failed tool result (`success: false, cancelled: true`) when the turn ends abnormally and, as a safety net, at the start of every turn. `SessionOptions.ProcessTools = false` now also hides tools from the provider for the run (restoring the original tool filter afterwards), so single-shot runs such as the chat greeting cannot emit tool calls that would never be answered.
-- (automatically added) Fixes "LocalAI and Ollama providers are not properly signed to work with SmartHopper dev.260821" ([#767](https://github.com/architects-toolkit/SmartHopper/issues/767)).
 
 ## [1.4.4] - 2026-07-14
 
