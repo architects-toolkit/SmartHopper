@@ -7,7 +7,7 @@ name: pr-delete-auto-branches
 # - chore/*
 # - docs/*
 # - ci/*
-# - release/*
+# - release-prep/*
 # - feature/*
 # - feat/*
 # - hotfix/*
@@ -45,7 +45,7 @@ jobs:
       startsWith(github.event.pull_request.head.ref, 'chore/') ||
       startsWith(github.event.pull_request.head.ref, 'docs/') ||
       startsWith(github.event.pull_request.head.ref, 'ci/') ||
-      startsWith(github.event.pull_request.head.ref, 'release/') ||
+      startsWith(github.event.pull_request.head.ref, 'release-prep/') ||
       startsWith(github.event.pull_request.head.ref, 'feature/') ||
       startsWith(github.event.pull_request.head.ref, 'feat/') ||
       startsWith(github.event.pull_request.head.ref, 'hotfix/') ||
