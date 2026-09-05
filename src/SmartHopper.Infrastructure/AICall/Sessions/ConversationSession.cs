@@ -42,7 +42,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     /// </summary>
     /// <remarks>
     /// Invariants:
-    /// - Providers are invoked only if there are no pending tool calls (PendingToolCallsCount() == 0).
+    /// - Providers are invoked only if there are no pending tool calls (PendingToolCallsCount() == 0). Tool calls
+    ///   left without a result by an aborted turn (cancellation, error, exhausted passes/turns) or found at turn
+    ///   start are closed with synthetic failed results (see <c>ReconcilePendingToolCalls</c>).
+    /// - When <see cref="SessionOptions.ProcessTools"/> is false, tools are hidden from the provider for the run.
     /// - Only provider turns increment the MaxTurns counter (tool passes do not consume turns).
     /// - Streaming text deltas are accumulated in memory and only the final aggregated text is persisted to history.
     /// - Non-text interactions (tool calls, tool results) are persisted immediately as they arrive.
@@ -162,6 +165,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(this.cts.Token, options.CancellationToken, cancellationToken);
+
+            // When tools are not processed, they must not be offered to the provider either: a tool call emitted
+            // in this mode would never receive a result and would corrupt the history for every later request.
+            // The original filter is restored in the finally block so subsequent runs with ProcessTools=true
+            // see the tools again.
+            var originalToolFilter = this.Request.Body?.ToolFilter;
+            var toolsDisabledForRun = !options.ProcessTools && !string.Equals(originalToolFilter, DisableAllToolsFilter, StringComparison.Ordinal);
             try
             {
                 this.NotifyStart(this.Request);
@@ -178,6 +188,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         yield return greetingResult;
                         yield break;
                     }
+                }
+
+                if (toolsDisabledForRun)
+                {
+                    this.SetToolFilter(DisableAllToolsFilter);
                 }
 
                 // Centralized validation: early interrupt if request is invalid
@@ -205,6 +220,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                     // Reset summarization flag at the start of each turn
                     this.ResetSummarizationFlag();
+
+                    // Invariant: providers are only invoked when every tool call has a result. Pending calls at
+                    // this point are leftovers from a run that ended before its tools completed (cancel, error,
+                    // externally supplied history); the user has moved on, so they are closed rather than executed.
+                    this.ReconcilePendingToolCalls("Tool call was not executed: the previous run ended before tool execution completed.");
 
                     // Check context usage before provider call and summarize if needed (applies to both streaming and non-streaming)
                     await this.CheckAndSummarizeContextAsync(linkedCts.Token).ConfigureAwait(false);
@@ -498,6 +518,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 }
 
                 // Max turns reached without stability
+                this.ReconcilePendingToolCalls($"Tool execution was skipped: the maximum number of provider turns ({options.MaxTurns}) was reached.");
                 var final = lastReturn ?? this.CreateError("Max turns reached without a stable result");
                 this._lastReturn = final;
                 this.UpdateLastReturn();
@@ -506,6 +527,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             finally
             {
+                if (toolsDisabledForRun)
+                {
+                    this.SetToolFilter(originalToolFilter);
+                }
+
                 linkedCts.Dispose();
             }
         }
@@ -971,6 +997,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 {
                     break;
                 }
+            }
+
+            // Tool pass budget exhausted while the provider keeps requesting tools: close the remaining calls so
+            // the history stays valid instead of carrying dangling tool_calls into the next provider request.
+            if (this.ReconcilePendingToolCalls($"Tool execution was skipped: the maximum number of tool passes per turn ({options.MaxToolPasses}) was reached.") > 0)
+            {
+                this.UpdateLastReturn();
+                preparedYields.Add(this._lastReturn);
             }
 
             return preparedYields;

@@ -20,7 +20,7 @@ Purpose: Centralize multi-turn conversation orchestration with optional streamin
   - `OnFinal(AIReturn finalResult)`
   - `OnError(Exception error)`
 - `SessionOptions`
-  - `ProcessTools` (bool): process pending tool calls in the result.
+  - `ProcessTools` (bool): process pending tool calls in the result. When `false`, tools are also hidden from the provider for the whole run (tool filter `-*`, original filter restored afterwards) so the model cannot emit tool calls that would never receive a result.
   - `MaxTurns`, `MaxToolPasses`, `AllowParallelTools` (reserved for future phases)
   - `CancellationToken`
 - `ConversationSession`
@@ -106,6 +106,7 @@ Notes:
 - Streaming uses provider adapters when available and falls back to a single non-streaming provider turn when not.
 - Persistence semantics: streaming deltas are persisted into history as they arrive, strictly preserving provider order. At stream end, only the "last return" snapshot is updated (no grouping or reordering).
 - **Duplicate prevention**: Tool calls are checked for existence by ID before persisting during streaming to prevent duplicate tool call interactions that would cause API validation errors.
+- **Tool-call history integrity**: OpenAI-compatible chat APIs reject an assistant `tool_calls` message that is not immediately followed by one `tool` message per call id, so the session — not the providers — guarantees that history never carries a pending tool call into a provider request. `ReconcilePendingToolCalls` appends a synthetic failed `AIInteractionToolResult` (`{ success: false, cancelled: true, messages: [reason] }`, same shape as a failed tool execution) for every pending call: (1) in `HandleAndNotifyError` when a turn is aborted by cancellation, timeout or exception; (2) when `ProcessPendingToolsAsync` exhausts `MaxToolPasses`; (3) when the turn loop exits on `MaxTurns`; and (4) as a safety net at the start of every turn, which also covers externally supplied history. Stale calls found at turn start are closed, not executed — the user has moved on since the run that produced them. Providers therefore must not sanitize tool sequences themselves; a provider-side 400 in this area indicates a session bug.
 
 ## Special Turns
 
