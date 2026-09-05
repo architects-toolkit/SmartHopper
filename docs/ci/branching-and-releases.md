@@ -182,7 +182,9 @@ not moved automatically.
 2. Commit the fix on that branch (`CHANGELOG.md` under `[Unreleased]`).
 3. **`hotfix-2-release.yml`** — cherry-picks the hotfix commits onto `main` as
    `release-prep/<patch-version>` and opens the release PR, plus `backport/*` PRs into every active
-   `release/X.Y`. Conflicts stop the workflow and open an issue instead of guessing.
+   `release/X.Y`. Conflicts stop the workflow and open an issue instead of guessing. When all
+   cherry-picks succeed, the workflow deletes the `hotfix/<version>-<slug>` branch, which is exempt
+   from the stale-branch sweeper.
 4. Merging the release PR tags and releases exactly as in §5.1.
 
 For a stabilization-line hotfix, select the tag from that line and run

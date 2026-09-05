@@ -457,3 +457,35 @@ jobs:
           pr-number: ${{ steps.create-pr.outputs.pr-number }}
           base-ref: release/${{ matrix.line }}
           pr-title: "chore: backport hotfix ${{ needs.prepare.outputs.version }} to release/${{ matrix.line }}"
+
+  cleanup:
+    needs: [prepare, backport]
+    # Delete the hotfix branch only after every consumer of its commits has
+    # finished: the release-prep branch and any backport/* branches already
+    # carry the cherry-picked commits. When a backport conflicts, the job fails
+    # and the branch is kept for the documented manual rebase.
+    if: >-
+      always() &&
+      needs.prepare.result == 'success' &&
+      (needs.backport.result == 'success' || needs.backport.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete hotfix branch
+        shell: bash
+        env:
+          # Old release tags still contain .github/workflows/* files that the
+          # GITHUB_TOKEN cannot manage without the workflow scope, so ref
+          # operations on hotfix branches use the stability PAT (same as
+          # hotfix-1-start.yml and release-2-tag-on-merge.yml).
+          GH_TOKEN: ${{ secrets.STABILITY_PAT_TOKEN }}
+          HOTFIX_BRANCH: ${{ needs.prepare.outputs.hotfix-branch }}
+        run: |
+          set -euo pipefail
+          if gh api -X DELETE \
+            "repos/${{ github.repository }}/git/refs/heads/${HOTFIX_BRANCH}" \
+            --silent; then
+            echo "Deleted hotfix branch '$HOTFIX_BRANCH'."
+          else
+            echo "::warning::Could not delete hotfix branch '$HOTFIX_BRANCH'. Delete it manually if it is no longer needed." >&2
+          fi

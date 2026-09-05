@@ -30,6 +30,7 @@ Many thanks to the following contributors to this release:
 - Removed redundant `new` modifiers on `provider` fields in first-party `*ProviderSettings` classes; the base `AIProviderSettings` does not expose a conflicting accessible member, so the modifier only produced compiler warnings.
 - Releases now come from a single `main` branch with on-demand stabilization lines: a release is prepared on demand, tagged when its pull request merges, and published as a draft release. Version tags are the source of truth for released versions.
 - Hotfixes now branch from the release tag they patch and are backported automatically to active release lines.
+- `hotfix-2-release.yml` now deletes the `hotfix/<version>-<slug>` branch once the release-prep and backport branches carry its commits; on a backport conflict the branch is kept for manual resolution.
 - Maintenance workflows that open automatic pull requests now target `main`.
 - Development releases are supported as dated prereleases for testers, and promotion checks cover every version on a stabilization line.
 - Same-day development releases use a sequence suffix so `main` always advances beyond an existing tag.

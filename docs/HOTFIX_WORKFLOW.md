@@ -13,7 +13,10 @@ normal release cycle.
 3. Run **`hotfix-2-release.yml`** for the hotfix branch. It cherry-picks the
    fix onto the selected `target-branch` (`main` by default, or `release/X.Y`), prepares the next
    stable patch release, and opens a `release-prep/<version>` pull request. When enabled, it also
-   opens fix-only backport pull requests for active `release/X.Y` lines.
+   opens fix-only backport pull requests for active `release/X.Y` lines. Once the
+   release-prep branch and every backport branch carry the commits, the
+   workflow deletes the `hotfix/<tag>-<slug>` branch; on a backport conflict
+   the branch is kept for manual resolution.
 4. Review and merge the release-preparation pull request into `main`. The
    normal tag, draft release, build, Pages, and Yak workflows then handle the
    release.
@@ -25,7 +28,7 @@ issue for manual resolution.
 
 - **`hotfix-1-start.yml`** — creates a tag-based hotfix branch.
 - **`hotfix-2-release.yml`** — prepares the stable patch release and optional
-  release-line backports.
+  release-line backports, then deletes the hotfix branch.
 - **`release-2-tag-on-merge.yml`** — tags the merged release-preparation PR and
   creates the draft GitHub release.
 - **`release-3-build.yml`**, **`release-4-deploy-pages.yml`**, and
