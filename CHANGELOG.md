@@ -24,9 +24,11 @@ Many thanks to the following contributors to this release:
 - Added automatic `version:` labeling for pull requests and issues. `pr-milestone.yml` now delegates to the `milestone/assign-pr` action; `milestone/assign-pr`, `github-issue-label-version-from-template.yml`, and `create-version-label` all use the shared `versioning/normalize-version` action to produce a milestone-aligned `version:` label (e.g. `version: 2.0.0-alpha` for `2.0.0-dev.260901`), creating the label if it does not exist.
 - Added `TestProviderHttpClientFactory`, `FakeAIProvider`, `FakeProviderModels`, and `FakeProviderRegistryHost` to `SmartHopper.ProviderSdk.Tests/TestHelpers` to support deterministic, network-free provider contract/round-trip tests.
 - Added `AIProviderCallTests` in `SmartHopper.ProviderSdk.Tests/AIProviders` covering text and tool-call round-trips, authorization header propagation, request encoding, and provider error handling using an in-memory HTTP fake.
+- Added `SelectionContextProvider` and `ViewportContextProvider` in `SmartHopper.Core/AIContext`, registered by default through `AIContextBootstrapper`. WebChat now includes `selection` and `viewport` in its default context filter.
 
 ### Changed
 
+- `FileContextProvider` no longer reports selected object metadata. Use the new `SelectionContextProvider` for `selected-count`, `selected-objects`, `selected-topology`, and `selected-runtime-values`.
 - Removed redundant `new` modifiers on `provider` fields in first-party `*ProviderSettings` classes; the base `AIProviderSettings` does not expose a conflicting accessible member, so the modifier only produced compiler warnings.
 - Releases now come from a single `main` branch with on-demand stabilization lines: a release is prepared on demand, tagged when its pull request merges, and published as a draft release. Version tags are the source of truth for released versions.
 - Hotfixes now branch from the release tag they patch and are backported automatically to active release lines.
