@@ -35,7 +35,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj" />
-    <ProjectReference Include="..\SmartHopper.Providers.DeepSeek\SmartHopper.Providers.DeepSeek.csproj" />
   </ItemGroup>
 
   <!-- For Windows only builds -->

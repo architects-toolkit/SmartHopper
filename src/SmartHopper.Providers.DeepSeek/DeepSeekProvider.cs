@@ -319,8 +319,6 @@ namespace SmartHopper.Providers.DeepSeek
                 convertedMessages.Add(currentMessage);
             }
 
-            convertedMessages = RemoveIncompleteToolCallSequences(convertedMessages);
-
 #if DEBUG
             // Log final messages array for debugging
             try
@@ -437,87 +435,6 @@ namespace SmartHopper.Providers.DeepSeek
 #endif
 
             return requestBody.ToString();
-        }
-
-        private static JArray RemoveIncompleteToolCallSequences(JArray messages)
-        {
-            var sanitizedMessages = new JArray();
-
-            for (var index = 0; index < messages.Count; index++)
-            {
-                if (messages[index] is not JObject message)
-                {
-                    continue;
-                }
-
-                var role = message["role"]?.ToString();
-                if (string.Equals(role, "tool", StringComparison.OrdinalIgnoreCase))
-                {
-                    Debug.WriteLine("[DeepSeek] Removed orphan tool result from request history.");
-                    continue;
-                }
-
-                if (!string.Equals(role, "assistant", StringComparison.OrdinalIgnoreCase) ||
-                    message["tool_calls"] is not JArray toolCalls ||
-                    toolCalls.Count == 0)
-                {
-                    sanitizedMessages.Add(message);
-                    continue;
-                }
-
-                var toolCallIds = toolCalls
-                    .OfType<JObject>()
-                    .Select(toolCall => toolCall["id"]?.ToString())
-                    .ToList();
-                var resultMessages = new List<JObject>();
-                var resultIndex = index + 1;
-
-                while (resultIndex < messages.Count &&
-                       messages[resultIndex] is JObject resultMessage &&
-                       string.Equals(resultMessage["role"]?.ToString(), "tool", StringComparison.OrdinalIgnoreCase))
-                {
-                    resultMessages.Add(resultMessage);
-                    resultIndex++;
-                }
-
-                var resultIds = resultMessages
-                    .Select(result => result["tool_call_id"]?.ToString())
-                    .ToList();
-                var validCallIds = toolCallIds.Count == toolCalls.Count &&
-                    toolCallIds.All(id => !string.IsNullOrWhiteSpace(id)) &&
-                    toolCallIds.Distinct(StringComparer.Ordinal).Count() == toolCallIds.Count;
-                var validResultIds = resultIds.Count == toolCallIds.Count &&
-                    resultIds.All(id => !string.IsNullOrWhiteSpace(id)) &&
-                    resultIds.Distinct(StringComparer.Ordinal).Count() == resultIds.Count;
-                var completeSequence = validCallIds &&
-                    validResultIds &&
-                    new HashSet<string>(toolCallIds!, StringComparer.Ordinal).SetEquals(resultIds!);
-
-                if (completeSequence)
-                {
-                    sanitizedMessages.Add(message);
-                    foreach (var resultMessage in resultMessages)
-                    {
-                        sanitizedMessages.Add(resultMessage);
-                    }
-                }
-                else
-                {
-                    var textOnlyMessage = (JObject)message.DeepClone();
-                    textOnlyMessage.Remove("tool_calls");
-                    textOnlyMessage.Remove("reasoning_content");
-                    if (!string.IsNullOrWhiteSpace(textOnlyMessage["content"]?.ToString()))
-                    {
-                        sanitizedMessages.Add(textOnlyMessage);
-                    }
-
-                    Debug.WriteLine("[DeepSeek] Removed incomplete tool-call sequence from request history.");
-                }
-
-                index = resultIndex - 1;
-            }
-
-            return sanitizedMessages;
         }
 
         /// <inheritdoc/>
