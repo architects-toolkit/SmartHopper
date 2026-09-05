@@ -168,5 +168,4 @@ Notes:
 - Streaming uses provider adapters when available and falls back to a single non-streaming provider turn when not.
 - Persistence semantics: streaming deltas are persisted into history as they arrive, strictly preserving provider order. At stream end, only the "last return" snapshot is updated (no grouping or reordering).
 - **Duplicate prevention**: Tool calls are checked for existence by ID before persisting during streaming to prevent duplicate tool call interactions that would cause API validation errors.
-
-
+- **TurnId ownership**: the session, not the provider, owns turn identifiers. Every provider turn allocates one `turnId`, and all interactions produced during that turn (text, tool calls, tool results, streaming deltas) are stamped with it via `InteractionUtility.EnsureTurnId`, which **overwrites** any value already present. This is required because provider results are built through `AIReturn.SetBody(...)` → `AIBodyBuilder.Build()`, which assigns a random `TurnId` to every interaction lacking one; treating that value as authoritative would put each delta in its own turn (observers key UI messages by `TurnId`, so this manifests as one bubble per streaming chunk). Special-turn persistence applies the same rule to greeting/summary results. Pre-existing history is never re-stamped.

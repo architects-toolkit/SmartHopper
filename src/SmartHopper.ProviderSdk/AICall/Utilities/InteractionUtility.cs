@@ -34,13 +34,20 @@ namespace SmartHopper.ProviderSdk.AICall.Utilities
         public static string GenerateTurnId() => Guid.NewGuid().ToString("N");
 
         /// <summary>
-        /// Returns a new sequence where any interaction that is missing a turn identifier has been
-        /// replaced with a copy carrying the supplied <paramref name="turnId"/>.
-        /// Skips null interactions and does nothing if the turnId is null or empty.
+        /// Returns a new sequence where every non-null interaction carries the supplied
+        /// <paramref name="turnId"/>, replacing any pre-existing turn identifier.
+        /// Does nothing if the turnId is null or empty.
         /// </summary>
+        /// <remarks>
+        /// Turn identifiers are owned by the conversation session, not by providers. Provider-produced
+        /// bodies (via <c>AIReturn.SetBody</c>) are built without a default turn ID, so
+        /// <c>AIBodyBuilder.Build()</c> stamps each interaction with a fresh random GUID. This method
+        /// must therefore overwrite unconditionally; an "assign only if missing" policy would silently
+        /// leave every provider interaction in its own random turn.
+        /// </remarks>
         /// <param name="interactions">The interactions to update.</param>
         /// <param name="turnId">The turn ID to assign to all interactions.</param>
-        /// <returns>A sequence of interactions with assigned turn identifiers.</returns>
+        /// <returns>A sequence of interactions sharing the given turn identifier.</returns>
         public static IEnumerable<IAIInteraction> EnsureTurnId(IEnumerable<IAIInteraction> interactions, string turnId)
         {
             if (string.IsNullOrWhiteSpace(turnId) || interactions == null)
@@ -49,19 +56,9 @@ namespace SmartHopper.ProviderSdk.AICall.Utilities
             }
 
             return interactions.Select(interaction =>
-            {
-                if (interaction == null)
-                {
-                    return null;
-                }
-
-                if (string.IsNullOrWhiteSpace(interaction.TurnId))
-                {
-                    return interaction.WithTurnId(turnId);
-                }
-
-                return interaction;
-            });
+                interaction == null || string.Equals(interaction.TurnId, turnId, StringComparison.Ordinal)
+                    ? interaction
+                    : interaction.WithTurnId(turnId));
         }
     }
 }

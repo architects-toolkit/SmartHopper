@@ -63,6 +63,7 @@ Many thanks to the following contributors to this release:
 
 ### Fixed
 
+- **Streaming / turn grouping**: Every streaming delta (and every interaction of a non-streaming provider response) was rendered as a separate assistant message with its own random `TurnId`, and per-turn metrics aggregation was broken. `InteractionUtility.EnsureTurnId` now unconditionally stamps the session's turn identifier onto provider-produced interactions, restoring the contract lost in the immutable `AIBody` refactor (`AIBodyBuilder.Build()` always assigns a random `TurnId`, so an "assign only if missing" policy was a no-op). Special-turn persistence (`PersistResult`, `PersistAll`, `ReplaceAbove`) applies the same rule to greeting and summary results.
 - `SmartHopper.sln` no longer maps `SmartHopper.Components.Test` to `Release` build configurations; the test-only project is now built only in Debug, aligning with `.devin/rules/solution-structure.md`.
 - Fixed a nullability mismatch in `AIRequestBase.Provider` by updating `IAIRequest.Provider` to `string?`, matching the fact that a provider may be unset until the request is initialized.
 - `tools/Sign-Authenticode.ps1` now Authenticode-signs `SmartHopper.Providers.LocalAI.dll` and `SmartHopper.Providers.Ollama.dll`. They were missing from the signing allowlist, so both providers shipped unsigned and Grasshopper refused to enable them as untrusted providers.

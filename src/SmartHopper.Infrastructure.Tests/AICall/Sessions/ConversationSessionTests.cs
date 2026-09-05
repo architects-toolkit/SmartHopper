@@ -129,6 +129,38 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
             Assert.True(callCount <= 3, $"Expected at most 3 turns but got {callCount}");
         }
 
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession RunToStableResult stamps provider interactions with a single session TurnId [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession RunToStableResult stamps provider interactions with a single session TurnId [Core]")]
+#endif
+        public async Task RunToStableResult_ProviderInteractions_ShareSessionTurnId()
+        {
+            // Provider results are built through AIBodyBuilder.Build(), which assigns a random TurnId to every
+            // interaction. The session must replace those with its own per-turn identifier; otherwise each
+            // interaction (and each streaming delta) is rendered as a separate turn by observers.
+            var request = CreateTestableRequest();
+            var userTurnId = request.Body.Interactions.Single().TurnId;
+            request.ResponseInteractions = new List<IAIInteraction>
+            {
+                new AIInteractionText { Agent = AIAgent.Assistant, Content = "part 1", TurnId = "provider-a" },
+                new AIInteractionText { Agent = AIAgent.Assistant, Content = "part 2", TurnId = "provider-b" },
+            };
+
+            var session = new ConversationSession(request);
+            await session.RunToStableResult(new SessionOptions { ProcessTools = false }).ConfigureAwait(false);
+
+            var assistant = session.Request.Body.Interactions.Where(i => i.Agent == AIAgent.Assistant).ToList();
+            Assert.Equal(2, assistant.Count);
+            Assert.Single(assistant.Select(i => i.TurnId).Distinct(StringComparer.Ordinal));
+            Assert.DoesNotContain(assistant, i => i.TurnId == "provider-a" || i.TurnId == "provider-b");
+
+            // Pre-existing history keeps its own turn identifier.
+            var user = session.Request.Body.Interactions.Single(i => i.Agent == AIAgent.User);
+            Assert.Equal(userTurnId, user.TurnId);
+            Assert.NotEqual(userTurnId, assistant[0].TurnId);
+        }
+
         #endregion
 
         #region Streaming
@@ -224,6 +256,11 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
 
             public Func<Task<string>> OnExec { get; set; }
 
+            /// <summary>
+            /// When set, returned verbatim as the provider result instead of a single text built from <see cref="ResponseText"/>.
+            /// </summary>
+            public List<IAIInteraction> ResponseInteractions { get; set; }
+
             public override (bool IsValid, List<SHRuntimeMessage> Errors) IsValid()
             {
                 // Bypass provider/model/endpoint validation for unit tests
@@ -234,13 +271,19 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                var ret = new AIReturn();
+                if (this.ResponseInteractions != null)
+                {
+                    ret.SetBody(this.ResponseInteractions);
+                    return ret;
+                }
+
                 var text = this.OnExec != null ? await this.OnExec() : this.ResponseText;
                 var body = AIBodyBuilder.Create()
                     .WithTurnId(Guid.NewGuid().ToString("N"))
                     .AddText(AIAgent.Assistant, text)
                     .Build();
 
-                var ret = new AIReturn();
                 ret.SetBody(body);
                 return ret;
             }

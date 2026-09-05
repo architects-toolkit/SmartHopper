@@ -133,10 +133,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 return this.CreateError("Special turn provider returned no response");
             }
 
-            // Apply TurnId to new interactions
-            var newInteractions = result.Body?.GetNewInteractions();
-            newInteractions = InteractionUtility.EnsureTurnId(newInteractions, turnId).ToList();
-
+            // TurnId is stamped by the persistence strategy (ApplyPersistenceStrategy) when the
+            // result is merged into the main conversation, so the raw provider result is returned as-is.
             // Do NOT notify observers here - they will be notified by ApplyPersistenceStrategy
             return result;
         }
@@ -339,12 +337,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var resultInteractions = result?.Body?.Interactions?.Where(i => i.Agent == AIAgent.Assistant).ToList();
             if (resultInteractions != null && resultInteractions.Count > 0)
             {
-                foreach (var rawInteraction in resultInteractions)
+                foreach (var interaction in InteractionUtility.EnsureTurnId(resultInteractions, turnId))
                 {
-                    var interaction = string.IsNullOrWhiteSpace(rawInteraction.TurnId)
-                        ? rawInteraction.WithTurnId(turnId)
-                        : rawInteraction;
-
                     this.AppendToSessionHistory(interaction);
                 }
 
@@ -363,12 +357,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             if (interactions != null && interactions.Count > 0)
             {
-                foreach (var rawInteraction in interactions)
+                foreach (var interaction in InteractionUtility.EnsureTurnId(interactions, turnId))
                 {
-                    var interaction = string.IsNullOrWhiteSpace(rawInteraction.TurnId)
-                        ? rawInteraction.WithTurnId(turnId)
-                        : rawInteraction;
-
                     this.AppendToSessionHistory(interaction);
                 }
 
@@ -402,12 +392,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 .AsHistory();
             builder.AddRange(preservedInteractions);
 
-            foreach (var rawInteraction in resultInteractions)
+            foreach (var interaction in InteractionUtility.EnsureTurnId(resultInteractions, turnId))
             {
-                var interaction = string.IsNullOrWhiteSpace(rawInteraction.TurnId)
-                    ? rawInteraction.WithTurnId(turnId)
-                    : rawInteraction;
-
                 // Convert Assistant responses to Summary for summarization turns
                 if (isSummarizeTurn && interaction.Agent == AIAgent.Assistant && interaction is AIInteractionText textInteraction)
                 {
