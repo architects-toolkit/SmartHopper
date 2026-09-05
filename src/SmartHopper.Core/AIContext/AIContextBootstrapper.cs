@@ -19,7 +19,7 @@
 /*
  * AIContextBootstrapper
  * Purpose: Centralized, idempotent initializer for context providers that should be globally available.
- * Currently registers SelectionContextProvider so it can be used by both AIChat and CanvasButton scenarios.
+ * Registers time, environment, file, selection, and viewport providers so they are available to chat and AI components.
  */
 
 using System;
@@ -62,6 +62,8 @@ namespace SmartHopper.Core.AIContext
                     AIContextManager.RegisterProvider(new TimeContextProvider());
                     AIContextManager.RegisterProvider(new EnvironmentContextProvider());
                     AIContextManager.RegisterProvider(new FileContextProvider());
+                    AIContextManager.RegisterProvider(new SelectionContextProvider());
+                    AIContextManager.RegisterProvider(new ViewportContextProvider());
                     _initialized = true;
                     Debug.WriteLine("[AIContextBootstrapper] Context providers initialized");
                 }
