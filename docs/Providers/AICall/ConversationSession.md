@@ -117,7 +117,7 @@ var greeting = await session.ExecuteSpecialTurnAsync(
   - `OnFinal(AIReturn finalResult)`
   - `OnError(Exception error)`
 - `SessionOptions`
-  - `ProcessTools` (bool): process pending tool calls in the result.
+  - `ProcessTools` (bool): process pending tool calls in the result. When `false`, tools are also hidden from the provider for the whole run (tool filter `-*`, original filter restored afterwards) so the model cannot emit tool calls that would never receive a result.
   - `MaxTurns`, `MaxToolPasses`, `AllowParallelTools` (reserved for future phases)
   - `CancellationToken`
 - `ConversationSession`
@@ -137,11 +137,11 @@ The diagram below shows the unified orchestration used by `ConversationSession.c
 ```mermaid
 flowchart TD
 %% Entry
-START["Start (RunToStableResult | Stream)"] --> VAL{"Validate (wantsStreaming?)"}
+START["Start (RunToStableResult | Stream)"] --> G{"Pending greeting?<br/>generateGreeting && !greetingEmitted"}
+G -->|"yes & EnableAIGreeting"| GE["GenerateGreetingAsync → GreetingSpecialTurn<br/>(tools disabled via filter \"-*\"; yields greeting and ends the run)"]
+G -->|"no / greeting disabled"| VAL{"Validate (wantsStreaming?)"}
 VAL -->|invalid| ERR["Emit/Return error"]
-VAL -->|valid| G{"Generate greeting?"}
-G -->|yes| GE["Emit greeting (stream) / Return greeting (non-stream)"]
-G -->|no| T{"turns < MaxTurns"}
+VAL -->|valid| T{"turns < MaxTurns"}
 
 %% Per-turn processing
 T --> PEND{"ProcessTools && PendingToolCalls > 0"}
@@ -165,7 +165,9 @@ T -->|exceeded| MAX["Max turns reached → error final"]
 Notes:
 
 - Both public APIs now delegate to the same internal loop `TurnLoopAsync(...)` for consistent behavior.
+- **Automatic greeting**: when the session is constructed with `generateGreeting: true`, the first `RunToStableResult`/`Stream` call is intercepted before validation and routed to `GenerateGreetingAsync`, which executes the built-in `GreetingSpecialTurn` (dedicated greeting prompt, provider's default Text2Text model, all tools disabled via `OverrideToolFilter = "-*"`, 30 s timeout, `PersistResult`). The one-shot flag is cleared after emitting, so callers (e.g., `WebChatDialog.InitializeNewConversationAsync`) trigger the greeting simply by starting a run — they must not invoke it again. Greeting generation is gated by `SmartHopperAssistant.EnableAIGreeting`; when disabled, `GenerateGreetingAsync` returns null and the call falls through to normal validation and the turn loop.
 - Streaming uses provider adapters when available and falls back to a single non-streaming provider turn when not.
 - Persistence semantics: streaming deltas are persisted into history as they arrive, strictly preserving provider order. At stream end, only the "last return" snapshot is updated (no grouping or reordering).
 - **Duplicate prevention**: Tool calls are checked for existence by ID before persisting during streaming to prevent duplicate tool call interactions that would cause API validation errors.
 - **TurnId ownership**: the session, not the provider, owns turn identifiers. Every provider turn allocates one `turnId`, and all interactions produced during that turn (text, tool calls, tool results, streaming deltas) are stamped with it via `InteractionUtility.EnsureTurnId`, which **overwrites** any value already present. This is required because provider results are built through `AIReturn.SetBody(...)` → `AIBodyBuilder.Build()`, which assigns a random `TurnId` to every interaction lacking one; treating that value as authoritative would put each delta in its own turn (observers key UI messages by `TurnId`, so this manifests as one bubble per streaming chunk). Special-turn persistence applies the same rule to greeting/summary results. Pre-existing history is never re-stamped.
+- **Tool-call history integrity**: OpenAI-compatible chat APIs reject an assistant `tool_calls` message that is not immediately followed by one `tool` message per call id, so the session — not the providers — guarantees that history never carries a pending tool call into a provider request. `ReconcilePendingToolCalls` appends a synthetic failed `AIInteractionToolResult` (`{ success: false, cancelled: true, messages: [reason] }`, same shape as a failed tool execution) for every pending call: (1) in `HandleAndNotifyError` when a turn is aborted by cancellation, timeout or exception; (2) when `ProcessPendingToolsAsync` exhausts `MaxToolPasses`; (3) when the turn loop exits on `MaxTurns`; and (4) as a safety net at the start of every turn, which also covers externally supplied history. Stale calls found at turn start are closed, not executed — the user has moved on since the run that produced them. Providers therefore must not sanitize tool sequences themselves; a provider-side 400 in this area indicates a session bug.

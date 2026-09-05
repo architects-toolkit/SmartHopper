@@ -208,6 +208,10 @@ var greeting = await session.ExecuteSpecialTurnAsync(
 - 30 second timeout
 - `PersistResult` strategy (only greeting appears in history)
 
+**Automatic Usage:**
+
+When a `ConversationSession` is constructed with `generateGreeting: true`, the first `RunToStableResult`/`Stream` call automatically runs this special turn via `GenerateGreetingAsync` — callers do not invoke `ExecuteSpecialTurnAsync` themselves. The greeting is gated by `SmartHopperAssistant.EnableAIGreeting`; when the setting is off, the call falls through to the normal turn loop. The one-shot greeting flag is cleared after the greeting is emitted.
+
 ### Summarize Turn
 
 Factory for conversation summarization when context limits are approached:
