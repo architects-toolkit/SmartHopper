@@ -85,6 +85,26 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Utilities
         }
 
 #if NET7_WINDOWS
+        [Fact(DisplayName = "InteractionUtility EnsureTurnId overrides pre-existing turnIds [Windows]")]
+#else
+        [Fact(DisplayName = "InteractionUtility EnsureTurnId overrides pre-existing turnIds [Core]")]
+#endif
+        public void EnsureTurnId_OverridesExistingTurnIds()
+        {
+            // Provider-built bodies stamp each interaction with a random TurnId (AIBodyBuilder.Build()).
+            // The session must be able to replace those with its own turn identifier.
+            var interactions = new List<IAIInteraction>
+            {
+                new AIInteractionText { Agent = AIAgent.Assistant, Content = "chunk 1", TurnId = "provider-a" },
+                new AIInteractionText { Agent = AIAgent.Assistant, Content = "chunk 2", TurnId = "provider-b" },
+            };
+
+            var updated = InteractionUtility.EnsureTurnId(interactions, "turn-123").ToList();
+
+            Assert.All(updated, i => Assert.Equal("turn-123", i.TurnId));
+        }
+
+#if NET7_WINDOWS
         [Fact(DisplayName = "InteractionUtility EnsureTurnId null collection is no-op [Windows]")]
 #else
         [Fact(DisplayName = "InteractionUtility EnsureTurnId null collection is no-op [Core]")]

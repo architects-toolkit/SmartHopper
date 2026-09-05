@@ -90,6 +90,7 @@ documentation:
           - '.github/ISSUE_TEMPLATE/**'
 
 
+
 # --- Component labels ---
 "component: AI 2Boolean":
   - changed-files:
