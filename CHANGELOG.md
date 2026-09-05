@@ -85,6 +85,7 @@ Many thanks to the following contributors to this release:
 - Fixed `pr-notes.yml` crash when the previous-suggestion lookup fails or returns unparsable output by always writing `previous-title.txt` and `previous-body.txt`, and by making the post-processing `_read_file_or_empty` helper tolerate missing files.
 - `AIProvider.CallApi` now disposes the `HttpResponseMessage` after reading the response body, avoiding connection-pool stalls.
 - `GeminiProvider` streaming now clamps the per-request HTTP timeout to the same `[MinTimeoutSeconds, MaxTimeoutSeconds]` bounds used by other provider HTTP paths.
+- Provider integrity verification no longer falls back to the `latest.json` hash manifest when the version-specific manifest (`hashes/<version>.json`) is missing. A 404 or fetch failure now reports `Unavailable` instead of comparing local provider DLLs against a different version's hashes, which produced false-positive mismatch warnings after each release until the new manifest was published to GitHub Pages.
 
 ## [2.0.0-dev.260821] - 2026-08-21
 

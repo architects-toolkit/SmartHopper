@@ -183,54 +183,47 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
-        /// Fetches public hash manifest from GitHub Pages (internal implementation, no caching).
+        /// Fetches the version-specific public hash manifest from GitHub Pages (internal implementation, no caching).
+        /// Only the manifest matching the exact running version is accepted: a missing versioned
+        /// manifest must not fall back to a different version's hashes, since that would compare
+        /// local DLLs against stale hashes and produce false-positive mismatches.
         /// </summary>
         private static async Task<Dictionary<string, string>> FetchPublicHashesFromInternetAsync(string version)
         {
+            var url = $"{HashBaseUrl}/{version}.json";
+
             try
             {
-                // Try version-specific hash first, fall back to latest
-                string[] urls =
+                Debug.WriteLine($"[ProviderHashVerifier] Fetching hashes from: {url}");
+                var response = await HttpClient.GetAsync(url).ConfigureAwait(false);
+
+                if (response.StatusCode == HttpStatusCode.NotFound)
                 {
-                    $"{HashBaseUrl}/{version}.json",
-                    $"{HashBaseUrl}/latest.json"
-                };
-
-                foreach (var url in urls)
-                {
-                    try
-                    {
-                        Debug.WriteLine($"[ProviderHashVerifier] Fetching hashes from: {url}");
-                        var response = await HttpClient.GetAsync(url).ConfigureAwait(false);
-
-                        if (response.StatusCode == HttpStatusCode.NotFound)
-                        {
-                            Debug.WriteLine($"[ProviderHashVerifier] Hash manifest not found at {url} (404)");
-                            continue;
-                        }
-
-                        if (!response.IsSuccessStatusCode)
-                        {
-                            Debug.WriteLine($"[ProviderHashVerifier] Failed to fetch from {url}: {(int)response.StatusCode} {response.ReasonPhrase}");
-                            continue;
-                        }
-
-                        var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                        var manifest = JsonConvert.DeserializeObject<Dictionary<string, object>>(content);
-
-                        if (manifest != null && manifest.ContainsKey("providers"))
-                        {
-                            var providersJson = JsonConvert.SerializeObject(manifest["providers"]);
-                            return JsonConvert.DeserializeObject<Dictionary<string, string>>(providersJson);
-                        }
-                    }
-                    catch (HttpRequestException ex)
-                    {
-                        Debug.WriteLine($"[ProviderHashVerifier] Failed to fetch from {url}: {ex.Message}");
-                        continue;
-                    }
+                    Debug.WriteLine($"[ProviderHashVerifier] Hash manifest not found at {url} (404)");
+                    return null;
                 }
 
+                if (!response.IsSuccessStatusCode)
+                {
+                    Debug.WriteLine($"[ProviderHashVerifier] Failed to fetch from {url}: {(int)response.StatusCode} {response.ReasonPhrase}");
+                    return null;
+                }
+
+                var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var manifest = JsonConvert.DeserializeObject<Dictionary<string, object>>(content);
+
+                if (manifest != null && manifest.ContainsKey("providers"))
+                {
+                    var providersJson = JsonConvert.SerializeObject(manifest["providers"]);
+                    return JsonConvert.DeserializeObject<Dictionary<string, string>>(providersJson);
+                }
+
+                Debug.WriteLine($"[ProviderHashVerifier] Hash manifest at {url} does not contain a 'providers' section");
+                return null;
+            }
+            catch (HttpRequestException ex)
+            {
+                Debug.WriteLine($"[ProviderHashVerifier] Failed to fetch from {url}: {ex.Message}");
                 return null;
             }
             catch (Exception ex)
@@ -263,7 +256,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 if (publicHashes == null)
                 {
                     result.Status = ProviderVerificationStatus.Unavailable;
-                    result.ErrorMessage = "Failed to retrieve public hash manifest. This may be due to network connectivity issues or source unavailability.";
+                    result.ErrorMessage = $"Failed to retrieve the public hash manifest for version {version}. This may be due to network connectivity issues, or the hash manifest for this version has not been published yet.";
                     Debug.WriteLine($"[ProviderHashVerifier] Public hashes unavailable for version {version}");
                     return result;
                 }
