@@ -23,6 +23,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
+    using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.AICall.Execution;
     using SmartHopper.Infrastructure.AICall.Sessions;
     using SmartHopper.Infrastructure.AICall.Tools;
@@ -227,7 +228,122 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
 
         #endregion
 
+        #region Tool-call history integrity
+
+        // OpenAI-compatible chat APIs (DeepSeek, OpenAI, Mistral, ...) reject an assistant tool_calls message that is
+        // not followed by one tool message per call id. The session guarantees that history never carries a
+        // pending tool call into a provider request.
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession closes pending tool calls with synthetic results when tool execution is cancelled [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession closes pending tool calls with synthetic results when tool execution is cancelled [Core]")]
+#endif
+        public async Task RunToStableResult_CancelledDuringToolExecution_ReconcilesPendingToolCalls()
+        {
+            var request = CreateTestableRequest();
+            request.ResponseInteractions = new List<IAIInteraction> { CreateToolCall("call_1") };
+            var executor = new MockProviderExecutor { OnExecTool = _ => throw new OperationCanceledException() };
+            var session = new ConversationSession(request, executor: executor);
+
+            await session.RunToStableResult(new SessionOptions { ProcessTools = true }).ConfigureAwait(false);
+
+            Assert.Equal(0, session.Request.Body.PendingToolCallsCount());
+            var result = Assert.Single(session.Request.Body.Interactions.OfType<AIInteractionToolResult>());
+            Assert.Equal("call_1", result.Id);
+            Assert.False(result.Result["success"]?.Value<bool>());
+            Assert.True(result.Result["cancelled"]?.Value<bool>());
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession closes pending tool calls found in history before calling the provider [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession closes pending tool calls found in history before calling the provider [Core]")]
+#endif
+        public async Task RunToStableResult_HistoryWithPendingToolCall_IsReconciledBeforeProviderCall()
+        {
+            // Simulates a session whose previous run was aborted after the provider emitted a tool call.
+            var request = CreateTestableRequest("done");
+            request.Body = AIBodyBuilder.FromImmutable(request.Body).Add(CreateToolCall("stale_1"), markAsNew: false).Build();
+            var pendingSeenByProvider = -1;
+            request.OnExec = () =>
+            {
+                pendingSeenByProvider = request.Body.PendingToolCallsCount();
+                return Task.FromResult("done");
+            };
+
+            var session = new ConversationSession(request, executor: new MockProviderExecutor());
+            await session.RunToStableResult(new SessionOptions { ProcessTools = true }).ConfigureAwait(false);
+
+            Assert.Equal(0, pendingSeenByProvider);
+            var interactions = session.Request.Body.Interactions.ToList();
+            var callIndex = interactions.FindIndex(i => i is AIInteractionToolCall tc && tc.Id == "stale_1");
+            var resultIndex = interactions.FindIndex(i => i is AIInteractionToolResult tr && tr.Id == "stale_1");
+            var answerIndex = interactions.FindIndex(i => i is AIInteractionText t && t.Agent == AIAgent.Assistant && t.Content == "done");
+            Assert.True(callIndex >= 0 && resultIndex == callIndex + 1, "Synthetic result must directly follow the stale tool call");
+            Assert.True(answerIndex > resultIndex, "Provider answer must come after the reconciled tool result");
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession closes pending tool calls when the tool pass budget is exhausted [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession closes pending tool calls when the tool pass budget is exhausted [Core]")]
+#endif
+        public async Task RunToStableResult_MaxToolPassesExhausted_ReconcilesPendingToolCalls()
+        {
+            // Provider requests a new tool on every call, so tool passes never converge.
+            var callCount = 0;
+            var request = CreateTestableRequest();
+            request.ResponseInteractionsFactory = () => new List<IAIInteraction> { CreateToolCall($"call_{++callCount}") };
+            var session = new ConversationSession(request, executor: new MockProviderExecutor());
+
+            await session.RunToStableResult(new SessionOptions { ProcessTools = true, MaxToolPasses = 2, MaxTurns = 1 }).ConfigureAwait(false);
+
+            Assert.Equal(0, session.Request.Body.PendingToolCallsCount());
+
+            // AIInteractionToolResult derives from AIInteractionToolCall, so results must be excluded explicitly.
+            var calls = session.Request.Body.Interactions.Where(i => i is AIInteractionToolCall && i is not AIInteractionToolResult).Select(i => ((AIInteractionToolCall)i).Id).ToList();
+            var results = session.Request.Body.Interactions.OfType<AIInteractionToolResult>().Select(tr => tr.Id).ToList();
+            Assert.Equal(3, calls.Count); // initial call + one per tool pass
+            Assert.Equal(calls.OrderBy(id => id, StringComparer.Ordinal), results.OrderBy(id => id, StringComparer.Ordinal));
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession hides tools from the provider when ProcessTools is false and restores the filter afterwards [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession hides tools from the provider when ProcessTools is false and restores the filter afterwards [Core]")]
+#endif
+        public async Task RunToStableResult_ProcessToolsFalse_HidesToolsFromProviderAndRestoresFilter()
+        {
+            var request = CreateTestableRequest("hi");
+            request.Body = request.Body with { ToolFilter = "+gh_*" };
+            string filterSeenByProvider = null;
+            request.OnExec = () =>
+            {
+                filterSeenByProvider = request.Body.ToolFilter;
+                return Task.FromResult("hi");
+            };
+
+            var session = new ConversationSession(request, executor: new MockProviderExecutor());
+            await session.RunToStableResult(new SessionOptions { ProcessTools = false, MaxTurns = 1 }).ConfigureAwait(false);
+
+            Assert.Equal("-*", filterSeenByProvider);
+            Assert.Equal("+gh_*", session.Request.Body.ToolFilter);
+        }
+
+        #endregion
+
         #region Helpers
+
+        private static AIInteractionToolCall CreateToolCall(string id)
+        {
+            return new AIInteractionToolCall
+            {
+                Id = id,
+                Name = "test_tool",
+                Arguments = new JObject(),
+            };
+        }
 
         private static TestableAIRequestCall CreateTestableRequest(string responseText = null, Func<Task<string>> onExec = null)
         {
@@ -261,6 +377,11 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
             /// </summary>
             public List<IAIInteraction> ResponseInteractions { get; set; }
 
+            /// <summary>
+            /// When set, invoked on every provider call to produce the result interactions (takes precedence over <see cref="ResponseInteractions"/>).
+            /// </summary>
+            public Func<List<IAIInteraction>> ResponseInteractionsFactory { get; set; }
+
             public override (bool IsValid, List<SHRuntimeMessage> Errors) IsValid()
             {
                 // Bypass provider/model/endpoint validation for unit tests
@@ -272,9 +393,10 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var ret = new AIReturn();
-                if (this.ResponseInteractions != null)
+                var interactions = this.ResponseInteractionsFactory?.Invoke() ?? this.ResponseInteractions;
+                if (interactions != null)
                 {
-                    ret.SetBody(this.ResponseInteractions);
+                    ret.SetBody(interactions);
                     return ret;
                 }
 
@@ -294,6 +416,11 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
         /// </summary>
         private sealed class MockProviderExecutor : IProviderExecutor
         {
+            /// <summary>
+            /// When set, invoked instead of the default tool execution (may throw to simulate failures).
+            /// </summary>
+            public Func<AIToolCall, AIReturn?> OnExecTool { get; set; }
+
             public Task<AIReturn?> ExecProviderAsync(AIRequestCall request, CancellationToken ct)
             {
                 var ret = new AIReturn();
@@ -303,6 +430,11 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
 
             public Task<AIReturn?> ExecToolAsync(AIToolCall toolCall, CancellationToken ct)
             {
+                if (this.OnExecTool != null)
+                {
+                    return Task.FromResult(this.OnExecTool(toolCall));
+                }
+
                 var ret = new AIReturn();
                 ret.SetBody(AIBodyBuilder.Create().AddText(AIAgent.ToolResult, "tool result").Build());
                 return Task.FromResult<AIReturn?>(ret);

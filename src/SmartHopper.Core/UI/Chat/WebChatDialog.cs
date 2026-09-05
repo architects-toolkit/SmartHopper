@@ -34,7 +34,6 @@ using Newtonsoft.Json;
 using Rhino;
 using Rhino.UI;
 using SmartHopper.Infrastructure.AICall.Sessions;
-using SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns;
 using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
@@ -1177,24 +1176,21 @@ namespace SmartHopper.Core.UI.Chat
                     DebugLog($"[WebChatDialog] Error in InitializeNewConversationAsync: {rex.Message}");
                 }
 
-                // If greeting was requested by the creator (e.g., CanvasButton), run a single non-streaming turn.
-                // Execute it as a special turn with tools disabled so a tool call cannot be emitted and then
-                // left unprocessed, which would leave a dangling tool_calls message in history and break
-                // DeepSeek's required ordering. Special turns are isolated and do not affect the main request.
+                // If greeting was requested by the creator (e.g., CanvasButton), trigger the session's
+                // one-shot greeting path. RunToStableResult enters ConversationSession.TurnLoopAsync,
+                // which detects the pending greeting flag and delegates to GenerateGreetingAsync ->
+                // GreetingSpecialTurn (dedicated prompt, OverrideToolFilter = "-*", ProcessTools = false,
+                // 30s timeout, PersistResult). The session clears its one-shot greeting state after
+                // emitting, so this call must not be repeated. If AI greeting is disabled in settings,
+                // GenerateGreetingAsync returns null and the call proceeds as a normal single turn
+                // bounded by the SessionOptions below; ProcessTools = false also hides tools from the
+                // provider for this run, so no tool call can be left dangling in history.
                 if (this._generateGreeting && this._currentSession != null)
                 {
                     try
                     {
-                        var config = new SpecialTurnConfig
-                        {
-                            TurnType = "greeting",
-                            OverrideToolFilter = "-*",
-                            ProcessTools = false,
-                            TimeoutMs = 30000,
-                            PersistenceStrategy = HistoryPersistenceStrategy.PersistResult,
-                        };
-
-                        await this._currentSession.ExecuteSpecialTurnAsync(config, preferStreaming: false).ConfigureAwait(false);
+                        var options = new SessionOptions { ProcessTools = false, MaxTurns = 1 };
+                        await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
                     }
                     catch (Exception grex)
                     {
