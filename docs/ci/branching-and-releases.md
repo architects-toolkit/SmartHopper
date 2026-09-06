@@ -57,7 +57,7 @@ workflows resolve their inputs from those tags.
 
 | Branch | Lifetime | Purpose |
 | --- | --- | --- |
-| `main` | permanent | The only integration branch. Always releasable. Linear history, rebase-only, merge queue. Carries the dated development version (`X.Y.Z-dev.YYMMDD`). |
+| `main` | permanent | The only integration branch. Always releasable. Merge queue; linear history is a repository ruleset preference, not enforced by CI. Carries the dated development version (`X.Y.Z-dev.YYMMDD`). |
 | `feat/*`, `fix/*`, `docs/*`, `chore/*`, `refactor/*`, `test/*` | hours–days | Topic branches. PR to `main`, rebase merge, deleted on merge. |
 | `release/X.Y` | one stabilization cycle | Created on demand to stabilize a line (alpha → beta → rc → stable) while `main` moves on, or to maintain a shipped line. |
 | `release-prep/<version>` | minutes–days | Created by release automation. Contains only version/changelog/badge changes. PR into `main` or `release/X.Y`. Deleted on merge. |
@@ -104,7 +104,7 @@ The dated `-dev.YYMMDD` suffix is refreshed by `chore-version-sync.yml` when `sr
    human-authored body without markers is preserved and receives a sticky suggestion comment instead.
    Titles are changed only when invalid or equal to the head branch name. A recorded head SHA makes
    the run idempotent, and unavailable AI uses a clearly marked deterministic fallback.
-3. `pr-validation`, `pr-version-validation`, `pr-linear-history`, `ci-dotnet-tests`,
+3. `pr-validation`, `pr-version-validation`, `ci-dotnet-tests`,
    `pr-build-hash-validation` and the style/license/doc checks must pass. The released-version
    guard only rejects a version newly introduced by the PR when that exact tag already exists;
    inheriting the target branch's already-released version is allowed. The hash guard blocks
@@ -209,9 +209,10 @@ from it, revert the offending change there, and ship a new patch release.
 
 ## 7. Repository configuration this model expects
 
-- Rulesets on `main` and `release/*`: PR required, linear history, rebase-only merges, merge queue on
-  `main`, required checks `ci-dotnet-tests`, `pr-validation`, `pr-version-validation`,
-  `pr-build-hash-validation`.
+- Rulesets on `main` and `release/*`: PR required, merge queue on `main`, required checks
+  `ci-dotnet-tests`, `pr-validation`, `pr-version-validation`, `pr-build-hash-validation`.
+  Linear-history and rebase-only restrictions are optional ruleset settings and are not enforced
+  by CI.
 - `github-actions[bot]` may create/delete `release-prep/*`, `hotfix/*`, `backport/*`, `chore/*`,
   `hash-update/*` and push tags.
 - Repository variables: `SMARTHOPPER_BOT_NAME`, `SMARTHOPPER_BOT_EMAIL`, `PROMOTION_AGE_DAYS` (15).
@@ -256,7 +257,6 @@ from it, revert the offending change there, and ship a new patch release.
 | `pr-delete-auto-branches.yml` | pull request close | Deletes merged automation branches. |
 | `pr-documentation-validation.yml` | documentation pull requests | Validates documentation structure. |
 | `pr-license-headers.yml` | pull requests | Checks license headers. |
-| `pr-linear-history.yml` | pull requests, merge queue | Enforces linear history. |
 | `pr-milestone.yml` | pull requests to `main`, `release/**`, `hotfix/**`, `hash-update/*` | Assigns pull requests to milestones. |
 | `pr-notes.yml` | pull request open/update/reopen/ready | Generates PR titles and descriptions. |
 | `pr-update-changelog-issues.yml` | manual | Adds eligible closed issues to the changelog. |

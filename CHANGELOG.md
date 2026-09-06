@@ -72,6 +72,7 @@ Many thanks to the following contributors to this release:
 - Removed the redundant `SmartHopper.Infrastructure.AIModels.ModelManager` singleton. All model capabilities, defaults, selection, and streaming validation now flow through `SmartHopper.ProviderSdk.AIModels.AIModelCapabilityRegistry.Instance`, making it the single source of truth for model selection.
 - Removed the duplicated per-provider JSON schema adapters: `OpenAIJsonSchemaAdapter`, `MistralAIJsonSchemaAdapter`, `OllamaJsonSchemaAdapter`, `LocalAIJsonSchemaAdapter`, and the fallback `DefaultJsonSchemaAdapter`.
 - Removed the duplicated `AIFileContextComponent` Grasshopper component. Its free-form file context was redundant with `AIFileMetadataComponent`'s `description`; use `AIFileMetadataComponent` for title, description, version, author, and tags.
+- Removed the `pr-linear-history.yml` workflow. Pull requests are no longer required to be rebased onto their base branch or free of merge commits; history-shape enforcement, if desired, remains a repository ruleset setting.
 
 ### Fixed
 

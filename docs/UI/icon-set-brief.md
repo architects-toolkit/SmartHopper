@@ -5,7 +5,7 @@ Brief for generating a new, coherent icon set (e.g. with an AI icon-set generato
 ## 1. Technical constraints
 
 | Constraint | Value | Why |
-|---|---|---|
+| --- | --- | --- |
 | Format | PNG, transparent background | Embedded as `Bitmap` resources in `SmartHopper.Components/Properties/Resources.resx` |
 | Component icon size | **24×24 px** | Every file in `src/SmartHopper.Components/Resources/` is 24×24 |
 | Rendered size | ~24 px on canvas, ~16–20 px in ribbon/tab | Grasshopper scales component icons; they must read at 16 px |
@@ -33,7 +33,7 @@ Fixed positions so badges are predictable:
   - Action glyphs for non-directional ops: magnifier (search), tray/download (get), external-link arrow (open), paragraph/contract lines (summarize), split arrows (deconstruct), funnel (filter), merge arrows, diff bars, puzzle/patch, checkmark-shield (validate), floppy/down-arrow (save), folder/open (open file), grid/tidy (tidy up), link/plug (connect), clipboard/report (report), server node (MCP).
 - **Bottom-left corner** = *source/type modifier* badge:
   - Forum sources: **McNeel** (rhino head or "M" monogram), **Ladybug** (ladybug dot/beetle), **generic Discourse** (speech bubble / "D").
-  - Format modifiers: `MD` (markdown), `{}` (JSON), `[]` (array/list), `<> ` or `</>` (script), `{;}`/grid (GhJSON).
+  - Format modifiers: `MD` (markdown), `{}` (JSON), `[]` (array/list), `<>` or `</>` (script), `{;}`/grid (GhJSON).
 - **AI-powered marker**: a small four-point spark/star in **SmartHopper green**, placed top-right *or* integrated into the direction badge. All components that call an AI provider should carry it; pure utility components (Tidy Up, JSON merge, viewers) should not.
 
 Recommended: generate the set **modularly** — first ~15 core glyphs and ~12 badges as standalone assets, then ask the generator to compose each icon. That guarantees consistency that one-shot generation won't.
@@ -53,7 +53,7 @@ Recommended: generate the set **modularly** — first ~15 core glyphs and ~12 ba
 ### 5.1 Brand / app identity
 
 | Asset | Used by | Design spec |
-|---|---|---|
+| --- | --- | --- |
 | `smarthopper.png` (24×24) | Grasshopper category tab icon (`SmartHopperAssemblyPriority.cs`) | The SmartHopper grasshopper-head mascot, simplified to a flat silhouette that survives 16 px. Green primary. |
 | `smarthopper.ico` + `smarthopper_256.png` | App icon: About dialog, styled dialogs, floating canvas chat button | Same mascot at high res; needs 256/48/32/16 px .ico frames. |
 | `img/smarthopper.png` | Repo/README logo | Large-format variant of the mascot. |
@@ -62,7 +62,7 @@ Recommended: generate the set **modularly** — first ~15 core glyphs and ~12 ba
 ### 5.2 "A. AI" category — assistant & configuration
 
 | Component | Icon resource | Design spec |
-|---|---|---|
+| --- | --- | --- |
 | AI Chat (`AIChatComponent`) | `aichat` | Chat bubble containing the grasshopper/AI spark — the flagship icon, should feel closest to the brand mark. |
 | Settings (`AISettingsComponent`) | `settings` | Gear + AI spark badge (bottom-right). Settings, not a data op, so no direction arrow. |
 | Extra Settings (`AIExtraSettingsComponent`) | `settingsextra` | Gear + small "…"/sliders badge — visually tied to `settings` but reads as "extended". |
@@ -75,7 +75,7 @@ Recommended: generate the set **modularly** — first ~15 core glyphs and ~12 ba
 Shared spec: **type glyph center + "arrow into AI spark" badge bottom-right**. List variants add a bottom-left `≡`/`[]` badge.
 
 | Component | Icon resource | Central glyph | Badges |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | AI Prompt (`AIPromptComponent`) | `toaiprompt` | Speech/prompt bubble | to-AI |
 | AIContext (`AIContextComponent`) | `toaicontext` | Stacked layers (context) | to-AI |
 | Text to AI (`Text2AIComponent`) | `toaitext` | "T" letterform | to-AI |
@@ -104,7 +104,7 @@ Shared spec: **type glyph center + "arrow into AI spark" badge bottom-right**. L
 Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right**. Mirror of 5.3.
 
 | Component | Icon | Central glyph |
-|---|---|---|
+| --- | --- | --- |
 | AI to Text | `aitotext` | "T" |
 | AI to Text List | `aitotextlist` | "T" + list lines |
 | AI to Boolean | `aitobool` | Toggle/check |
@@ -123,7 +123,7 @@ Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right*
 ### 5.5 "Text" category — AI text ops
 
 | Component | Icon | Design spec |
-|---|---|---|
+| --- | --- | --- |
 | AI Text To Text | `textgenerate` | "T" + AI spark + small pencil/generate mark |
 | AI Text To Text List | `textlistgenerate` | "T" + list lines + AI spark |
 | AI Text To Boolean | `textevaluate` | "T" + check/?-evaluate badge — reads as "question → true/false" |
@@ -131,14 +131,14 @@ Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right*
 ### 5.6 "List" category
 
 | Component | Icon | Design spec |
-|---|---|---|
+| --- | --- | --- |
 | AI List Filter | `listfilter` | List `≡` + funnel badge + AI spark |
 | AI List To Boolean | `listevaluate` | List `≡` + check/evaluate badge + AI spark |
 
 ### 5.7 "JSON" category — pure data toolkit (no AI)
 
 | Component | Icon | Design spec |
-|---|---|---|
+| --- | --- | --- |
 | JSON Object | `jsonobj` | `{ }` braces |
 | JSON Array | `jsonarray` | `[ ]` brackets |
 | JSON Get Value | **new:** `jsongetvalue` (replaces shared `jsonitem`) | `{ }` + key/value arrow-out badge |
@@ -155,7 +155,7 @@ Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right*
 ### 5.8 "Knowledge" category — research sources
 
 | Component | Icon | Design spec |
-|---|---|---|
+| --- | --- | --- |
 | Web To Markdown | `webtomd` | Globe + `MD` badge; blue deterministic-helper treatment |
 | AI Web To Markdown | **new:** `aiwebtomd` (replaces shared `webtomd`) | Globe + `MD` badge + green AI accent; use the AI accent on the main globe rather than adding a third badge |
 | File To Markdown | `filetomd` | Document + `MD` badge; pink knowledge treatment |
@@ -172,7 +172,7 @@ Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right*
 ### 5.9 "Grasshopper" category — GhJSON document ops
 
 | Component | Icon | Design spec |
-|---|---|---|
+| --- | --- | --- |
 | Get GhJSON | `ghget` | GH document + tray/download-out badge (canvas → document) |
 | Place GhJSON | `ghput` | GH document + arrow-onto-canvas badge (document → canvas) |
 | Merge GhJSON | `ghmerge` | Two GH documents + merge arrows |
@@ -192,7 +192,7 @@ Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right*
 ### 5.10 "Img" / "Audio" categories
 
 | Component | Icon | Design spec |
-|---|---|---|
+| --- | --- | --- |
 | AI Text To Image | `texttoimg` | "T" → picture + AI spark |
 | AI Image To Text | `imgtotext` | Picture → "T" + AI spark |
 | Image Viewer | `imgviewer` | Picture + eye/display frame — no AI badge |
@@ -203,14 +203,14 @@ Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right*
 ### 5.11 "Script" category
 
 | Component | Icon | Design spec |
-|---|---|---|
+| --- | --- | --- |
 | AI Script Generate | `scriptgenerate` | `</>` code glyph + AI spark |
 | AI Script Review | `scriptreview` | `</>` + magnifier/check badge + AI spark |
 
 ### 5.12 "Utils" / "MCP"
 
 | Component | Icon | Design spec |
-|---|---|---|
+| --- | --- | --- |
 | Deconstruct Metrics | `metricsdeconstruct` | Chart bars + split/deconstruct badge |
 | Combine Metrics | **missing** | Chart bars + merge badge |
 | SmartHopper MCP Server | **missing** (no `Icon` override) | Server/plug node + SmartHopper spark — represents the loopback MCP endpoint |
@@ -220,7 +220,7 @@ Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right*
 The new set must include the following **22 distinct 24×24 component icons** in addition to replacing the icons already listed above. Fourteen fill current gaps; eight separate components that currently reuse an icon with different semantics. Resource names below are proposed identifiers and can be adjusted during integration.
 
 | Component | Proposed resource | Reason a dedicated icon is required | Composition |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Boolean List to AI | `toaiboollist` | Reuses scalar `toaibool` | Boolean full glyph + list badge + to-AI badge |
 | Integer List to AI | `toaiintegerlist` | Reuses scalar `toaiinteger` | Integer full glyph + list badge + to-AI badge |
 | Number List to AI | `toainumericlist` | Reuses scalar `toainumeric` | Decimal-number full glyph + list badge + to-AI badge |
@@ -249,7 +249,7 @@ The new set must include the following **22 distinct 24×24 component icons** in
 Color should accelerate recognition, but **never carry meaning alone**: each role also has a unique full glyph or badge silhouette. Use color on the principal glyph and the semantically important badge, with dark slate outlines and off-white cutouts for contrast.
 
 | Role | Color | Hex | Use | Why |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Structural ink | Dark slate | `#28323C` | Outlines, internal dividers, small neutral details | Softer than black and provides a common visual skeleton |
 | Configuration / context | Slate gray | `#707985` | Settings, extra settings, context, models, metadata, MCP infrastructure | Neutral: these components configure or describe rather than transform data |
 | AI / generation | SmartHopper green | `#3FAE68` | AI spark, to/from-AI direction badges, generated outputs, AI Chat | Ownable brand cue and positive association; one consistent signal for provider-backed work |
@@ -280,7 +280,7 @@ Generate these drawings as reusable masters before composing the 24×24 icons. A
 Full-size drawings occupy approximately **14–18 px** of the 24×24 artboard and provide the icon's primary silhouette.
 
 | ID | Drawing | Default color | Visual definition | Reused for |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | F01 | SmartHopper mascot | Green | Simplified grasshopper head; no graduation-cap detail below 24 px | Brand, category, AI Chat, canvas button |
 | F02 | Chat bubble | Green | One bold rounded speech bubble | AI Chat |
 | F03 | Gear | Gray | Six-tooth gear with large center hole | Settings, Extra Settings |
@@ -320,7 +320,7 @@ Full-size drawings occupy approximately **14–18 px** of the 24×24 artboard an
 Badge drawings occupy approximately **7–9 px**, use filled geometric silhouettes, and normally sit bottom-right. Source/type modifiers sit bottom-left. Draw every badge on the same nominal 9×9 artboard with at least a 1 px clear zone.
 
 | ID | Drawing | Default color | Visual definition | Reused for |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | B01 | AI spark | Green | Four-point asymmetric spark with a solid center | Generic AI-powered marker |
 | B02 | To AI | Green | Short right-pointing arrow terminating in a spark | Every `toai-*` input |
 | B03 | From AI | Green | Spark followed by a short right-pointing arrow | Every `aito*` output |
@@ -368,7 +368,7 @@ Badge drawings occupy approximately **7–9 px**, use filled geometric silhouett
 These are not PNG assets but should be included in the visual design handoff because they appear next to the generated icons. Keep their existing semantics and colors:
 
 | Badge | Size | Color | Shape |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Verified model | Runtime 16×16 | Green `#209848` | Filled circle + white check |
 | Deprecated model | Runtime 16×16 | Purple `#9B59B6` | Filled circle + white downward arrow |
 | Invalid model | Runtime 16×16 | Red `#C0392B` | Filled circle + white cross |
