@@ -32,14 +32,16 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
     public class StaticMcpResourceProviderTests
     {
         [Fact]
-        public async Task ListResourcesAsync_ReturnsFourStaticResources()
+        public async Task ListResourcesAsync_ReturnsSharedKnowledgeResources()
         {
             var provider = new StaticMcpResourceProvider((_, __, ___) => Task.FromResult<JObject?>(null));
 
             var resources = await provider.ListResourcesAsync();
 
-            Assert.Equal(4, resources.Count);
+            Assert.Equal(AgentKnowledgeCatalog.ListDocuments().Count + 2, resources.Count);
             Assert.Contains(resources, r => r.Uri.ToString() == "docs:///ghjson-schema");
+            Assert.Contains(resources, r => r.Uri.ToString() == "docs:///grasshopper-foundations");
+            Assert.Contains(resources, r => r.Uri.ToString() == "docs:///grasshopper-data-trees");
             Assert.Contains(resources, r => r.Uri.ToString() == "docs:///smarthopper-readme");
             Assert.Contains(resources, r => r.Uri.ToString() == "docs:///smarthopper-workflows");
             Assert.Contains(resources, r => r.Uri.ToString() == "docs:///tool-help");
@@ -66,7 +68,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
 
             Assert.NotNull(resource);
             var text = await resource!.GetTextAsync();
-            Assert.Contains("Canvas state reading", text, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Core operating pattern", text, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
