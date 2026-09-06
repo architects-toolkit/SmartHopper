@@ -67,6 +67,7 @@ Many thanks to the following contributors to this release:
 - Removed the patch-propagation documentation and other documentation references to retired CI automation and the former `dev` branch.
 - Removed the redundant `SmartHopper.Infrastructure.AIModels.ModelManager` singleton. All model capabilities, defaults, selection, and streaming validation now flow through `SmartHopper.ProviderSdk.AIModels.AIModelCapabilityRegistry.Instance`, making it the single source of truth for model selection.
 - Removed the duplicated per-provider JSON schema adapters: `OpenAIJsonSchemaAdapter`, `MistralAIJsonSchemaAdapter`, `OllamaJsonSchemaAdapter`, `LocalAIJsonSchemaAdapter`, and the fallback `DefaultJsonSchemaAdapter`.
+- Removed the duplicated `AIFileContextComponent` Grasshopper component. Its free-form file context was redundant with `AIFileMetadataComponent`'s `description`; use `AIFileMetadataComponent` for title, description, version, author, and tags.
 
 ### Fixed
 
@@ -76,6 +77,8 @@ Many thanks to the following contributors to this release:
 - `SmartHopper.sln` no longer maps `SmartHopper.Components.Test` to `Release` build configurations; the test-only project is now built only in Debug, aligning with `.devin/rules/solution-structure.md`.
 - Fixed a nullability mismatch in `AIRequestBase.Provider` by updating `IAIRequest.Provider` to `string?`, matching the fact that a provider may be unset until the request is initialized.
 - `tools/Sign-Authenticode.ps1` now Authenticode-signs `SmartHopper.Providers.LocalAI.dll` and `SmartHopper.Providers.Ollama.dll`. They were missing from the signing allowlist, so both providers shipped unsigned and Grasshopper refused to enable them as untrusted providers.
+- `FileContextProvider` is now the single `file` context provider (previously `current-file`). It merges user-defined file metadata (`title`, `description`, `version`, `author`, `tags`) from `AIFileMetadataComponent` directly into the file context, so context filters such as `file` produce `file_title`, `file_description`, etc. The legacy `metadata-{key}` entries are removed.
+- WebChat default context filter now uses `file` instead of `current-file`.
 - Hash-manifest validation now permits only bot-authored additions from release automation and continues to block manual edits.
 - Released-version validation now permits ordinary pull requests to inherit the target branch's already-released version while rejecting newly introduced reuse.
 - Milestone management now stays on the same pre-release stage for sequence releases (`alpha.1` → `alpha.2`) and only promotes when a new stage is released (`alpha.1` → `beta.1`). A stable release closes every milestone belonging to that core and opens `X.(Y+1).0-alpha`.
