@@ -178,6 +178,8 @@ in the AI Chat component.
 | `gh_report` | Components | Generate a comprehensive status report of the current Grasshopper canvas. Returns a structured markdown summary including object counts by type/topology, unique component names, group titles, scribble texts, viewport contents, file metadata, and all errors/warnings. Optionally includes an AI-generated summary of the file purpose. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_smart_connect` | Components | AI-powered smart connection tool. Given a set of component GUIDs and a purpose description, retrieves their structure via gh_get, asks an AI model to suggest optimal connections, and executes them via gh_connect. Returns the connection results and the AI reasoning. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `set_ai_provider_and_model` | Components | Configure an `IProviderComponent` by setting its selected AI provider and wiring a new Panel with the model name into its Settings input. Supports undo and respects `CanvasProtection`. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `canvas_screenshot` | Vision | Captures the currently visible Grasshopper canvas viewport as a base64-encoded PNG. The image is resized to fit within maxWidth and maxHeight while preserving its aspect ratio. | - | - | - | - |
+| `viewport_screenshot` | Vision | Captures the active or named Rhino 3D viewport as a base64-encoded PNG. The image is resized to fit within width and height while preserving its aspect ratio. | - | - | - | - |
 
 Notes:
 
