@@ -79,7 +79,15 @@ namespace SmartHopper.Core.Types
             }
             else
             {
-                newSource = VersatileImage.FromString(this.Value.RawValue);
+                newSource = VersatileImage.FromDeserialized(
+                    this.Value.Kind,
+                    this.Value.RawValue,
+                    this.Value.Bitmap!,
+                    this.Value.Id,
+                    this.Value.Context,
+                    this.Value.PageOrSlide,
+                    this.Value.SourceDocument,
+                    this.Value.MimeType);
             }
 
             return new GH_VersatileImage(newSource);
