@@ -133,6 +133,37 @@ namespace SmartHopper.Core.Types
         }
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="VersatileImage"/> class from base64-encoded image data.
+        /// </summary>
+        /// <param name="base64Data">The base64-encoded image bytes without a data URI prefix.</param>
+        /// <param name="mimeType">The image MIME type.</param>
+        /// <returns>A new VersatileImage.</returns>
+        public static VersatileImage FromBase64(string base64Data, string mimeType = "image/png")
+        {
+            if (string.IsNullOrWhiteSpace(base64Data))
+            {
+                throw new ArgumentException("Base64 data cannot be null or whitespace.", nameof(base64Data));
+            }
+
+            if (string.IsNullOrWhiteSpace(mimeType))
+            {
+                throw new ArgumentException("MIME type cannot be null or whitespace.", nameof(mimeType));
+            }
+
+            return new VersatileImage
+            {
+                Kind = VersatileImageKind.Base64,
+                Bitmap = null!,
+                RawValue = base64Data,
+                Id = string.Empty,
+                Context = string.Empty,
+                PageOrSlide = 0,
+                SourceDocument = string.Empty,
+                MimeType = mimeType,
+            };
+        }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="VersatileImage"/> class from a string.
         /// Auto-detects the source kind based on input pattern.
         /// </summary>
