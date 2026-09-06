@@ -32,6 +32,7 @@ using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Models;
 using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Validation;
+using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
@@ -179,13 +180,74 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <summary>
         /// Gathers additional input parameters beyond "Input >" at gather-time.
-        /// Override in subclasses that declare extra parameters via <see cref="RegisterAdditionalInputParams"/>.
-        /// Values stored here are injected into the <c>inputs</c> dictionary before <see cref="PrepareInputs"/> is called.
+        /// Tree-access parameters are normalized automatically and participate in data-tree processing.
+        /// Override for custom item/list state and call the base implementation.
+        /// Values stored here are injected into the <c>inputs</c> dictionary before <see cref="PrepareInputs"/> is called:
+        /// <see cref="GH_Structure{IGH_Goo}"/> values are aligned per branch by <c>DataTreeProcessor</c>
+        /// and injected as the current branch's first item; any other non-null value is injected verbatim.
         /// </summary>
         /// <param name="DA">Data access object for reading inputs.</param>
         /// <param name="additionalInputs">Dictionary to populate. Keys must match parameter names used in <see cref="PrepareInputs"/>.</param>
         protected virtual void GatherAdditionalInputs(IGH_DataAccess DA, Dictionary<string, object> additionalInputs)
         {
+            foreach (var param in this.Params.Input.Where(param =>
+                param.Access == GH_ParamAccess.tree
+                && !string.Equals(param.Name, "Input >", StringComparison.Ordinal)))
+            {
+                var tree = ConvertToGooTree(param.VolatileData);
+                if (tree.DataCount > 0)
+                {
+                    additionalInputs[param.Name] = tree;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Adds or replaces a provider request extra for the current processing unit.
+        /// </summary>
+        /// <param name="inputs">Current processing-unit inputs.</param>
+        /// <param name="key">Provider request extra key.</param>
+        /// <param name="value">Provider request extra value.</param>
+        protected static void SetRequestParameterExtra(Dictionary<string, object> inputs, string key, JToken value)
+        {
+            if (!inputs.TryGetValue("_RequestParameterExtras", out var extrasObject)
+                || !(extrasObject is Dictionary<string, JToken> extras))
+            {
+                extras = new Dictionary<string, JToken>(StringComparer.Ordinal);
+                inputs["_RequestParameterExtras"] = extras;
+            }
+
+            extras[key] = value;
+        }
+
+        /// <summary>
+        /// Copies an arbitrary Grasshopper structure into a heterogeneous goo tree.
+        /// </summary>
+        /// <param name="source">Source structure.</param>
+        /// <returns>A tree preserving the source paths and goo instances.</returns>
+        private static GH_Structure<IGH_Goo> ConvertToGooTree(IGH_Structure source)
+        {
+            var result = new GH_Structure<IGH_Goo>();
+            if (source == null)
+            {
+                return result;
+            }
+
+            foreach (var path in source.Paths)
+            {
+                var branch = source.get_Branch(path);
+                if (branch == null)
+                {
+                    continue;
+                }
+
+                foreach (var item in branch.OfType<IGH_Goo>())
+                {
+                    result.Append(item, path);
+                }
+            }
+
+            return result;
         }
 
         /// <inheritdoc/>
@@ -669,10 +731,20 @@ namespace SmartHopper.Core.ComponentBase
 
                     var primaryMapping = mappings[0];
 
-                    // Run branch-by-branch processing directly on the typed payload tree.
-                    // GH_AIInputPayload is IGH_Goo, so no conversion needed.
+                    var processingTrees = new Dictionary<string, GH_Structure<IGH_Goo>>
+                    {
+                        ["Input >"] = ConvertToGooTree(this._payloadTree),
+                    };
+                    foreach (var input in this._additionalInputs)
+                    {
+                        if (input.Value is GH_Structure<IGH_Goo> tree && tree.DataCount > 0)
+                        {
+                            processingTrees[input.Key] = tree;
+                        }
+                    }
+
                     var processingResult = await this._parent.RunProcessingAsync(
-                        new Dictionary<string, GH_Structure<GH_AIInputPayload>> { ["Input >"] = this._payloadTree },
+                        processingTrees,
                         async (branches) =>
                         {
                             return await this.ProcessBranchAsync(branches, token).ConfigureAwait(false);
@@ -680,7 +752,7 @@ namespace SmartHopper.Core.ComponentBase
                         this._processingOptions,
                         token).ConfigureAwait(false);
 
-                    var resultTrees = processingResult;
+                    var resultTrees = processingResult.Outputs;
 
                     // Extract primary output tree
                     GH_Structure<IGH_Goo> primaryTree;
@@ -724,14 +796,16 @@ namespace SmartHopper.Core.ComponentBase
             /// and makes a single API call. Called by DataTreeProcessor with BranchToBranch topology.
             /// </summary>
             private async Task<Dictionary<string, List<IGH_Goo>>> ProcessBranchAsync(
-                Dictionary<string, List<GH_AIInputPayload>> branches,
+                Dictionary<string, List<IGH_Goo>> branches,
                 CancellationToken token)
             {
                 var mappings = this._parent.GetOutputMappings();
                 var outputs = new Dictionary<string, List<IGH_Goo>>();
                 foreach (var m in mappings) outputs[m.ParamName] = new List<IGH_Goo>();
 
-                var payloadBranch = branches.TryGetValue("Input >", out var pb) ? pb : new List<GH_AIInputPayload>();
+                var payloadBranch = branches.TryGetValue("Input >", out var pb)
+                    ? pb.OfType<GH_AIInputPayload>().ToList()
+                    : new List<GH_AIInputPayload>();
                 if (payloadBranch.Count == 0) return outputs;
 
                 // Merge the entire branch into one AIBody and build the system prompt.
@@ -741,19 +815,20 @@ namespace SmartHopper.Core.ComponentBase
                 payloadTree.AppendRange(payloadBranch, canonicalPath);
 
                 var inputs = new Dictionary<string, object> { ["Input >"] = payloadTree };
+                foreach (var branch in branches.Where(branch => branch.Key != "Input >"))
+                {
+                    var item = branch.Value?.FirstOrDefault();
+                    if (item != null)
+                    {
+                        inputs[branch.Key] = item;
+                    }
+                }
 
-                // Inject additional gathered inputs into the per-branch inputs dict.
-                // Additional inputs are scalar broadcasts (e.g. Voice, Speed, Schema) —
-                // take the first available item from the first branch of the tree.
+                // Inject gathered values that did not take part in tree alignment
+                // (non-tree state or trees that produced no aligned branch item).
                 foreach (var kvp in this._additionalInputs)
                 {
-                    if (kvp.Value is GH_Structure<IGH_Goo> tree && tree.DataCount > 0)
-                    {
-                        var firstBranch = tree.get_Branch(tree.Paths[0]);
-                        var item = firstBranch?.Cast<IGH_Goo>().FirstOrDefault();
-                        if (item != null) inputs[kvp.Key] = item;
-                    }
-                    else if (kvp.Value != null)
+                    if (!inputs.ContainsKey(kvp.Key) && kvp.Value != null)
                     {
                         inputs[kvp.Key] = kvp.Value;
                     }
@@ -780,7 +855,11 @@ namespace SmartHopper.Core.ComponentBase
                         }
                     }
 
-                    aiResult = await this._parent.CallAIAsync(mergedBody, cancellationToken: token).ConfigureAwait(false);
+                    var requestParameters = this.BuildRequestParameters(inputs);
+                    aiResult = await this._parent.CallAIAsync(
+                        mergedBody,
+                        requestParameters,
+                        cancellationToken: token).ConfigureAwait(false);
                 }
 
                 // Single decoding routine; identical to the batch path's per-customId decode.
@@ -794,6 +873,32 @@ namespace SmartHopper.Core.ComponentBase
                 }
 
                 return outputs;
+            }
+
+            /// <summary>
+            /// Merges processing-unit provider extras over the component request settings.
+            /// </summary>
+            /// <param name="inputs">Current processing-unit inputs.</param>
+            /// <returns>Request parameters for the current provider call.</returns>
+            private AIRequestParameters BuildRequestParameters(Dictionary<string, object> inputs)
+            {
+                var parameters = this._parent.GetParameters();
+                if (!inputs.TryGetValue("_RequestParameterExtras", out var extrasObject)
+                    || !(extrasObject is Dictionary<string, JToken> overrides)
+                    || overrides.Count == 0)
+                {
+                    return parameters;
+                }
+
+                var extras = parameters?.Extras != null
+                    ? new Dictionary<string, JToken>(parameters.Extras, StringComparer.Ordinal)
+                    : new Dictionary<string, JToken>(StringComparer.Ordinal);
+                foreach (var extra in overrides)
+                {
+                    extras[extra.Key] = extra.Value;
+                }
+
+                return (parameters ?? AIRequestParameters.Empty) with { Extras = extras };
             }
 
             /// <inheritdoc/>

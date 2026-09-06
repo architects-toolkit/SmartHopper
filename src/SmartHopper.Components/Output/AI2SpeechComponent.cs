@@ -19,13 +19,15 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
+using System.Linq;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.Parameters;
 using SmartHopper.Core.Types;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
 namespace SmartHopper.Components.Output
@@ -111,33 +113,6 @@ namespace SmartHopper.Components.Output
         }
 
         /// <summary>
-        /// Gathers additional input parameters (Voice and Speed trees).
-        /// </summary>
-        protected override void GatherAdditionalInputs(IGH_DataAccess DA, Dictionary<string, object> additionalInputs)
-        {
-            base.GatherAdditionalInputs(DA, additionalInputs);
-
-            try
-            {
-                var voiceTree = new GH_Structure<IGH_Goo>();
-                if (DA.GetDataTree(1, out voiceTree) && voiceTree != null && voiceTree.DataCount > 0)
-                {
-                    additionalInputs["Voice"] = voiceTree;
-                }
-
-                var speedTree = new GH_Structure<IGH_Goo>();
-                if (DA.GetDataTree(2, out speedTree) && speedTree != null && speedTree.DataCount > 0)
-                {
-                    additionalInputs["Speed"] = speedTree;
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[AI2SpeechComponent] Error gathering Voice/Speed inputs: {ex.Message}");
-            }
-        }
-
-        /// <summary>
         /// Overrides PrepareInputs to inject Voice and Speed into tool parameters.
         /// </summary>
         protected override void PrepareInputs(Dictionary<string, object> inputs, ProcessingUnitContext context)
@@ -158,9 +133,20 @@ namespace SmartHopper.Components.Output
                 speed = speedStr.Value;
             }
 
-            // Store voice and speed in inputs for use by CallAIAsync
-            inputs["_Voice"] = voice;
-            inputs["_Speed"] = speed;
+            SetRequestParameterExtra(inputs, "voice", voice);
+            if (double.TryParse(speed, NumberStyles.Float, CultureInfo.InvariantCulture, out var speedValue))
+            {
+                SetRequestParameterExtra(inputs, "speed", speedValue);
+            }
+
+            if (inputs.TryGetValue("_MergedBody", out var bodyObject) && bodyObject is AIBody body)
+            {
+                var text = body.Interactions
+                    .OfType<AIInteractionText>()
+                    .LastOrDefault(interaction => interaction.Agent == AIAgent.User)?.Content
+                    ?? body.GetLastText();
+                inputs["_MergedBody"] = AIBodyBuilder.Create().AddUser(text).Build();
+            }
         }
     }
 }

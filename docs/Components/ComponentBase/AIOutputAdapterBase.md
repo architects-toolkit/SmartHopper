@@ -11,11 +11,12 @@ Eliminate boilerplate for "tree of payloads in → typed values out" components.
 ## Design criteria
 
 - **Branch-by-branch conversation.** `ComponentProcessingOptions` is fixed to `BranchToBranch`: each input branch is one merged `AIBody` → one provider call.
-- **Forced tool calling.** `CallAIAsync(body, forceToolName: ...)` is used so the model is constrained to call the adapter's tool. Capabilities are derived from `UsingAiTools` (no need to override `RequiredCapability`).
+- **Direct provider requests.** `CallAIAsync` sends one provider request per payload branch. `UsingAiTools` contributes capability metadata but does not execute those tools; modality adapters shape their request body and parameters for the matching provider endpoint.
+- **Tree-aware additional inputs.** Tree-access inputs declared by subclasses are gathered generically from `IGH_Param.VolatileData`, normalized to `GH_Structure<IGH_Goo>`, and processed alongside `Input >`. `DataTreeProcessor` therefore owns their path matching and flat-tree broadcasting without depending on component parameters or `IGH_DataAccess`.
 - **Declarative outputs via `OutputMapping`.** Subclasses declare a list; the base auto-registers Grasshopper outputs and runs every mapping's `Extractor` against the `AIReturn`. The first mapping is the *primary* output for batch reconstruction.
 - **`OutputMapping.Single` helper** wraps a scalar extractor into the unified `IEnumerable<IGH_Goo>` contract; list-shaped extractors return their list.
 - **Symmetric batch and sync paths.** Both legs run the same `DecodeAllMappings` helper, so list-shaped outputs work transparently in batch mode. The legacy `SentinelTransformOutputs` hook is **not** invoked by the adapter base — declare every named output through `GetOutputMappings` instead.
-- **Sealed input shape.** Adds `Input >` (`AIInputPayloadParameter`, tree access) at index 0, then chains to `base.RegisterInputParams`. Subclasses use `RegisterAdditionalInputParams` for extra inputs and `GatherAdditionalInputs(DA, dict)` to inject them into the per-branch input dictionary.
+- **Sealed input shape.** Adds `Input >` (`AIInputPayloadParameter`, tree access) at index 0, then chains to `base.RegisterInputParams`. Tree-access parameters registered by subclasses automatically participate in per-branch processing. Subclasses use `GatherAdditionalInputs(DA, dict)` only for custom item/list state that cannot use the tree pipeline.
 - **Category locked** to `"SmartHopper" / "Output"`.
 
 ## Subclass contract
@@ -67,7 +68,7 @@ In batch mode the call is queued, `OnBatchCompleted` invokes `ProcessMappingsBat
 
 - Source Code: See source repository.
 - Since Version: 2.0.0
-- Last Updated: 2026-07-21
+- Last Updated: 2026-09-06
 - Documentation Maintainer: Marc Roca Musach
 
 ---
