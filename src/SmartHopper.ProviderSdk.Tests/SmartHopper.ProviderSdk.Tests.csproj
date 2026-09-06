@@ -53,6 +53,7 @@
   </PropertyGroup>
 
   <ItemGroup Condition="!$(TargetFramework.Contains('-windows'))">
+    <PackageReference Update="System.Drawing.Common" ExcludeAssets="" />
     <!-- Prevent transitive WindowsDesktop framework references from propagating to testhost -->
     <FrameworkReference Remove="Microsoft.WindowsDesktop.App" />
     <FrameworkReference Remove="Microsoft.WindowsDesktop.App.WindowsForms" />
