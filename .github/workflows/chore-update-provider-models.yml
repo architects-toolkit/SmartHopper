@@ -171,6 +171,15 @@ jobs:
               $lines.Add("")
             }
 
+            if ($report.validation.invalidDefaultModels.Count -gt 0) {
+              $lines.Add("### Invalid capability defaults")
+              $lines.Add("")
+              foreach ($model in $report.validation.invalidDefaultModels) {
+                $lines.Add("- ``$model``")
+              }
+              $lines.Add("")
+            }
+
             if ($report.validation.pendingCapabilityModels.Count -gt 0) {
               $lines.Add("### Models with pending capability definitions")
               $lines.Add("")
@@ -190,6 +199,17 @@ jobs:
               }
               $lines.Add("")
             }
+          }
+
+          if ($report.inferredSpeechCapabilityModels.Count -gt 0) {
+            $lines.Add("### Inferred speech capabilities")
+            $lines.Add("")
+            $lines.Add("Provider-aware rules inferred these dedicated speech capabilities from model metadata and identifiers. Verify them before merging.")
+            $lines.Add("")
+            foreach ($model in $report.inferredSpeechCapabilityModels) {
+              $lines.Add("- ``$model``")
+            }
+            $lines.Add("")
           }
 
           # --- Summary counters ---
@@ -301,9 +321,9 @@ jobs:
           # --- Actions & review section ---
           $lines.Add("## Actions taken")
           $lines.Add("")
-          $lines.Add("- New models discovered via OpenRouter are auto-inserted with capabilities mapped from ``architecture.modalities`` and ``supported_parameters``.")
+          $lines.Add("- New models discovered via OpenRouter are auto-inserted with capabilities mapped from ``architecture.modalities`` and ``supported_parameters``; provider-aware rules distinguish dedicated speech from general chat audio.")
           $lines.Add("- Disappeared models (or models with ``expiration_date`` < 1 year) are marked ``Deprecated = true``.")
-          $lines.Add("- Existing model ``Capabilities`` and ``ContextLimit`` are refreshed from OpenRouter metadata.")
+          $lines.Add("- Existing model ``Capabilities`` and ``ContextLimit`` are refreshed from OpenRouter metadata while hand-curated ``SpeechInput``/``SpeechOutput`` flags are preserved.")
           $lines.Add("- ``Rank`` values are auto-computed from OpenRouter data: newer models rank higher, and within the same creation period cheaper output pricing ranks higher.")
           $lines.Add("")
           $lines.Add("## Requires manual review")

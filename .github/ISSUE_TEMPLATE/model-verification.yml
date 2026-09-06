@@ -40,7 +40,7 @@ body:
         - [ ] **C2** — `AITextListGenerate` (Text2Json)
         - [ ] **C3** — `AIImgToText` (Image2Text)
         - [ ] **C4** — `AIImgGenerate` (Text2Image)
-        - [ ] **C5** — Audio component (Speech2Text / Text2Speech)
+        - [ ] **C5** — Dedicated speech component (Speech2Text / Text2Speech)
         - [ ] **B1** — Streaming in WebChat
         - [ ] **B2** — ToolChat / FunctionCalling in WebChat
         - [ ] **B3** — Reasoning in WebChat
@@ -607,8 +607,8 @@ body:
             Prompt: `A red cube on a white background, isometric, flat shading.`
             Verify a valid image is produced and roughly matches the prompt.
         - label: |
-            **C5 — Audio components (Speech2Text / Text2Speech).**
-            For audio-capable models only. Run an audio component with a short clip / short sentence and verify the transcription or synthesized speech is correct.
+            **C5 — Dedicated speech components (Speech2Text / Text2Speech).**
+            For models declaring `SpeechInput` or `SpeechOutput` only; general `AudioInput`/`AudioOutput` does not qualify. Run a speech component with a short clip / short sentence and verify the transcription or synthesized speech is correct.
   - type: checkboxes
     id: tests-chat
     attributes:
