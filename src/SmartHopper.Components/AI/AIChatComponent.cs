@@ -48,7 +48,7 @@ namespace SmartHopper.Components.AI
         protected override AICapability RequiredCapability => AICapability.ToolChat;
 
         private readonly string _defaultSystemPrompt = """
-            Your function is not predefined. Follow user instructions. Be concise in your responses.
+            Act as a general-purpose Grasshopper assistant. Follow the user's requested goal and be concise and technical.
             """;
 
         /// <summary>
@@ -99,7 +99,7 @@ namespace SmartHopper.Components.AI
             pManager.AddTextParameter(
                 "Instructions",
                 "I",
-                "Optional initial instructions to specify the function and aim of the chat. By default, this is set to an assistant on Grasshopper.",
+                "Optional instructions that specialize the built-in Grasshopper assistant for this chat.",
                 GH_ParamAccess.item,
                 this._defaultSystemPrompt);
         }
