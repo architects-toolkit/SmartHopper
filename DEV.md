@@ -227,44 +227,31 @@ The following table summarizes the models explicitly registered as defaults or v
 - `src/SmartHopper.Providers.OpenRouter/OpenRouterProviderModels.cs`
 
 Notes:
-
 - "Default For" lists the feature areas the model is set as default for (e.g., `Text2Text`, `ToolChat`).
 - "Capabilities" lists the core capability flags registered for the model.
-- "Verified" reflects the `Verified` flag in the registry; "Deprecated" reflects the `Deprecated` flag (some default models, such as OpenAI `dall-e-3`, are flagged deprecated).
+- "Verified" reflects the `Verified` flag in the registry; "Deprecated" reflects the `Deprecated` flag (none of the current documented models are flagged deprecated).
 
 | Provider | Model | Verified | Streaming | Deprecated | Default For | Capabilities |
-| --- | --- | :---: | :---: | :---: | --- | --- |
+|---|---|:---:|:---:|:---:|---|---|
 | Anthropic | `claude-sonnet-4-6` | - | ✅ | - | Text2Json | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Anthropic | `claude-haiku-4-5-20251001` | ⭐ | ✅ | - | Text2Text, ReasoningChat, ToolReasoningChat, ToolChat, Image2Text | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Anthropic | `claude-sonnet-4-5-20250929` | ⭐ | ✅ | - | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning |
 | DeepSeek | `deepseek-v4-flash` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json | TextInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| DeepSeek | `deepseek-reasoner` | - | ✅ | ✅ | ToolReasoningChat | TextInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-3.1-flash-image-preview` | - | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-flash-image` | ⭐ | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput |
 | Gemini | `gemini-3-pro-image-preview` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-flash-lite` | ⭐ | ✅ | - | - | TextInput, ImageInput, SpeechInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-flash` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, SpeechInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-pro` | ⭐ | ✅ | - | - | TextInput, ImageInput, SpeechInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| Gemini | `gemini-1.5-flash` | ⭐ | ✅ | ✅ | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, SpeechInput, AudioInput |
-| Gemini | `gemini-1.5-pro` | ⭐ | ✅ | ✅ | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, SpeechInput, AudioInput |
-| Gemini | `gemini-2.0-flash` | ⭐ | ✅ | ✅ | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, SpeechInput, AudioInput |
-| Gemini | `gemini-2.5-flash-preview-tts` | - | ✅ | ✅ | Text2Speech | TextInput, SpeechOutput |
-| Gemini | `gemini-2.5-pro-preview-tts` | - | ✅ | ✅ | Text2Speech | TextInput, SpeechOutput |
-| Gemini | `gemini-3.1-flash-preview` | - | ✅ | ✅ | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning, SpeechInput, AudioInput |
-| Gemini | `lyria-3-clip` | - | - | ✅ | Text2Audio | TextInput, AudioOutput |
-| Gemini | `lyria-3-pro` | - | - | ✅ | Text2Audio | TextInput, ImageInput, AudioOutput |
 | MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | MistralAI | `voxtral-mini-2602` | - | - | - | Speech2Text | SpeechInput, AudioInput, TextOutput |
 | MistralAI | `voxtral-mini-tts-2603` | - | - | - | Text2Speech | TextInput, AudioInput, SpeechOutput |
-| MistralAI | `mistral-medium-2508` | ⭐ | ✅ | ✅ | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
-| MistralAI | `voxtral-mini-tts-mellon-greek-2606-solutions` | - | ✅ | ✅ | Text2Speech | TextInput, AudioInput, SpeechOutput |
 | OpenAI | `gpt-5.4-mini-2026-03-17` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | OpenAI | `gpt-audio-mini-2025-12-15` | - | - | - | Audio2Text | TextInput, AudioInput, TextOutput, AudioOutput, FunctionCalling |
-| OpenAI | `gpt-4o-mini-tts-2025-12-15` | - | - | - | Text2Speech | TextInput, SpeechOutput |
 | OpenAI | `gpt-5-mini-2025-08-07` | ⭐ | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | `gpt-4o-mini-tts-2025-12-15` | - | - | - | Text2Speech | TextInput, SpeechOutput |
 | OpenAI | `gpt-image-2-2026-04-21` | - | - | - | Image2Image | TextInput, ImageInput, ImageOutput |
 | OpenAI | `whisper-1` | - | - | - | Speech2Text | SpeechInput, TextOutput |
-| OpenAI | `dall-e-3` | ⭐ | - | ✅ | Text2Image | TextInput, ImageOutput |
 | OpenRouter | `openai/gpt-5.6-luna` | - | - | - | ToolChat, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | OpenRouter | `google/gemini-3.1-flash-lite-image` | - | - | - | Text2Image, Image2Image, Image2Text | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | OpenRouter | `google/lyria-3-pro-preview` | - | ✅ | - | Text2Audio | TextInput, ImageInput, TextOutput, AudioOutput, JsonOutput |
