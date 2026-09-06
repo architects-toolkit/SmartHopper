@@ -13,5 +13,5 @@
 ## Signing
 
 - The official build scripts expect `signing.snk` / `signing.pfx` and update `SmartHopperPublicKey` in `src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj`.
-- Do not commit generated signing keys, certificates, or API keys.
+- Do not commit generated signing keys, certificates, or API keys. Leae them unstaged, no need to revert them. 
 - `SmartHopperPublicKey` changes made by local build tooling should be reverted before committing.
