@@ -9,6 +9,7 @@
 - Use `gh_get_start_with_data` / `gh_get_end_with_data` only when computed values are required.
 - Use `gh_get_locked`, `gh_get_preview_off`, and `gh_get_preview_on` for attribute-specific queries.
 - Use `gh_get_by_guid` only after obtaining GUIDs from prior tool output. Use generic `gh_get` only when no specialized query fits.
+- Use `canvas_screenshot` or `viewport_screenshot` only when visual layout, preview, or geometry appearance is needed; prefer structural queries when an image is unnecessary.
 
 ## Discover components
 

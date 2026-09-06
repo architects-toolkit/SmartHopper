@@ -77,7 +77,7 @@ A tool is considered mutating when its `AITool.MutatesCanvas` flag is `true`.
 - Read-only, query, validation, and transformation tools should set `mutatesCanvas: false`.
 - MCP exposure uses the flag instead of name-prefix heuristics.
 
-That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `gh_diff`, `gh_patch_validate`, `script_review`, `text2json`, `img2text`, `web2md`, and the Discourse readers stay visible by default, while canvas-changing tools remain hidden unless explicitly enabled.
+That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `gh_diff`, `gh_patch_validate`, `script_review`, `text2json`, `img2text`, `canvas_screenshot`, `viewport_screenshot`, `web2md`, and the Discourse readers stay visible by default, while canvas-changing tools remain hidden unless explicitly enabled.
 
 ### What Enabled Means
 
@@ -129,6 +129,8 @@ The adapter expects MCP clients to send a tool name and a JSON object of argumen
 3. `AIToolMcpAdapter` checks the tool exists, then `AITool.Enabled`, then `EnabledTools`, then `ExposeMutatingTools`/`AITool.MutatesCanvas`.
 4. `AIToolMcpAdapter` builds an `AIToolCall` and invokes it through the configured executor (`AIToolCall.Exec()` by default).
 5. The adapter extracts the last `AIInteractionToolResult` from `AIReturn.Body` and returns it as the MCP response payload; if no tool result is present, the adapter falls back to the first Tool/Provider/Network error or an empty object.
+
+`canvas_screenshot` and `viewport_screenshot` use this unchanged path. They return `{ imageBase64, mimeType, width, height }` (plus `viewName` for a Rhino viewport), are marked `readOnlyHint: true`, and remain available under the default read-only MCP policy. Capture is marshalled to Rhino's UI thread and dimensions are limited to 4096 pixels per axis. Screenshot payloads can contain sensitive project information; use bearer authentication when other local processes are not trusted and avoid forwarding captures to external services without user intent.
 
 ### Shared Agent Knowledge, Resources, and Prompts
 
