@@ -232,6 +232,9 @@ documentation:
 "component: BooleanList2AI":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/BooleanList2AIComponent.cs'
+"component: CanvasCapture":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Img/CanvasCaptureComponent.cs'
 "component: CombineMetrics":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Misc/CombineMetricsComponent.cs'
@@ -388,6 +391,9 @@ documentation:
 "component: SaveGhPatch":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/SaveGhPatchComponent.cs'
+"component: ScreenshotCaptureComponentBase":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Img/ScreenshotCaptureComponentBase.cs'
 "component: SmartHopperMcpServer":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Mcp/SmartHopperMcpServerComponent.cs'
@@ -397,6 +403,9 @@ documentation:
 "component: TextList2AI":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/TextList2AIComponent.cs'
+"component: ViewportCapture":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Img/ViewportCaptureComponent.cs'
 "component: Web2AI":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/Web2AIComponent.cs'
