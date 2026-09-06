@@ -89,8 +89,6 @@ documentation:
           - 'docs/**'
           - '.github/ISSUE_TEMPLATE/**'
 
-
-
 # --- Component labels ---
 "component: AI 2Boolean":
   - changed-files:
@@ -155,9 +153,6 @@ documentation:
 "component: AI File2Md":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIFile2MdComponent.cs'
-"component: AI FileContext":
-  - changed-files:
-      - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AIFileContextComponent.cs'
 "component: AI FileMetadata":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AIFileMetadataComponent.cs'
