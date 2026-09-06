@@ -123,7 +123,7 @@ if (Test-Path $solutionPropsPath) {
 }
 
 Write-Host "Building solution $solutionPath with configuration '$Configuration'" -ForegroundColor Cyan
-$dotnetBuildArgs = @($solutionPath, "-c", $Configuration)
+$dotnetBuildArgs = @($solutionPath, "-c", $Configuration, "--no-incremental")
 if ($OutErrors -and $OutWarnings) {
     # ErrorsOnly and WarningsOnly are mutually exclusive in the console logger;
     # minimal verbosity shows both without informational output.
