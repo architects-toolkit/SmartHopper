@@ -407,8 +407,6 @@ This section lists all components under `src/SmartHopper.Components` that are ba
 
 - **AIChatComponent** (`AIStatefulAsyncComponentBase`) — schema not applicable.
 
-- **AIFileContextComponent** (`GH_Component`) — schema not applicable.
-
 - **AIModelsComponent** (`AIProviderComponentBase`) — schema not applicable.
 
 #### 6.5 Knowledge components

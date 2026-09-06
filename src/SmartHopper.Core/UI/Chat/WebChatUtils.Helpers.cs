@@ -32,7 +32,7 @@ namespace SmartHopper.Core.UI.Chat
     /// </summary>
     public static partial class WebChatUtils
     {
-        private const string DefaultWebChatContextFilter = "time, environment, current-file, selection, viewport";
+        private const string DefaultWebChatContextFilter = "time, environment, file, selection, viewport";
 
         /// <summary>
         /// Ensures the Eto.Forms Application is initialized and attached.

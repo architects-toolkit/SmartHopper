@@ -26,6 +26,8 @@
  *  - param-count: total number of parameters in the document.
  *  - scribble-count: total number of scribbles/notes in the document.
  *  - group-count: total number of groups in the document.
+ *  - title, description, version, author, tags: user-defined file metadata from the
+ *    file-metadata context provider (AIFileMetadataComponent).
  * This provider computes values on demand (no event wiring), so values are always fresh
  * whenever AIContextManager.GetCurrentContext() is called.
  */
@@ -53,7 +55,7 @@ namespace SmartHopper.Core.AIContext
         /// <summary>
         /// Gets the provider identifier.
         /// </summary>
-        public string ProviderId => "current-file";
+        public string ProviderId => "file";
 
         /// <summary>
         /// Gets the current file context for AI queries.
@@ -64,6 +66,8 @@ namespace SmartHopper.Core.AIContext
         ///  - "param-count": total number of parameters in the current document.
         ///  - "scribble-count": total number of scribbles/notes in the current document.
         ///  - "group-count": total number of groups in the current document.
+        ///  - "title", "description", "version", "author", "tags": user-defined file metadata
+        ///    from the file-metadata context provider when available.
         /// </summary>
         /// <returns>A dictionary containing the current file context values.</returns>
         [SuppressMessage("Design", "CA1031", Justification = "Context providers must be resilient and never crash the AI request pipeline.")]
@@ -135,7 +139,7 @@ namespace SmartHopper.Core.AIContext
                     {
                         foreach (var kvp in metadataProvider.GetContext())
                         {
-                            result[$"metadata-{kvp.Key}"] = kvp.Value;
+                            result[kvp.Key] = kvp.Value;
                         }
                     }
                     catch
@@ -167,7 +171,7 @@ namespace SmartHopper.Core.AIContext
                     {
                         foreach (var kvp in metadataProvider.GetContext())
                         {
-                            fallback[$"metadata-{kvp.Key}"] = kvp.Value;
+                            fallback[kvp.Key] = kvp.Value;
                         }
                     }
                     catch

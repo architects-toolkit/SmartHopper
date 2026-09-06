@@ -9,6 +9,9 @@ This document aggregates development-facing information.
   - [Default Models by Provider](#-default-models-by-provider)
   - [Supported Data Types](#-supported-data-types)
 
+<!-- markdownlint-disable MD060 -->
+<!-- DEV.md uses emoji-rich tables; MD060's style checks misreport columns that contain multi-code-point emoji characters. -->
+
 ## 📊 Development Status
 
 ### Components
@@ -27,7 +30,7 @@ This document aggregates development-facing information.
 | Save GhJSON file (SaveGhJSON)<br><sub>Save the current Grasshopper file as a GhJSON format</sub> | Grasshopper | ⚪ | - | - | - |
 | Load GhJSON file (LoadGhJSON)<br><sub>Load a GhJSON file and convert it to a Grasshopper document</sub> | Grasshopper | ⚪ | - | - | - |
 | AI Chat (AIChat)<br><sub>Interactive AI-powered conversational interface with tool calling</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI File Context (AIFileContext)<br><sub>Set a context for the current document</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI File Metadata (AIFileMetadata)<br><sub>Set metadata (title, description, version, author, tags) for the current document</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Models (AIModels)<br><sub>Retrieve the list of available models from the selected AI provider</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
 | Context Parameters (ContextParameters)<br><sub>Set context parameters for the AI component</sub> | AI | ⚪ | - | - | - |
 | AI Text To Boolean (AIText2Boolean)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -204,6 +207,7 @@ SmartHopper currently supports the following AI providers and features:
 | Stable Diffusion | ⚪ Planned | Local/API Stable Diffusion endpoint | Planned | No | No | Planned | No | No | Planned | Planned |
 
 Notes:
+
 - “Temperature config” indicates whether the provider/model family supports a temperature parameter in SmartHopper. For OpenAI o‑series and gpt‑5, temperature is omitted by design; other OpenAI models support it.
 - “Live reasoning streaming in UI” depends on the provider exposing a distinct reasoning/thinking channel and SmartHopper adapter support.
 - OpenRouter capabilities vary by the routed underlying model; the SmartHopper adapter enables streaming, but reasoning support depends on the routed model.
@@ -224,6 +228,7 @@ The following table summarizes the models explicitly registered as defaults or v
 - `src/SmartHopper.Providers.OpenRouter/OpenRouterProviderModels.cs`
 
 Notes:
+
 - "Default For" lists the feature areas the model is set as default for (e.g., `Text2Text`, `ToolChat`).
 - "Capabilities" lists the core capability flags registered for the model.
 - "Verified" reflects the `Verified` flag in the registry; "Deprecated" reflects the `Deprecated` flag (some default models, such as OpenAI `dall-e-3`, are flagged deprecated).
