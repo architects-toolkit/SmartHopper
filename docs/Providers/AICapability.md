@@ -194,9 +194,19 @@ var hasImageOut = capabilities.HasFlag(AICapability.ImageOutput);
 
 ```
 
-### Error Handling
+### Automated Registry Updates
 
-| Error | Cause | Solution |
+`tools/Update-ProviderModels.ps1` maps OpenRouter `architecture.input_modalities`, `architecture.output_modalities`, and `supported_parameters` into registry flags. OpenRouter exposes a generic `audio` modality but does not distinguish dedicated speech from multimodal chat audio, so the updater applies provider-aware rules:
+
+- OpenAI transcription/Whisper and TTS model identifiers map to `SpeechInput` or `SpeechOutput` instead of general audio.
+- MistralAI Voxtral transcription models retain `AudioInput` and explicitly add `SpeechInput`; TTS models use `SpeechOutput`.
+- Gemini models with audio input add `SpeechInput` because speech recognition uses Gemini's multimodal chat path; Gemini TTS identifiers use `SpeechOutput`.
+- OpenRouter-provider models remain general `AudioInput`/`AudioOutput` because the adapter does not implement dedicated speech transport.
+- OpenRouter metadata refreshes preserve hand-curated `SpeechInput`/`SpeechOutput` flags for provider-native registries. Inferred flags are listed in automated PRs for review.
+
+Validation checks that every `Default` composite is satisfied by the same model's declared constituent flags. `Text2Speech` therefore requires `SpeechOutput`, while `Text2Audio` requires `AudioOutput`.
+
+### Error Handling
 | --- | --- | --- |
 | `InvalidOperationException` | Capability check failed unexpectedly | Verify enum values aren't corrupted |
 | Model not in list | Model lacks required capability | Check capability flags in model registration |
