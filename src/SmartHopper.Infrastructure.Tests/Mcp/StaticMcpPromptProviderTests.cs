@@ -30,16 +30,18 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
     public class StaticMcpPromptProviderTests
     {
         [Fact]
-        public async Task ListPromptsAsync_ReturnsThreeStaticPrompts()
+        public async Task ListPromptsAsync_ReturnsFiveStaticPrompts()
         {
             var provider = new StaticMcpPromptProvider();
 
             var prompts = await provider.ListPromptsAsync();
 
-            Assert.Equal(3, prompts.Count);
+            Assert.Equal(5, prompts.Count);
             Assert.Contains(prompts, p => p.Name == "grasshopper-expert");
             Assert.Contains(prompts, p => p.Name == "script-writer");
             Assert.Contains(prompts, p => p.Name == "canvas-debugger");
+            Assert.Contains(prompts, p => p.Name == "definition-builder");
+            Assert.Contains(prompts, p => p.Name == "performance-reviewer");
         }
 
         [Fact]
@@ -55,8 +57,8 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             var messages = await prompt.GetMessagesAsync();
             Assert.Single(messages);
             var text = messages[0].Text;
-            Assert.Contains("expert in Grasshopper", text, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("docs:///smarthopper-readme", text, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Grasshopper, Rhino 3D, and SmartHopper expert", text, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("docs:///grasshopper-foundations", text, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
