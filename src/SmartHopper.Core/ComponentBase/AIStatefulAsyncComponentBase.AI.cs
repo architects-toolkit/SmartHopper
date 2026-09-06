@@ -30,6 +30,7 @@ using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Batch;
+using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
@@ -344,7 +345,24 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="forceToolName">Optional tool name to force the provider to call.</param>
         /// <param name="cancellationToken">Cancellation token for the operation.</param>
         /// <returns>The AIReturn result from the provider.</returns>
-        protected async Task<AIReturn> CallAIAsync(AIBody body, string forceToolName = null, System.Threading.CancellationToken cancellationToken = default)
+        protected Task<AIReturn> CallAIAsync(AIBody body, string forceToolName = null, System.Threading.CancellationToken cancellationToken = default)
+        {
+            return this.CallAIAsync(body, this.GetParameters(), forceToolName, cancellationToken);
+        }
+
+        /// <summary>
+        /// Executes a full provider request with request-specific parameters.
+        /// </summary>
+        /// <param name="body">The AIBody containing interactions and context.</param>
+        /// <param name="parameters">Parameters to use for this request.</param>
+        /// <param name="forceToolName">Optional tool name to force the provider to call.</param>
+        /// <param name="cancellationToken">Cancellation token for the operation.</param>
+        /// <returns>The AIReturn result from the provider.</returns>
+        protected async Task<AIReturn> CallAIAsync(
+            AIBody body,
+            AIRequestParameters parameters,
+            string forceToolName = null,
+            System.Threading.CancellationToken cancellationToken = default)
         {
             body ??= AIBody.Empty;
 
@@ -359,7 +377,7 @@ namespace SmartHopper.Core.ComponentBase
                 Model = model,
                 Endpoint = this.Name,
                 Body = body,
-                Parameters = this.GetParameters(),
+                Parameters = parameters ?? this.GetParameters(),
                 ForceToolName = forceToolName,
                 Capability = this.RequiredCapability,
             };

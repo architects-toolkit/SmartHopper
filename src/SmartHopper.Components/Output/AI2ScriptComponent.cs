@@ -19,12 +19,13 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AIModels;
 
@@ -117,27 +118,6 @@ namespace SmartHopper.Components.Output
         }
 
         /// <summary>
-        /// Gathers additional input parameters (Language tree).
-        /// </summary>
-        protected override void GatherAdditionalInputs(IGH_DataAccess DA, Dictionary<string, object> additionalInputs)
-        {
-            base.GatherAdditionalInputs(DA, additionalInputs);
-
-            try
-            {
-                var languageTree = new GH_Structure<IGH_Goo>();
-                if (DA.GetDataTree(1, out languageTree) && languageTree != null && languageTree.DataCount > 0)
-                {
-                    additionalInputs["Language"] = languageTree;
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[AI2ScriptComponent] Error gathering Language input: {ex.Message}");
-            }
-        }
-
-        /// <summary>
         /// Overrides PrepareInputs to inject Language into the system prompt.
         /// </summary>
         protected override void PrepareInputs(Dictionary<string, object> inputs, ProcessingUnitContext context)
@@ -152,8 +132,19 @@ namespace SmartHopper.Components.Output
                 language = languageStr.Value;
             }
 
-            // Store language in inputs for use by CallAIAsync
-            inputs["_Language"] = language;
+            if (inputs.TryGetValue("_MergedBody", out var bodyObject) && bodyObject is AIBody body)
+            {
+                var directive = $"Generate the script in {language}.";
+                var systemPrompt = body.Interactions?
+                    .OfType<AIInteractionText>()
+                    .FirstOrDefault(interaction => interaction.Agent == AIAgent.System);
+
+                inputs["_MergedBody"] = systemPrompt != null
+                    ? body.WithReplaced(
+                        systemPrompt,
+                        systemPrompt with { Content = $"{systemPrompt.Content}\n\n{directive}" })
+                    : body.WithAppended(new AIInteractionText { Agent = AIAgent.System, Content = directive });
+            }
         }
     }
 }

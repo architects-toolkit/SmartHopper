@@ -226,6 +226,23 @@ foreach ($label in ($providerLabels.Values | Sort-Object Name)) {
     $providerLabelerEntries += ""
 }
 
+# --- labeler.yml section replacement ---
+# Normalizes existing content to LF before applying section regexes so the
+# result is idempotent regardless of the file's on-disk line endings (CRLF
+# working trees previously left orphaned \r characters that accumulated a
+# stray blank line before "# --- Component labels ---" on every run).
+
+function Get-UpdatedLabelerContent {
+    param([string]$Existing)
+    $content = if ($null -ne $Existing) { $Existing -replace "`r`n", "`n" } else { "" }
+    $providerSectionPattern = '(?ms)\n# --- Provider labels ---.*?(?=\n# --- |\z)'
+    $componentSectionPattern = '(?ms)\n+# --- Component labels ---.*?(?=\n# --- |\z)'
+    $content = [regex]::Replace($content, $providerSectionPattern, "`n" + ($providerLabelerEntries -join "`n"))
+    $content = [regex]::Replace($content, $componentSectionPattern, "`n`n$componentLabelerSection")
+    # Restore a single trailing newline at EOF (the \z match consumes it)
+    return $content.TrimEnd("`r", "`n") + "`n"
+}
+
 # --- Build provider section for issue-labeler.yml ---
 
 $existingIssueRegexes = @{}
@@ -310,14 +327,9 @@ if ($Check -or $Apply) {
     # Check labeler.yml
     if (Test-Path $labelerPath) {
         $existingContent = Get-Content -Raw $labelerPath
-        $providerSectionPattern = '(?ms)\n# --- Provider labels ---.*?(?=\n# --- |\z)'
-        $componentSectionPattern = '(?ms)\n+# --- Component labels ---.*?(?=\n# --- |\z)'
-        $newLabelerContent = $existingContent
-        $newLabelerContent = [regex]::Replace($newLabelerContent, $providerSectionPattern, "`n" + ($providerLabelerEntries -join "`n"))
-        $newLabelerContent = [regex]::Replace($newLabelerContent, $componentSectionPattern, "`n`n$componentLabelerSection")
+        $newLabelerContent = Get-UpdatedLabelerContent $existingContent
         $oldNorm = $existingContent -replace "\r\n", "\n"
-        $newNorm = $newLabelerContent -replace "\r\n", "\n"
-        if ($oldNorm -ne $newNorm) { $labelerChanged = $true }
+        if ($oldNorm -ne $newLabelerContent) { $labelerChanged = $true }
     } else {
         $labelerChanged = $true
     }
@@ -352,11 +364,7 @@ if ($Apply) {
 
     # Write labeler.yml
     $existingContent = if (Test-Path $labelerPath) { Get-Content -Raw $labelerPath } else { "" }
-    $providerSectionPattern = '(?ms)\n# --- Provider labels ---.*?(?=\n# --- |\z)'
-    $componentSectionPattern = '(?ms)\n+# --- Component labels ---.*?(?=\n# --- |\z)'
-    $newLabelerContent = $existingContent
-    $newLabelerContent = [regex]::Replace($newLabelerContent, $providerSectionPattern, "`n" + ($providerLabelerEntries -join "`n"))
-    $newLabelerContent = [regex]::Replace($newLabelerContent, $componentSectionPattern, "`n`n$componentLabelerSection")
+    $newLabelerContent = Get-UpdatedLabelerContent $existingContent
     [System.IO.File]::WriteAllText($labelerPath, $newLabelerContent, $utf8NoBom)
     Write-Host "Updated $labelerPath with $($providerLabels.Count) provider and $($componentEntries.Count) component entries" -ForegroundColor Green
 

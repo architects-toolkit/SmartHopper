@@ -20,13 +20,11 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AIModels;
@@ -140,27 +138,13 @@ namespace SmartHopper.Components.Output
         }
 
         /// <summary>
-        /// Gathers additional input parameters (Schema tree).
+        /// Gathers additional input parameters. The tree-access "Schema" parameter is
+        /// collected by the base implementation; only the item-access "Fallback"
+        /// parameter needs custom handling here.
         /// </summary>
         protected override void GatherAdditionalInputs(IGH_DataAccess DA, Dictionary<string, object> additionalInputs)
         {
             base.GatherAdditionalInputs(DA, additionalInputs);
-
-            try
-            {
-                // The Schema parameter is a Param_Text, so its underlying tree is GH_Structure<GH_String>.
-                // Read it with the concrete type and then convert to GH_Structure<IGH_Goo> so the
-                // output-adapter pipeline can slice and broadcast it like any other additional input.
-                var schemaTree = new GH_Structure<GH_String>();
-                if (DA.GetDataTree(1, out schemaTree) && schemaTree != null && schemaTree.DataCount > 0)
-                {
-                    additionalInputs["Schema"] = GHStructureConverter.ConvertToGooTree(schemaTree);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[AI2JsonComponent] Error gathering Schema input: {ex.Message}");
-            }
 
             // Capture optional Fallback JSON for use by the extractors when parsing fails.
             this._fallback = null;

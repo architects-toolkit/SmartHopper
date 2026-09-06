@@ -10,7 +10,7 @@ Context providers enrich AI requests with environment information (such as time)
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Core/AIContext/` |
 | **Since Version** | 2.0.0-dev.260905 |
-| **Last Updated** | 2026-09-05 |
+| **Last Updated** | 2026-09-06 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -45,7 +45,7 @@ Supply dynamic key-value context injected into `AIBody` so prompts and tools can
 
 - `time`: provides `time_current-datetime`, `time_current-timezone`
 - `environment`: provides `environment_operating-system`, `environment_rhino-version`, `environment_platform`
-- `current-file`: provides `current-file-file-name`, `current-file-object-count`, `current-file-component-count`, `current-file-param-count`, `current-file-scribble-count`, `current-file-group-count`
+- `file`: provides `file_file-name`, `file_object-count`, `file_component-count`, `file_param-count`, `file_scribble-count`, `file_group-count`, and, when `AIFileMetadataComponent` is present, `file_title`, `file_description`, `file_version`, `file_author`, `file_tags`
 - `selection`: provides `selection_selected-count`, `selection_selected-component-count`, `selection_selected-param-count`, `selection_selected-objects`, `selection_selected-topology`, `selection_selected-runtime-values`
 - `viewport`: provides `viewport_viewport-bounds`, `viewport_viewport-center`, `viewport_viewport-zoom`, `viewport_viewport-visible-count`, `viewport_viewport-visible-objects`
 
@@ -53,7 +53,7 @@ Supply dynamic key-value context injected into `AIBody` so prompts and tools can
 
 WebChat (both the Canvas Button and the AIChatComponent dialog) enables a curated context set by default:
 
-- `time, environment, current-file, selection, viewport`
+- `time, environment, file, selection, viewport`
 
 ---
 
@@ -65,7 +65,7 @@ WebChat (both the Canvas Button and the AIChatComponent dialog) enables a curate
   - `IAIContextProvider` — contract for context sources
   - `EnvironmentContextProvider` (ProviderId: `environment`)
   - `TimeContextProvider` (ProviderId: `time`)
-  - `FileContextProvider` (ProviderId: `current-file`)
+  - `FileContextProvider` (ProviderId: `file`)
   - `SelectionContextProvider` (ProviderId: `selection`)
   - `ViewportContextProvider` (ProviderId: `viewport`)
 
@@ -107,7 +107,7 @@ AIContextBootstrapper.EnsureInitialized();
 
 ```csharp
 // Retrieve aggregated context from the manager
-var context = AIContextManager.GetContext();
+var context = AIContextManager.GetCurrentContext();
 
 // Access specific provider values
 if (context.TryGetValue("time_current-datetime", out var dateTime))
@@ -120,9 +120,11 @@ if (context.TryGetValue("environment_rhino-version", out var rhinoVersion))
     Console.WriteLine($"Running on Rhino {rhinoVersion}");
 }
 
-// Inject into AIBody for a prompt or tool
-var body = new AIBody();
-body.SetContext(context);
+// Include in a request body through the context filter
+var body = AIBodyBuilder.Create()
+    .WithContextFilter("time, environment, file")
+    .AddUser("What is in this file?")
+    .Build();
 
 ```
 
@@ -134,7 +136,7 @@ The context system is intentionally minimal and privacy-aware:
 
 - **Minimal footprint**: Each provider returns a small, well-scoped dictionary. There are no large serialized objects or unbounded collections.
 - **Deterministic keys**: Provider keys follow a `providerid_key-name` convention so collisions are avoided and consumers can reliably check for specific values.
-- **Privacy by design**: Sensitive data is not collected. File context exposes counts and names, not full geometry or proprietary data. `selection` and `viewport` expose richer metadata by default; users can exclude them with a context filter such as `time, environment, current-file, -selection, -viewport`.
+- **Privacy by design**: Sensitive data is not collected. File context exposes counts and names, not full geometry or proprietary data. `selection` and `viewport` expose richer metadata by default; users can exclude them with a context filter such as `time, environment, file, -selection, -viewport`.
 - **Whitelist-friendly**: Consumers can filter the full context map to only the keys they need, making it easy to audit what information is actually sent to an AI provider.
 
 Guidance for extending the system:

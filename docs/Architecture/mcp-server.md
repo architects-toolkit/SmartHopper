@@ -10,7 +10,7 @@ Loopback-only MCP transport that exposes SmartHopper's existing `AITool` catalog
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Infrastructure/Mcp/` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-07-04 |
+| **Last Updated** | 2026-09-06 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -27,6 +27,7 @@ You should also read this if you are:
 - adding or renaming `AITool` implementations that should appear in MCP
 - changing the server's security posture, tool allow-list behavior, or mutating-tool policy
 - debugging how `tools/list` and `tools/call` map to `AIToolManager` and `AIToolCall`
+- adding static MCP resources or prompts
 
 ## End-User Guide
 
@@ -76,7 +77,7 @@ A tool is considered mutating when its `AITool.MutatesCanvas` flag is `true`.
 - Read-only, query, validation, and transformation tools should set `mutatesCanvas: false`.
 - MCP exposure uses the flag instead of name-prefix heuristics.
 
-That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `gh_diff`, `gh_patch_validate`, `script_review`, `text2json`, `img2text`, `web2md`, and the Discourse readers stay visible by default, while canvas-changing tools remain hidden unless explicitly enabled.
+That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `gh_diff`, `gh_patch_validate`, `script_review`, `text2json`, `img2text`, `canvas_screenshot`, `viewport_screenshot`, `web2md`, and the Discourse readers stay visible by default, while canvas-changing tools remain hidden unless explicitly enabled.
 
 ### What Enabled Means
 
@@ -95,7 +96,10 @@ A tool is considered enabled when its `AITool.Enabled` flag is `true` (the defau
 | `tools/call` | Resolves the named tool, builds `AIToolCall`, executes it through the adapter, and wraps the result in MCP `text` content. |
 | `notifications/initialized` | Acknowledged as a notification. |
 | `ping` | Lightweight health check. |
-| `resources/*` and `prompts/*` | Reserved for later phases. |
+| `resources/list` | Returns static documentation URIs exposed by `IMcpResourceProvider`. |
+| `resources/read` | Returns `{ "contents": [ { "uri", "mimeType", "text" } ] }` for the requested URI. |
+| `prompts/list` | Returns reusable prompt names and descriptions from `IMcpPromptProvider`. |
+| `prompts/get` | Returns `{ "description", "messages": [ { "role", "content": { "type", "text" } } ] }` for the requested prompt name. |
 | `GET /health` | HTTP-only endpoint returning `{"status":"ok"}`; not a JSON-RPC method. |
 
 ### Tool Metadata
@@ -125,6 +129,43 @@ The adapter expects MCP clients to send a tool name and a JSON object of argumen
 3. `AIToolMcpAdapter` checks the tool exists, then `AITool.Enabled`, then `EnabledTools`, then `ExposeMutatingTools`/`AITool.MutatesCanvas`.
 4. `AIToolMcpAdapter` builds an `AIToolCall` and invokes it through the configured executor (`AIToolCall.Exec()` by default).
 5. The adapter extracts the last `AIInteractionToolResult` from `AIReturn.Body` and returns it as the MCP response payload; if no tool result is present, the adapter falls back to the first Tool/Provider/Network error or an empty object.
+
+`canvas_screenshot` and `viewport_screenshot` use this unchanged path. They return `{ imageBase64, mimeType, width, height }` (plus `viewName` for a Rhino viewport), are marked `readOnlyHint: true`, and remain available under the default read-only MCP policy. Capture is marshalled to Rhino's UI thread and dimensions are limited to 4096 pixels per axis. Screenshot payloads can contain sensitive project information; use bearer authentication when other local processes are not trusted and avoid forwarding captures to external services without user intent.
+
+### Shared Agent Knowledge, Resources, and Prompts
+
+`AgentKnowledgeCatalog` is the canonical runtime source for Grasshopper and SmartHopper guidance. It reads immutable Markdown embedded under `src/SmartHopper.Infrastructure/Resources/Mcp/` and serves three consumers:
+
+1. `StaticMcpResourceProvider` projects catalog documents as MCP `docs:///` resources.
+2. The in-process `smarthopper_readme` and `smarthopper_workflows` AITools return the same documents to WebChat agents.
+3. `WebChatUtils.CreateWebChatRequest` prepends the internal `assistant-core` document to every WebChat system prompt before caller/user specialization.
+
+This prevents MCP, the canvas assistant, and `AIChatComponent` from maintaining divergent copies of foundational knowledge or workflows.
+
+Resources include:
+
+- `docs:///grasshopper-foundations` — components, parameters, wires, dependency flow, and solution behavior.
+- `docs:///grasshopper-data-trees` — item/list/tree structure, paths, access modes, and matching.
+- `docs:///grasshopper-definition-design` — algorithm design, organization, robustness, and maintenance.
+- `docs:///grasshopper-geometry` — units, tolerances, domains, directions, and geometry types.
+- `docs:///grasshopper-debugging` and `docs:///grasshopper-performance` — diagnosis and optimization.
+- `docs:///grasshopper-scripting-csharp`, `docs:///grasshopper-scripting-python`, and `docs:///grasshopper-scripting-vb` — language-specific script-component guidance.
+- `docs:///smarthopper-tool-strategy`, `docs:///smarthopper-providers`, `docs:///smarthopper-research`, and `docs:///source-policy` — SmartHopper operation and evidence rules.
+- `docs:///smarthopper-readme` and `docs:///smarthopper-workflows` — topic index and canonical tool chains.
+- `docs:///ghjson-schema` — GhJSON/GhPatch specification linked from `SmartHopper.Core.Grasshopper/Resources/GhJsonSpec/v1.0/specification.md`.
+- `docs:///tool-help/{toolName}` — live per-tool metadata produced by `smarthopper_tool_help`.
+
+`assistant-core` is deliberately not listed as an MCP resource. MCP clients opt into behavior through prompts, while WebChat always receives the core through request composition.
+
+Prompts (`StaticMcpPromptProvider`):
+
+- `prompts:///grasshopper-expert`
+- `prompts:///definition-builder`
+- `prompts:///canvas-debugger`
+- `prompts:///script-writer`
+- `prompts:///performance-reviewer`
+
+Prompts remain pure behavioral templates: they refer to resources and tools but do not execute them. External source material is curated and embedded at build time instead of fetched automatically during prompt construction.
 
 ### Thread Safety and Concurrency
 
@@ -219,6 +260,13 @@ Phase 1 is implemented under `src/SmartHopper.Infrastructure/Mcp/` rather than a
 - `McpServerOptions.cs` — port, token, allow-list, and mutating-tool settings
 - `McpServerLifecycle.cs` — ref-counted singleton server manager
 - `McpToolDescriptor.cs` / `McpToolCallResult.cs` — protocol DTOs
+- `McpResource.cs` / `McpPrompt.cs` / `McpPromptMessage.cs` — resource and prompt DTOs
+- `IMcpResourceProvider.cs` / `IMcpPromptProvider.cs` — provider contracts
+- `EmbeddedMcpResourceLoader.cs` — discovers and reads embedded Markdown content by file name
+- `AgentKnowledgeCatalog.cs` — canonical document/topic/workflow registry and WebChat core-prompt composer
+- `StaticMcpResourceProvider.cs` / `StaticMcpPromptProvider.cs` — MCP adapters over embedded knowledge and prompts
+- `Resources/Mcp/**/*.md` — compiled-in Markdown content for resources and prompts
+- `McpToolExecutor.cs` — helper that executes AITools for `docs:///tool-help/{toolName}` content
 
 The component entry point lives in `src/SmartHopper.Components/Mcp/SmartHopperMcpServerComponent.cs`.
 
@@ -233,6 +281,8 @@ The component entry point lives in `src/SmartHopper.Components/Mcp/SmartHopperMc
 | 4 | LAN exposure and stronger auth | Opt-in networking and stricter security. |
 | 5 | Streamable HTTP / SSE | Long-running streaming transport support. |
 
+Phases 2 and 3 are implemented as static providers sourced from existing AITools and `/docs` Markdown.
+
 ### Decision Points
 
 - **Project placement.** Phase 1 ships under Infrastructure, not as a separate `SmartHopper.Mcp` project.
@@ -240,6 +290,7 @@ The component entry point lives in `src/SmartHopper.Components/Mcp/SmartHopperMc
 - **Mutating tools off by default.** `McpServerOptions.ExposeMutatingTools = false` and `AITool.MutatesCanvas` control exposure.
 - **Component path.** The component lives at `SmartHopper.Components/Mcp/SmartHopperMcpServerComponent.cs`.
 - **Component-name aliasing.** The orchestration layer already handles aliasing through `ComponentNameAliases` in `SmartHopper.Core.Grasshopper.Utils.Canvas`; no extra MCP-side alias layer is introduced.
+- **Shared agent knowledge.** `AgentKnowledgeCatalog` owns stable embedded guidance and workflow parsing. MCP resources, in-process instruction tools, and WebChat prompt composition consume that catalog instead of maintaining separate copies. The GhJSON spec remains linked from the existing `SmartHopper.Core.Grasshopper` snapshot. MCP prompts stay pure and refer clients to resources/tools for focused content.
 
 ### Relationship to GhJSON and Cordyceps
 
@@ -260,7 +311,7 @@ The component entry point lives in `src/SmartHopper.Components/Mcp/SmartHopperMc
 
 - [Architecture overview](../Architecture.md)
 - [Tool catalogue](../Tools/index.md)
-- Cordyceps source: https://github.com/brookstalley/cordyceps
-- MCP specification: https://modelcontextprotocol.io/
-- GhJSON specification: https://github.com/architects-toolkit/ghjson-spec
-- `ghjson-dotnet`: https://github.com/architects-toolkit/ghjson-dotnet
+- [Cordyceps source](https://github.com/brookstalley/cordyceps)
+- [MCP specification](https://modelcontextprotocol.io/)
+- [GhJSON specification](https://github.com/architects-toolkit/ghjson-spec)
+- [`ghjson-dotnet`](https://github.com/architects-toolkit/ghjson-dotnet)

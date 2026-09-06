@@ -282,7 +282,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "voxtral-mini-2602",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    Capabilities = AICapability.SpeechInput | AICapability.AudioInput | AICapability.TextOutput,
                     Default = AICapability.Speech2Text,
                     SupportsStreaming = false,
                     Verified = false,
@@ -295,7 +295,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "voxtral-mini-tts-2603",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.AudioOutput,
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.SpeechOutput,
                     Default = AICapability.Text2Speech,
                     SupportsStreaming = false,
                     Verified = false,
@@ -307,7 +307,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "voxtral-small-2507",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    Capabilities = AICapability.SpeechInput | AICapability.AudioInput | AICapability.TextOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9920,
@@ -521,7 +521,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "voxtral-mini-2507",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    Capabilities = AICapability.SpeechInput | AICapability.AudioInput | AICapability.TextOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
@@ -533,7 +533,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "voxtral-mini-transcribe-2507",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    Capabilities = AICapability.SpeechInput | AICapability.AudioInput | AICapability.TextOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
@@ -545,7 +545,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "voxtral-mini-tts-mellon-greek-2606-solutions",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.AudioOutput,
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.SpeechOutput,
                     Default = AICapability.Text2Speech,
                     SupportsStreaming = true,
                     Verified = false,

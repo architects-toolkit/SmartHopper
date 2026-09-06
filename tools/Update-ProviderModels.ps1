@@ -284,8 +284,10 @@ $CompositeDefaultCapabilities = [ordered]@{
     ToolReasoningChat = @('TextInput', 'TextOutput', 'Reasoning', 'FunctionCalling')
     Text2Json         = @('TextInput', 'JsonOutput')
     Text2Image        = @('TextInput', 'ImageOutput')
-    Text2Speech       = @('TextInput', 'AudioOutput')
-    Speech2Text       = @('AudioInput', 'TextOutput')
+    Text2Speech       = @('TextInput', 'SpeechOutput')
+    Speech2Text       = @('SpeechInput', 'TextOutput')
+    Audio2Text        = @('AudioInput', 'TextOutput')
+    Text2Audio        = @('TextInput', 'AudioOutput')
     Image2Text        = @('ImageInput', 'TextOutput')
     Image2Image       = @('ImageInput', 'ImageOutput')
 }
@@ -517,6 +519,8 @@ function Format-ModelBlock($model, $providerVar) {
 # ---------------------------------------------------------------------------
 # Helper: Map OpenRouter modalities + supported_parameters to AICapability flags
 # ---------------------------------------------------------------------------
+$inferredSpeechCapabilityModels = [System.Collections.Generic.List[string]]::new()
+
 function ConvertTo-CapabilityFlags($openRouterModel) {
     $caps = [System.Collections.Generic.List[string]]::new()
 
@@ -524,15 +528,40 @@ function ConvertTo-CapabilityFlags($openRouterModel) {
     $inputModalities  = if ($arch) { $arch.input_modalities } else { $null }
     $outputModalities = if ($arch) { $arch.output_modalities } else { $null }
     $supportedParams  = $openRouterModel.supported_parameters
+    $modelId = [string]$openRouterModel.id
+    $isDedicatedSpeechInput = $Provider -eq 'OpenAI' -and $modelId -match '(?i)(whisper|transcrib|speech-to-text|(^|[/_.-])stt([/_.-]|$))'
+    $isDedicatedSpeechOutput = $Provider -in @('OpenAI', 'MistralAI', 'Gemini') -and $modelId -match '(?i)(text-to-speech|(^|[/_.-])tts([/_.-]|$))'
+    $supportsSpeechInputViaChat = $Provider -eq 'Gemini'
+    $supportsMistralSpeechInput = $Provider -eq 'MistralAI' -and $modelId -match '(?i)voxtral' -and -not $isDedicatedSpeechOutput
 
     if ($inputModalities -contains 'text')   { $caps.Add('AICapability.TextInput') }
     if ($inputModalities -contains 'image')  { $caps.Add('AICapability.ImageInput') }
-    if ($inputModalities -contains 'audio')  { $caps.Add('AICapability.AudioInput') }
+    if ($inputModalities -contains 'audio') {
+        if ($isDedicatedSpeechInput) {
+            $caps.Add('AICapability.SpeechInput')
+            $inferredSpeechCapabilityModels.Add("$modelId : SpeechInput")
+        }
+        else {
+            $caps.Add('AICapability.AudioInput')
+            if ($supportsSpeechInputViaChat -or $supportsMistralSpeechInput) {
+                $caps.Add('AICapability.SpeechInput')
+                $inferredSpeechCapabilityModels.Add("$modelId : SpeechInput")
+            }
+        }
+    }
     if ($inputModalities -contains 'video')  { $caps.Add('AICapability.VideoInput') }
 
     if ($outputModalities -contains 'text')  { $caps.Add('AICapability.TextOutput') }
     if ($outputModalities -contains 'image') { $caps.Add('AICapability.ImageOutput') }
-    if ($outputModalities -contains 'audio') { $caps.Add('AICapability.AudioOutput') }
+    if ($outputModalities -contains 'audio') {
+        if ($isDedicatedSpeechOutput) {
+            $caps.Add('AICapability.SpeechOutput')
+            $inferredSpeechCapabilityModels.Add("$modelId : SpeechOutput")
+        }
+        else {
+            $caps.Add('AICapability.AudioOutput')
+        }
+    }
     if ($outputModalities -contains 'video') { $caps.Add('AICapability.VideoOutput') }
 
     if ($supportedParams -contains 'tools' -or
@@ -580,6 +609,26 @@ function Test-CapabilityExpressionHasAll($expression, $capabilityNames) {
     return $true
 }
 
+function Merge-CuratedSpeechCapabilities($refreshedExpression, $existingExpression) {
+    $parts = [System.Collections.Generic.List[string]]::new()
+    if (-not [string]::IsNullOrWhiteSpace($refreshedExpression)) {
+        foreach ($part in $refreshedExpression -split '\s*\|\s*') {
+            if (-not [string]::IsNullOrWhiteSpace($part) -and -not $parts.Contains($part)) {
+                $parts.Add($part)
+            }
+        }
+    }
+
+    foreach ($speechCapability in @('SpeechInput', 'SpeechOutput')) {
+        $qualifiedName = "AICapability.$speechCapability"
+        if ((Test-CapabilityExpressionContains $existingExpression $speechCapability) -and -not $parts.Contains($qualifiedName)) {
+            $parts.Add($qualifiedName)
+        }
+    }
+
+    return if ($parts.Count -gt 0) { $parts -join ' | ' } else { 'AICapability.None' }
+}
+
 function Test-RealtimeModelName($modelName) {
     return -not [string]::IsNullOrWhiteSpace($modelName) -and $modelName -match '(?i)realtime'
 }
@@ -593,6 +642,7 @@ function Test-ProviderModelValidation($models) {
     $validationWarnings = [System.Collections.Generic.List[string]]::new()
     $missingDefaultCapabilities = [System.Collections.Generic.List[string]]::new()
     $pendingCapabilityModels = [System.Collections.Generic.List[string]]::new()
+    $invalidDefaultModels = [System.Collections.Generic.List[string]]::new()
     $realtimeModels = [System.Collections.Generic.List[string]]::new()
 
     $nonDeprecatedModelsForValidation = @($models | Where-Object { $_.Deprecated -ne 'true' })
@@ -635,6 +685,15 @@ function Test-ProviderModelValidation($models) {
             [void]$validationErrors.Add("Model '$($m.Model)' is non-deprecated but has pending capability definition.")
         }
 
+        foreach ($composite in $CompositeDefaultCapabilities.GetEnumerator()) {
+            if ((Test-CapabilityExpressionContains $m.Default $composite.Key) -and
+                -not (Test-CapabilityExpressionHasAll $m.Capabilities $composite.Value)) {
+                $detail = "$($m.Model) : $($composite.Key)"
+                [void]$invalidDefaultModels.Add($detail)
+                [void]$validationErrors.Add("Model '$($m.Model)' is default for AICapability.$($composite.Key) but lacks $($composite.Value -join ', ').")
+            }
+        }
+
         if (Test-RealtimeModelName $m.Model) {
             [void]$realtimeModels.Add($m.Model)
             [void]$validationErrors.Add("Realtime model '$($m.Model)' is present in the provider model list.")
@@ -647,6 +706,7 @@ function Test-ProviderModelValidation($models) {
         warnings                   = @($validationWarnings)
         missingDefaultCapabilities = @($missingDefaultCapabilities)
         pendingCapabilityModels    = @($pendingCapabilityModels)
+        invalidDefaultModels       = @($invalidDefaultModels)
         realtimeModels             = @($realtimeModels)
     }
 }
@@ -1519,7 +1579,11 @@ else {
             # Only overwrite Capabilities when OpenRouter returned a real value.
             # Preserve hand-curated flags when the API reports None.
             if (-not [string]::IsNullOrWhiteSpace($enrichment.Capabilities) -and $enrichment.Capabilities -ne 'AICapability.None') {
-                $existing.Capabilities = $enrichment.Capabilities
+                $existing.Capabilities = if ($Provider -eq 'OpenRouter') {
+                    $enrichment.Capabilities
+                } else {
+                    Merge-CuratedSpeechCapabilities $enrichment.Capabilities $existing.Capabilities
+                }
             }
             if ($null -ne $enrichment.ContextLimit) { $existing.ContextLimit = $enrichment.ContextLimit }
             if ($enrichment.Deprecated -or $existing.Deprecated -eq 'true') { $existing.Deprecated = 'true' }
@@ -1972,9 +2036,10 @@ $report = [ordered]@{
     sourceModels       = @($sourceModelNamesList)
     newModels          = @($newModels)
     deprecatedModels   = @($deprecatedModels)
-    unchangedModels    = @($unchangedModels)
-    fileUpdated        = $fileUpdated
-    validation          = $validation
+    unchangedModels                 = @($unchangedModels)
+    inferredSpeechCapabilityModels = @($inferredSpeechCapabilityModels | Sort-Object -Unique)
+    fileUpdated                     = $fileUpdated
+    validation                      = $validation
 }
 
 Write-Output ($report | ConvertTo-Json -Depth 10)

@@ -40,8 +40,8 @@ namespace SmartHopper.ProviderSdk.Tests.AIModels
         [InlineData(AICapability.ToolChat, "TextInput, TextOutput, FunctionCalling")]
         [InlineData(AICapability.ReasoningChat, "TextInput, TextOutput, Reasoning")]
         [InlineData(AICapability.Text2Image, "TextInput, ImageOutput")]
-        [InlineData(AICapability.AudioInput, "SpeechInput, AudioInput")]
-        [InlineData(AICapability.AudioOutput, "SpeechOutput, AudioOutput")]
+        [InlineData(AICapability.AudioInput, "AudioInput")]
+        [InlineData(AICapability.AudioOutput, "AudioOutput")]
         public void ToDetailedString_FormatsCapabilities(AICapability capability, string expected)
         {
             Assert.Equal(expected, capability.ToDetailedString());
@@ -74,8 +74,10 @@ namespace SmartHopper.ProviderSdk.Tests.AIModels
         [InlineData(AICapability.Text2Text, AICapability.TextOutput, true)]
         [InlineData(AICapability.Text2Text, AICapability.FunctionCalling, false)]
         [InlineData(AICapability.ToolChat, AICapability.FunctionCalling, true)]
-        [InlineData(AICapability.AudioInput, AICapability.SpeechInput, true)]
-        [InlineData(AICapability.AudioOutput, AICapability.SpeechOutput, true)]
+        [InlineData(AICapability.AudioInput, AICapability.SpeechInput, false)]
+        [InlineData(AICapability.AudioOutput, AICapability.SpeechOutput, false)]
+        [InlineData(AICapability.AudioInput, AICapability.AudioInput, true)]
+        [InlineData(AICapability.AudioOutput, AICapability.AudioOutput, true)]
         public void HasFlag_DetectsIndividualFlags(AICapability capability, AICapability flag, bool expected)
         {
             Assert.Equal(expected, capability.HasFlag(flag));

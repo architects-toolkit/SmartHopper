@@ -72,7 +72,7 @@ jobs:
                 should_run=true
                 break
                 ;;
-              src/SmartHopper.Infrastructure/AIModels/AICapability.cs|src/SmartHopper.Providers.*/*ProviderModels.cs)
+              src/SmartHopper.ProviderSdk/AIModels/AICapability.cs|src/SmartHopper.Providers.*/*ProviderModels.cs)
                 if python3 - "$base_ref_name" "$file" <<'PY'
           import subprocess
           import sys
@@ -121,6 +121,7 @@ jobs:
           - Anthropic
           - OpenRouter
           - DeepSeek
+          - Gemini
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -169,6 +170,14 @@ jobs:
             Write-Output "### Missing default capabilities" >> $env:GITHUB_STEP_SUMMARY
             foreach ($capability in $report.validation.missingDefaultCapabilities) {
               Write-Output "- ``AICapability.$capability``" >> $env:GITHUB_STEP_SUMMARY
+            }
+            Write-Output "" >> $env:GITHUB_STEP_SUMMARY
+          }
+
+          if ($report.validation.invalidDefaultModels.Count -gt 0) {
+            Write-Output "### Invalid capability defaults" >> $env:GITHUB_STEP_SUMMARY
+            foreach ($model in $report.validation.invalidDefaultModels) {
+              Write-Output "- ``$model``" >> $env:GITHUB_STEP_SUMMARY
             }
             Write-Output "" >> $env:GITHUB_STEP_SUMMARY
           }

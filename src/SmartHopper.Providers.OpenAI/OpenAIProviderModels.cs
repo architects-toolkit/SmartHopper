@@ -265,7 +265,7 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-audio-mini-2025-12-15",
                     Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
-                    Default = AICapability.Text2Speech | AICapability.Speech2Text,
+                    Default = AICapability.Audio2Text,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9960,
@@ -926,7 +926,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-4o-mini-transcribe-2025-03-20",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9790,
@@ -937,7 +937,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-4o-mini-transcribe-2025-12-15",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9785,
@@ -949,7 +949,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-4o-mini-tts-2025-03-20",
-                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
+                    Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9780,
@@ -960,7 +960,8 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-4o-mini-tts-2025-12-15",
-                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
+                    Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
+                    Default = AICapability.Text2Speech,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9775,
@@ -990,7 +991,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-4o-transcribe",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9765,
@@ -1001,7 +1002,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-4o-transcribe-diarize",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9760,
@@ -1172,7 +1173,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-live-transcribe",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9700,
@@ -1184,7 +1185,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-transcribe",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9695,
@@ -1285,7 +1286,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "tts-1",
-                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
+                    Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9655,
@@ -1296,7 +1297,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "tts-1-1106",
-                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
+                    Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9650,
@@ -1307,7 +1308,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "tts-1-hd",
-                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
+                    Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9645,
@@ -1318,7 +1319,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "tts-1-hd-1106",
-                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
+                    Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9640,

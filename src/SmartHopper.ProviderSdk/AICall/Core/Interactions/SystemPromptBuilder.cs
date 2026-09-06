@@ -245,17 +245,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
             var result = string.Join("\n---\n", allSections);
             Debug.WriteLine($"[SystemPromptBuilder]   Final prompt length: {result.Length} chars");
 
-            // Print the full final system prompt for debugging
-            Debug.WriteLine($"[SystemPromptBuilder]   ===== FINAL SYSTEM PROMPT START =====");
-            var resultLines = result.Split(new[] { '\n' }, StringSplitOptions.None);
-            foreach (var line in resultLines)
-            {
-                Debug.WriteLine($"[SystemPromptBuilder]   {line}");
-            }
-
-            Debug.WriteLine($"[SystemPromptBuilder]   ===== FINAL SYSTEM PROMPT END =====");
-
-            Debug.WriteLine($"[SystemPromptBuilder]   Build() complete");
+            Debug.WriteLine($"[SystemPromptBuilder]   Build complete; content omitted from logs");
 
             return result;
         }

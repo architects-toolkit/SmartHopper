@@ -9,6 +9,9 @@ This document aggregates development-facing information.
   - [Default Models by Provider](#-default-models-by-provider)
   - [Supported Data Types](#-supported-data-types)
 
+<!-- markdownlint-disable MD060 -->
+<!-- DEV.md uses emoji-rich tables; MD060's style checks misreport columns that contain multi-code-point emoji characters. -->
+
 ## 📊 Development Status
 
 ### Components
@@ -27,7 +30,7 @@ This document aggregates development-facing information.
 | Save GhJSON file (SaveGhJSON)<br><sub>Save the current Grasshopper file as a GhJSON format</sub> | Grasshopper | ⚪ | - | - | - |
 | Load GhJSON file (LoadGhJSON)<br><sub>Load a GhJSON file and convert it to a Grasshopper document</sub> | Grasshopper | ⚪ | - | - | - |
 | AI Chat (AIChat)<br><sub>Interactive AI-powered conversational interface with tool calling</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI File Context (AIFileContext)<br><sub>Set a context for the current document</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI File Metadata (AIFileMetadata)<br><sub>Set metadata (title, description, version, author, tags) for the current document</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Models (AIModels)<br><sub>Retrieve the list of available models from the selected AI provider</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
 | Context Parameters (ContextParameters)<br><sub>Set context parameters for the AI component</sub> | AI | ⚪ | - | - | - |
 | AI Text To Boolean (AIText2Boolean)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -78,8 +81,7 @@ a new script. All these tools are available to the provider to use while chattin
 in the AI Chat component.
 
 | Tool Name | Category | Description | Planned | In Progress | Testing | Released |
-| Tool Name | Category | Description | Planned | In Progress | Testing | Released |
-|-----------|----------|-------------|:-------:|:-----------:|:-------:|:--------:|
+| --------- | -------- | ----------- | :-----: | :---------: | :-----: | :------: |
 | `text2boolean` | DataProcessing | Evaluates a text against a true/false question with optional fallback value | ⚪ | 🟡 | 🟠 | 🟢 |
 | `text2text` | DataProcessing | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
 | `text2img` | ImageProcessing | Generates an image based on a text prompt using AI image generation models | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -191,7 +193,7 @@ Is there something missing? Do you have a suggestion? Please open a discussion i
 SmartHopper currently supports the following AI providers and features:
 
 | Provider | Status | API Registration | Streaming | Reasoning exposed by API | Live reasoning streaming in UI | Temperature config | Tool calling | JSON output | Image generation | Batch processing |
-|---|:---:|---|:---:|---|:---:|---|:---:|:---:|:---:|:---:|
+| --- | :---: | --- | :---: | --- | :---: | --- | :---: | :---: | :---: | :---: |
 | OpenAI | ✅ Supported | OpenAI Platform | Yes | Yes (o-series & gpt-5 structured content) | Yes | Yes (non o-series & non gpt-5) | Yes | Yes | Yes (DALL-E) | ✅ Yes |
 | MistralAI | ✅ Supported | Le Plateforme | Yes | Yes (thinking blocks) | Yes | Yes | Yes | Yes | No | ✅ Yes |
 | DeepSeek | ✅ Supported | DeepSeek Platform | Yes | Yes (reasoning_content) | Yes | Yes | Yes | Yes | No | ❌ No |
@@ -204,6 +206,7 @@ SmartHopper currently supports the following AI providers and features:
 | Stable Diffusion | ⚪ Planned | Local/API Stable Diffusion endpoint | Planned | No | No | Planned | No | No | Planned | Planned |
 
 Notes:
+
 - “Temperature config” indicates whether the provider/model family supports a temperature parameter in SmartHopper. For OpenAI o‑series and gpt‑5, temperature is omitted by design; other OpenAI models support it.
 - “Live reasoning streaming in UI” depends on the provider exposing a distinct reasoning/thinking channel and SmartHopper adapter support.
 - OpenRouter capabilities vary by the routed underlying model; the SmartHopper adapter enables streaming, but reasoning support depends on the routed model.
@@ -224,12 +227,13 @@ The following table summarizes the models explicitly registered as defaults or v
 - `src/SmartHopper.Providers.OpenRouter/OpenRouterProviderModels.cs`
 
 Notes:
+
 - "Default For" lists the feature areas the model is set as default for (e.g., `Text2Text`, `ToolChat`).
 - "Capabilities" lists the core capability flags registered for the model.
 - "Verified" reflects the `Verified` flag in the registry; "Deprecated" reflects the `Deprecated` flag (some default models, such as OpenAI `dall-e-3`, are flagged deprecated).
 
 | Provider | Model | Verified | Streaming | Deprecated | Default For | Capabilities |
-|---|---|:---:|:---:|:---:|---|---|
+| --- | --- | :---: | :---: | :---: | --- | --- |
 | Anthropic | `claude-sonnet-4-6` | - | ✅ | - | Text2Json | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Anthropic | `claude-haiku-4-5-20251001` | ⭐ | ✅ | - | Text2Text, ReasoningChat, ToolReasoningChat, ToolChat, Image2Text | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Anthropic | `claude-sonnet-4-5-20250929` | ⭐ | ✅ | - | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning |
@@ -238,32 +242,33 @@ Notes:
 | Gemini | `gemini-3.1-flash-image-preview` | - | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-flash-image` | ⭐ | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput |
 | Gemini | `gemini-3-pro-image-preview` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
-| Gemini | `gemini-2.5-flash-lite` | ⭐ | ✅ | - |  | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| Gemini | `gemini-2.5-flash` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| Gemini | `gemini-2.5-pro` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| Gemini | `gemini-1.5-flash` | ⭐ | ✅ | ✅ | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, AudioInput |
-| Gemini | `gemini-1.5-pro` | ⭐ | ✅ | ✅ | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, AudioInput |
-| Gemini | `gemini-2.0-flash` | ⭐ | ✅ | ✅ | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, AudioInput |
+| Gemini | `gemini-2.5-flash-lite` | ⭐ | ✅ | - | - | TextInput, ImageInput, SpeechInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Gemini | `gemini-2.5-flash` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, SpeechInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Gemini | `gemini-2.5-pro` | ⭐ | ✅ | - | - | TextInput, ImageInput, SpeechInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Gemini | `gemini-1.5-flash` | ⭐ | ✅ | ✅ | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, SpeechInput, AudioInput |
+| Gemini | `gemini-1.5-pro` | ⭐ | ✅ | ✅ | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, SpeechInput, AudioInput |
+| Gemini | `gemini-2.0-flash` | ⭐ | ✅ | ✅ | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, SpeechInput, AudioInput |
 | Gemini | `gemini-2.5-flash-preview-tts` | - | ✅ | ✅ | Text2Speech | TextInput, SpeechOutput |
 | Gemini | `gemini-2.5-pro-preview-tts` | - | ✅ | ✅ | Text2Speech | TextInput, SpeechOutput |
-| Gemini | `gemini-3.1-flash-preview` | - | ✅ | ✅ | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning, AudioInput |
+| Gemini | `gemini-3.1-flash-preview` | - | ✅ | ✅ | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning, SpeechInput, AudioInput |
 | Gemini | `lyria-3-clip` | - | - | ✅ | Text2Audio | TextInput, AudioOutput |
 | Gemini | `lyria-3-pro` | - | - | ✅ | Text2Audio | TextInput, ImageInput, AudioOutput |
 | MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| MistralAI | `voxtral-mini-2602` | - | - | - | Speech2Text | AudioInput, TextOutput |
-| MistralAI | `voxtral-mini-tts-2603` | - | - | - | Text2Speech | TextInput, AudioInput, AudioOutput |
-| MistralAI | `mistral-medium-2508` | ⭐ | ✅ | ✅ |  | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
-| MistralAI | `voxtral-mini-tts-mellon-greek-2606-solutions` | - | ✅ | ✅ | Text2Speech | TextInput, AudioInput, AudioOutput |
+| MistralAI | `voxtral-mini-2602` | - | - | - | Speech2Text | SpeechInput, AudioInput, TextOutput |
+| MistralAI | `voxtral-mini-tts-2603` | - | - | - | Text2Speech | TextInput, AudioInput, SpeechOutput |
+| MistralAI | `mistral-medium-2508` | ⭐ | ✅ | ✅ | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
+| MistralAI | `voxtral-mini-tts-mellon-greek-2606-solutions` | - | ✅ | ✅ | Text2Speech | TextInput, AudioInput, SpeechOutput |
 | OpenAI | `gpt-5.4-mini-2026-03-17` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| OpenAI | `gpt-audio-mini-2025-12-15` | - | - | - | Text2Speech, Speech2Text | TextInput, AudioInput, TextOutput, AudioOutput, FunctionCalling |
+| OpenAI | `gpt-audio-mini-2025-12-15` | - | - | - | Audio2Text | TextInput, AudioInput, TextOutput, AudioOutput, FunctionCalling |
+| OpenAI | `gpt-4o-mini-tts-2025-12-15` | - | - | - | Text2Speech | TextInput, SpeechOutput |
 | OpenAI | `gpt-5-mini-2025-08-07` | ⭐ | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | OpenAI | `gpt-image-2-2026-04-21` | - | - | - | Image2Image | TextInput, ImageInput, ImageOutput |
 | OpenAI | `whisper-1` | - | - | - | Speech2Text | SpeechInput, TextOutput |
 | OpenAI | `dall-e-3` | ⭐ | - | ✅ | Text2Image | TextInput, ImageOutput |
 | OpenRouter | `openai/gpt-5.6-luna` | - | - | - | ToolChat, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | OpenRouter | `google/gemini-3.1-flash-lite-image` | - | - | - | Text2Image, Image2Image, Image2Text | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
-| OpenRouter | `google/lyria-3-pro-preview` | - | ✅ | - | Text2Speech | TextInput, ImageInput, TextOutput, AudioOutput, JsonOutput |
-| OpenRouter | `google/gemini-3.1-flash-lite` | - | - | - | Speech2Text | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| OpenRouter | `google/lyria-3-pro-preview` | - | ✅ | - | Text2Audio | TextInput, ImageInput, TextOutput, AudioOutput, JsonOutput |
+| OpenRouter | `google/gemini-3.1-flash-lite` | - | - | - | Audio2Text | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | OpenRouter | `openai/gpt-5-mini` | - | ✅ | - | Text2Text, Text2Json | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 
 ### Discouraged models for script tools

@@ -18,7 +18,10 @@
 
 namespace SmartHopper.Infrastructure.Tests.Mcp
 {
+    using System;
     using System.Collections.Generic;
+    using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.AICall.Tools;
@@ -115,10 +118,88 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             var dispatcher = BuildDispatcher(new McpServerOptions());
 
             var raw = await dispatcher.DispatchAsync(
-                "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"resources/list\"}");
+                "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"unknown/method\"}");
 
             var obj = JObject.Parse(raw!);
             Assert.Equal(-32601, (int?)obj["error"]?["code"]);
+        }
+
+        [Fact]
+        public async Task Dispatch_Initialize_IncludesResourceAndPromptCapabilities()
+        {
+            var dispatcher = BuildDispatcher(new McpServerOptions());
+
+            var raw = await dispatcher.DispatchAsync(
+                "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}");
+
+            var obj = JObject.Parse(raw!);
+            Assert.NotNull(obj["result"]?["capabilities"]?["resources"]);
+            Assert.NotNull(obj["result"]?["capabilities"]?["prompts"]);
+        }
+
+        [Fact]
+        public async Task Dispatch_ResourcesList_ListsStaticResources()
+        {
+            var dispatcher = BuildDispatcherWithProviders(new McpServerOptions());
+
+            var raw = await dispatcher.DispatchAsync(
+                "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"resources/list\"}");
+
+            var obj = JObject.Parse(raw!);
+            var resources = (JArray?)obj["result"]?["resources"];
+            Assert.NotNull(resources);
+            Assert.Single(resources!);
+            Assert.Equal("docs:///test-doc", (string?)resources![0]["uri"]);
+        }
+
+        [Fact]
+        public async Task Dispatch_ResourcesRead_ReturnsResourceText()
+        {
+            var dispatcher = BuildDispatcherWithProviders(new McpServerOptions());
+
+            var raw = await dispatcher.DispatchAsync(
+                "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"resources/read\",\"params\":{\"uri\":\"docs:///test-doc\"}}");
+
+            var obj = JObject.Parse(raw!);
+            var contents = (JArray?)obj["result"]?["contents"];
+            Assert.NotNull(contents);
+            Assert.Single(contents!);
+            Assert.Equal("docs:///test-doc", (string?)contents![0]["uri"]);
+            Assert.Equal("text/markdown", (string?)contents![0]["mimeType"]);
+            Assert.Equal("Test resource text", (string?)contents![0]["text"]);
+        }
+
+        [Fact]
+        public async Task Dispatch_PromptsList_ListsStaticPrompts()
+        {
+            var dispatcher = BuildDispatcherWithProviders(new McpServerOptions());
+
+            var raw = await dispatcher.DispatchAsync(
+                "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"prompts/list\"}");
+
+            var obj = JObject.Parse(raw!);
+            var prompts = (JArray?)obj["result"]?["prompts"];
+            Assert.NotNull(prompts);
+            Assert.NotEmpty(prompts!);
+            Assert.Contains(prompts!, p => (string?)p["name"] == "test-prompt");
+        }
+
+        [Fact]
+        public async Task Dispatch_PromptsGet_ReturnsMessages()
+        {
+            var dispatcher = BuildDispatcherWithProviders(new McpServerOptions());
+
+            var raw = await dispatcher.DispatchAsync(
+                "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"prompts/get\",\"params\":{\"name\":\"test-prompt\"}}");
+
+            var obj = JObject.Parse(raw!);
+            Assert.Equal("A test prompt", (string?)obj["result"]?["description"]);
+            var messages = (JArray?)obj["result"]?["messages"];
+            Assert.NotNull(messages);
+            Assert.Single(messages!);
+            Assert.Equal("user", (string?)messages![0]["role"]);
+            Assert.Equal("text", (string?)messages![0]["content"]?["type"]);
+            Assert.Equal("Hello", (string?)messages![0]["content"]?["text"]);
         }
 
         [Fact]
@@ -182,6 +263,76 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
 
             var adapter = new AIToolMcpAdapter(options, () => catalog, executor);
             return new JsonRpcDispatcher(options, adapter);
+        }
+
+        private static JsonRpcDispatcher BuildDispatcherWithProviders(McpServerOptions options)
+        {
+            var catalog = new Dictionary<string, AITool>();
+            var adapter = new AIToolMcpAdapter(options, () => catalog, _ => Task.FromResult(new AIReturn()));
+
+            var resource = new McpResource(
+                new Uri("docs:///test-doc", UriKind.Absolute),
+                "Test Doc",
+                "text/markdown",
+                "A test resource",
+                _ => Task.FromResult("Test resource text"));
+
+            var resourceProvider = new TestResourceProvider(new[] { resource });
+
+            var prompt = new McpPrompt(
+                new Uri("prompts:///test-prompt", UriKind.Absolute),
+                "test-prompt",
+                "A test prompt",
+                _ => Task.FromResult<IReadOnlyList<McpPromptMessage>>(
+                    new List<McpPromptMessage> { new McpPromptMessage("user", "text", "Hello") }));
+
+            var promptProvider = new TestPromptProvider(new[] { prompt });
+
+            return new JsonRpcDispatcher(options, adapter, resourceProvider, promptProvider);
+        }
+
+        private sealed class TestResourceProvider : IMcpResourceProvider
+        {
+            private readonly IReadOnlyList<McpResource> resources;
+
+            public TestResourceProvider(IReadOnlyList<McpResource> resources)
+            {
+                this.resources = resources;
+            }
+
+            public Task<IReadOnlyList<McpResource>> ListResourcesAsync(CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(this.resources);
+            }
+
+            public Task<McpResource?> GetResourceAsync(Uri uri, CancellationToken cancellationToken = default)
+            {
+                var match = this.resources.FirstOrDefault(r =>
+                    string.Equals(r.Uri.ToString(), uri.ToString(), StringComparison.OrdinalIgnoreCase));
+                return Task.FromResult(match);
+            }
+        }
+
+        private sealed class TestPromptProvider : IMcpPromptProvider
+        {
+            private readonly IReadOnlyList<McpPrompt> prompts;
+
+            public TestPromptProvider(IReadOnlyList<McpPrompt> prompts)
+            {
+                this.prompts = prompts;
+            }
+
+            public Task<IReadOnlyList<McpPrompt>> ListPromptsAsync(CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(this.prompts);
+            }
+
+            public Task<McpPrompt?> GetPromptAsync(Uri uri, CancellationToken cancellationToken = default)
+            {
+                var match = this.prompts.FirstOrDefault(p =>
+                    string.Equals(p.Uri.ToString(), uri.ToString(), StringComparison.OrdinalIgnoreCase));
+                return Task.FromResult(match);
+            }
         }
     }
 }

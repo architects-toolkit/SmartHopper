@@ -65,6 +65,8 @@ namespace SmartHopper.Components.Output
         /// <inheritdoc/>
         protected override void GatherAdditionalInputs(IGH_DataAccess DA, Dictionary<string, object> additionalInputs)
         {
+            base.GatherAdditionalInputs(DA, additionalInputs);
+
             var items = new List<bool>();
             this._fallback = DA.GetDataList("Fallback", items) && items.Count > 0 ? items : null;
         }

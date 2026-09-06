@@ -55,6 +55,8 @@ These types stay host-side in `SmartHopper.Infrastructure` and the rest of the a
 - `net7.0` (cross-platform; macOS-friendly)
 - `net7.0-windows` (Windows-specific surface)
 
+The SDK keeps `System.Drawing.Common` as a compile-time-only dependency for non-Windows production builds because Rhino supplies the compatible runtime used to render provider icons. Standalone `net7.0` test hosts do not inherit Rhino's runtime, so `SmartHopper.ProviderSdk.Tests` includes the package runtime asset explicitly.
+
 ## License
 
 The SDK is licensed under **MIT**. SmartHopper itself remains LGPLv3. The permissive license on the SDK lets closed-source community providers link against it without taking on LGPL obligations on their own assemblies.
