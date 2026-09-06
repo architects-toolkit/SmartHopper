@@ -67,7 +67,7 @@ A: The model may not support the capability required by the component. For examp
 A: No, this is a safety feature. However, you can override model selection in advanced scenarios using the Settings input.
 
 **Q: What's the difference between AudioInput and SpeechInput?**
-A: `SpeechInput` is for voice/speech-to-text. `AudioInput` includes speech plus general audio (music, sound effects). Models with `AudioInput` automatically support speech too.
+A: `SpeechInput` marks models that support the provider's dedicated speech-to-text path (e.g. `/audio/transcriptions`). `AudioInput` is for general audio (music, sound effects) in multimodal chat requests. They are independent flags: a chat-audio model does not automatically qualify for the dedicated speech endpoints, and a dedicated transcription model does not necessarily accept audio in chat.
 
 ---
 
@@ -82,11 +82,11 @@ public enum AICapability
     None = 0,
     TextInput = 1 << 0,
     ImageInput = 1 << 1,
-    AudioInput = SpeechInput | (1 << 2),
+    AudioInput = 1 << 2,
     VideoInput = 1 << 3,
     TextOutput = 1 << 4,
     ImageOutput = 1 << 5,
-    AudioOutput = SpeechOutput | (1 << 6),
+    AudioOutput = 1 << 6,
     JsonOutput = 1 << 7,
     FunctionCalling = 1 << 8,
     Reasoning = 1 << 9,
@@ -119,13 +119,13 @@ public enum AICapability
 | `None` | 0 | No capabilities; placeholder value |
 | `TextInput` | 1 << 0 | Supports text prompts and content input |
 | `ImageInput` | 1 << 1 | Supports image understanding/vision |
-| `SpeechInput` | 1 << 10 | Supports speech-to-text (voice input) |
-| `AudioInput` | Composite | Supports general audio (includes SpeechInput) |
+| `SpeechInput` | 1 << 10 | Supports the dedicated speech-to-text path (voice input) |
+| `AudioInput` | 1 << 2 | Supports general audio input in multimodal chat (independent of SpeechInput) |
 | `VideoInput` | 1 << 3 | Supports video understanding/analysis |
 | `TextOutput` | 1 << 4 | Can generate text output |
 | `ImageOutput` | 1 << 5 | Can generate images |
-| `SpeechOutput` | 1 << 11 | Can do text-to-speech |
-| `AudioOutput` | Composite | Can generate general audio (includes SpeechOutput) |
+| `SpeechOutput` | 1 << 11 | Supports the dedicated text-to-speech path |
+| `AudioOutput` | 1 << 6 | Can generate general audio in multimodal chat (independent of SpeechOutput) |
 | `JsonOutput` | 1 << 7 | Can produce structured JSON |
 | `FunctionCalling` | 1 << 8 | Supports tool/function calling |
 | `Reasoning` | 1 << 9 | Supports enhanced reasoning/thinking |

@@ -44,15 +44,17 @@ namespace SmartHopper.ProviderSdk.AIModels
         ImageInput = 1 << 1,
 
         /// <summary>
-        /// Supports accepting speech input (voice, speech-to-text).
+        /// Supports accepting speech input (voice, speech-to-text) through the provider's
+        /// dedicated speech path (e.g. /audio/transcriptions) or its equivalent chat path.
         /// </summary>
         SpeechInput = 1 << 10,
 
         /// <summary>
-        /// Supports accepting audio input (music, sound effects, general audio signals).
-        /// Inherits SpeechInput - models with AudioInput can also handle speech input.
+        /// Supports accepting audio input (music, sound effects, general audio signals) in multimodal chat requests.
+        /// Independent from <see cref="SpeechInput"/> - providers that route speech input to a dedicated
+        /// endpoint (e.g. /audio/transcriptions) can only serve models registered with <see cref="SpeechInput"/>.
         /// </summary>
-        AudioInput = SpeechInput | (1 << 2),
+        AudioInput = 1 << 2,
 
         /// <summary>
         /// Supports accepting video input (video understanding or analysis).
@@ -72,15 +74,17 @@ namespace SmartHopper.ProviderSdk.AIModels
         ImageOutput = 1 << 5,
 
         /// <summary>
-        /// Can produce speech as output (text-to-speech).
+        /// Can produce speech as output (text-to-speech) through the provider's
+        /// dedicated speech path (e.g. /audio/speech) or its equivalent chat path.
         /// </summary>
         SpeechOutput = 1 << 11,
 
         /// <summary>
-        /// Can produce audio as output (music, sound effects, general audio).
-        /// Inherits SpeechOutput - models with AudioOutput can also handle speech output.
+        /// Can produce audio as output (music, sound effects, general audio) in multimodal chat responses.
+        /// Independent from <see cref="SpeechOutput"/> - providers that route speech output to a dedicated
+        /// endpoint (e.g. /audio/speech) can only serve models registered with <see cref="SpeechOutput"/>.
         /// </summary>
-        AudioOutput = SpeechOutput | (1 << 6),
+        AudioOutput = 1 << 6,
 
         /// <summary>
         /// Can produce structured JSON output.
