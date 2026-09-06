@@ -130,27 +130,40 @@ The adapter expects MCP clients to send a tool name and a JSON object of argumen
 4. `AIToolMcpAdapter` builds an `AIToolCall` and invokes it through the configured executor (`AIToolCall.Exec()` by default).
 5. The adapter extracts the last `AIInteractionToolResult` from `AIReturn.Body` and returns it as the MCP response payload; if no tool result is present, the adapter falls back to the first Tool/Provider/Network error or an empty object.
 
-### Resources and Prompts
+### Shared Agent Knowledge, Resources, and Prompts
 
-MCP `resources/*` and `prompts/*` are served by `StaticMcpResourceProvider` and `StaticMcpPromptProvider`.
-Both load their Markdown content from embedded `.md` files under `src/SmartHopper.Infrastructure/Resources/Mcp/`, so the content is compiled into the assembly and not modifiable at runtime.
+`AgentKnowledgeCatalog` is the canonical runtime source for Grasshopper and SmartHopper guidance. It reads immutable Markdown embedded under `src/SmartHopper.Infrastructure/Resources/Mcp/` and serves three consumers:
 
-Resources (`StaticMcpResourceProvider`):
+1. `StaticMcpResourceProvider` projects catalog documents as MCP `docs:///` resources.
+2. The in-process `smarthopper_readme` and `smarthopper_workflows` AITools return the same documents to WebChat agents.
+3. `WebChatUtils.CreateWebChatRequest` prepends the internal `assistant-core` document to every WebChat system prompt before caller/user specialization.
 
-- `docs:///ghjson-schema` — GhJSON/GhPatch specification (linked from `SmartHopper.Core.Grasshopper/Resources/GhJsonSpec/v1.0/specification.md`).
-- `docs:///smarthopper-readme` — SmartHopper operational instructions (`Resources/Mcp/Docs/smarthopper-readme.md`).
-- `docs:///smarthopper-workflows` — canonical workflows (`Resources/Mcp/Docs/smarthopper-workflows.md`).
-- `docs:///tool-help/{toolName}` — per-tool metadata, still produced by calling the `smarthopper_tool_help` AITool because it depends on the live tool registry.
+This prevents MCP, the canvas assistant, and `AIChatComponent` from maintaining divergent copies of foundational knowledge or workflows.
 
-Stable resources are read directly from the embedded Markdown files. `EmbeddedMcpResourceLoader` discovers each resource by the file name fragment. Only per-tool help requires a tool call. This keeps the resource surface read-only, versioned, and immutable at runtime.
+Resources include:
+
+- `docs:///grasshopper-foundations` — components, parameters, wires, dependency flow, and solution behavior.
+- `docs:///grasshopper-data-trees` — item/list/tree structure, paths, access modes, and matching.
+- `docs:///grasshopper-definition-design` — algorithm design, organization, robustness, and maintenance.
+- `docs:///grasshopper-geometry` — units, tolerances, domains, directions, and geometry types.
+- `docs:///grasshopper-debugging` and `docs:///grasshopper-performance` — diagnosis and optimization.
+- `docs:///grasshopper-scripting-csharp`, `docs:///grasshopper-scripting-python`, and `docs:///grasshopper-scripting-vb` — language-specific script-component guidance.
+- `docs:///smarthopper-tool-strategy`, `docs:///smarthopper-providers`, `docs:///smarthopper-research`, and `docs:///source-policy` — SmartHopper operation and evidence rules.
+- `docs:///smarthopper-readme` and `docs:///smarthopper-workflows` — topic index and canonical tool chains.
+- `docs:///ghjson-schema` — GhJSON/GhPatch specification linked from `SmartHopper.Core.Grasshopper/Resources/GhJsonSpec/v1.0/specification.md`.
+- `docs:///tool-help/{toolName}` — live per-tool metadata produced by `smarthopper_tool_help`.
+
+`assistant-core` is deliberately not listed as an MCP resource. MCP clients opt into behavior through prompts, while WebChat always receives the core through request composition.
 
 Prompts (`StaticMcpPromptProvider`):
 
-- `prompts:///grasshopper-expert` — `Resources/Mcp/Prompts/grasshopper-expert.md`.
-- `prompts:///script-writer` — `Resources/Mcp/Prompts/script-writer.md`.
-- `prompts:///canvas-debugger` — `Resources/Mcp/Prompts/canvas-debugger.md`.
+- `prompts:///grasshopper-expert`
+- `prompts:///definition-builder`
+- `prompts:///canvas-debugger`
+- `prompts:///script-writer`
+- `prompts:///performance-reviewer`
 
-Prompts are pure templates. They do not execute tools or read files themselves; they reference resources and tools by name/URI so the client can fetch live data through `resources/read` or `tools/call` when needed. This keeps the prompt surface separate from the tool execution surface.
+Prompts remain pure behavioral templates: they refer to resources and tools but do not execute them. External source material is curated and embedded at build time instead of fetched automatically during prompt construction.
 
 ### Thread Safety and Concurrency
 
@@ -248,7 +261,8 @@ Phase 1 is implemented under `src/SmartHopper.Infrastructure/Mcp/` rather than a
 - `McpResource.cs` / `McpPrompt.cs` / `McpPromptMessage.cs` — resource and prompt DTOs
 - `IMcpResourceProvider.cs` / `IMcpPromptProvider.cs` — provider contracts
 - `EmbeddedMcpResourceLoader.cs` — discovers and reads embedded Markdown content by file name
-- `StaticMcpResourceProvider.cs` / `StaticMcpPromptProvider.cs` — documentation-backed providers
+- `AgentKnowledgeCatalog.cs` — canonical document/topic/workflow registry and WebChat core-prompt composer
+- `StaticMcpResourceProvider.cs` / `StaticMcpPromptProvider.cs` — MCP adapters over embedded knowledge and prompts
 - `Resources/Mcp/**/*.md` — compiled-in Markdown content for resources and prompts
 - `McpToolExecutor.cs` — helper that executes AITools for `docs:///tool-help/{toolName}` content
 
@@ -274,7 +288,7 @@ Phases 2 and 3 are implemented as static providers sourced from existing AITools
 - **Mutating tools off by default.** `McpServerOptions.ExposeMutatingTools = false` and `AITool.MutatesCanvas` control exposure.
 - **Component path.** The component lives at `SmartHopper.Components/Mcp/SmartHopperMcpServerComponent.cs`.
 - **Component-name aliasing.** The orchestration layer already handles aliasing through `ComponentNameAliases` in `SmartHopper.Core.Grasshopper.Utils.Canvas`; no extra MCP-side alias layer is introduced.
-- **No duplicated docs.** `StaticMcpResourceProvider` loads stable Markdown from embedded resources under `src/SmartHopper.Infrastructure/Resources/Mcp/` and links the GhJSON spec from the existing `SmartHopper.Core.Grasshopper` snapshot; it does not maintain its own copy of the spec. `StaticMcpPromptProvider` keeps prompt text as pure templates and refers clients to resources/tools for live content.
+- **Shared agent knowledge.** `AgentKnowledgeCatalog` owns stable embedded guidance and workflow parsing. MCP resources, in-process instruction tools, and WebChat prompt composition consume that catalog instead of maintaining separate copies. The GhJSON spec remains linked from the existing `SmartHopper.Core.Grasshopper` snapshot. MCP prompts stay pure and refer clients to resources/tools for focused content.
 
 ### Relationship to GhJSON and Cordyceps
 
