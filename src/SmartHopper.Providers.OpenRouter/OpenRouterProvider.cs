@@ -37,6 +37,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AICall.JsonSchemas;
 using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Streaming;
@@ -205,6 +206,13 @@ namespace SmartHopper.Providers.OpenRouter
                     ["data_collection"] = dataCollection,
                 },
             };
+
+            // Request audio output when the task requires it (Text2Audio and similar):
+            // chat completions needs modalities=["text","audio"] plus an audio voice/format config.
+            if (request.Capability.HasFlag(AICapability.AudioOutput))
+            {
+                OpenAICompatibleAudioCodec.ApplyAudioOutputParameters(body, p?.Extras);
+            }
 
             // Apply seed, top_p, and other optional parameters from extras only
             if (p?.Extras != null)
@@ -487,6 +495,19 @@ namespace SmartHopper.Providers.OpenRouter
                     obj["content"] = imageInteraction.OriginalPrompt ?? string.Empty;
                 }
             }
+            else if (interaction is AIInteractionAudio audioInteraction)
+            {
+                // OpenRouter accepts OpenAI-compatible input_audio content parts for audio-capable models
+                var audioPart = OpenAICompatibleAudioCodec.ToInputAudioContentPart(audioInteraction);
+                if (audioPart != null)
+                {
+                    obj["content"] = new JArray { audioPart };
+                }
+                else
+                {
+                    obj["content"] = string.Empty;
+                }
+            }
             else
             {
                 // Unknown interaction type
@@ -564,6 +585,13 @@ namespace SmartHopper.Providers.OpenRouter
                     content = contentToken.ToString() ?? string.Empty;
                 }
 
+                // Extract audio output produced via chat audio modalities (message.audio)
+                var audioInteraction = OpenAICompatibleAudioCodec.ExtractAudioOutput(message, out var audioTranscript);
+                if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(audioTranscript))
+                {
+                    content = audioTranscript;
+                }
+
                 // Extract reasoning from official OpenRouter fields (preferred over legacy content-array)
                 var reasoningToken = message["reasoning"];
                 if (reasoningToken != null && !string.IsNullOrEmpty(reasoningToken.ToString()))
@@ -633,6 +661,11 @@ namespace SmartHopper.Providers.OpenRouter
                 };
 
                 interactions.Add(result);
+
+                if (audioInteraction != null)
+                {
+                    interactions.Add(audioInteraction);
+                }
 
                 // Extract tool calls if present
                 if (message["tool_calls"] is JArray toolCalls && toolCalls.Count > 0)

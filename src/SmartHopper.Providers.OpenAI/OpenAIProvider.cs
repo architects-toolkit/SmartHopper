@@ -139,6 +139,14 @@ namespace SmartHopper.Providers.OpenAI
                 // Text-to-Speech (TTS) endpoint
                 request.Endpoint = "/audio/speech";
             }
+            else if (request.Capability.HasFlag(AICapability.AudioInput)
+                     || request.Capability.HasFlag(AICapability.AudioOutput))
+            {
+                // Multimodal chat audio (input_audio content parts and modalities/audio
+                // parameters) is only supported by Chat Completions; the Responses API
+                // cannot carry audio payloads.
+                request.Endpoint = "/chat/completions";
+            }
             else if (request.Endpoint == "/models")
             {
                 request.HttpMethod = "GET";
@@ -350,6 +358,20 @@ namespace SmartHopper.Providers.OpenAI
 
                     var contentArray = new JArray { imageBlock };
                     messageObj["content"] = contentArray;
+                }
+            }
+            else if (interaction is AIInteractionAudio audioInteraction)
+            {
+                // OpenAI-compatible audio input: {"type":"input_audio","input_audio":{"data","format"}}
+                var audioPart = OpenAICompatibleAudioCodec.ToInputAudioContentPart(audioInteraction);
+                if (audioPart != null)
+                {
+                    messageObj["content"] = new JArray { audioPart };
+                }
+                else
+                {
+                    // No resolvable audio data; emit empty content rather than a bogus part
+                    messageObj["content"] = string.Empty;
                 }
             }
             else
@@ -642,6 +664,13 @@ namespace SmartHopper.Providers.OpenAI
                 ["model"] = request.Model,
                 ["messages"] = messages,
             };
+
+            // Request audio output when the task requires it (Text2Audio and similar):
+            // chat completions needs modalities=["text","audio"] plus an audio voice/format config.
+            if (request.Capability.HasFlag(AICapability.AudioOutput))
+            {
+                OpenAICompatibleAudioCodec.ApplyAudioOutputParameters(requestBody, p?.Extras);
+            }
 
             // Configure tokens and parameters based on model family
             // - o-series (o1/o3/o4...) and gpt-5: use max_completion_tokens and reasoning_effort; omit temperature
@@ -1254,6 +1283,13 @@ namespace SmartHopper.Providers.OpenAI
                     content = contentToken.ToString();
                 }
 
+                // Extract audio output produced via chat audio modalities (message.audio)
+                var audioInteraction = OpenAICompatibleAudioCodec.ExtractAudioOutput(message, out var audioTranscript);
+                if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(audioTranscript))
+                {
+                    content = audioTranscript;
+                }
+
                 // Implement schema unwrapping if needed
                 var wrapperInfo = JsonSchemaService.Instance.GetCurrentWrapperInfo();
                 if (wrapperInfo != null && wrapperInfo.IsWrapped)
@@ -1274,6 +1310,11 @@ namespace SmartHopper.Providers.OpenAI
                 };
 
                 interactions.Add(interaction);
+
+                if (audioInteraction != null)
+                {
+                    interactions.Add(audioInteraction);
+                }
 
                 // Add an AIInteractionToolCall for each tool call
                 if (message["tool_calls"] is JArray tcs && tcs.Count > 0)
