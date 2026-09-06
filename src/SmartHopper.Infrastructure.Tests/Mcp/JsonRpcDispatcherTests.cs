@@ -165,8 +165,8 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             Assert.NotNull(contents);
             Assert.Single(contents!);
             Assert.Equal("docs:///test-doc", (string?)contents![0]["uri"]);
-            Assert.Equal("text/markdown", (string?)contents[0]["mimeType"]);
-            Assert.Equal("Test resource text", (string?)contents[0]["text"]);
+            Assert.Equal("text/markdown", (string?)contents![0]["mimeType"]);
+            Assert.Equal("Test resource text", (string?)contents![0]["text"]);
         }
 
         [Fact]
@@ -198,8 +198,8 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             Assert.NotNull(messages);
             Assert.Single(messages!);
             Assert.Equal("user", (string?)messages![0]["role"]);
-            Assert.Equal("text", (string?)messages[0]["content"]?["type"]);
-            Assert.Equal("Hello", (string?)messages[0]["content"]?["text"]);
+            Assert.Equal("text", (string?)messages![0]["content"]?["type"]);
+            Assert.Equal("Hello", (string?)messages![0]["content"]?["text"]);
         }
 
         [Fact]

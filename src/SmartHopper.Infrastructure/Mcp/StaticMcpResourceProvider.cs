@@ -86,30 +86,28 @@ namespace SmartHopper.Infrastructure.Mcp
         }
 
         /// <inheritdoc/>
-        public Task<McpResource?> GetResourceAsync(Uri uri, CancellationToken cancellationToken = default)
+        public async Task<McpResource?> GetResourceAsync(Uri uri, CancellationToken cancellationToken = default)
         {
             if (uri == null)
             {
-                return Task.FromResult<McpResource?>(null);
+                return null;
             }
 
             var absolute = uri.IsAbsoluteUri ? uri : new Uri($"docs://{uri}", UriKind.Absolute);
 
             if (IsToolHelpUri(absolute, out var toolName) && !string.IsNullOrWhiteSpace(toolName))
             {
-                return Task.FromResult<McpResource?>(new McpResource(
+                return new McpResource(
                     absolute,
                     $"Tool Help: {toolName}",
                     "text/markdown",
                     $"Metadata and usage guidance for the '{toolName}' tool.",
-                    _ => this.GetToolHelpAsync(toolName, cancellationToken)));
+                    _ => this.GetToolHelpAsync(toolName, cancellationToken));
             }
 
-            var known = this.ListResourcesAsync(cancellationToken).Result;
-            var match = known.FirstOrDefault(r =>
+            var known = await this.ListResourcesAsync(cancellationToken).ConfigureAwait(false);
+            return known.FirstOrDefault(r =>
                 string.Equals(r.Uri.ToString(), absolute.ToString(), StringComparison.OrdinalIgnoreCase));
-
-            return Task.FromResult(match);
         }
 
         private static bool IsToolHelpUri(Uri uri, out string? toolName)
@@ -221,6 +219,5 @@ namespace SmartHopper.Infrastructure.Mcp
 
             return builder.ToString();
         }
-
     }
 }

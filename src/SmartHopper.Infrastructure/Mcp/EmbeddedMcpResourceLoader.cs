@@ -17,6 +17,7 @@
  */
 
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -29,6 +30,12 @@ namespace SmartHopper.Infrastructure.Mcp
     internal static class EmbeddedMcpResourceLoader
     {
         private const string ResourcePathFragment = "Resources.Mcp";
+
+        private static readonly Lazy<string[]> ManifestResourceNames = new (() =>
+            typeof(EmbeddedMcpResourceLoader).GetTypeInfo().Assembly.GetManifestResourceNames());
+
+        private static readonly ConcurrentDictionary<string, string> ResolvedResourceNames =
+            new (StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Reads an embedded Markdown file by its file name (e.g. <c>grasshopper-expert.md</c>).
@@ -44,23 +51,8 @@ namespace SmartHopper.Infrastructure.Mcp
                 throw new ArgumentNullException(nameof(fileName));
             }
 
+            var resourceName = ResolvedResourceNames.GetOrAdd(fileName, ResolveResourceName);
             var assembly = typeof(EmbeddedMcpResourceLoader).GetTypeInfo().Assembly;
-            var resourceNames = assembly.GetManifestResourceNames();
-
-            // Discover the resource by path fragment and file name so we do not depend on the
-            // exact MSBuild encoding of dots in folder names.
-            var resourceName = resourceNames
-                .Where(n =>
-                    n.IndexOf(ResourcePathFragment, StringComparison.OrdinalIgnoreCase) >= 0 &&
-                    n.EndsWith("." + fileName, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(n => n.Length)
-                .FirstOrDefault();
-
-            if (resourceName == null)
-            {
-                throw new FileNotFoundException(
-                    $"Embedded MCP resource not found for '{fileName}'. Available resources: {string.Join(", ", resourceNames)}.");
-            }
 
             using var stream = assembly.GetManifestResourceStream(resourceName);
             if (stream == null)
@@ -70,6 +62,22 @@ namespace SmartHopper.Infrastructure.Mcp
 
             using var reader = new StreamReader(stream);
             return reader.ReadToEnd();
+        }
+
+        private static string ResolveResourceName(string fileName)
+        {
+            // Discover the resource by path fragment and file name so we do not depend on the
+            // exact MSBuild encoding of dots in folder names.
+            var resourceNames = ManifestResourceNames.Value;
+            var resourceName = resourceNames
+                .Where(n =>
+                    n.Contains(ResourcePathFragment, StringComparison.OrdinalIgnoreCase) &&
+                    n.EndsWith("." + fileName, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(n => n.Length)
+                .FirstOrDefault();
+
+            return resourceName ?? throw new FileNotFoundException(
+                $"Embedded MCP resource not found for '{fileName}'. Available resources: {string.Join(", ", resourceNames)}.");
         }
     }
 }

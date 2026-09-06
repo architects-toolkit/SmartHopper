@@ -132,14 +132,16 @@ namespace SmartHopper.Infrastructure.Mcp
         /// <summary>
         /// Reads focused instructions for an instruction-tool topic.
         /// </summary>
-        /// <param name="topic">The requested topic or alias.</param>
+        /// <param name="topic">The requested topic alias or document identifier.</param>
         /// <returns>Markdown instructions, or a message listing valid topics.</returns>
         public static string GetInstructions(string topic)
         {
             var normalized = topic?.Trim() ?? string.Empty;
-            if (TopicAliases.TryGetValue(normalized, out var documentId))
+            var documentId = TopicAliases.TryGetValue(normalized, out var alias) ? alias : normalized;
+            var text = GetDocumentText(documentId);
+            if (text != null)
             {
-                return GetDocumentText(documentId) ?? string.Empty;
+                return text;
             }
 
             return $"Unknown topic. Valid topics are: {string.Join(", ", TopicAliases.Keys.OrderBy(key => key, StringComparer.OrdinalIgnoreCase))}. For canonical step-by-step workflows, call `smarthopper_workflows`.";
