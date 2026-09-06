@@ -65,6 +65,8 @@ This page references rendering at a high level and leaves type-level details to 
 ### Separation of Concerns
 
 - `ConversationSession` is the single source of truth for conversation history and for orchestrating provider calls and tool passes.
+- `WebChatUtils.CreateWebChatRequest` composes the system prompt before creating the dialog. It prepends the mandatory embedded `assistant-core` knowledge through `AgentKnowledgeCatalog`, then appends caller or user specialization and enables the default runtime-context providers.
+- Focused Grasshopper guidance is available to the agent through the `smarthopper_readme` and `smarthopper_workflows` instruction tools, backed by the same embedded catalog exposed through MCP.
 - `HtmlChatRenderer` (+ `ChatResourceManager`) converts `IAIInteraction` instances to HTML message bubbles. Markdig is used for Markdown -> HTML.
 - `WebChatDialog` is a thin host adapter:
   - Loads initial HTML (CSS/JS inline) via `HtmlChatRenderer.GetInitialHtml()`.
