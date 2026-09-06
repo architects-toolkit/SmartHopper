@@ -42,11 +42,13 @@ SmartHopper's tool system extends Grasshopper components with AI-powered capabil
 | text2json | Generates a JSON object from a prompt, conforming strictly to a provided JSON Schema |
 | list_filter | Filters list items based on criteria |
 | textlist2boolean | Evaluates list items against criteria and returns boolean results |
+| canvas_screenshot | Captures the visible Grasshopper canvas as a bounded base64 PNG |
+| viewport_screenshot | Captures the active or named Rhino viewport as a bounded base64 PNG |
 
 ### When to Use Them
 
 - **Text tasks**: Use `text2text`, `text2boolean`, `text2textlist`, `text2json`
-- **Image tasks**: Use `img2text` (vision) or `text2img` (generation)
+- **Image tasks**: Use `img2text` (vision), `text2img` (generation), or `canvas_screenshot` / `viewport_screenshot` (capture)
 - **Document tasks**: Use `file2md` or `web2md` to convert documents and web pages to Markdown
 - **Canvas tasks**: Use `gh_get`, `gh_put`, `gh_move`, `gh_group`, `gh_tidy_up`, `gh_connect`, `gh_disconnect`, `set_ai_provider_and_model` for Grasshopper automation
 - **Provider/model tasks**: Use `get_available_providers` (includes a `configured` flag per provider), `get_available_models` to inspect registered AI providers and their supported models, and `set_ai_provider_and_model` to override provider/model on a component
@@ -186,7 +188,7 @@ Component → AIToolRequest → ToolManager → Provider formatting → AI Model
 | --- | --- |
 | Instruction & Knowledge | `smarthopper_readme`, `smarthopper_workflows`, `smarthopper_tool_help`, `smarthopper_ghjson_reference`, `file2md`, `web2md`, `mcneel_forum_search`, `mcneel_forum_topic`, `mcneel_forum_post` |
 | Text Generation | `text2text`, `text2boolean`, `text2textlist`, `text2json`, `list_filter`, `textlist2boolean` |
-| Image Processing | `img2text`, `text2img` |
+| Image Processing | `img2text`, `text2img`, `canvas_screenshot`, `viewport_screenshot` |
 | Grasshopper Canvas | `gh_get`, `gh_put`, `gh_move`, `gh_merge`, `gh_group`, `gh_tidy_up`, `gh_list_categories`, `gh_list_components`, `gh_component_preview`, `gh_component_lock`, `gh_connect`, `gh_disconnect` |
 | Scripting | `script_generate`, `script_edit`, `script_review` |
 
@@ -194,6 +196,7 @@ Component → AIToolRequest → ToolManager → Provider formatting → AI Model
 
 - [ToolResultEnvelope](./ToolResultEnvelope.md)
 - [img2text Tool](./img2text.md)
+- [Screenshot Tools](./screenshots.md)
 - [smarthopper_readme Tool](./smarthopper_readme.md)
 - [smarthopper_workflows Tool](./smarthopper_workflows.md)
 - [smarthopper_tool_help Tool](./smarthopper_tool_help.md)

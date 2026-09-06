@@ -27,6 +27,7 @@ Many thanks to the following contributors to this release:
 - Added `SelectionContextProvider` and `ViewportContextProvider` in `SmartHopper.Core/AIContext`, registered by default through `AIContextBootstrapper`. WebChat now includes `selection` and `viewport` in its default context filter.
 - Added MCP `resources/list`, `resources/read`, `prompts/list`, and `prompts/get` support in `SmartHopper.Infrastructure/Mcp/JsonRpcDispatcher`. Added `McpResource`, `McpPrompt`, `IMcpResourceProvider`, `IMcpPromptProvider`, `EmbeddedMcpResourceLoader`, `StaticMcpResourceProvider`, and `StaticMcpPromptProvider`. Resource and prompt content is now compiled into the assembly from embedded `.md` files under `src/SmartHopper.Infrastructure/Resources/Mcp/` and linked from the existing GhJSON spec snapshot; `docs:///tool-help/{toolName}` still delegates to the `smarthopper_tool_help` AITool.
 - Added a shared `AgentKnowledgeCatalog` with embedded Grasshopper foundations, data-tree, definition-design, geometry, debugging, performance, scripting, tool-strategy, provider, research, and source-policy references. Added MCP `definition-builder` and `performance-reviewer` prompts.
+- Added read-only `canvas_screenshot` and `viewport_screenshot` AITools with bounded base64 PNG output, UI-thread capture, MCP exposure, and `Canvas To Image` / `Viewport To Image` stateful Grasshopper components that preserve `VersatileImage` outputs between trigger runs.
 
 ### Changed
 
