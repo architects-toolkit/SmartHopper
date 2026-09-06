@@ -81,8 +81,7 @@ a new script. All these tools are available to the provider to use while chattin
 in the AI Chat component.
 
 | Tool Name | Category | Description | Planned | In Progress | Testing | Released |
-| Tool Name | Category | Description | Planned | In Progress | Testing | Released |
-|-----------|----------|-------------|:-------:|:-----------:|:-------:|:--------:|
+| --------- | -------- | ----------- | :-----: | :---------: | :-----: | :------: |
 | `text2boolean` | DataProcessing | Evaluates a text against a true/false question with optional fallback value | ⚪ | 🟡 | 🟠 | 🟢 |
 | `text2text` | DataProcessing | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
 | `text2img` | ImageProcessing | Generates an image based on a text prompt using AI image generation models | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -194,7 +193,7 @@ Is there something missing? Do you have a suggestion? Please open a discussion i
 SmartHopper currently supports the following AI providers and features:
 
 | Provider | Status | API Registration | Streaming | Reasoning exposed by API | Live reasoning streaming in UI | Temperature config | Tool calling | JSON output | Image generation | Batch processing |
-|---|:---:|---|:---:|---|:---:|---|:---:|:---:|:---:|:---:|
+| --- | :---: | --- | :---: | --- | :---: | --- | :---: | :---: | :---: | :---: |
 | OpenAI | ✅ Supported | OpenAI Platform | Yes | Yes (o-series & gpt-5 structured content) | Yes | Yes (non o-series & non gpt-5) | Yes | Yes | Yes (DALL-E) | ✅ Yes |
 | MistralAI | ✅ Supported | Le Plateforme | Yes | Yes (thinking blocks) | Yes | Yes | Yes | Yes | No | ✅ Yes |
 | DeepSeek | ✅ Supported | DeepSeek Platform | Yes | Yes (reasoning_content) | Yes | Yes | Yes | Yes | No | ❌ No |
@@ -234,7 +233,7 @@ Notes:
 - "Verified" reflects the `Verified` flag in the registry; "Deprecated" reflects the `Deprecated` flag (some default models, such as OpenAI `dall-e-3`, are flagged deprecated).
 
 | Provider | Model | Verified | Streaming | Deprecated | Default For | Capabilities |
-|---|---|:---:|:---:|:---:|---|---|
+| --- | --- | :---: | :---: | :---: | --- | --- |
 | Anthropic | `claude-sonnet-4-6` | - | ✅ | - | Text2Json | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Anthropic | `claude-haiku-4-5-20251001` | ⭐ | ✅ | - | Text2Text, ReasoningChat, ToolReasoningChat, ToolChat, Image2Text | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Anthropic | `claude-sonnet-4-5-20250929` | ⭐ | ✅ | - | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning |
@@ -243,7 +242,7 @@ Notes:
 | Gemini | `gemini-3.1-flash-image-preview` | - | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-flash-image` | ⭐ | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput |
 | Gemini | `gemini-3-pro-image-preview` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
-| Gemini | `gemini-2.5-flash-lite` | ⭐ | ✅ | - |  | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Gemini | `gemini-2.5-flash-lite` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-flash` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-pro` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-1.5-flash` | ⭐ | ✅ | ✅ | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, AudioInput |
@@ -257,7 +256,7 @@ Notes:
 | MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | MistralAI | `voxtral-mini-2602` | - | - | - | Speech2Text | AudioInput, TextOutput |
 | MistralAI | `voxtral-mini-tts-2603` | - | - | - | Text2Speech | TextInput, AudioInput, AudioOutput |
-| MistralAI | `mistral-medium-2508` | ⭐ | ✅ | ✅ |  | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
+| MistralAI | `mistral-medium-2508` | ⭐ | ✅ | ✅ | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
 | MistralAI | `voxtral-mini-tts-mellon-greek-2606-solutions` | - | ✅ | ✅ | Text2Speech | TextInput, AudioInput, AudioOutput |
 | OpenAI | `gpt-5.4-mini-2026-03-17` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | OpenAI | `gpt-audio-mini-2025-12-15` | - | - | - | Text2Speech, Speech2Text | TextInput, AudioInput, TextOutput, AudioOutput, FunctionCalling |
