@@ -18,8 +18,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -29,8 +27,9 @@ using Newtonsoft.Json.Linq;
 namespace SmartHopper.Infrastructure.Mcp
 {
     /// <summary>
-    /// Static MCP resource provider that serves documentation from existing AITools and
-    /// <c>/docs</c> Markdown files. No resource text is duplicated inside this provider.
+    /// Static MCP resource provider that serves documentation from Markdown files embedded in the
+    /// <see cref="SmartHopper.Infrastructure"/> assembly. Stable resources are loaded directly from
+    /// the assembly; per-tool help still delegates to the <c>smarthopper_tool_help</c> AITool.
     /// </summary>
     public sealed class StaticMcpResourceProvider : IMcpResourceProvider
     {
@@ -68,19 +67,19 @@ namespace SmartHopper.Infrastructure.Mcp
                     "GhJSON Schema",
                     "text/markdown",
                     "Authoritative GhJSON and GhPatch specification.",
-                    _ => this.GetGhJsonSchemaAsync(cancellationToken)),
+                    _ => Task.FromResult(EmbeddedMcpResourceLoader.ReadMarkdown("ghjson-schema.md"))),
                 new McpResource(
                     new Uri("docs:///smarthopper-readme", UriKind.Absolute),
                     "SmartHopper README",
                     "text/markdown",
                     "Operational instructions for SmartHopper.",
-                    _ => this.GetSmarthopperReadmeAsync(cancellationToken)),
+                    _ => Task.FromResult(EmbeddedMcpResourceLoader.ReadMarkdown("smarthopper-readme.md"))),
                 new McpResource(
                     new Uri("docs:///smarthopper-workflows", UriKind.Absolute),
                     "SmartHopper Workflows",
                     "text/markdown",
                     "Canonical tool chains for common tasks.",
-                    _ => this.GetSmarthopperWorkflowsAsync(cancellationToken)),
+                    _ => Task.FromResult(EmbeddedMcpResourceLoader.ReadMarkdown("smarthopper-workflows.md"))),
                 new McpResource(
                     ToolHelpBaseUri,
                     "Tool Help",
@@ -143,87 +142,6 @@ namespace SmartHopper.Infrastructure.Mcp
             }
 
             return false;
-        }
-
-        private async Task<string> GetGhJsonSchemaAsync(CancellationToken cancellationToken)
-        {
-            var result = await this.toolExecutor(
-                "smarthopper_ghjson_reference",
-                new JObject { ["topic"] = "specification" },
-                cancellationToken).ConfigureAwait(false);
-
-            if (result?["instructions"] is JToken instructions)
-            {
-                return instructions.ToString();
-            }
-
-            return $"Error loading GhJSON schema: {result?["error"]?.ToString() ?? "unknown error"}.";
-        }
-
-        private async Task<string> GetSmarthopperReadmeAsync(CancellationToken cancellationToken)
-        {
-            var result = await this.toolExecutor(
-                "smarthopper_readme",
-                new JObject { ["topic"] = "canvas" },
-                cancellationToken).ConfigureAwait(false);
-
-            if (result?["instructions"] is JToken instructions)
-            {
-                return instructions.ToString();
-            }
-
-            return await FallbackToDocsAsync(
-                new [] { "docs/GETTING_STARTED/index.md", "README.md" },
-                cancellationToken).ConfigureAwait(false)
-                ?? $"Error loading SmartHopper README: {result?["error"]?.ToString() ?? "unknown error"}.";
-        }
-
-        private async Task<string> GetSmarthopperWorkflowsAsync(CancellationToken cancellationToken)
-        {
-            var result = await this.toolExecutor(
-                "smarthopper_workflows",
-                new JObject(),
-                cancellationToken).ConfigureAwait(false);
-
-            var workflows = result?["workflows"] as JArray;
-            if (workflows != null && workflows.Count > 0)
-            {
-                var builder = new StringBuilder();
-                builder.AppendLine("# SmartHopper Workflows");
-                builder.AppendLine();
-
-                foreach (var workflow in workflows.OfType<JObject>())
-                {
-                    var name = workflow["name"]?.ToString();
-                    var description = workflow["description"]?.ToString();
-                    var steps = workflow["steps"] as JArray;
-
-                    builder.AppendLine($"## {name ?? "workflow"}");
-                    if (!string.IsNullOrWhiteSpace(description))
-                    {
-                        builder.AppendLine(description);
-                        builder.AppendLine();
-                    }
-
-                    if (steps != null)
-                    {
-                        foreach (var step in steps.OfType<JValue>().Select(v => v.ToString())
-                            .Concat(steps.OfType<JObject>().Select(s => s.ToString())))
-                        {
-                            builder.AppendLine($"- {step}");
-                        }
-                    }
-
-                    builder.AppendLine();
-                }
-
-                return builder.ToString();
-            }
-
-            return await FallbackToDocsAsync(
-                new [] { "docs/Tools/smarthopper_workflows.md" },
-                cancellationToken).ConfigureAwait(false)
-                ?? $"Error loading SmartHopper workflows: {result?["error"]?.ToString() ?? "unknown error"}.";
         }
 
         private async Task<string> GetToolHelpAsync(string toolName, CancellationToken cancellationToken)
@@ -310,30 +228,5 @@ namespace SmartHopper.Infrastructure.Mcp
             return builder.ToString();
         }
 
-        [SuppressMessage("Design", "CA1031", Justification = "Fallback file reads are best-effort; individual failures should try the next candidate.")]
-        private static async Task<string?> FallbackToDocsAsync(IEnumerable<string> relativePaths, CancellationToken cancellationToken)
-        {
-            foreach (var relativePath in relativePaths)
-            {
-                try
-                {
-                    var fullPath = Path.GetFullPath(relativePath);
-                    if (File.Exists(fullPath))
-                    {
-                        var text = await File.ReadAllTextAsync(fullPath, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
-                        if (!string.IsNullOrWhiteSpace(text))
-                        {
-                            return text;
-                        }
-                    }
-                }
-                catch
-                {
-                    // Ignore individual fallback failures and try the next candidate.
-                }
-            }
-
-            return null;
-        }
     }
 }
