@@ -56,6 +56,8 @@ namespace SmartHopper.Components.Output
         /// <inheritdoc/>
         protected override void GatherAdditionalInputs(IGH_DataAccess DA, Dictionary<string, object> additionalInputs)
         {
+            base.GatherAdditionalInputs(DA, additionalInputs);
+
             var fallbackItem = new GH_Boolean();
             this._fallback = DA.GetData("Fallback", ref fallbackItem) && fallbackItem != null
                 ? fallbackItem.Value
