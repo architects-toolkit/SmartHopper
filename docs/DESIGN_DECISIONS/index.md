@@ -196,7 +196,7 @@ if ((model.Capabilities & required) == required)
 
 - Efficient: capability checks are single bitwise operations
 - Composable: complex capability sets are simple OR combinations
-- Hierarchical: audio inherits from speech automatically
+- Explicit: dedicated speech flags (`SpeechInput`/`SpeechOutput`) are independent from general audio flags (`AudioInput`/`AudioOutput`), so chat-audio models cannot be routed to dedicated TTS/STT endpoints they do not support
 
 **Trade-offs**:
 
