@@ -55,7 +55,33 @@ Both tools preserve aspect ratio and do not upscale captures smaller than the re
 
 The stateful components execute the same AITools through `AIToolCall.Exec()` rather than duplicating capture logic. PNG data is stored as `VersatileImageKind.Base64`, which is supported by the existing `VersatileImageCodec` persistence path.
 
-## Architecture & Security
+### Code Examples
+
+Capture the Grasshopper canvas directly:
+
+```csharp
+using SmartHopper.Core.Grasshopper.Utils.Internal;
+
+var result = await new CanvasCaptureService()
+    .CaptureCanvasAsync(maxWidth: 1920, maxHeight: 1080);
+
+Console.WriteLine($"Canvas captured: {result.Width}x{result.Height}");
+var pngBase64 = result.ImageBase64;
+```
+
+Capture a named Rhino viewport:
+
+```csharp
+using SmartHopper.Core.Grasshopper.Utils.Internal;
+
+var result = await new ViewportCaptureService()
+    .CaptureViewportAsync(viewName: "Perspective", width: 1024, height: 1024);
+
+Console.WriteLine($"Viewport '{result.ViewName}' captured: {result.Width}x{result.Height}");
+var pngBase64 = result.ImageBase64;
+```
+
+## Architecture & Design
 
 Screenshot tools read visual state but do not mutate the Grasshopper or Rhino document. Captures can still contain sensitive geometry, filenames, annotations, or client information. Base64 payloads are not written to logs. MCP users should configure bearer authentication when local clients are not fully trusted and should only send captures to external AI providers with user intent.
 
