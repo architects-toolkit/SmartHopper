@@ -73,6 +73,14 @@
     <EmbeddedResource Include="Resources\smarthopper.ico" />
   </ItemGroup>
   <!--
+    Embed MCP prompt templates and reference Markdown files compiled into the assembly.
+    The ghjson-schema is linked from the Core.Grasshopper GhJSON spec snapshot to avoid duplication.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Mcp\**\*.md" />
+    <EmbeddedResource Include="..\SmartHopper.Core.Grasshopper\Resources\GhJsonSpec\v1.0\specification.md" Link="Resources\Mcp\Docs\ghjson-schema.md" />
+  </ItemGroup>
+  <!--
     Generate InternalsVisibleTo attributes at build time.
     This grants internal access to official SmartHopper assemblies only,
     preventing external third-party code from using internal types like StyledMessageDialog.
