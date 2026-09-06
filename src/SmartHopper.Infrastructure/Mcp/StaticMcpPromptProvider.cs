@@ -58,6 +58,16 @@ namespace SmartHopper.Infrastructure.Mcp
                     "canvas-debugger",
                     "Diagnoses canvas issues and suggests debugging steps.",
                     _ => this.GetPromptMessagesAsync("canvas-debugger.md")),
+                new McpPrompt(
+                    new Uri("prompts:///definition-builder", UriKind.Absolute),
+                    "definition-builder",
+                    "Designs and builds robust Grasshopper component workflows.",
+                    _ => this.GetPromptMessagesAsync("definition-builder.md")),
+                new McpPrompt(
+                    new Uri("prompts:///performance-reviewer", UriKind.Absolute),
+                    "performance-reviewer",
+                    "Reviews Grasshopper definitions for measurable performance problems.",
+                    _ => this.GetPromptMessagesAsync("performance-reviewer.md")),
             };
 
             return Task.FromResult<IReadOnlyList<McpPrompt>>(prompts);

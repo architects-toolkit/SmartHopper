@@ -60,33 +60,27 @@ namespace SmartHopper.Infrastructure.Mcp
         /// <inheritdoc/>
         public Task<IReadOnlyList<McpResource>> ListResourcesAsync(CancellationToken cancellationToken = default)
         {
-            var resources = new List<McpResource>
-            {
-                new McpResource(
-                    new Uri("docs:///ghjson-schema", UriKind.Absolute),
-                    "GhJSON Schema",
+            var resources = AgentKnowledgeCatalog.ListDocuments()
+                .Select(document => new McpResource(
+                    new Uri($"docs:///{document.Id}", UriKind.Absolute),
+                    document.Title,
                     "text/markdown",
-                    "Authoritative GhJSON and GhPatch specification.",
-                    _ => Task.FromResult(EmbeddedMcpResourceLoader.ReadMarkdown("ghjson-schema.md"))),
-                new McpResource(
-                    new Uri("docs:///smarthopper-readme", UriKind.Absolute),
-                    "SmartHopper README",
-                    "text/markdown",
-                    "Operational instructions for SmartHopper.",
-                    _ => Task.FromResult(EmbeddedMcpResourceLoader.ReadMarkdown("smarthopper-readme.md"))),
-                new McpResource(
-                    new Uri("docs:///smarthopper-workflows", UriKind.Absolute),
-                    "SmartHopper Workflows",
-                    "text/markdown",
-                    "Canonical tool chains for common tasks.",
-                    _ => Task.FromResult(EmbeddedMcpResourceLoader.ReadMarkdown("smarthopper-workflows.md"))),
-                new McpResource(
-                    ToolHelpBaseUri,
-                    "Tool Help",
-                    "text/markdown",
-                    "Per-tool metadata and usage guidance. Request docs:///tool-help/{toolName}.",
-                    _ => Task.FromResult("Pass a tool name in the URI path (e.g. docs:///tool-help/gh_get).")),
-            };
+                    document.Description,
+                    _ => Task.FromResult(AgentKnowledgeCatalog.GetDocumentText(document.Id) ?? string.Empty)))
+                .ToList();
+
+            resources.Insert(0, new McpResource(
+                new Uri("docs:///ghjson-schema", UriKind.Absolute),
+                "GhJSON Schema",
+                "text/markdown",
+                "Authoritative GhJSON and GhPatch specification.",
+                _ => Task.FromResult(EmbeddedMcpResourceLoader.ReadMarkdown("ghjson-schema.md"))));
+            resources.Add(new McpResource(
+                ToolHelpBaseUri,
+                "Tool Help",
+                "text/markdown",
+                "Per-tool metadata and usage guidance. Request docs:///tool-help/{toolName}.",
+                _ => Task.FromResult("Pass a tool name in the URI path (e.g. docs:///tool-help/gh_get).")));
 
             return Task.FromResult<IReadOnlyList<McpResource>>(resources);
         }
