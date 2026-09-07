@@ -50,7 +50,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Disconnect Grasshopper components by removing wires between outputs and inputs. Use this to break data flow between existing components on the canvas. Requires component GUIDs (use gh_get_selected or gh_get to find them first).",
+                description: "Stage Grasshopper wire removals, show the user an in-canvas visual review, and remove only accepted connections. Requires component GUIDs (use gh_get_selected or gh_get to find them first).",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -123,6 +123,37 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var successfulDisconnections = new List<JObject>();
                 var failedDisconnections = new List<JObject>();
+                var proposals = connectionsArray
+                    .Select(connSpec => new
+                    {
+                        Source = connSpec["sourceGuid"]?.ToString(),
+                        Target = connSpec["targetGuid"]?.ToString(),
+                        SourceParameter = connSpec["sourceParam"]?.ToString(),
+                        TargetParameter = connSpec["targetParam"]?.ToString(),
+                    })
+                    .Where(value =>
+                        Guid.TryParse(value.Source, out var sourceGuid) &&
+                        Guid.TryParse(value.Target, out var targetGuid) &&
+                        !CanvasProtection.IsProtected(sourceGuid) &&
+                        !CanvasProtection.IsProtected(targetGuid))
+                    .Select(value => new CanvasConnectionReviewProposal
+                    {
+                        SourceGuid = Guid.Parse(value.Source!),
+                        TargetGuid = Guid.Parse(value.Target!),
+                        SourceParameter = value.SourceParameter,
+                        TargetParameter = value.TargetParameter,
+                    })
+                    .ToList();
+                var reviewSession = CanvasChangeReviewService.CreateConnectionSession(
+                    this.toolName,
+                    proposals,
+                    CanvasChangeKind.ConnectionRemoved);
+                var applyReview = reviewSession.Items.Count > 0 &&
+                    await CanvasChangeReviewService.ReviewAsync(reviewSession).ConfigureAwait(false);
+                var acceptedIndexes = applyReview
+                    ? CanvasChangeReviewService.GetAcceptedConnectionProposalIndexes(reviewSession)
+                    : new HashSet<int>();
+                var proposalIndex = 0;
 
                 foreach (var connSpec in connectionsArray)
                 {
@@ -159,6 +190,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ["sourceGuid"] = sourceGuidStr,
                             ["targetGuid"] = targetGuidStr,
                             ["error"] = "Disconnection rejected because it involves a protected component.",
+                        });
+                        continue;
+                    }
+
+                    if (!acceptedIndexes.Contains(proposalIndex++))
+                    {
+                        failedDisconnections.Add(new JObject
+                        {
+                            ["sourceGuid"] = sourceGuidStr,
+                            ["targetGuid"] = targetGuidStr,
+                            ["error"] = "Disconnection rejected by the user or an endpoint was not found.",
                         });
                         continue;
                     }

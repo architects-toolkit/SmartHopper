@@ -21,6 +21,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using GhJSON.Core.SchemaModels;
+using GhJSON.Grasshopper;
 using Grasshopper;
 using Grasshopper.Kernel.Special;
 using Newtonsoft.Json.Linq;
@@ -50,7 +52,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Create a visual group container around components to organize and annotate them. Use this to highlight related components, mark areas of interest, or add notes to the canvas. Requires component GUIDs from gh_get.",
+                description: "Stage a visual group around components, show the user an in-canvas review, and create it only after acceptance. Use this to organize or annotate related components. Requires component GUIDs from gh_get.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -80,7 +82,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             // Specialized wrapper: gh_group_selected
             yield return new AITool(
                 name: "gh_group_selected",
-                description: "Create a group around currently selected components. Quick way to organize selected items without needing to specify GUIDs manually.",
+                description: "Stage a group around currently selected components and show the user an in-canvas review before creation. Quick way to organize selected items without specifying GUIDs manually.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -137,6 +139,52 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
+                var reviewDocument = GhJsonGrasshopper.GetByGuids(validGuids);
+                var memberIds = reviewDocument.Components
+                    .Where(component =>
+                        component.Id.HasValue &&
+                        component.InstanceGuid.HasValue &&
+                        validGuids.Contains(component.InstanceGuid.Value))
+                    .Select(component => component.Id!.Value)
+                    .ToList();
+                var proposedGroup = new GhJsonGroup
+                {
+                    Id = 1,
+                    Name = groupName,
+                    Members = memberIds,
+                };
+                var proposedDocument = new GhJsonDocument(
+                    reviewDocument.Schema,
+                    reviewDocument.Metadata,
+                    reviewDocument.Components,
+                    reviewDocument.Connections,
+                    new[] { proposedGroup });
+                var reviewItem = new CanvasChangeReviewItem(
+                    "group:0",
+                    CanvasChangeKind.GroupAdded,
+                    groupName ?? "Group",
+                    $"{memberIds.Count} member(s)")
+                {
+                    GroupIndex = 0,
+                };
+                var reviewSession = new CanvasChangeReviewSession(
+                    "Review AI group",
+                    this.toolName,
+                    proposedDocument,
+                    new[] { reviewItem });
+                if (!await CanvasChangeReviewService.ReviewAsync(reviewSession).ConfigureAwait(false) ||
+                    !reviewSession.IsEffectivelyAccepted(reviewItem))
+                {
+                    var rejectedResult = new JObject
+                    {
+                        ["group"] = null,
+                        ["grouped"] = new JArray(),
+                        ["rejected"] = true,
+                    };
+                    output.CreateSuccess(AIBodyBuilder.Create().AddToolResult(rejectedResult).Build(), toolCall);
+                    return output;
+                }
+
                 GH_Group group = null;
 
                 // Combine UI operations and result resolution in a single UI thread callback.
@@ -183,6 +231,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         if (canvas?.Document != null)
                         {
                             canvas.Document.AddObject(group, false);
+                            canvas.Document.UndoUtil.RecordAddObjectEvent("[SH] Add reviewed group", group);
                         }
 
                         // Update UI

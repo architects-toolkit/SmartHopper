@@ -50,7 +50,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Connect Grasshopper components together by creating wires between outputs and inputs. Use this to establish data flow between existing components on the canvas. Requires component GUIDs (use gh_get_selected or gh_get to find them first).",
+                description: "Stage wires between Grasshopper outputs and inputs, show the user an in-canvas visual review, and create only accepted connections. Requires component GUIDs (use gh_get_selected or gh_get to find them first).",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -121,85 +121,108 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var connectTcs = new TaskCompletionSource<(List<JObject> successful, List<JObject> failed)>();
+                var proposals = new List<CanvasConnectionReviewProposal>();
+                var failedConnections = new List<JObject>();
+                var protectedGuids = CanvasProtection.GetProtectedInstanceGuids();
+                foreach (var connSpec in connectionsArray)
+                {
+                    var sourceGuidString = connSpec["sourceGuid"]?.ToString();
+                    var targetGuidString = connSpec["targetGuid"]?.ToString();
+                    if (!Guid.TryParse(sourceGuidString, out var sourceGuid) ||
+                        !Guid.TryParse(targetGuidString, out var targetGuid))
+                    {
+                        failedConnections.Add(new JObject
+                        {
+                            ["error"] = "Missing or invalid sourceGuid or targetGuid",
+                            ["spec"] = connSpec,
+                        });
+                        continue;
+                    }
+
+                    if (protectedGuids.Contains(sourceGuid) || protectedGuids.Contains(targetGuid))
+                    {
+                        failedConnections.Add(new JObject
+                        {
+                            ["error"] = "Connection rejected because it involves a protected component.",
+                            ["sourceGuid"] = sourceGuidString,
+                            ["targetGuid"] = targetGuidString,
+                        });
+                        continue;
+                    }
+
+                    proposals.Add(new CanvasConnectionReviewProposal
+                    {
+                        SourceGuid = sourceGuid,
+                        TargetGuid = targetGuid,
+                        SourceParameter = connSpec["sourceParam"]?.ToString(),
+                        TargetParameter = connSpec["targetParam"]?.ToString(),
+                    });
+                }
+
+                var reviewSession = CanvasChangeReviewService.CreateConnectionSession(
+                    this.toolName,
+                    proposals,
+                    CanvasChangeKind.ConnectionAdded);
+                var applyReview = reviewSession.Items.Count > 0 &&
+                    await CanvasChangeReviewService.ReviewAsync(reviewSession).ConfigureAwait(false);
+                var acceptedIndexes = applyReview
+                    ? CanvasChangeReviewService.GetAcceptedConnectionProposalIndexes(reviewSession)
+                    : new HashSet<int>();
+                var representedIndexes = reviewSession.Items
+                    .Where(item => item.ComponentId.HasValue)
+                    .Select(item => item.ComponentId!.Value)
+                    .ToHashSet();
+                var connectTcs = new TaskCompletionSource<List<JObject>>();
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
                     try
                     {
                         var successfulConnections = new List<JObject>();
-                        var failedConnections = new List<JObject>();
-                        var protectedGuids = CanvasProtection.GetProtectedInstanceGuids();
-
-                        foreach (var connSpec in connectionsArray)
+                        for (var index = 0; index < proposals.Count; index++)
                         {
-                            var sourceGuidStr = connSpec["sourceGuid"]?.ToString();
-                            var targetGuidStr = connSpec["targetGuid"]?.ToString();
-                            var sourceParamName = connSpec["sourceParam"]?.ToString();
-                            var targetParamName = connSpec["targetParam"]?.ToString();
-
-                            if (string.IsNullOrEmpty(sourceGuidStr) || string.IsNullOrEmpty(targetGuidStr))
+                            var proposal = proposals[index];
+                            if (!acceptedIndexes.Contains(index))
                             {
                                 failedConnections.Add(new JObject
                                 {
-                                    ["error"] = "Missing sourceGuid or targetGuid",
-                                    ["spec"] = connSpec
+                                    ["error"] = representedIndexes.Contains(index) ? "Connection rejected by the user." : "Source or target component was not found.",
+                                    ["sourceGuid"] = proposal.SourceGuid.ToString(),
+                                    ["targetGuid"] = proposal.TargetGuid.ToString(),
                                 });
                                 continue;
                             }
 
-                            if (!Guid.TryParse(sourceGuidStr, out var sourceGuid) || !Guid.TryParse(targetGuidStr, out var targetGuid))
+                            var success = GhJsonGrasshopper.Connect(
+                                proposal.SourceGuid,
+                                proposal.TargetGuid,
+                                proposal.SourceParameter,
+                                proposal.TargetParameter);
+                            var result = new JObject
                             {
-                                failedConnections.Add(new JObject
-                                {
-                                    ["error"] = "Invalid GUID format",
-                                    ["sourceGuid"] = sourceGuidStr,
-                                    ["targetGuid"] = targetGuidStr
-                                });
-                                continue;
-                            }
-
-                            if (protectedGuids.Contains(sourceGuid) || protectedGuids.Contains(targetGuid))
-                            {
-                                failedConnections.Add(new JObject
-                                {
-                                    ["error"] = "Connection rejected because it involves a protected component.",
-                                    ["sourceGuid"] = sourceGuidStr,
-                                    ["targetGuid"] = targetGuidStr
-                                });
-                                continue;
-                            }
-
-                            bool success = GhJsonGrasshopper.Connect(sourceGuid, targetGuid, sourceParamName, targetParamName);
-
+                                ["sourceGuid"] = proposal.SourceGuid.ToString(),
+                                ["targetGuid"] = proposal.TargetGuid.ToString(),
+                                ["sourceParam"] = proposal.SourceParameter ?? "(first output)",
+                                ["targetParam"] = proposal.TargetParameter ?? "(first input)",
+                            };
                             if (success)
                             {
-                                successfulConnections.Add(new JObject
-                                {
-                                    ["sourceGuid"] = sourceGuidStr,
-                                    ["targetGuid"] = targetGuidStr,
-                                    ["sourceParam"] = sourceParamName ?? "(first output)",
-                                    ["targetParam"] = targetParamName ?? "(first input)",
-                                    ["status"] = "connected"
-                                });
+                                result["status"] = "connected";
+                                successfulConnections.Add(result);
                             }
                             else
                             {
-                                failedConnections.Add(new JObject
-                                {
-                                    ["error"] = "Connection failed - check component GUIDs and parameter names",
-                                    ["sourceGuid"] = sourceGuidStr,
-                                    ["targetGuid"] = targetGuidStr
-                                });
+                                result["error"] = "Connection failed - check component GUIDs and parameter names";
+                                failedConnections.Add(result);
                             }
                         }
 
-                        if (successfulConnections.Any())
+                        if (successfulConnections.Count > 0)
                         {
                             doc.NewSolution(false);
                             Instances.RedrawCanvas();
                         }
 
-                        connectTcs.SetResult((successfulConnections, failedConnections));
+                        connectTcs.SetResult(successfulConnections);
                     }
                     catch (Exception ex)
                     {
@@ -207,7 +230,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 });
 
-                var (successfulConnections, failedConnections) = await connectTcs.Task.ConfigureAwait(false);
+                var successfulConnections = await connectTcs.Task.ConfigureAwait(false);
 
                 var toolResult = new JObject
                 {
