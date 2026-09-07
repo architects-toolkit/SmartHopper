@@ -43,6 +43,8 @@ namespace SmartHopper.Components
                 DialogCanvasLink.RegisterLink(dialog, guid, color);
             };
 
+            CanvasChangePreviewOverlay.EnsureInitialized();
+
             // Initialize the visual overlay that marks protected components on the canvas.
             CanvasProtectionOverlay.EnsureInitialized();
 
