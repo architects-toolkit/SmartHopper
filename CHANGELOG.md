@@ -15,6 +15,8 @@ Many thanks to the following contributors to this release:
 
 ### Added
 
+- Added document-staged visual review for structural AI canvas changes. `gh_put`, `gh_remove`, `gh_clear`, `gh_connect`, `gh_disconnect`, `gh_move`, `gh_group`, and `gh_group_selected` now paint proposed additions, modifications, removals, wires, target positions, and groups over the actual Grasshopper canvas and apply only user-accepted changes.
+- Added reusable `CanvasChangeReviewSession`, `CanvasChangeReviewService`, `CanvasChangePreviewOverlay`, and Eto review dialog infrastructure in `SmartHopper.Core.Grasshopper`.
 - Pull request descriptions and titles are now drafted automatically, with a deterministic fallback when AI is unavailable and no overwriting of descriptions written by a person.
 - Added `AIBody.WithReplaced` extension for replacing a specific interaction by reference in an immutable body.
 - Added `AITool.GetRequiredParameters()` helper to parse required parameter names from a tool's JSON schema.
