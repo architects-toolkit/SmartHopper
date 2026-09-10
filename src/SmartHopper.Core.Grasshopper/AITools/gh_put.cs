@@ -19,7 +19,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -35,7 +34,6 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
-using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
@@ -58,23 +56,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <returns></returns>
         public IEnumerable<AITool> GetTools()
         {
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: this.toolName,
-                description: "Add new components to the canvas from GhJSON format. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. Component-specific state (e.g. Number Slider values under componentState.extensions['gh.numberslider'].value using the format 'current<min~max>', Panel text under componentState.extensions['gh.panel'].text) is preserved. Example: gh_put({ ghjson: '...' }) or gh_put({ ghjson: 'C:/path/to/file.ghjson' }). See also: gh_get, script_generate_and_place_on_canvas.",
+                description: "Stage components from GhJSON, show the user an in-canvas visual diff, and place only accepted changes. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. Component-specific state (e.g. Number Slider values under componentState.extensions['gh.numberslider'].value using the format 'current<min~max>', Panel text under componentState.extensions['gh.panel'].text) is preserved. Example: gh_put({ ghjson: '...' }) or gh_put({ ghjson: 'C:/path/to/file.ghjson' }). See also: gh_get, script_generate_and_place_on_canvas.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
                         ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON document string, or an absolute file path to a .ghjson file containing the document."" },
-                        ""editMode"": { ""type"": ""boolean"", ""description"": ""When true, existing components on canvas will be replaced. User will be prompted for confirmation."" },
+                        ""editMode"": { ""type"": ""boolean"", ""description"": ""When true, proposed components with matching instance GUIDs are reviewed as modifications instead of additions."" },
                         ""autoOffset"": { ""type"": ""boolean"", ""default"": true, ""description"": ""When true, newly placed components are offset on the canvas so they do not overlap existing objects. In edit mode this defaults to false."" }
                     },
                     ""required"": [""ghjson""]
                 }",
                 execute: this.GhPutToolAsync,
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "ghjson" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""components"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Names of the placed or replaced components."" }, ""instanceGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the placed or replaced components."" }, ""analysis"": { ""type"": [""string"", ""null""], ""description"": ""Validation, error, or warning summary. Null when nothing notable happened."" } } }",
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""components"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Names of the placed or replaced components."" }, ""instanceGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the placed or replaced components."" }, ""acceptedChanges"": { ""type"": ""integer"" }, ""rejectedChanges"": { ""type"": ""integer"" }, ""analysis"": { ""type"": [""string"", ""null""], ""description"": ""Validation, review, error, or warning summary. Null when nothing notable happened."" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
@@ -147,188 +144,74 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
-                // In edit mode, check for existing components that match instanceGuids
                 var existingComponents = new Dictionary<Guid, IGH_DocumentObject>();
-                var existingPositions = new Dictionary<Guid, PointF>();
                 var componentsToReplace = new List<Guid>();
-                HashSet<Guid> unchangedGuids = null;
-
-                // Captured external connections: source/target component + parameter names
                 var capturedConnections = new List<ConnectionInfo>();
+                var existingDocument = new GhJsonDocument();
 
-                if (editMode && document?.Components != null)
+                if (editMode)
                 {
-                    // Step 1: Pre-compare components with canvas.
-                    // Collect all incoming components with an instanceGuid that exists on canvas,
-                    // then batch-serialize via GhJsonGrasshopper.GetByGuids for efficiency.
-                    var incomingWithGuid = document.Components
-                        .Where(c => c.InstanceGuid.HasValue && c.InstanceGuid.Value != Guid.Empty)
-                        .ToList();
-
-                    foreach (var compProps in incomingWithGuid)
+                    foreach (var component in document.Components.Where(component =>
+                                 component.InstanceGuid.HasValue && component.InstanceGuid.Value != Guid.Empty))
                     {
-                        var guid = compProps.InstanceGuid.Value;
+                        var guid = component.InstanceGuid!.Value;
                         var existing = CanvasAccess.FindInstance(guid);
                         if (existing != null)
                         {
                             existingComponents[guid] = existing;
-                            existingPositions[guid] = existing.Attributes.Pivot;
                         }
                     }
 
                     if (existingComponents.Count > 0)
                     {
-                        var guidsToCompare = existingComponents.Keys.ToList();
-                        var existingDoc = GhJsonGrasshopper.GetByGuids(guidsToCompare);
-
-                        foreach (var compProps in incomingWithGuid)
-                        {
-                            var guid = compProps.InstanceGuid.Value;
-                            if (!existingComponents.ContainsKey(guid))
-                            {
-                                continue;
-                            }
-
-                            var existingComp = existingDoc.Components
-                                .FirstOrDefault(c => c.InstanceGuid == guid);
-
-                            if (existingComp != null && ComponentsAreEqual(compProps, existingComp))
-                            {
-                                Debug.WriteLine($"[gh_put] Component '{existingComponents[guid].Name}' ({guid}) is unchanged, skipping replacement");
-                            }
-                            else
-                            {
-                                componentsToReplace.Add(guid);
-                                Debug.WriteLine($"[gh_put] Component '{existingComponents[guid].Name}' ({guid}) has changes, will prompt for replacement");
-                            }
-                        }
-                    }
-
-                    // Step 2: Prompt user for confirmation for each modified component
-                    if (componentsToReplace.Count > 0)
-                    {
-                        var confirmedReplacements = new List<Guid>();
-
-                        foreach (var guid in componentsToReplace)
-                        {
-                            var confirmTcs = new TaskCompletionSource<bool>();
-                            var componentName = existingComponents.TryGetValue(guid, out var comp) ? comp.Name : "Unknown";
-
-                            Rhino.RhinoApp.InvokeOnUiThread(() =>
-                            {
-                                try
-                                {
-                                    var message = $"Do you want to replace component '{componentName}' with the new definition'?\n\n" +
-                                                  "Click 'Yes' to replace this component.\n" +
-                                                  "Click 'No' to create a new component instead.";
-                                    var result = StyledMessageDialog.ShowConfirmation(message, "Replace", guid);
-                                    confirmTcs.SetResult(result);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Debug.WriteLine($"[gh_put] Error showing confirmation dialog: {ex.Message}");
-                                    confirmTcs.SetResult(false);
-                                }
-                            });
-
-                            var shouldReplace = await confirmTcs.Task.ConfigureAwait(false);
-
-                            if (shouldReplace)
-                            {
-                                confirmedReplacements.Add(guid);
-                                Debug.WriteLine($"[gh_put] User confirmed replacement of component '{componentName}' ({guid})");
-                            }
-                            else
-                            {
-                                Debug.WriteLine($"[gh_put] User chose to create new component instead of replacing '{componentName}' ({guid})");
-                            }
-                        }
-
-                        // Update the lists to only include confirmed replacements
-                        componentsToReplace.Clear();
-                        componentsToReplace.AddRange(confirmedReplacements);
-
-                        // Capture unchanged GUIDs BEFORE mutating existingComponents so Step 3
-                        // can still filter out unchanged components correctly.
-                        unchangedGuids = existingComponents.Keys.Except(confirmedReplacements).ToHashSet();
-
-                        // Remove non-confirmed components from tracking dictionaries
-                        foreach (var guid in unchangedGuids)
-                        {
-                            existingComponents.Remove(guid);
-                            existingPositions.Remove(guid);
-                        }
-
-                        Debug.WriteLine($"[gh_put] Final replacement count: {componentsToReplace.Count}");
-
-                        // If no replacements were needed, all existing components are unchanged.
-                        // Ensure unchangedGuids is populated so Step 3 filters them out.
-                        if (unchangedGuids == null && existingComponents.Count > 0)
-                        {
-                            unchangedGuids = existingComponents.Keys.ToHashSet();
-                        }
-
-                        // Capture external connections for replaced components before removal
-                        if (componentsToReplace.Count > 0)
-                        {
-                            capturedConnections = GhJsonGrasshopper.CaptureExternalConnections(componentsToReplace).ToList();
-                            Debug.WriteLine($"[gh_put] Captured {capturedConnections.Count} external connections");
-                        }
-                    }
-
-                    // Step 3: Filter the document to only include components that need placement.
-                    // Unchanged existing components are stripped out so they are not duplicated.
-                    if (document.Components != null)
-                    {
-                        var filteredComponents = new List<GhJsonComponent>();
-                        var skippedGuids = new HashSet<Guid>();
-
-                        foreach (var comp in document.Components)
-                        {
-                            if (comp.InstanceGuid.HasValue && comp.InstanceGuid.Value != Guid.Empty)
-                            {
-                                var guid = comp.InstanceGuid.Value;
-                                if (unchangedGuids != null && unchangedGuids.Contains(guid))
-                                {
-                                    // This is an unchanged existing component — skip it
-                                    skippedGuids.Add(guid);
-                                    continue;
-                                }
-                            }
-
-                            filteredComponents.Add(comp);
-                        }
-
-                        if (skippedGuids.Count > 0)
-                        {
-                            Debug.WriteLine($"[gh_put] Filtered out {skippedGuids.Count} unchanged component(s) from document");
-
-                            // Build a set of remaining component IDs for connection filtering
-                            var remainingIds = new HashSet<int>(filteredComponents.Where(c => c.Id.HasValue).Select(c => c.Id.Value));
-
-                            // Filter connections to only those between remaining components
-                            var filteredConnections = document.Connections?.Where(conn =>
-                                remainingIds.Contains(conn.From.Id) && remainingIds.Contains(conn.To.Id)).ToList();
-
-                            // Filter groups to only those with at least one remaining member
-                            var filteredGroups = document.Groups?.Where(g =>
-                                g.Members?.Any(m => remainingIds.Contains(m)) == true).ToList();
-
-                            document = new GhJsonDocument(
-                                document.Schema,
-                                document.Metadata,
-                                filteredComponents,
-                                filteredConnections,
-                                filteredGroups);
-                        }
+                        existingDocument = GhJsonGrasshopper.GetByGuids(existingComponents.Keys);
                     }
                 }
 
-                if (document?.Components == null || !document.Components.Any())
+                var changePlan = GhPutChangePlan.Create(document, existingDocument);
+                if (changePlan.Session.Items.Count > 0)
                 {
-                    var msg = analysisMsg ?? "JSON must contain a non-empty components array";
-                    output.CreateError(msg);
-                    return output;
+                    if (!await CanvasChangeReviewService.ReviewAsync(changePlan.Session, toolCall.InvocationContext, toolCall.CancellationToken).ConfigureAwait(false))
+                    {
+                        return CreateNoPlacementResult(output, toolCall, "The user cancelled the staged canvas changes.", changePlan.Session.Items.Count);
+                    }
+                }
+
+                document = changePlan.BuildAcceptedDocument();
+                var acceptedExternalConnections = changePlan.GetAcceptedExternalConnections(document);
+                componentsToReplace.AddRange(document.Components
+                    .Where(component =>
+                        component.InstanceGuid.HasValue &&
+                        existingComponents.ContainsKey(component.InstanceGuid.Value))
+                    .Select(component => component.InstanceGuid!.Value));
+
+                foreach (var guid in existingComponents.Keys.Except(componentsToReplace).ToList())
+                {
+                    existingComponents.Remove(guid);
+                }
+
+                if (componentsToReplace.Count > 0)
+                {
+                    var invalidReplacements = document.Components
+                        .Where(component =>
+                            component.InstanceGuid.HasValue &&
+                            componentsToReplace.Contains(component.InstanceGuid.Value) &&
+                            !GhJsonGrasshopper.CanInstantiate(component))
+                        .Select(component => component.NickName ?? component.Name ?? component.InstanceGuid!.Value.ToString())
+                        .ToList();
+                    if (invalidReplacements.Count > 0)
+                    {
+                        output.CreateError($"Cannot apply staged replacement(s) because these components are unavailable: {string.Join(", ", invalidReplacements)}");
+                        return output;
+                    }
+
+                    capturedConnections = GhJsonGrasshopper.CaptureExternalConnections(componentsToReplace).ToList();
+                    Debug.WriteLine($"[gh_put] Captured {capturedConnections.Count} external connections");
+                }
+
+                if (document.Components.Count == 0)
+                {
+                    return CreateNoPlacementResult(output, toolCall, "No staged canvas changes were selected.", changePlan.Session.Items.Count);
                 }
 
                 // Put operation must run on UI thread.
@@ -379,6 +262,41 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             throw new InvalidOperationException($"Put failed: {putResult.ErrorMessage}");
                         }
 
+                        var externalConnectionsCreated = 0;
+                        if (acceptedExternalConnections.Count > 0)
+                        {
+                            var resolvedGuids = new Dictionary<int, Guid>(putResult.IdToGuidMapping);
+                            foreach (var connection in acceptedExternalConnections)
+                            {
+                                if (!resolvedGuids.ContainsKey(connection.From.Id) &&
+                                    changePlan.GetExistingInstanceGuid(connection.From.Id) is Guid sourceGuid)
+                                {
+                                    resolvedGuids[connection.From.Id] = sourceGuid;
+                                }
+
+                                if (!resolvedGuids.ContainsKey(connection.To.Id) &&
+                                    changePlan.GetExistingInstanceGuid(connection.To.Id) is Guid targetGuid)
+                                {
+                                    resolvedGuids[connection.To.Id] = targetGuid;
+                                }
+
+                                if (resolvedGuids.TryGetValue(connection.From.Id, out var resolvedSource) &&
+                                    resolvedGuids.TryGetValue(connection.To.Id, out var resolvedTarget) &&
+                                    !protectedGuids.Contains(resolvedSource) &&
+                                    !protectedGuids.Contains(resolvedTarget))
+                                {
+                                    if (GhJsonGrasshopper.Connect(
+                                        resolvedSource,
+                                        resolvedTarget,
+                                        connection.From.ParamName,
+                                        connection.To.ParamName))
+                                    {
+                                        externalConnectionsCreated++;
+                                    }
+                                }
+                            }
+                        }
+
                         // Restore captured external connections
                         if (capturedConnections.Count > 0)
                         {
@@ -420,6 +338,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             }
                         }
 
+                        if (externalConnectionsCreated > 0)
+                        {
+                            ghDoc?.NewSolution(false);
+                            Instances.RedrawCanvas();
+                        }
+
                         placeTcs.SetResult(true);
                     }
                     catch (Exception ex)
@@ -455,6 +379,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     analysisSections.Add(CanvasProtection.FormatProtectionMessage(protectedPutGuids));
                 }
 
+                var rejectedChanges = changePlan.Session.Items.Count - changePlan.Session.AcceptedCount;
+                if (rejectedChanges > 0)
+                {
+                    analysisSections.Add($"The user rejected {rejectedChanges} of {changePlan.Session.Items.Count} staged change(s).");
+                }
+
                 if (putResult.FailedComponents != null && putResult.FailedComponents.Count > 0)
                 {
                     var lines = new List<string> { "Errors:" };
@@ -485,6 +415,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     ["components"] = JArray.FromObject(placedNames),
                     ["instanceGuids"] = JArray.FromObject(placedGuids),
+                    ["acceptedChanges"] = changePlan.Session.AcceptedCount,
+                    ["rejectedChanges"] = rejectedChanges,
                     ["analysis"] = combinedAnalysis,
                 };
 
@@ -565,57 +497,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
-        /// Compares two GhJSON component representations for structural equality,
-        /// ignoring volatile fields such as runtime messages, IDs, and selection state.
+        /// Creates a successful tool result when a staged proposal is cancelled or contains no selected changes.
         /// </summary>
-        private static bool ComponentsAreEqual(GhJsonComponent incoming, GhJsonComponent existing)
+        private static AIReturn CreateNoPlacementResult(AIReturn output, AIToolCall toolCall, string message, int rejectedChanges)
         {
-            var incomingJObj = JObject.FromObject(incoming);
-            var existingJObj = JObject.FromObject(existing);
-
-            // Remove volatile fields that should not affect equality
-            incomingJObj.Remove("id");
-            incomingJObj.Remove("errors");
-            incomingJObj.Remove("warnings");
-            incomingJObj.Remove("remarks");
-
-            existingJObj.Remove("id");
-            existingJObj.Remove("errors");
-            existingJObj.Remove("warnings");
-            existingJObj.Remove("remarks");
-
-            // Remove selection state from componentState if present
-            if (incomingJObj["componentState"] is JObject incomingState)
+            var toolResult = new JObject
             {
-                incomingState.Remove("selected");
-            }
-
-            if (existingJObj["componentState"] is JObject existingState)
-            {
-                existingState.Remove("selected");
-            }
-
-            // Remove runtime data from parameter settings. Runtime data is computed by the
-            // canvas and is not part of the component's structural definition, so including
-            // it makes every existing component look different from an incoming definition.
-            static void RemoveRuntimeData(JObject jObj)
-            {
-                foreach (var settingsKey in new[] { "inputSettings", "outputSettings" })
-                {
-                    if (jObj[settingsKey] is JArray settingsArray)
-                    {
-                        foreach (var itemObj in settingsArray.OfType<JObject>())
-                        {
-                            itemObj.Remove("runtimeData");
-                        }
-                    }
-                }
-            }
-
-            RemoveRuntimeData(incomingJObj);
-            RemoveRuntimeData(existingJObj);
-
-            return JToken.DeepEquals(incomingJObj, existingJObj);
+                ["components"] = new JArray(),
+                ["instanceGuids"] = new JArray(),
+                ["acceptedChanges"] = 0,
+                ["rejectedChanges"] = rejectedChanges,
+                ["analysis"] = message,
+            };
+            var body = AIBodyBuilder.Create()
+                .AddToolResult(toolResult)
+                .Build();
+            output.CreateSuccess(body, toolCall);
+            return output;
         }
 
     }

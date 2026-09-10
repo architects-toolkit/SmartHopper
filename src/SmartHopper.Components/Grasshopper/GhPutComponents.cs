@@ -28,6 +28,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.Consent;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
@@ -146,11 +147,20 @@ namespace SmartHopper.Components.Grasshopper
                     var toolCall = new AIToolCall
                     {
                         Endpoint = "gh_put",
+                        ToolSurface = SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct,
+                        InvocationContext = new MutationInvocationContext
+                        {
+                            Source = MutationInvocationSource.GrasshopperComponent,
+                            OwnerId = this.Parent.InstanceGuid.ToString(),
+                            ToolCallId = toolCallInteraction.Id,
+                            ToolName = "gh_put",
+                            Surface = SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct,
+                        },
                     };
                     toolCall.FromToolCallInteraction(toolCallInteraction);
                     toolCall.SkipMetricsValidation = true;
 
-                    var aiResult = await toolCall.Exec().ConfigureAwait(false);
+                    var aiResult = await toolCall.Exec(token).ConfigureAwait(false);
 
                     token.ThrowIfCancellationRequested();
 

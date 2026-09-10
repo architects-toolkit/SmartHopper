@@ -463,7 +463,7 @@ namespace SmartHopper.Providers.DeepSeek
             // Add tools if requested
             if (!string.IsNullOrWhiteSpace(toolFilter))
             {
-                var tools = this.GetFormattedTools(toolFilter);
+                var tools = this.GetFormattedTools(toolFilter, request.ToolSurface);
                 if (tools != null && tools.Count > 0)
                 {
                     requestBody["tools"] = tools;

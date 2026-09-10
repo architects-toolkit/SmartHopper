@@ -47,9 +47,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <returns></returns>
         public IEnumerable<AITool> GetTools()
         {
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: this.toolName,
-                description: "Reposition components on the canvas by specifying target coordinates. Use absolute coordinates (canvas position) or relative offsets (move by delta). Useful for organizing layouts or separating component groups. Requires component GUIDs from gh_get.",
+                description: "Stage component moves at absolute coordinates or relative offsets, show target positions on the live canvas, and move only components accepted by the user. Useful for organizing layouts. Requires component GUIDs from gh_get.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -77,7 +77,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [ ""targets"" ]
                 }",
                 execute: this.GhMoveObjAsync,
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "layout" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
@@ -123,7 +122,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
-                var movedList = CanvasAccess.MoveInstance(dict, relative);
+                var reviewSession = CanvasChangeReviewService.CreateMoveSession(this.toolName, dict, relative);
+                var applyReview = reviewSession.Items.Count > 0 &&
+                    await CanvasChangeReviewService.ReviewAsync(reviewSession, toolCall.InvocationContext, toolCall.CancellationToken).ConfigureAwait(false);
+                var acceptedGuids = applyReview
+                    ? CanvasChangeReviewService.GetAcceptedComponentGuids(reviewSession)
+                    : new HashSet<Guid>();
+                var acceptedTargets = dict
+                    .Where(entry => acceptedGuids.Contains(entry.Key))
+                    .ToDictionary(entry => entry.Key, entry => entry.Value);
+                var movedList = CanvasAccess.MoveInstance(acceptedTargets, relative);
 
                 var toolResult = new JObject
                 {

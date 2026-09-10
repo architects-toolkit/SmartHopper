@@ -46,9 +46,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <returns>Collection of AI tools.</returns>
         public IEnumerable<AITool> GetTools()
         {
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: this.toolName,
-                description: "Remove components from the Grasshopper canvas by their instance GUIDs. The operation records an undo event so the user can reverse it with Ctrl+Z. Use GUIDs from gh_get or similar tools.",
+                description: "Stage component removals by instance GUID, show the user an in-canvas visual review, and remove only accepted objects. The operation records an undo event so the user can reverse it with Ctrl+Z. Use GUIDs from gh_get or similar tools.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -62,13 +62,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""instanceGuids""]
                 }",
                 execute: this.GhRemoveToolAsync,
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "delete" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""removedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""notFoundGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } } } }",
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""removedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""rejectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""notFoundGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } } } }",
                 annotations: new AIToolAnnotations(destructiveHint: true));
         }
 
-        private Task<AIReturn> GhRemoveToolAsync(AIToolCall toolCall)
+        private async Task<AIReturn> GhRemoveToolAsync(AIToolCall toolCall)
         {
             var output = new AIReturn { Request = toolCall };
 
@@ -83,7 +82,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (guidArray == null || guidArray.Count == 0)
                 {
                     output.CreateError("Missing or empty 'instanceGuids' parameter.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 var requestedGuids = guidArray
@@ -95,7 +94,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (requestedGuids.Count == 0)
                 {
                     output.CreateError("No valid GUIDs provided in 'instanceGuids'.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 var (allowedGuids, protectedGuids) = CanvasProtection.FilterProtectedGuids(requestedGuids);
@@ -108,13 +107,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         CanvasProtection.FormatProtectionMessage(protectedGuids));
                 }
 
-                var removedGuids = CanvasAccess.RemoveInstances(allowedGuids);
+                var reviewSession = CanvasChangeReviewService.CreateRemovalSession(this.toolName, allowedGuids);
+                var applyReview = reviewSession.Items.Count > 0 &&
+                    await CanvasChangeReviewService.ReviewAsync(reviewSession, toolCall.InvocationContext, toolCall.CancellationToken).ConfigureAwait(false);
+                IReadOnlyList<Guid> acceptedGuids = applyReview
+                    ? CanvasChangeReviewService.GetAcceptedRemovalGuids(reviewSession)
+                    : Array.Empty<Guid>();
+                var rejectedGuids = reviewSession.Items
+                    .Where(item => item.ExistingInstanceGuid.HasValue &&
+                        (!applyReview || !reviewSession.IsEffectivelyAccepted(item)))
+                    .Select(item => item.ExistingInstanceGuid!.Value)
+                    .ToList();
+                var removedGuids = CanvasAccess.RemoveInstances(acceptedGuids);
                 var notFoundGuids = allowedGuids
-                    .Except(removedGuids)
+                    .Except(reviewSession.Items.Where(item => item.ExistingInstanceGuid.HasValue).Select(item => item.ExistingInstanceGuid!.Value))
                     .Select(g => g.ToString())
                     .ToList();
 
-                if (removedGuids.Count == 0 && protectedGuids.Count == 0)
+                if (removedGuids.Count == 0 && protectedGuids.Count == 0 && rejectedGuids.Count == 0)
                 {
                     output.AddRuntimeMessage(
                         SHRuntimeMessageSeverity.Warning,
@@ -125,6 +135,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var toolResult = new JObject
                 {
                     ["removedGuids"] = JArray.FromObject(removedGuids.Select(g => g.ToString())),
+                    ["rejectedGuids"] = JArray.FromObject(rejectedGuids.Select(g => g.ToString())),
                     ["notFoundGuids"] = JArray.FromObject(notFoundGuids),
                     ["protectedGuids"] = JArray.FromObject(protectedGuids.Select(g => g.ToString())),
                 };
@@ -134,12 +145,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .Build();
 
                 output.CreateSuccess(body, toolCall);
-                return Task.FromResult(output);
+                return output;
             }
             catch (Exception ex)
             {
                 output.CreateError($"Error: {ex.Message}");
-                return Task.FromResult(output);
+                return output;
             }
         }
     }

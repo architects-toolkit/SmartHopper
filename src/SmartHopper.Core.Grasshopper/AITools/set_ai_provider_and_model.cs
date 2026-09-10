@@ -51,7 +51,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <inheritdoc/>
         public IEnumerable<AITool> GetTools()
         {
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Set the AI provider and/or model for a component that implements IProviderComponent. If a provider is supplied, the component's AI provider selection is updated. If a model is supplied, a new Panel containing the model name is created and wired to the component's Settings input.",
                 category: "Components",
@@ -66,14 +66,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 execute: this.SetAIProviderAndModelAsync,
                 requiredCapabilities: AICapability.None,
-                mutatesCanvas: true,
                 enabled: true,
                 tags: new[] { "canvas", "components", "mutating", "settings", "provider", "model" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""providerSet"": { ""type"": ""boolean"" }, ""selectedProvider"": { ""type"": ""string"" }, ""provider"": { ""type"": ""string"" }, ""panelConnected"": { ""type"": ""boolean"" }, ""panelGuid"": { ""type"": ""string"" }, ""model"": { ""type"": ""string"" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
-        private Task<AIReturn> SetAIProviderAndModelAsync(AIToolCall toolCall)
+        private async Task<AIReturn> SetAIProviderAndModelAsync(AIToolCall toolCall)
         {
             var output = new AIReturn()
             {
@@ -92,7 +91,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (!Guid.TryParse(componentGuidStr, out var componentGuid))
                 {
                     output.CreateError("componentGuid is required and must be a valid GUID.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 var provider = args["provider"]?.ToString()?.Trim();
@@ -101,32 +100,32 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (string.IsNullOrWhiteSpace(provider) && string.IsNullOrWhiteSpace(model))
                 {
                     output.CreateError("Either provider or model must be provided.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 var obj = CanvasAccess.FindInstance(componentGuid);
                 if (obj == null)
                 {
                     output.CreateError($"Component {componentGuid} not found on the canvas.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 if (CanvasProtection.IsProtected(componentGuid))
                 {
                     output.CreateError($"Component {componentGuid} is protected and cannot be modified.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 if (!(obj is IProviderComponent providerComp))
                 {
                     output.CreateError($"Component {componentGuid} does not support AI provider selection.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 if (!(obj is GH_Component ghComp))
                 {
                     output.CreateError($"Component {componentGuid} is not a Grasshopper component.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 // Normalize and validate the provider name against registered providers.
@@ -147,7 +146,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ", ",
                             registeredProviders.Select(p => p.Name).Append(ProviderSelectionCore.DEFAULT_PROVIDER));
                         output.CreateError($"Unknown provider '{provider}'. Available providers: {available}");
-                        return Task.FromResult(output);
+                        return output;
                     }
 
                     provider = matchingProvider?.Name ?? ProviderSelectionCore.DEFAULT_PROVIDER;
@@ -164,8 +163,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     if (settingsParam == null)
                     {
                         output.CreateError("Target component does not have a Settings input.");
-                        return Task.FromResult(output);
+                        return output;
                     }
+                }
+
+                var review = CanvasChangeReviewService.CreateComponentStateSession(
+                    toolInfo.Name ?? this.toolName,
+                    new[] { componentGuid },
+                    $"Set provider/model to {provider ?? "unchanged"} / {model ?? "unchanged"}");
+                var approved = await CanvasChangeReviewService.ReviewAsync(
+                    review,
+                    toolCall.InvocationContext,
+                    toolCall.CancellationToken).ConfigureAwait(false);
+                if (!approved || !CanvasChangeReviewService.GetAcceptedComponentGuids(review).Contains(componentGuid))
+                {
+                    output.CreateSuccess(AIBodyBuilder.Create()
+                        .AddToolResult(new JObject
+                        {
+                            ["componentGuid"] = componentGuidStr,
+                            ["success"] = false,
+                            ["rejected"] = true,
+                        }, toolInfo.Id, toolInfo.Name ?? this.toolName)
+                        .Build(), toolCall);
+                    return output;
                 }
 
                 var toolResult = new JObject()
@@ -257,12 +277,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .Build();
 
                 output.CreateSuccess(body, toolCall);
-                return Task.FromResult(output);
+                return output;
             }
             catch (Exception ex)
             {
                 output.CreateError($"Error executing {this.toolName}: {ex.Message}");
-                return Task.FromResult(output);
+                return output;
             }
         }
     }

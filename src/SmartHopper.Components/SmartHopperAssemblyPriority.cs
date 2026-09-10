@@ -21,6 +21,7 @@ using Grasshopper.Kernel;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.UI;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Dialogs;
 
 namespace SmartHopper.Components
@@ -42,6 +43,9 @@ namespace SmartHopper.Components
             {
                 DialogCanvasLink.RegisterLink(dialog, guid, color);
             };
+
+            CanvasChangePreviewOverlay.EnsureInitialized();
+            MutationUndoCoordinator.Current = new GrasshopperMutationUndoCoordinator();
 
             // Initialize the visual overlay that marks protected components on the canvas.
             CanvasProtectionOverlay.EnsureInitialized();

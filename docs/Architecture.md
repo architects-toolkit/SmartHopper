@@ -275,3 +275,4 @@ src/
 - [ComponentBase](./Components/ComponentBase/index.md) -- component hierarchy
 - [Provider System](./Providers/index.md) -- provider management
 - [Context System](./Context/index.md) -- context providers
+- [Agentic Copilot and Consent](./Architecture/agent-copilot.md) -- planning, tool surfaces, and invocation-scoped mutation review

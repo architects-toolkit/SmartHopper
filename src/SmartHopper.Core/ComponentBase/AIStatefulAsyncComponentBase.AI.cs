@@ -29,6 +29,7 @@ using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Consent;
 using SmartHopper.ProviderSdk.AICall.Batch;
 using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -230,10 +231,24 @@ namespace SmartHopper.Core.ComponentBase
             };
 
             // Create the tool call request with proper body
-            var toolCall = new AIToolCall();
-            toolCall.Provider = providerName;
-            toolCall.Model = model;
-            toolCall.Endpoint = toolName;
+            var surface = this.IsBatchRequest()
+                ? SmartHopper.ProviderSdk.Hosting.AIToolSurface.Batch
+                : SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct;
+            var toolCall = new AIToolCall
+            {
+                Provider = providerName,
+                Model = model,
+                Endpoint = toolName,
+                ToolSurface = surface,
+                InvocationContext = new MutationInvocationContext
+                {
+                    Source = MutationInvocationSource.GrasshopperComponent,
+                    OwnerId = this.InstanceGuid.ToString(),
+                    ToolCallId = toolCallInteraction.Id,
+                    ToolName = toolName,
+                    Surface = surface,
+                },
+            };
             toolCall.Parameters = this.GetParameters();
             toolCall.CancellationToken = cancellationToken;
             var immutableBody = AIBodyBuilder.Create()
@@ -249,6 +264,12 @@ namespace SmartHopper.Core.ComponentBase
             if (this.IsBatchRequest())
             {
                 var tools = AIToolManager.GetTools();
+                if (tools.TryGetValue(toolName, out var unavailableBatchTool) &&
+                    (unavailableBatchTool.Surfaces & SmartHopper.ProviderSdk.Hosting.AIToolSurface.Batch) == 0)
+                {
+                    return ToolCallResult.FromError($"Tool '{toolName}' is not available in batch mode.");
+                }
+
                 if (tools.TryGetValue(toolName, out var batchTool) && batchTool.BuildRequest != null)
                 {
                     var batchRequest = batchTool.BuildRequest(toolCall);

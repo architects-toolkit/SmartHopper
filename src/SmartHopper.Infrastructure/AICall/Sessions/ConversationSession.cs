@@ -28,6 +28,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.Infrastructure.AICall.Execution;
     using SmartHopper.Infrastructure.AICall.Policies;
     using SmartHopper.Infrastructure.AICall.Utilities;
+    using SmartHopper.Infrastructure.Consent;
     using SmartHopper.Infrastructure.Settings;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
@@ -113,14 +114,21 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <param name="observer">The observer to notify of events.</param>
         /// <param name="executor">The provider executor to use for tool calls.</param>
         /// <param name="generateGreeting">Whether to generate an AI greeting when the conversation is initialized.</param>
+        /// <param name="consentPresenter">Optional presenter for invocation-specific consent requests.</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="request"/> is null.</exception>
-        public ConversationSession(AIRequestCall request, IConversationObserver? observer = null, IProviderExecutor? executor = null, bool generateGreeting = false)
+        public ConversationSession(
+            AIRequestCall request,
+            IConversationObserver? observer = null,
+            IProviderExecutor? executor = null,
+            bool generateGreeting = false,
+            IConsentPresenter? consentPresenter = null)
         {
             this.Request = request ?? throw new ArgumentNullException(nameof(request));
             this._initialRequest = request;
             this.Observer = observer;
             this.executor = executor ?? new DefaultProviderExecutor();
             this._generateGreeting = generateGreeting;
+            this.ConsentPresenter = consentPresenter;
 
             // Initialize _lastReturn with initial request body
             this._lastReturn.SetBody(request.Body);
@@ -551,6 +559,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// Gets the observer for this session.
         /// </summary>
         public IConversationObserver? Observer { get; }
+
+        /// <summary>
+        /// Gets the invocation-specific consent presenter.
+        /// </summary>
+        public IConsentPresenter? ConsentPresenter { get; }
 
         /// <summary>
         /// Adds a new user interaction to the conversation.

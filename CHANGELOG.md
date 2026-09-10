@@ -15,6 +15,11 @@ Many thanks to the following contributors to this release:
 
 ### Added
 
+- Added an agentic WebChat planning flow through the Chat-only `plan_propose` tool. Proposed multi-step plans pause in an interactive chat card until approved or rejected; plan approval never pre-approves later canvas edits.
+- Added invocation-scoped `ConsentGate`, explicit `AIToolSurface` exposure controls, and `AIMutatingTool` metadata so WebChat, MCP, direct AITool calls, and Grasshopper components share one-call mutation consent without requiring a `ConversationSession`.
+- Added automatic Grasshopper undo coordination around every `AIMutatingTool`: operation-specific undo actions are verified and multiple records from one tool call are merged into one Ctrl+Z step.
+- Added document-staged visual review for structural AI canvas changes. `gh_put`, `gh_remove`, `gh_clear`, `gh_connect`, `gh_disconnect`, `gh_move`, `gh_group`, and `gh_group_selected` now paint proposed additions, modifications, removals, wires, target positions, and groups over the actual Grasshopper canvas and apply only user-accepted changes.
+- Added reusable `CanvasChangeReviewSession`, `CanvasChangeReviewService`, `CanvasChangePreviewOverlay`, and Eto review dialog infrastructure in `SmartHopper.Core.Grasshopper`.
 - Pull request descriptions and titles are now drafted automatically, with a deterministic fallback when AI is unavailable and no overwriting of descriptions written by a person.
 - Added `AIBody.WithReplaced` extension for replacing a specific interaction by reference in an immutable body.
 - Added `AITool.GetRequiredParameters()` helper to parse required parameter names from a tool's JSON schema.
@@ -33,6 +38,8 @@ Many thanks to the following contributors to this release:
 
 ### Changed
 
+- Canvas mutation reviews now run through centralized consent lifecycle and cancellation handling. Direct `GhPut` and patch-to-canvas components propagate component invocation context, and compound generation/script tools propagate consent into their nested `gh_put` calls.
+- Chat-only control tools are excluded from MCP discovery/calls and provider batch execution through explicit surface checks rather than descriptive tags.
 - WebChat requests now prepend mandatory shared Grasshopper operating knowledge before component or user instructions. MCP resources and the in-process `smarthopper_readme` and `smarthopper_workflows` tools consume the same embedded source of truth.
 - `FileContextProvider` no longer reports selected object metadata. Use the new `SelectionContextProvider` for `selected-count`, `selected-objects`, `selected-topology`, and `selected-runtime-values`.
 - Removed redundant `new` modifiers on `provider` fields in first-party `*ProviderSettings` classes; the base `AIProviderSettings` does not expose a conflicting accessible member, so the modifier only produced compiler warnings.

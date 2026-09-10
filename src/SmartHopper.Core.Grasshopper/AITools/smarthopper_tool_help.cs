@@ -118,6 +118,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ["name"] = t.Name,
                         ["description"] = t.RichDescription,
                         ["category"] = t.Category,
+                        ["surfaces"] = t.Surfaces.ToString(),
                         ["tags"] = new JArray(t.Tags),
                     })
                     .ToList();
@@ -137,6 +138,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ["category"] = targetTool.Category,
                         ["tags"] = new JArray(targetTool.Tags),
                         ["mutates_canvas"] = targetTool.MutatesCanvas,
+                        ["surfaces"] = targetTool.Surfaces.ToString(),
                         ["annotations"] = new JObject
                         {
                             ["readOnlyHint"] = targetTool.Annotations.ReadOnlyHint,

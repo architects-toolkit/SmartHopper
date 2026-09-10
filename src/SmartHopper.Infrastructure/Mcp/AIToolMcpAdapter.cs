@@ -32,6 +32,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Consent;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
@@ -124,7 +125,7 @@ namespace SmartHopper.Infrastructure.Mcp
                 return false;
             }
 
-            if (!tool.Enabled)
+            if (!tool.Enabled || (tool.Surfaces & SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp) == 0)
             {
                 return false;
             }
@@ -174,7 +175,18 @@ namespace SmartHopper.Infrastructure.Mcp
                 Arguments = arguments ?? new JObject(),
             };
 
-            var toolCall = new AIToolCall { SkipMetricsValidation = true };
+            var toolCall = new AIToolCall
+            {
+                SkipMetricsValidation = true,
+                ToolSurface = SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp,
+                InvocationContext = new MutationInvocationContext
+                {
+                    Source = MutationInvocationSource.Mcp,
+                    Surface = SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp,
+                    ToolCallId = interaction.Id,
+                    ToolName = toolName,
+                },
+            };
             toolCall.FromToolCallInteraction(interaction);
 
             AIReturn result;

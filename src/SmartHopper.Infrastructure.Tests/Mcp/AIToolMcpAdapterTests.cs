@@ -235,6 +235,27 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         }
 
         [Fact]
+        public void BuildDescriptors_OmitsChatOnlyControlToolsEvenWhenAllowListed()
+        {
+            var control = new AITool(
+                "plan_propose",
+                "Plan",
+                "Control",
+                ReadOnlySchema,
+                _ => Task.FromResult(new AIReturn()),
+                mutatesCanvas: false,
+                surfaces: SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat);
+            var tools = new Dictionary<string, AITool> { [control.Name] = control };
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { EnabledTools = new[] { control.Name } },
+                () => tools,
+                _ => Task.FromResult(new AIReturn()));
+
+            Assert.Empty(adapter.BuildDescriptors());
+            Assert.False(adapter.IsExposed(control.Name));
+        }
+
+        [Fact]
         public void BuildDescriptors_PrefixesDescriptionWithMutability()
         {
             var tools = BuildCatalog(("gh_get", ReadOnlySchema, false));
