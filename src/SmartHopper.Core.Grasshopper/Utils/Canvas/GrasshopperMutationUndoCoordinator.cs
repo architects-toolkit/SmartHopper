@@ -11,6 +11,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Grasshopper.Kernel;
 using Rhino;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
@@ -49,12 +50,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
         private sealed class Scope : IMutationUndoScope
         {
-            private readonly Grasshopper.Kernel.GH_Document? document;
+            private readonly GH_Document? document;
             private readonly int initialUndoCount;
             private readonly string toolName;
             private int completed;
 
-            public Scope(string toolName, Grasshopper.Kernel.GH_Document? document, int initialUndoCount)
+            public Scope(string toolName, GH_Document? document, int initialUndoCount)
             {
                 this.toolName = toolName;
                 this.document = document;
