@@ -77,69 +77,31 @@ The response is returned as a tool result interaction (so it becomes part of the
 
 ### Tool Registration Pattern
 
-When registering `smarthopper_readme` in the tool manager, it is typically exposed as a local tool that does not require provider or model metrics:
-
-```csharp
-public class SmarthopperReadmeTool : AIToolBase
-{
-    public override string Name => "smarthopper_readme";
-
-    public override AIToolSchema GetSchema()
-    {
-        return new AIToolSchema
-        {
-            Description = "Returns detailed operational guidance for a given topic.",
-            Parameters = new Dictionary<string, AIToolParameter>
-            {
-                ["topic"] = new AIToolParameter
-                {
-                    Type = "string",
-                    Description = "Which instruction bundle to return (e.g., canvas, discovery, scripting, knowledge).",
-                    Required = true
-                }
-            }
-        };
-    }
-
-    public override Task<AIReturn> ExecuteAsync(JObject arguments, AIToolContext context)
-    {
-        var topic = arguments["topic"]?.ToString();
-        var instructions = InstructionRepository.Get(topic);
-
-        var result = new JObject
-        {
-            ["topic"] = topic,
-            ["instructions"] = instructions
-        };
-
-        var output = new AIReturn();
-        output.CreateSuccess(AIBodyBuilder.Create()
-            .AddToolResult(result, id: context.ToolCallId, name: Name)
-            .Build());
-
-        return Task.FromResult(output);
-    }
-}
-
-```
+When registering `smarthopper_readme` in the tool manager, it is typically exposed as a local tool that does not require provider or model metrics. The implementation in `src/SmartHopper.Core.Grasshopper/AITools/smarthopper_readme.cs` accepts a `topic` string and returns a tool result containing the topic and its markdown instructions.
 
 ### Calling the Tool from a Conversation
 
 ```csharp
-var body = new AIBody();
-body.AddInteraction(AIAgent.System, "You are a helpful assistant.");
-body.AddInteraction(AIAgent.User, "Help me inspect the Grasshopper canvas.");
-body.ToolFilter = "smarthopper_readme";
+var body = AIBodyBuilder.Create()
+    .AddText(AIAgent.System, "You are a helpful assistant.")
+    .AddUser("Help me inspect the Grasshopper canvas.")
+    .WithToolFilter("smarthopper_readme")
+    .Build();
 
 var req = new AIRequestCall();
-req.Initialize(provider: "OpenAI", model: "gpt-5-mini", body: body, endpoint: "/v1/chat/completions", capability: AICapability.Text2Text);
+req.Initialize(
+    provider: "openai",
+    model: "gpt-4o-mini",
+    body: body,
+    endpoint: string.Empty,
+    capability: AICapability.ToolChat,
+    toolFilter: "smarthopper_readme");
 
 var session = new ConversationSession(req);
 var result = await session.RunToStableResult(new SessionOptions { ProcessTools = true });
 
 var last = result.Body.GetLastInteraction(AIAgent.Assistant);
 // The assistant will have called smarthopper_readme with topic "canvas" and received guidance.
-
 ```
 
 ### Tool-as-Documentation Pattern

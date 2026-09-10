@@ -74,78 +74,97 @@ A: Yes. Many tools are wrapped as standalone Grasshopper components (e.g., `AIIm
 
 ### API Overview
 
+SmartHopper tools are represented by `AITool` and executed through `AIToolCall`. Registration and dispatch are handled by `AIToolManager`.
+
 ```csharp
-// Base contract for all SmartHopper tools
-public abstract class AITool
-{
-    public abstract string Name { get; }
-    public abstract string Category { get; }
-    public abstract string Description { get; }
-    public abstract AICapability RequiredCapability { get; }
+using SmartHopper.Infrastructure.AITools;
+using SmartHopper.ProviderSdk.AIModels;
 
-    public abstract Task<ToolResult> ExecuteAsync(Dictionary<string, object> parameters);
-}
+var tool = new AITool(
+    name: "my_custom_tool",
+    description: "Does something useful.",
+    category: "Custom",
+    parametersSchema: "{ \"type\": \"object\" }",
+    execute: async (toolCall) =>
+    {
+        // Read the pending tool call, do work, and return an AIReturn with a tool result.
+        return new AIReturn();
+    },
+    requiredCapabilities: AICapability.Text2Text,
+    mutatesCanvas: false);
 
+AIToolManager.RegisterTool(tool);
 ```
 
 ### Key Types
 
 | Type | Purpose |
 | --- | --- |
-| `AITool` | Base class for all tools |
-| `AIToolRequest` | Request wrapper with name and parameters |
-| `ToolResult` | Structured result with payload and envelope |
-| `ToolResultEnvelope` | Standard metadata attached to every result |
-| `ToolManager` | Registry and execution dispatcher |
+| `AITool` | Immutable contract for all tools |
+| `AIToolCall` | Request to execute one registered tool |
+| `AIReturn` | Normalized result with body, metrics, and diagnostics |
+| `ToolResultEnvelope` | Optional metadata attached to a tool result payload |
+| `AIToolManager` | Registry and execution dispatcher |
 
 ### Code Examples
 
 #### Creating a Simple Tool
 
+For a complete, registered tool implementation, see `src/SmartHopper.Core.Grasshopper/AITools/smarthopper_readme.cs`.
+
 ```csharp
-public class MyCustomTool : AITool
-{
-    public override string Name => "my_custom_tool";
-    public override string Category => "Custom";
-    public override string Description => "Does something useful";
-    public override AICapability RequiredCapability => AICapability.TextGeneration;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AITools;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
 
-    public override async Task<ToolResult> ExecuteAsync(Dictionary<string, object> parameters)
+var tool = new AITool(
+    name: "my_custom_tool",
+    description: "Returns an uppercase greeting.",
+    category: "Custom",
+    parametersSchema: "{ \"type\": \"object\", \"properties\": { \"name\": { \"type\": \"string\" } }, \"required\": [\"name\"] }",
+    execute: async (toolCall) =>
     {
-        var input = parameters["input"].ToString();
-        var result = await DoSomethingAsync(input);
+        var call = toolCall.Body.PendingToolCallsList().First();
+        var name = call.Arguments["name"]?.ToString() ?? "World";
 
-        return new ToolResult
-        {
-            Payload = new Dictionary<string, object>
-            {
-                { "output", result }
-            }
-        };
-    }
-}
+        var body = AIBodyBuilder.Create()
+            .AddToolResult(
+                result: new JObject { ["greeting"] = $"HELLO, {name.ToUpperInvariant()}!" },
+                id: call.Id,
+                name: "my_custom_tool")
+            .Build();
 
+        var result = new AIReturn();
+        result.CreateSuccess(body);
+        return result;
+    },
+    requiredCapabilities: AICapability.None,
+    mutatesCanvas: false);
 ```
 
-**Output**: A `ToolResult` with the processed output attached to the `output` key.
+**Output**: An `AIReturn` whose body contains an `AIInteractionToolResult`.
 
 #### Executing a Tool Programmatically
 
 ```csharp
-var toolManager = ToolManager.Instance;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
-var request = new AIToolRequest("text2text")
-{
-    Parameters = new Dictionary<string, object>
+var body = AIBodyBuilder.Create()
+    .Add(new AIInteractionToolCall
     {
-        { "prompt", "Generate a creative name for a pavilion" },
-        { "instructions", "Use architectural terminology" }
-    }
-};
+        Id = "call_1",
+        Name = "my_custom_tool",
+        Arguments = new JObject { ["name"] = "Grasshopper" }
+    })
+    .Build();
 
-var result = await toolManager.ExecuteToolAsync(request);
-var text = result.Payload["text"].ToString();
-
+var toolCall = new AIToolCall { Body = body };
+var result = await AIToolManager.ExecuteTool(toolCall);
 ```
 
 ### Error Handling

@@ -68,29 +68,43 @@ Returns a JSON object containing:
 ### Looking Up a Tool
 
 ```csharp
-var arguments = new JObject
-{
-    ["tool_name"] = "gh_get"
-};
+using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
-var result = await AIToolManager.ExecuteAsync("smarthopper_tool_help", arguments, context);
+var body = AIBodyBuilder.Create()
+    .Add(new AIInteractionToolCall
+    {
+        Id = "call_1",
+        Name = "smarthopper_tool_help",
+        Arguments = new JObject { ["tool_name"] = "gh_get" }
+    })
+    .Build();
 
-// result is a tool result interaction containing the tool metadata,
-// input schema, output schema, and related tools.
+var toolCall = new AIToolCall { Body = body };
+var result = await AIToolManager.ExecuteTool(toolCall);
 ```
 
 ### Filtering the Tool Catalog
 
 ```csharp
-var arguments = new JObject
-{
-    ["tool_name"] = "unknown_tool"
-};
+using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
-var result = await AIToolManager.ExecuteAsync("smarthopper_tool_help", arguments, context);
+var body = AIBodyBuilder.Create()
+    .Add(new AIInteractionToolCall
+    {
+        Id = "call_1",
+        Name = "smarthopper_tool_help",
+        Arguments = new JObject { ["tool_name"] = "unknown_tool" }
+    })
+    .Build();
 
-// Because the tool was not found, the response includes the full catalog
-// in similar_tools so the caller can discover available tools.
+var toolCall = new AIToolCall { Body = body };
+var result = await AIToolManager.ExecuteTool(toolCall);
 ```
 
 ---

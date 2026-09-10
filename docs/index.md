@@ -109,46 +109,63 @@ This is the root documentation hub for SmartHopper. It organizes all guides, ref
 
 ## Developer Reference
 
-### Creating a Custom AI Component
+### Creating a Custom AI Output Component
 
-Components in SmartHopper derive from a layered base hierarchy. A minimal custom AI output component looks like this:
+Components in SmartHopper derive from a layered base hierarchy. A minimal custom AI output component inherits from `AIOutputAdapterBase`, wires an `AIInputPayload` input, and maps the AI response to typed Grasshopper outputs:
 
 ```csharp
-public class MyAIOuputComponent : AIStatefulAsyncComponentBase
+using System;
+using System.Collections.Generic;
+using Grasshopper.Kernel;
+using Grasshopper.Kernel.Parameters;
+using Grasshopper.Kernel.Types;
+using SmartHopper.Core.ComponentBase;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+
+public class MyAIOutputComponent : AIOutputAdapterBase
 {
-    public MyAIOuputComponent()
+    public MyAIOutputComponent()
         : base("MyAI", "MyAI", "Calls AI and returns a custom result",
-               "SmartHopper", "Custom", new Guid("..."))
+               GH_Exposure.primary)
     { }
 
-    protected override AICapability RequiredCapability => AICapability.TextGeneration;
+    public override Guid ComponentGuid => new Guid("...");
 
-    protected override void RegisterInputParams(GH_InputParamManager pManager)
+    protected override IReadOnlyList<string> UsingAiTools => new[] { "text2text" };
+
+    protected override string GetInternalSystemPrompt()
     {
-        pManager.AddTextParameter("Prompt", "P", "Prompt to send to the AI", GH_ParamAccess.item);
+        return "You are a helpful assistant.";
     }
 
-    protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+    protected override IReadOnlyList<OutputMapping> GetOutputMappings()
     {
-        pManager.AddTextParameter("Result", "R", "AI response", GH_ParamAccess.item);
-    }
-
-    protected override async Task<AIOutput> ProcessAIAsync(
-        AIInputPayload input,
-        CancellationToken ct)
-    {
-        var request = new AIRequestParameters
+        return new[]
         {
-            Model = AIModelCapabilityRegistry.Instance.SelectBestModel(SelectedProvider, null, RequiredCapability),
-            Messages = input.ToMessages()
+            new OutputMapping
+            {
+                ParamName = "Result",
+                NickName = "R",
+                Description = "AI response",
+                ParamType = typeof(Param_String),
+                Access = GH_ParamAccess.tree,
+                Extractor = OutputMapping.Single(aiReturn =>
+                {
+                    var text = aiReturn?.Body?.GetLastAssistantText();
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        return new GH_String(text.Trim());
+                    }
+                    return null;
+                })
+            }
         };
-
-        var response = await AIRequestCall.Exec(request, ct);
-        return new AIOutput(response.GetTextContent());
     }
 }
 
 ```
+
+The base class registers the `Input >` parameter for `AIInputPayload`, handles provider/model selection, and calls the AI. The output mapping extracts the final value from the returned `AIReturn`.
 
 ### Querying the Model Registry
 

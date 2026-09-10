@@ -74,18 +74,25 @@ Note: Prefer creating an explicit `ConversationSession` when you need determinis
 ### Example: Single Provider Call with Exec
 
 ```csharp
-// Build body with interactions
-var body = new AIBodyBuilder()
-    .Add(systemPrompt)
-    .Add(userMessage)
+// Build an immutable AIBody with interactions
+var body = AIBodyBuilder.Create()
+    .AddUser("What is the capital of France?")
     .Build();
 
-// Create request
-var request = new AIRequestCall(provider, model, capability, body);
+// Create and configure the request
+var request = new AIRequestCall
+{
+    Provider = "openai",
+    Model = "gpt-4o-mini",
+    Capability = AICapability.Text2Text,
+    Body = body,
+};
 
 // Execute single call
 var result = await request.Exec();
 
+// Read the assistant's text response
+var text = result.Body.GetLastAssistantText();
 ```
 
 ### Example: Session-Based Orchestration

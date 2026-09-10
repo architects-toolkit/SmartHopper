@@ -131,14 +131,24 @@ string components = await GhJsonSpecLoader.LoadTopicAsync("components", preferOn
 ### Calling the Tool Programmatically
 
 ```csharp
-var arguments = new JObject
-{
-    ["topic"] = "components"
-};
+using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
-var result = await AIToolManager.ExecuteAsync("smarthopper_ghjson_reference", arguments, context);
+var body = AIBodyBuilder.Create()
+    .Add(new AIInteractionToolCall
+    {
+        Id = "call_1",
+        Name = "smarthopper_ghjson_reference",
+        Arguments = new JObject { ["topic"] = "components" }
+    })
+    .Build();
 
-// result contains the topic and markdown-formatted instructions.
+var toolCall = new AIToolCall { Body = body };
+var result = await AIToolManager.ExecuteTool(toolCall);
+
+var text = result.Body.GetLastAssistantText();
 ```
 
 ---

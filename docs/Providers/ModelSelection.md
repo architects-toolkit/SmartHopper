@@ -98,14 +98,20 @@ AIModelCapabilityRegistry.Instance.SetDefault(
 #### Example: Selecting a Model in Code
 
 ```csharp
-var provider = ProviderManager.GetProvider("openai");
+var provider = ProviderManager.Instance.GetProvider("openai");
 var selectedModel = provider.SelectModel(AICapability.Text2Json, requestedModel: null);
 
 // selectedModel now contains the best available model for JSON output
+var body = AIBodyBuilder.Create()
+    .AddUser("Generate a JSON object")
+    .Build();
+
 var request = new AIRequestCall
 {
+    Provider = "openai",
     Model = selectedModel,
-    Messages = new List<Message> { new Message { Role = "user", Content = "Generate a JSON object" } }
+    Capability = AICapability.Text2Json,
+    Body = body,
 };
 
 ```

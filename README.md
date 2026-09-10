@@ -11,101 +11,126 @@
 
 [![SmartHopper](./img/smarthopper.png)](https://smarthopper.xyz)
 
-**Design with AI directly on your Grasshopper canvas — chat, code, organize, and build smarter definitions faster.**
+> As designers, we don't settle for finished products: we make them.  
+> SmartHopper is an evolving toolkit that connects Grasshopper with AI, so you can make more, explore faster, and turn ideas into working definitions.
+
+**100+ AI tools · 100+ Grasshopper components · 8 AI providers · MCP Server**
+
 
 </div>
 
 ---
 
-SmartHopper brings a context‑aware AI assistant and a suite of AI‑powered components into Grasshopper3D.
+SmartHopper brings a context-aware AI assistant and a suite of AI-powered components into Grasshopper3D. It gives designers a direct, native way to use large language models, image models, audio models, and web knowledge inside their parametric workflows — without leaving the canvas.
 
-- 💬 **Canvas assistant**
-  An on‑canvas AI chat truly aware of your components and connected to the McNeel forum for real answers.
+## What you can do with SmartHopper
 
-- 📝 **Script generator**
-  Get help creating, editing and fixing Script components in Python, IronPython, C#, and VB<span>.NET</span>.
+- **Chat with an AI that sees your canvas.** Ask questions in plain language. The assistant can read your components, search the McNeel and Ladybug forums, browse any Discourse forum, and search the web for answers.
+- **Generate and edit scripts.** Describe what you want in Python, C#, VB.NET, or IronPython, and SmartHopper writes the script component for you.
+- **Work with any media.** Generate images from prompts, describe images, transcribe audio, synthesize speech, and turn PDFs, Word docs, Excel files, and web pages into text the AI can use.
+- **Build and edit definitions with AI.** Add, connect, tidy, merge, diff, and patch Grasshopper components. SmartHopper is the native home of **GhJSON**, the community plain-text format that makes Grasshopper definitions readable by AI and version control.
+- **Native Grasshopper data types, no formatting headaches.** AI responses come back as numbers, booleans, text, text lists, integers, images, audio, JSON, and Grasshopper JSON — the types you already wire together. No manual parsing, no LLM formatting mistakes.
+- **Use the AI provider you prefer.** OpenAI, Anthropic, Google Gemini, Mistral, DeepSeek, OpenRouter, or run locally with Ollama and LocalAI.
 
-- 🔧 **AI‑powered components**
-  Use Grasshopper in a way that was impossible before AI — generate text, generate and sort lists based on prompt, create images, convert files to Markdown, and more.
+> **The native home of [GhJSON](https://github.com/architects-toolkit/ghjson-spec).** SmartHopper created and supports GhJSON, a community file format that stores Grasshopper definitions as plain text. That means you can share, diff, patch, and edit your definitions with AI and version control, just like any other text file.
 
-- 🤝 Multiple compatible providers (check the [full provider feature matrix](DEV.md#➡️-available-providers) for details)
+## How it works
 
-  - ![MistralAI](src/SmartHopper.Providers.MistralAI/Resources/mistralai_icon.png) [MistralAI](https://mistral.ai/)
-  - ![OpenAI](src/SmartHopper.Providers.OpenAI/Resources/openai_icon.png) [OpenAI](https://openai.com/)
-  - ![DeepSeek](src/SmartHopper.Providers.DeepSeek/Resources/deepseek_icon.png) [DeepSeek](https://deepseek.com/)
-  - ![Anthropic](src/SmartHopper.Providers.Anthropic/Resources/anthropic_icon.png) [Anthropic](https://anthropic.com/)
-  - ![OpenRouter](src/SmartHopper.Providers.OpenRouter/Resources/openrouter_icon.png) [OpenRouter](https://openrouter.ai/)
-  - ![Gemini](src/SmartHopper.Providers.Gemini/Resources/gemini_icon.png) [Google Gemini](https://ai.google.dev/)
-  - ![LocalAI](src/SmartHopper.Providers.LocalAI/Resources/localai_icon.png) [LocalAI](https://localai.io/) — self-hosted, OpenAI-compatible
-  - ![Ollama](src/SmartHopper.Providers.Ollama/Resources/ollama_icon.png) [Ollama](https://ollama.com/) — local, OpenAI-compatible
+SmartHopper connects your ideas, your Grasshopper canvas, and the AI provider of your choice in a single workflow. It reads context from your definition, sends a structured request to the AI, and returns the result as native Grasshopper data you can wire straight into your components.
 
-- Open Source — and it will always be.
+```text
+        [Your idea]
+            +
+   [Your Grasshopper context]
+            ↓
+    [SmartHopper component or chat interface]
+            ↓
+    [Your AI provider]
+            ↓
+ [Native Grasshopper output]
+```
 
-## 💻 Installation
+1. **Drop a component** or open the AI chat.
+2. **Describe what you want** in plain language, or let SmartHopper read the components already on your canvas.
+3. **Receive native Grasshopper data** — text, numbers, booleans, images, audio, JSON, scripts, or even placed components on canvas.
+4. **Keep iterating** without leaving Rhino, switching apps, or parsing raw LLM output.
 
-Install, enable a provider, and set up an API key.
+## Component gallery
+
+| AI Chat | Text → AI text |
+|---|---|
+| ![AI Chat](img/screenshot-chat.svg) | ![Text → AI text](img/screenshot-text2text.svg) |
+
+| Generate scripts | Image → text or text → image |
+|---|---|
+| ![Generate scripts](img/screenshot-script.svg) | ![Image generation and analysis](img/screenshot-image.svg) |
+
+| File or web → Markdown | Let AI tidy your definition |
+|---|---|
+| ![File to Markdown](img/screenshot-file2md.svg) | ![Tidy definition](img/screenshot-ghtidy.svg) |
+
+| Transcribe or synthesize audio | Prompt → structured JSON |
+|---|---|
+| ![Audio](img/screenshot-audio.svg) | ![JSON](img/screenshot-json.svg) |
+
+## AI providers
+
+SmartHopper works with the providers you already use. Check the [full provider feature matrix](DEV.md#%E2%9E%A1%EF%B8%8F-available-providers) for streaming, image generation, tool calling, batch processing, and more.
+
+- ![MistralAI](src/SmartHopper.Providers.MistralAI/Resources/mistralai_icon.png) [MistralAI](https://mistral.ai/)
+- ![OpenAI](src/SmartHopper.Providers.OpenAI/Resources/openai_icon.png) [OpenAI](https://openai.com/)
+- ![DeepSeek](src/SmartHopper.Providers.DeepSeek/Resources/deepseek_icon.png) [DeepSeek](https://deepseek.com/)
+- ![Anthropic](src/SmartHopper.Providers.Anthropic/Resources/anthropic_icon.png) [Anthropic](https://anthropic.com/)
+- ![OpenRouter](src/SmartHopper.Providers.OpenRouter/Resources/openrouter_icon.png) [OpenRouter](https://openrouter.ai/)
+- ![Gemini](src/SmartHopper.Providers.Gemini/Resources/gemini_icon.png) [Google Gemini](https://ai.google.dev/)
+- ![LocalAI](src/SmartHopper.Providers.LocalAI/Resources/localai_icon.png) [LocalAI](https://localai.io/) — self-hosted, OpenAI-compatible
+- ![Ollama](src/SmartHopper.Providers.Ollama/Resources/ollama_icon.png) [Ollama](https://ollama.com/) — local, OpenAI-compatible
+
+## Installation
 
 **System requirements:**
 
 - Rhino 8.0 or newer on Windows or macOS
-- Distributed through the Rhino Package Manager
-- You need to have a provider API key to use most of SmartHopper features
+- A provider API key to use most AI features, or a local Ollama/LocalAI server
 
-[![Quickstart ▶](./img/video-installation.jpg)](https://vimeo.com/1126454690 "Quickstart ▶ — click to watch on Vimeo")
+**Install SmartHopper**
 
-[View the video on Vimeo](https://vimeo.com/1126454690)
+- **Stable release:** install the latest stable version from the **Rhino Package Manager**.
+- **Want the latest experimental features?** Pre-releases and the newest development builds are published on [GitHub Releases](https://github.com/architects-toolkit/SmartHopper/releases). Download directly from there and place all files in the Grasshopper > Components folder.
 
-## 🚀 How to use
+**Quick start:**
 
-### Canvas assistant (AI chat)
+1. Install SmartHopper.
+2. Restart Rhino and open Grasshopper.
+3. Open SmartHopper settings and add an API key for your chosen provider, or set up a local Ollama/LocalAI server.
+4. Drop a SmartHopper component and start designing with AI.
 
-Start a chat, ask for help, search the McNeel forum, or talk about life.
+[Watch the quickstart video on Vimeo](https://vimeo.com/1126454690)
 
-[![Canvas Assistant ▶](./img/video-chat.png)](https://vimeo.com/1126454713 "Canvas Assistant ▶ — click to watch on Vimeo")
+**What's next?** Explore the [Getting Started guide](docs/GETTING_STARTED/index.md) and the [full component reference](docs/Components/index.md) to start building with AI in Grasshopper.
 
-[View the video on Vimeo](https://vimeo.com/1126454713)
+## Learn more: some video tutorials to get started
 
-### Generate and Edit Script Components
+- [Canvas assistant (AI chat)](https://vimeo.com/1126454713)
+- [Generate and edit script components](https://vimeo.com/1144166204)
+- [AI-powered components](https://vimeo.com/1126454744)
+- [Select an AI provider](https://vimeo.com/1126547055)
 
-Create powerful scripts in seconds. Let AI write, review, and refine your code following your instructions.
-
-[![Generate and Edit Script Components ▶](./img/video-scripting.jpg)](https://vimeo.com/1144166204 "Generate and Edit Script Components ▶ — click to watch on Vimeo")
-
-[View the video on Vimeo](https://vimeo.com/1144166204)
-
-### AI-powered components
-
-Do things that were impossible before.
-
-[![AI Components ▶](./img/video-components.png)](https://vimeo.com/1126454744 "AI Components ▶ — click to watch on Vimeo")
-
-[View the video on Vimeo](https://vimeo.com/1126454744)
-
-Choose a default provider, or specify a provider for each component.
-
-[![Select AI provider ▶](./img/video-select-provider.jpg)](https://vimeo.com/1126547055 "Select AI provider ▶ — click to watch on Vimeo")
-
-[View the video on Vimeo](https://vimeo.com/1126547055)
-
-More examples and recipes coming soon on the website and docs.
-
-Developer details (AI tools, providers, data types, status) can be found in [DEV.md](DEV.md).
-
-## 🤝 Contributing
+## Contributing
 
 Every great innovation starts with a single contribution. Whether you're a designer, developer, or AI enthusiast, your unique perspective can help shape the future of computational design tools.
 
 Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on how to contribute to this project.
 
-## 📝 Changelog
+## Changelog
 
 See [Releases](https://github.com/architects-toolkit/SmartHopper/releases) for a list of changes and updates.
 
-## ⚖️ License
+## License
 
 This project is licensed under the GNU Lesser General Public License v3 (LGPL) - see the [LICENSE](LICENSE) file for details.
 
-## ™️ Trademark and Logo Usage Policy
+## Trademark and Logo Usage Policy
 
 The SmartHopper name and logo are the property of the SmartHopper / architects-toolkit maintainers. The LGPL v3 license under which the source code is distributed does **not** grant rights in the SmartHopper name or logo.
 

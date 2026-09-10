@@ -61,57 +61,50 @@ Expose AI capabilities (chat, list/text generation, image generation, canvas uti
 
 ## Developer Reference
 
-Components derive from bases in `src/SmartHopper.Core/ComponentBase/`. A typical component constructs an `AIBody` and delegates to the AI runtime:
+Components derive from bases in `src/SmartHopper.Core/ComponentBase/`. The most common starting point for an AI output component is `AIOutputAdapterBase`, which wires an `AIInputPayload` input and maps the provider response:
 
 ```csharp
-public class MyAIComponent : AIStatefulAsyncComponentBase
+using System;
+using System.Collections.Generic;
+using Grasshopper.Kernel;
+using Grasshopper.Kernel.Parameters;
+using Grasshopper.Kernel.Types;
+using SmartHopper.Core.ComponentBase;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+
+public class MyAIOutputComponent : AIOutputAdapterBase
 {
+    public MyAIOutputComponent()
+        : base("My AI", "MYAI", "Description", GH_Exposure.primary)
+    { }
+
     public override Guid ComponentGuid => new Guid("YOUR-GUID-HERE");
 
-    protected override void RegisterInputParams(GH_InputParamManager pManager)
+    protected override IReadOnlyList<string> UsingAiTools => new[] { "text2text" };
+
+    protected override string GetInternalSystemPrompt()
     {
-        pManager.AddTextParameter("Prompt", "P", "Input prompt", GH_ParamAccess.item);
+        return "You are a helpful assistant.";
     }
 
-    protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+    protected override IReadOnlyList<OutputMapping> GetOutputMappings()
     {
-        pManager.AddTextParameter("Response", "R", "AI response", GH_ParamAccess.item);
-    }
-
-    protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
-    {
-        return new Worker(this, AddRuntimeMessage);
-    }
-
-    private sealed class Worker : AsyncWorkerBase
-    {
-        private readonly MyAIComponent _component;
-        private string _prompt;
-        private string _response;
-
-        public Worker(MyAIComponent component, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
-            : base(component, addRuntimeMessage)
+        return new[]
         {
-            _component = component;
-        }
-
-        public override void GatherInputData()
-        {
-            _prompt = _component.GetInputData("Prompt", string.Empty);
-        }
-
-        public override async Task DoWorkAsync(CancellationToken token)
-        {
-            var body = new AIBody { Messages = new List<AIMessage> { new AIMessage { Role = "user", Content = _prompt } } };
-            var provider = _component.GetSelectedProvider();
-            var result = await provider.ExecuteAsync(body, token);
-            _response = result.Content;
-        }
-
-        public override void SetOutputData()
-        {
-            _component.SetOutputData("Response", _response);
-        }
+            new OutputMapping
+            {
+                ParamName = "Response",
+                NickName = "R",
+                Description = "AI response",
+                ParamType = typeof(Param_String),
+                Access = GH_ParamAccess.tree,
+                Extractor = OutputMapping.Single(aiReturn =>
+                {
+                    var text = aiReturn?.Body?.GetLastAssistantText();
+                    return string.IsNullOrWhiteSpace(text) ? null : new GH_String(text);
+                })
+            }
+        };
     }
 }
 

@@ -41,33 +41,55 @@ If you are an end-user encountering issues with SmartHopper components, please c
 
 ## Developer Reference
 
-### Example 1: Creating a Simple AI Component
+### Example 1: Creating a Simple AI Output Component
 
 ```csharp
+using System;
+using System.Collections.Generic;
+using Grasshopper.Kernel;
+using Grasshopper.Kernel.Parameters;
+using Grasshopper.Kernel.Types;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Core.Models;
-using SmartHopper.Providers;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
-public class MyAIComponent : AIStatefulAsyncComponentBase
+public class MyAIOutputComponent : AIOutputAdapterBase
 {
+    public MyAIOutputComponent()
+        : base("MyAI", "MYAI", "Calls AI and returns a custom result",
+               GH_Exposure.primary)
+    { }
+
     public override Guid ComponentGuid => new Guid("YOUR-GUID-HERE");
-    protected override AICapability RequiredCapability => AICapability.TextGeneration;
 
-    protected override async Task<AIResponse> ProcessAIAsync(
-        AIInputPayload input,
-        AIRequestParameters parameters,
-        CancellationToken ct)
+    protected override IReadOnlyList<string> UsingAiTools => new[] { "text2text" };
+
+    protected override string GetInternalSystemPrompt()
     {
-        // Get the selected provider
-        var provider = ProviderManager.Instance.GetProvider(SelectedProviderId);
+        return "You are a helpful assistant.";
+    }
 
-        // Build the request
-        var request = new AIRequestCall(provider, parameters);
-
-        // Execute the AI call
-        var response = await request.ExecAsync(input, ct);
-
-        return response;
+    protected override IReadOnlyList<OutputMapping> GetOutputMappings()
+    {
+        return new[]
+        {
+            new OutputMapping
+            {
+                ParamName = "Result",
+                NickName = "R",
+                Description = "AI response",
+                ParamType = typeof(Param_String),
+                Access = GH_ParamAccess.tree,
+                Extractor = OutputMapping.Single(aiReturn =>
+                {
+                    var text = aiReturn?.Body?.GetLastAssistantText();
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        return new GH_String(text.Trim());
+                    }
+                    return null;
+                })
+            }
+        };
     }
 }
 

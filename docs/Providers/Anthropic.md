@@ -92,40 +92,11 @@ Common errors:
 
 ### Batch Processing
 
-Submit multiple requests as a batch:
-
-```csharp
-var requests = new List<AIRequestCall> { /* ... */ };
-var submission = await provider.SubmitBatchAsync(requests);
-var batchId = submission.BatchId;
-
-// Poll for status
-var status = await provider.GetBatchStatusAsync(batchId);
-while (status.State == AIBatchState.Processing)
-{
-    await Task.Delay(5000);
-    status = await provider.GetBatchStatusAsync(batchId);
-}
-
-```
+Submit multiple requests as a batch through `IAIBatchProvider.SubmitBatchAsync` and poll with `GetBatchStatusAsync`. For a complete Anthropic batch example, see `src/SmartHopper.Components.Test/Providers/TestAnthropicBatchCallComponent.cs`.
 
 ### Streaming
 
-Streaming is enabled by default. Responses are streamed in real-time via SSE:
-
-```csharp
-var request = new AIRequestCall
-{
-    EnableStreaming = true,
-    // ... other settings
-};
-
-await foreach (var chunk in provider.StreamAsync(request))
-{
-    // Process each chunk as it arrives
-}
-
-```
+Streaming is enabled by default. Responses are streamed in real-time via SSE. For a concrete example, see `docs/Providers/AICall/Streaming.md` and `src/SmartHopper.Providers.Anthropic/AnthropicProvider.Streaming.cs`.
 
 ### Tool Calling
 

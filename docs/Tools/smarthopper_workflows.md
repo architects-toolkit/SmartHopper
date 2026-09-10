@@ -95,25 +95,45 @@ Every step is a concrete tool call. Use `smarthopper_tool_help` to look up the e
 ### Calling the Tool
 
 ```csharp
-var arguments = new JObject
-{
-    ["workflow"] = "apply_patch"
-};
+using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
-var result = await AIToolManager.ExecuteAsync("smarthopper_workflows", arguments, context);
+var body = AIBodyBuilder.Create()
+    .Add(new AIInteractionToolCall
+    {
+        Id = "call_1",
+        Name = "smarthopper_workflows",
+        Arguments = new JObject { ["workflow"] = "apply_patch" }
+    })
+    .Build();
 
-// result contains the named workflow with its description and ordered steps.
+var toolCall = new AIToolCall { Body = body };
+var result = await AIToolManager.ExecuteTool(toolCall);
+
+var text = result.Body.GetLastAssistantText();
 ```
 
 ### Listing All Workflows
 
 ```csharp
-var arguments = new JObject(); // no workflow filter
+using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
-var result = await AIToolManager.ExecuteAsync("smarthopper_workflows", arguments, context);
+var body = AIBodyBuilder.Create()
+    .Add(new AIInteractionToolCall
+    {
+        Id = "call_1",
+        Name = "smarthopper_workflows",
+        Arguments = new JObject()
+    })
+    .Build();
 
-// result contains every available workflow so the caller can present a menu
-// or pick the most relevant one for the current task.
+var toolCall = new AIToolCall { Body = body };
+var result = await AIToolManager.ExecuteTool(toolCall);
 ```
 
 ---

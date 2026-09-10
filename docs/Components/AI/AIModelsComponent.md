@@ -121,17 +121,27 @@ public class AIModelsComponent : AIProviderComponentBase
 }
 ```
 
-Using the component output to configure another AI component:
+Using the provider's model API to list models and build a request:
 
 ```csharp
-// In a downstream component or script:
-var modelsComponent = new AIModelsComponent();
-modelsComponent.GetSelectedProvider(); // configure provider via right-click menu
-var models = modelsComponent.GetOutputData("Models", new List<string>());
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AIModels;
 
-// Use the first model name for a request
+var provider = ProviderManager.Instance.GetProvider("openai");
+var models = await provider.Models.RetrieveApiModels();
+
 var selectedModel = models.FirstOrDefault();
-var request = new AIRequestCall { Model = selectedModel };
+var body = AIBodyBuilder.Create().AddUser("...").Build();
+
+var request = new AIRequestCall
+{
+    Provider = provider.Name,
+    Model = selectedModel,
+    Capability = AICapability.Text2Text,
+    Body = body,
+};
 ```
 
 ---

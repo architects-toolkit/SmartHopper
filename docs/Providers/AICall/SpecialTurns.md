@@ -68,7 +68,7 @@ var config = new SpecialTurnConfig
     // Request overrides
     OverrideInteractions = customInteractions,
     OverrideProvider = "openai",
-    OverrideModel = "gpt-4",
+    OverrideModel = "gpt-4o",
     OverrideToolFilter = "-*",  // Disable all tools
     
     // Execution behavior

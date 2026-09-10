@@ -78,20 +78,33 @@ For image generation, select an image-capable request or use DALL-E models:
 
 ### Streaming
 
-Streaming is enabled by default. Responses are streamed in real-time via SSE:
+Streaming is enabled by default. Responses are streamed in real-time via SSE through the provider's streaming adapter:
 
 ```csharp
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Streaming;
+
+var body = AIBodyBuilder.Create()
+    .AddUser("Explain parametric design in one sentence.")
+    .Build();
+
 var request = new AIRequestCall
 {
-    EnableStreaming = true,
-    // ... other settings
+    Provider = "openai",
+    Model = "gpt-4o",
+    Capability = AICapability.Text2Text,
+    Body = body,
+    WantsStreaming = true,
 };
 
-await foreach (var chunk in provider.StreamAsync(request))
+var streamingAdapter = provider.GetStreamingAdapter();
+await foreach (var chunk in streamingAdapter.StreamAsync(request, new StreamingOptions(), CancellationToken.None))
 {
+    var text = chunk.Body.GetLastAssistantText();
     // Process each chunk as it arrives
 }
-
 ```
 
 ### Authentication
@@ -114,53 +127,57 @@ Common errors:
 
 ### Batch Processing
 
-Submit multiple requests as a batch:
+Submit multiple requests as a batch through the `IAIBatchProvider` interface, then poll for completion. For a complete working example including result decoding, see `src/SmartHopper.Components.Test/Providers/TestOpenAIBatchCallComponent.cs`.
+
+### Sending a Chat Completion
 
 ```csharp
-var requests = new List<AIRequestCall> { /* ... */ };
-var submission = await provider.SubmitBatchAsync(requests);
-var batchId = submission.BatchId;
+var body = AIBodyBuilder.Create()
+    .AddUser("What is the weather in Paris?")
+    .Build();
 
-// Poll for status
-var status = await provider.GetBatchStatusAsync(batchId);
-while (status.State == AIBatchState.Processing)
-{
-    await Task.Delay(5000);
-    status = await provider.GetBatchStatusAsync(batchId);
-}
-
-```
-
-### Sending a Chat Completion with Tool Calling
-
-```csharp
 var request = new AIRequestCall
 {
+    Provider = "openai",
     Model = "gpt-4o",
-    Messages = new List<Message>
-    {
-        new Message { Role = "user", Content = "What is the weather in Paris?" }
-    },
-    Tools = new List<Tool>
-    {
-        new Tool
-        {
-            Type = "function",
-            Function = new FunctionDefinition
-            {
-                Name = "get_weather",
-                Parameters = new { location = new { type = "string" } }
-            }
-        }
-    }
+    Capability = AICapability.Text2Text,
+    Body = body,
 };
 
-var response = await provider.ChatAsync(request);
-if (response.ToolCalls != null && response.ToolCalls.Any())
-{
-    // Execute tool calls and send results back
-}
+var response = await provider.Call(request);
+var text = response.Body.GetLastAssistantText();
+```
 
+### Tool Calling
+
+For function calling, configure the request with `AICapability.ToolChat` and a tool filter, then run a `ConversationSession` that handles the tool pass:
+
+```csharp
+using SmartHopper.Infrastructure.AICall.Sessions;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AIModels;
+
+var body = AIBodyBuilder.Create()
+    .AddText(AIAgent.System, "You are a helpful assistant.")
+    .AddUser("Give me the canvas operational guidance.")
+    .WithToolFilter("+smarthopper_readme")
+    .Build();
+
+var request = new AIRequestCall
+{
+    Provider = "openai",
+    Model = "gpt-4o",
+    Capability = AICapability.ToolChat,
+    Body = body,
+};
+
+var session = new ConversationSession(request);
+var result = await session.RunToStableResult(
+    new SessionOptions { ProcessTools = true, MaxTurns = 5, MaxToolPasses = 2 },
+    CancellationToken.None);
+
+var text = result.Body.GetLastAssistantText();
 ```
 
 ---

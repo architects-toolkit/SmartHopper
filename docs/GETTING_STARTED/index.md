@@ -115,29 +115,9 @@ SmartHopper supports multiple AI providers. Each provider offers different model
 
 ## Developer Reference
 
-### Programmatic Text Generation
+### Programmatic Flow
 
-```csharp
-// Example: creating an input payload and extracting text
-var textInput = new Text2AI("Generate a parametric facade description");
-var payload = textInput.ToPayload();
-
-var output = new AI2Text(payload, provider: "OpenAI", model: "gpt-4");
-string result = await output.ComputeAsync();
-
-```
-
-### Programmatic Structured Data Extraction
-
-```csharp
-// Example: extracting a numeric value from an AI response
-var payload = new AIInputPayload();
-payload.AddText("What is 245 divided by 5?");
-
-var extractor = new AI2Number(payload, provider: "OpenAI", model: "gpt-4");
-double? value = await extractor.ExtractAsync();
-
-```
+Input components produce `AIInputPayload`; output components consume it and make the AI call. The actual C# API uses `AIInputPayload`, `AIRequestCall`, and the provider's `Call`/`Exec` methods. See [AI Call Pipeline](../Providers/AICall/index.md) and the provider docs for real programmatic examples.
 
 ---
 

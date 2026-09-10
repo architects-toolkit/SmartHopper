@@ -95,11 +95,8 @@ A: If fallbacks are enabled (default), OpenRouter automatically routes to the ne
 public class OpenRouterProvider : AIProvider
 {
     public override string Name => "OpenRouter";
-    public override AICapability Capabilities =>
-        AICapability.TextGeneration | AICapability.Vision |
-        AICapability.ToolCalling | AICapability.Streaming;
+    // Capabilities are declared through model registration and capability flags.
 }
-
 ```
 
 ### Key Types
@@ -119,56 +116,35 @@ public class OpenRouterProvider : AIProvider
 var provider = ProviderManager.Instance.GetProvider("OpenRouter");
 
 // Build a simple text generation request
-var input = new AIInputPayload();
-input.Messages.Add(new AIMessage { Role = "user", Content = "Hello, world!" });
+var body = AIBodyBuilder.Create()
+    .AddUser("Hello, world!")
+    .Build();
 
-var parameters = new AIRequestParameters
+var request = new AIRequestCall
 {
+    Provider = "OpenRouter",
     Model = "openai/gpt-4o",
-    Temperature = 0.7
+    Capability = AICapability.Text2Text,
+    Body = body,
+    Parameters = new AIRequestParameters
+    {
+        Temperature = 0.7,
+    },
 };
 
-var response = await provider.GenerateAsync(input, parameters);
-
+var response = await provider.Call(request);
+var text = response.Body.GetLastAssistantText();
 ```
 
 **Output**: The AI-generated text response.
 
 #### Streaming with OpenRouter
 
-```csharp
-var request = new AIRequestCall
-{
-    EnableStreaming = true,
-    Provider = provider,
-    Parameters = parameters
-};
-
-await foreach (var chunk in provider.StreamAsync(request))
-{
-    // Process each chunk as it arrives
-    Console.Write(chunk.Text);
-}
-
-```
+For a concrete streaming example using `IStreamingAdapter` or `ConversationSession.Stream`, see `docs/Providers/AICall/Streaming.md` and `src/SmartHopper.Providers.OpenRouter/OpenRouterProvider.Streaming.cs`.
 
 #### Tool Calling
 
-```csharp
-// OpenRouter supports function calling via OpenAI-compatible tools
-var tools = new List<AITool>
-{
-    new AITool
-    {
-        Name = "get_weather",
-        Description = "Get current weather for a location",
-        Parameters = new JsonSchema { /* ... */ }
-    }
-};
-
-var response = await provider.GenerateAsync(input, parameters, tools);
-
-```
+OpenRouter supports function calling via OpenAI-compatible tools. In SmartHopper this is expressed through the tool filter and a `ToolChat` or `ToolReasoningChat` capability. For a complete working example, see `docs/Providers/AICall/tools.md` and `src/SmartHopper.Components.Test/Providers/TestOpenRouterToolsComponent.cs`.
 
 ### Error Handling
 
