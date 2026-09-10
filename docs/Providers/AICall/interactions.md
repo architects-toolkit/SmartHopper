@@ -177,7 +177,7 @@ var textInteraction = new AIInteractionText
 textInteraction = new AIInteractionText().WithResult(AIAgent.Assistant, "Hello, world!", "Reasoning text here");
 
 // Building a streamed text interaction
-var builder = new AIInteractionText.Builder();
+var builder = new AIInteractionText.Builder(null);
 builder.WithResult(AIAgent.Assistant, string.Empty)
        .AppendContent("Hello")
        .AppendContent(", world!");

@@ -221,7 +221,7 @@ Pre-validation in component `SolveInstance`:
 
 ```csharp
 var capValidator = new ComponentCapabilityValidator(provider, model);
-var result = capValidator.ValidateSync(AICapability.TextGeneration);
+var result = capValidator.ValidateSync(AICapability.Text2Text);
 if (!result.IsValid)
 {
     AddRuntimeMessage(result.Messages[0]);

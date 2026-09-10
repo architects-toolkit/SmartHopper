@@ -91,46 +91,52 @@ var parameters = new AIRequestParameters
 #### Enabling Caching for Anthropic
 
 ```csharp
-var provider = ProviderManager.Instance.GetProvider("Anthropic");
+var body = AIBodyBuilder.Create()
+    .AddUser("Long prompt with reusable prefix...")
+    .Build();
 
-var parameters = new AIRequestParameters
+var request = new AIRequestCall
 {
+    Provider = "anthropic",
     Model = "claude-sonnet-4-20250514",
-    Extras = new Dictionary<string, object>
+    Capability = AICapability.Text2Text,
+    Body = body,
+    Parameters = new AIRequestParameters
     {
-        { "enable_caching", true }
-    }
+        Extras = new Dictionary<string, JToken>
+        {
+            { "enable_caching", JToken.FromObject(true) }
+        }
+    },
 };
 
-var response = await provider.GenerateAsync(input, parameters);
+var response = await provider.Call(request, CancellationToken.None);
 
-// Check cache usage in response
-var usage = response.Usage;
-Console.WriteLine($"Cache creation: {usage.CacheCreationInputTokens}");
-Console.WriteLine($"Cache read: {usage.CacheReadInputTokens}");
-
+// Check cache usage in response metrics
+Console.WriteLine($"Cache write: {response.Metrics.InputTokensCacheWrite}");
+Console.WriteLine($"Cache read: {response.Metrics.InputTokensCached}");
 ```
 
 #### Enabling Caching for OpenRouter
 
 ```csharp
-var provider = ProviderManager.Instance.GetProvider("OpenRouter");
-
-var parameters = new AIRequestParameters
+var request = new AIRequestCall
 {
+    Provider = "OpenRouter",
     Model = "anthropic/claude-sonnet-4",
-    Extras = new Dictionary<string, object>
+    Capability = AICapability.Text2Text,
+    Body = body,
+    Parameters = new AIRequestParameters
     {
-        { "enable_caching", true }
-    }
+        Extras = new Dictionary<string, JToken>
+        {
+            { "enable_caching", JToken.FromObject(true) }
+        }
+    },
 };
 
-var response = await provider.GenerateAsync(input, parameters);
-
-// Verify sticky routing is active
-var sessionId = OpenRouterProvider.ComputeSessionId(parameters.Model, input.SystemMessage);
-Console.WriteLine($"Session ID for sticky routing: {sessionId}");
-
+var response = await provider.Call(request, CancellationToken.None);
+// Sticky routing is handled automatically by the OpenRouter provider.
 ```
 
 ### Error Handling

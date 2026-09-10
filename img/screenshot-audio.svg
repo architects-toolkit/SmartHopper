@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300">
+  <rect width="600" height="300" fill="#e8e8e8"/>
+  <text x="300" y="120" font-family="Arial, sans-serif" font-size="32" fill="#555555" text-anchor="middle" dominant-baseline="middle" font-weight="bold">Screenshot placeholder</text>
+  <text x="300" y="170" font-family="Arial, sans-serif" font-size="24" fill="#777777" text-anchor="middle" dominant-baseline="middle">Audio transcription and speech</text>
+  <text x="300" y="220" font-family="Arial, sans-serif" font-size="16" fill="#999999" text-anchor="middle" dominant-baseline="middle">Replace with a real screenshot</text>
+</svg>

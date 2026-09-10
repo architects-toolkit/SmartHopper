@@ -53,94 +53,12 @@ These components provide programmatic access to definition manipulation, patches
 
 ## Developer Reference
 
-Components in this namespace derive from `StatefulComponentBase` and operate on Grasshopper document objects. Here is a pattern for retrieving components from a definition:
+Components in this namespace derive from `AIStatefulAsyncComponentBase` and operate on Grasshopper document objects. For concrete implementations, see:
 
-```csharp
-public class GhGetComponents : StatefulComponentBase
-{
-    public GhGetComponents()
-        : base("Gh Get", "Gh Get",
-               "Retrieves components and data from Grasshopper definitions",
-               "SmartHopper", "Definition")
-    {
-    }
-
-    protected override void RegisterInputParams(GH_InputParamManager pManager)
-    {
-        pManager.AddTextParameter("Path", "P", "File path to Grasshopper definition", GH_ParamAccess.item);
-    }
-
-    protected override void RegisterOutputParams(GH_OutputParamManager pManager)
-    {
-        pManager.AddGenericParameter("Components", "C", "Retrieved components", GH_ParamAccess.list);
-    }
-
-    protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
-    {
-        return new Worker(this, AddRuntimeMessage);
-    }
-
-    private sealed class Worker : AsyncWorkerBase
-    {
-        private readonly GhGetComponents _component;
-        private string _path;
-        private List<IGH_Component> _components;
-
-        public Worker(GhGetComponents component, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
-            : base(component, addRuntimeMessage)
-        {
-            _component = component;
-            _components = new List<IGH_Component>();
-        }
-
-        public override void GatherInputData()
-        {
-            _path = _component.GetInputData("Path", string.Empty);
-        }
-
-        public override async Task DoWorkAsync(CancellationToken token)
-        {
-            var doc = new GH_Document();
-            if (!doc.Open(_path))
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to open definition.");
-                return;
-            }
-            _components = doc.Objects.OfType<IGH_Component>().ToList();
-            await Task.Yield();
-        }
-
-        public override void SetOutputData()
-        {
-            _component.SetOutputData("Components", _components);
-        }
-    }
-}
-
-```
-
-Applying a patch to a definition uses a diff-and-merge pattern:
-
-```csharp
-public class GhPatchApplyComponents : StatefulComponentBase
-{
-    protected override async Task DoWorkAsync(CancellationToken token)
-    {
-        var originalPath = GetInputData("Original", string.Empty);
-        var patchPath = GetInputData("Patch", string.Empty);
-
-        var originalDoc = new GH_Document();
-        originalDoc.Open(originalPath);
-
-        var patch = Patch.Load(patchPath);
-        patch.Apply(originalDoc);
-
-        SetOutputData("Result", originalDoc);
-        await Task.Yield();
-    }
-}
-
-```
+- `src/SmartHopper.Components/Grasshopper/OpenGhJSONComponent.cs`
+- `src/SmartHopper.Components/Grasshopper/SaveGhJSONComponent.cs`
+- `src/SmartHopper.Components/Grasshopper/OpenGhPatchComponent.cs`
+- `src/SmartHopper.Components/Grasshopper/SaveGhPatchComponent.cs`
 
 ---
 

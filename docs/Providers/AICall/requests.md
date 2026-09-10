@@ -93,28 +93,40 @@ For simple single-turn calls without tools, `Exec()` is sufficient. For multi-tu
 #### Single Turn (No Tools)
 
 ```csharp
-var body = new AIBody();
-body.AddInteraction(AIAgent.System, "You are helpful");
-body.AddInteraction(AIAgent.User, "Summarize the current doc");
+var body = AIBodyBuilder.Create()
+    .AddText(AIAgent.System, "You are helpful")
+    .AddUser("Summarize the current doc")
+    .Build();
 
 var req = new AIRequestCall();
-req.Initialize(provider: "OpenAI", model: "gpt-5-mini", body: body, endpoint: "/v1/chat/completions", capability: AICapability.Text2Text);
+req.Initialize(
+    provider: "openai",
+    model: "gpt-4o-mini",
+    body: body,
+    endpoint: string.Empty,
+    capability: AICapability.Text2Text);
 
 var result = await req.Exec();
 var last = result.Body.GetLastInteraction();
-
 ```
 
 #### Multi‑Turn with Tools (Use ConversationSession)
 
 ```csharp
-var body = new AIBody();
-body.AddInteraction(AIAgent.System, "You are helpful");
-body.AddInteraction(AIAgent.User, "Summarize the current doc and fetch issue count");
-body.ToolFilter = "*"; // enable all tools
+var body = AIBodyBuilder.Create()
+    .AddText(AIAgent.System, "You are helpful")
+    .AddUser("Summarize the current doc and fetch issue count")
+    .WithToolFilter("*")
+    .Build();
 
 var req = new AIRequestCall();
-req.Initialize(provider: "OpenAI", model: "gpt-5-mini", body: body, endpoint: "/v1/chat/completions", capability: AICapability.Text2Text);
+req.Initialize(
+    provider: "openai",
+    model: "gpt-4o-mini",
+    body: body,
+    endpoint: string.Empty,
+    capability: AICapability.ToolChat,
+    toolFilter: "*");
 
 var session = new ConversationSession(req);
 var options = new SessionOptions

@@ -144,7 +144,7 @@ Fluent builder for constructing `AIRequestParameters`.
 
 ```csharp
 var parameters = AIRequestParameters.Create()
-    .WithModel("gpt-4")
+    .WithModel("gpt-4o")
     .WithTemperature(0.7)
     .WithMaxTokens(2000)
     .WithTimeout(30)

@@ -70,51 +70,63 @@ When making a significant architectural choice:
 
 ### Composable Adapter Pattern
 
-```csharp
-// Example: wiring an input adapter to an output adapter
-var textInput = new Text2AI("Generate a parametric facade");
-var payload = textInput.ToPayload();
-
-var output = new AI2Text(payload, provider: "OpenAI", model: "gpt-4");
-string result = await output.ComputeAsync();
-
-```
+Input components produce `AIInputPayload`; output components consume it and perform the AI call plus result extraction. For a concrete `AIOutputAdapterBase` implementation, see `docs/Components/index.md` and `docs/API_REFERENCE/index.md`.
 
 ### Immutable Record with Builder
 
-```csharp
-// Example: constructing an immutable AI request body
-var body = new AIBodyBuilder()
-    .WithPrompt("Design a parametric roof")
-    .WithModel("gpt-4")
-    .WithMaxTokens(500)
-    .Build();
+The real `AIBodyBuilder` works with `IAIInteraction` instances and produces an immutable `AIBody`:
 
+```csharp
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AIModels;
+
+var body = AIBodyBuilder.Create()
+    .AddText(AIAgent.System, "You are an expert parametric designer.")
+    .AddUser("Design a parametric roof.")
+    .WithContextFilter("canvas")
+    .WithToolFilter("-script_*")
+    .WithJsonOutputSchema("{ \"type\": \"object\", \"properties\": { \"description\": { \"type\": \"string\" } } }")
+    .Build();
 ```
 
 ### Policy Pipeline Execution
 
+The default policy pipeline runs automatically inside `AIRequestCall.Exec()` and `ConversationSession`. You can also apply it manually:
+
 ```csharp
-// Example: running request and response policies
-var pipeline = new PolicyPipeline();
-pipeline.AddRequestPolicy(new TimeoutNormalizationPolicy());
-pipeline.AddRequestPolicy(new ContextInjectionPolicy());
-pipeline.AddResponsePolicy(new SchemaValidationPolicy());
+using SmartHopper.Infrastructure.AICall.Policies;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
-var result = await pipeline.ExecuteAsync(request, provider);
+var pipeline = PolicyPipeline.Default;
 
+await pipeline.ApplyRequestPoliciesAsync(request, CancellationToken.None);
+
+var response = await request.Exec(CancellationToken.None);
+
+await pipeline.ApplyResponsePoliciesAsync(response, CancellationToken.None);
 ```
 
 ### Capability Flag Check
 
-```csharp
-// Example: checking model capabilities before sending a request
-var required = AICapability.Text | AICapability.Vision;
-if ((model.Capabilities & required) == required)
-{
-    await model.SendAsync(request);
-}
+Check a model's registered capabilities before sending a request:
 
+```csharp
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.ProviderSdk.AIModels;
+
+var provider = ProviderManager.Instance.GetProvider("openai");
+var selectedModel = provider.SelectModel(AICapability.Text2Json, requestedModel: null);
+
+var modelInfo = AIModelCapabilityRegistry.Instance
+    .GetProviderModels("openai")
+    .First(m => m.Model == selectedModel);
+
+var required = AICapability.Text2Text | AICapability.JsonOutput;
+if ((modelInfo.Capabilities & required) == required)
+{
+    var response = await request.Exec(CancellationToken.None);
+}
 ```
 
 ---

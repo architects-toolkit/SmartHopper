@@ -66,21 +66,7 @@ MistralAI supports JSON schema for structured outputs via `response_format` with
 
 ### Streaming
 
-Streaming is enabled by default. Responses are streamed in real-time via SSE:
-
-```csharp
-var request = new AIRequestCall
-{
-    EnableStreaming = true,
-    // ... other settings
-};
-
-await foreach (var chunk in provider.StreamAsync(request))
-{
-    // Process each chunk as it arrives
-}
-
-```
+Streaming is enabled by default. Responses are streamed in real-time via SSE. For a concrete example using `IStreamingAdapter` or `ConversationSession.Stream`, see `docs/Providers/AICall/Streaming.md` and `src/SmartHopper.Providers.MistralAI/MistralAIProvider.Streaming.cs`.
 
 ### Tool Calling
 
@@ -116,40 +102,33 @@ Common errors:
 ```csharp
 public class MistralAIProvider : AIProvider
 {
-    private readonly HttpClient _httpClient;
-    private readonly string _apiKey;
-
-    public MistralAIProvider(IProviderSettings settings)
-    {
-        _apiKey = settings.GetValue<string>("ApiKey");
-        _httpClient = new HttpClient
-        {
-            BaseAddress = new Uri("<https://api.mistral.ai/v1/">)
-        };
-        _httpClient.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", _apiKey);
-    }
+    // Provider implementation handles HTTP client, authentication,
+    // request encoding/decoding, and model management through AIProvider base class.
 }
-
 ```
 
 ### Sending a Chat Completion Request
 
 ```csharp
+var body = AIBodyBuilder.Create()
+    .AddUser("Explain quantum computing")
+    .Build();
+
 var request = new AIRequestCall
 {
+    Provider = "mistralai",
     Model = "mistral-small-latest",
-    Messages = new List<Message>
+    Capability = AICapability.Text2Text,
+    Body = body,
+    Parameters = new AIRequestParameters
     {
-        new Message { Role = "user", Content = "Explain quantum computing" }
+        Temperature = 0.7,
+        MaxTokens = 1000,
     },
-    Temperature = 0.7,
-    MaxTokens = 1000
 };
 
-var response = await provider.ChatAsync(request);
-Console.WriteLine(response.Content);
-
+var response = await provider.Call(request);
+Console.WriteLine(response.Body.GetLastAssistantText());
 ```
 
 ---

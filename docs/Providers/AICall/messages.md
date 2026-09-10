@@ -201,7 +201,7 @@ return output;
 ### Wrapper Guidance (Core.Grasshopper/AITools)
 
 - When returning a successful tool result:
-  - Use `AIBody.AddInteractionToolResult(jObject, metrics, messages)` and pass the inner return's `Metrics` and `Messages`.
+  - Use `AIBodyBuilder` to add an `AIInteractionToolResult` whose `Result` is the `JObject`, `Metrics` is the inner return's `Metrics`, and `Messages` is the inner return's `Messages`.
 - On provider/tool errors:
   - Standardize with `output.CreateToolError(errorText, toolCall)` (wrappers) or appropriate `AIReturn.Create*Error(...)` helpers (infra).
   - All `Create*Error()` methods add structured messages directly to `Messages` collection.

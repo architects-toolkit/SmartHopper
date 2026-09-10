@@ -72,15 +72,15 @@ var toolCall = new AIInteractionToolCall
     Arguments = new JObject { ["instructions"] = "Create a 10x10 grid" }
 };
 
-var body = new AIBody
-{
-    ToolFilter = "*" // enable tools you intend to allow
-};
-body.AddInteraction(toolCall);
+var body = AIBodyBuilder.Create()
+    .WithToolFilter("*")
+    .Add(toolCall)
+    .Build();
 
 var call = new AIToolCall
 {
-    Body = body
+    Body = body,
+    Capability = AICapability.FunctionCalling,
 };
 
 var result = await call.Exec();

@@ -97,21 +97,7 @@ Common errors:
 
 ### Streaming
 
-Streaming is enabled by default. Responses are streamed in real-time via SSE:
-
-```csharp
-var request = new AIRequestCall
-{
-    EnableStreaming = true,
-    // ... other settings
-};
-
-await foreach (var chunk in provider.StreamAsync(request))
-{
-    // Process each chunk as it arrives
-}
-
-```
+Streaming is enabled by default. Responses are streamed in real-time via SSE. For a concrete example, see `docs/Providers/AICall/Streaming.md` and `src/SmartHopper.Providers.DeepSeek/DeepSeekProvider.Streaming.cs`.
 
 ### Tool Calling
 
@@ -132,22 +118,21 @@ Forced tool calls are supported using:
 Configure a request for JSON schema structured output:
 
 ```csharp
+var body = AIBodyBuilder.Create()
+    .AddUser("Generate a user profile")
+    .WithJsonOutputSchema("{ \"type\": \"object\", \"properties\": { ... } }")
+    .Build();
+
 var request = new AIRequestCall
 {
+    Provider = "deepseek",
     Model = "deepseek-v4",
-    Messages = new List<IAIInteraction>
-    {
-        new AIInteractionText { Role = "user", Text = "Generate a user profile" }
-    },
-    ResponseFormat = new AIResponseFormat
-    {
-        Type = "json_object",
-        Schema = /* your JSON schema */
-    }
+    Capability = AICapability.Text2Json,
+    Body = body,
 };
 
-var response = await provider.Call(request);
-
+var response = await request.Exec();
+var json = response.Body.GetLastAssistantText();
 ```
 
 ---

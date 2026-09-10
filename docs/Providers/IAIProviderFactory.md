@@ -107,31 +107,20 @@ namespace SmartHopper.Providers.AdvancedProvider
     public class AdvancedProviderFactory : IAIProviderFactory
     {
         private readonly ILogger _logger;
-        private readonly IConfiguration _config;
 
-        public AdvancedProviderFactory(ILogger logger, IConfiguration config)
+        public AdvancedProviderFactory(ILogger logger)
         {
             _logger = logger;
-            _config = config;
         }
 
         public IAIProvider CreateProvider()
         {
-            var provider = new AdvancedProvider(_logger);
-            
-            // Apply default configuration
-            provider.Configure(_config.GetSection("AI:Advanced"));
-            
-            return provider;
+            return new AdvancedProvider(_logger);
         }
 
         public IAIProviderSettings CreateProviderSettings()
         {
-            return new AdvancedProviderSettings
-            {
-                EnableStreaming = true,
-                DefaultModel = "gpt-4o"
-            };
+            return new AdvancedProviderSettings();
         }
     }
 }

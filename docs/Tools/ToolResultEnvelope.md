@@ -37,11 +37,12 @@ Typical usage inside a tool implementation:
 1. Build a `JObject` as the root for your tool result payload.
 2. Put the actual data at a predictable key (e.g., `result`, `list`, or a domain-specific key).
 3. Attach the envelope with metadata.
-4. Add the tool result to the interaction stream via `AIBody.AddInteractionToolResult(...)`.
+4. Add the tool result to the interaction stream via `AIBodyBuilder`.
 
 ```csharp
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
 // 1) Build payload
 var toolResult = new JObject
@@ -61,10 +62,18 @@ var env = ToolResultEnvelope.Create(
 toolResult.WithEnvelope(env);
 
 // 3) Add to AIBody
-var body = new AIBody();
-body.AddInteractionToolResult(toolResult);
+var body = AIBodyBuilder.Create()
+    .Add(new AIInteractionToolResult
+    {
+        Id = "call_123",
+        Name = "text2text",
+        Result = toolResult,
+    })
+    .Build();
 
-return AIReturn.CreateSuccess(body);
+var aiReturn = new AIReturn();
+aiReturn.CreateSuccess(body);
+return aiReturn;
 
 ```
 
@@ -104,8 +113,8 @@ Console.WriteLine($"Payload at '{envelope?.PayloadPath}': {payload}");
 
 ### Relation to `AddInteractionToolResult`
 
-- Keep using `AIBody.AddInteractionToolResult(JObject, AIMetrics?, List<SHRuntimeMessage>?)`.
-- The envelope and `AddInteractionToolResult` are complementary:
+- Keep using `AIBodyBuilder.Add(new AIInteractionToolResult { Result = JObject, Metrics = ..., Messages = ... })`.
+- The envelope and the tool-result interaction are complementary:
   - Envelope = metadata attached to the payload (`JObject`) under `"__envelope"`.
   - `AddInteractionToolResult` = how the wrapped payload is appended to the conversation/interaction stream.
 

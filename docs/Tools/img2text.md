@@ -108,13 +108,18 @@ When used after `file2md` with `extractImages: true`, pass each image's `base64D
 #### Calling the Tool from a Component
 
 ```csharp
-// Build the tool request
-var toolRequest = new AIToolRequest("img2text")
+var toolCall = new AIToolCall
 {
-  "imageBase64": "<base64 data from file2md images array>",
-  "mimeType": "image/jpeg",
-  "prompt": "Summarize what this diagram shows."
-}
+    Name = "img2text",
+    Arguments = new JObject
+    {
+        { "imageBase64", "<base64 data from file2md images array>" },
+        { "mimeType", "image/jpeg" },
+        { "prompt", "Summarize what this diagram shows." }
+    }
+};
+
+var result = await AIToolManager.ExecuteTool(toolCall);
 ```
 
 **Output**: The AI-generated description string.

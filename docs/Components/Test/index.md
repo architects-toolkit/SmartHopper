@@ -158,6 +158,9 @@ public class DataTreeProcessorEqualPathsTestComponent : GH_Component
 
 ```csharp
 using SmartHopper.Core.AI.Providers;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AIModels;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -168,9 +171,15 @@ public async Task<bool> TestProviderCancellationAsync(IAIProvider provider)
 
     try
     {
-        var result = await provider.CallAsync(
-            messages: new[] { new Message { Role = "user", Content = "Hello" } },
-            cancellationToken: cts.Token);
+        var body = AIBodyBuilder.Create().AddUser("Hello").Build();
+        var request = new AIRequestCall
+        {
+            Provider = provider.Name,
+            Capability = AICapability.Text2Text,
+            Body = body,
+        };
+
+        var result = await provider.Call(request, cts.Token);
         return false; // Completed before cancellation
     }
     catch (OperationCanceledException)
