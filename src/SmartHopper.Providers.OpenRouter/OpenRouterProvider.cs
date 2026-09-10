@@ -263,7 +263,7 @@ namespace SmartHopper.Providers.OpenRouter
             // Add tools if requested
             if (!string.IsNullOrWhiteSpace(request.Body.ToolFilter))
             {
-                var tools = this.GetFormattedTools(request.Body.ToolFilter);
+                var tools = this.GetFormattedTools(request.Body.ToolFilter, request.ToolSurface);
                 if (tools != null && tools.Count > 0)
                 {
                     body["tools"] = tools;

@@ -25,6 +25,8 @@ using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Hosting;
+
 namespace SmartHopper.Infrastructure.AITools
 {
     /// <summary>
@@ -88,6 +90,11 @@ namespace SmartHopper.Infrastructure.AITools
         /// Defaults to <c>true</c>; set to <c>false</c> to hide experimental or unsupported tools.
         /// </summary>
         public bool Enabled { get; }
+
+        /// <summary>
+        /// Gets the execution surfaces on which this tool is available.
+        /// </summary>
+        public AIToolSurface Surfaces { get; }
 
         /// <summary>
         /// Gets name of the tool (used for tool calls).
@@ -171,6 +178,7 @@ namespace SmartHopper.Infrastructure.AITools
         /// <param name="tags">Category tags for the tool.</param>
         /// <param name="outputSchema">JSON schema describing the tool's result payload.</param>
         /// <param name="annotations">MCP-style annotations for the tool.</param>
+        /// <param name="surfaces">Execution surfaces on which the tool is available.</param>
         public AITool(
             string name,
             string description,
@@ -183,7 +191,8 @@ namespace SmartHopper.Infrastructure.AITools
             bool enabled = true,
             IReadOnlyList<string>? tags = null,
             string? outputSchema = null,
-            AIToolAnnotations? annotations = null)
+            AIToolAnnotations? annotations = null,
+            AIToolSurface surfaces = AIToolSurface.All)
         {
             this.Name = name ?? throw new ArgumentNullException(nameof(name));
             this.Description = description ?? throw new ArgumentNullException(nameof(description));
@@ -194,6 +203,7 @@ namespace SmartHopper.Infrastructure.AITools
             this.BuildRequest = buildRequest;
             this.MutatesCanvas = mutatesCanvas;
             this.Enabled = enabled;
+            this.Surfaces = surfaces;
             this.Tags = tags ?? BuildDefaultTags(category, mutatesCanvas);
             this.OutputSchema = outputSchema ?? "{ \"type\": \"object\" }";
             this.Annotations = annotations ?? new AIToolAnnotations(

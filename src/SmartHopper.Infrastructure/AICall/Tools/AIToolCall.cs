@@ -24,6 +24,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Validation;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Consent;
 using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
@@ -47,6 +48,11 @@ namespace SmartHopper.Infrastructure.AICall.Tools
         /// Gets or sets the cancellation token for this tool execution.
         /// </summary>
         public CancellationToken CancellationToken { get; set; }
+
+        /// <summary>
+        /// Gets or sets the invocation context used by consent-controlled tools.
+        /// </summary>
+        public MutationInvocationContext InvocationContext { get; set; } = new MutationInvocationContext();
 
         /// <summary>
         /// Gets a value indicating whether the tool call is valid.
@@ -136,40 +142,44 @@ namespace SmartHopper.Infrastructure.AICall.Tools
 
             try
             {
-                // Respect per-request timeout. We cannot cancel the underlying work if the tool ignores cancellation,
-                // but we do return a standardized timeout error when exceeded.
+                // Respect per-request timeout with a linked token. Tools must honor CancellationToken
+                // so side effects cannot continue after a timeout is reported.
                 // Resolution chain: explicit per-request value (when > 0) -> shared default.
                 // RequestTimeoutPolicy normally resolves this from settings before Exec() runs.
                 var timeoutSec = (this.TimeoutSeconds.HasValue && this.TimeoutSeconds.Value > 0)
                     ? this.TimeoutSeconds.Value
                     : DEFAULT_TIMEOUT_SECONDS;
                 var clampedTimeout = Math.Min(Math.Max(timeoutSec, MIN_TIMEOUT_SECONDS), MAX_TIMEOUT_SECONDS);
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(clampedTimeout));
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                    this.CancellationToken,
+                    cancellationToken,
+                    timeoutCts.Token);
+                this.CancellationToken = linkedCts.Token;
                 var execTask = AIToolManager.ExecuteTool(this);
-                var completed = await Task.WhenAny(
-                    execTask,
-                    Task.Delay(TimeSpan.FromSeconds(clampedTimeout))).ConfigureAwait(false);
-                if (completed != execTask)
+                try
+                {
+                    var result = await execTask.ConfigureAwait(false);
+                    if (result == null)
+                    {
+                        var none = new AIReturn();
+                        none.CreateToolError("Tool execution returned no result", this);
+                        return none;
+                    }
+
+                    if (result.Body == null && !result.Messages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error))
+                    {
+                        result.CreateToolError("Tool execution returned no result", this);
+                    }
+
+                    return result;
+                }
+                catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
                 {
                     var timed = new AIReturn();
-                    timed.CreateToolError($"Tool execution exceeded {timeoutSec} seconds", this);
+                    timed.CreateToolError($"Tool execution exceeded {clampedTimeout} seconds", this);
                     return timed;
                 }
-
-                var result = await execTask.ConfigureAwait(false);
-                if (result == null)
-                {
-                    var none = new AIReturn();
-                    none.CreateToolError("Tool execution returned no result", this);
-                    return none;
-                }
-
-                // If the tool didn't provide a body and no error messages, standardize it
-                if (result.Body == null && !result.Messages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error))
-                {
-                    result.CreateToolError("Tool execution returned no result", this);
-                }
-
-                return result;
             }
             catch (TaskCanceledException)
             {

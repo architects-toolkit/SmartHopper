@@ -91,6 +91,11 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
         public virtual AIRequestKind RequestKind { get; set; } = AIRequestKind.Generation;
 
         /// <summary>
+        /// Gets or sets the surface that owns tool discovery and execution for this request.
+        /// </summary>
+        public virtual AIToolSurface ToolSurface { get; set; } = AIToolSurface.Direct;
+
+        /// <summary>
         /// Per-request timeout in seconds applied to provider HTTP calls and tool execution wrappers.
         /// When null, the timeout is resolved from settings by RequestTimeoutPolicy.
         /// When set, this value takes precedence over settings.

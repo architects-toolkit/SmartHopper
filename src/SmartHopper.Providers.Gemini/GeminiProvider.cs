@@ -518,7 +518,7 @@ namespace SmartHopper.Providers.Gemini
 
             if (!string.IsNullOrWhiteSpace(request.Body?.ToolFilter))
             {
-                var toolsArray = this.GetFormattedTools(request.Body.ToolFilter);
+                var toolsArray = this.GetFormattedTools(request.Body.ToolFilter, request.ToolSurface);
                 if (toolsArray != null)
                 {
                     jObject["tools"] = new JArray
@@ -731,11 +731,11 @@ namespace SmartHopper.Providers.Gemini
             return !string.IsNullOrWhiteSpace(model) && Regex.IsMatch(model, @"^gemini-2\.0", RegexOptions.IgnoreCase);
         }
 
-        private JArray GetFormattedTools(string toolFilter)
+        private JArray GetFormattedTools(string toolFilter, SmartHopper.ProviderSdk.Hosting.AIToolSurface surface)
         {
             try
             {
-                var tools = base.GetFormattedTools(toolFilter);
+                var tools = base.GetFormattedTools(toolFilter, surface);
                 if (tools == null || tools.Count == 0)
                 {
                     return null;
