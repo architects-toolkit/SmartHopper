@@ -771,7 +771,7 @@ namespace SmartHopper.Providers.OpenAI
             // Add tools if requested
             if (hasTools)
             {
-                var tools = this.GetFormattedTools(toolFilter);
+                var tools = this.GetFormattedTools(toolFilter, request.ToolSurface);
                 this.ApplyOpenAICompatibleToolChoice(requestBody, request, tools, "OpenAI");
             }
 
@@ -889,7 +889,7 @@ namespace SmartHopper.Providers.OpenAI
             // Add tools if requested
             if (hasTools)
             {
-                var tools = this.GetFormattedTools(toolFilter);
+                var tools = this.GetFormattedTools(toolFilter, request.ToolSurface);
                 if (tools != null && tools.Count > 0)
                 {
                     requestBody["tools"] = this.ConvertToolsToResponsesFormat(tools);

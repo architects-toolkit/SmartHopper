@@ -20,6 +20,31 @@ using System.Collections.Generic;
 namespace SmartHopper.ProviderSdk.Hosting
 {
     /// <summary>
+    /// Identifies the execution surfaces on which an AI tool may be exposed.
+    /// </summary>
+    [System.Flags]
+    public enum AIToolSurface
+    {
+        /// <summary>The tool is unavailable on every surface.</summary>
+        None = 0,
+
+        /// <summary>The tool is available to the in-process WebChat assistant.</summary>
+        Chat = 1,
+
+        /// <summary>The tool is available to direct component and API callers.</summary>
+        Direct = 2,
+
+        /// <summary>The tool is available during provider batch collection.</summary>
+        Batch = 4,
+
+        /// <summary>The tool is available through the MCP server.</summary>
+        Mcp = 8,
+
+        /// <summary>The tool is available on every execution surface.</summary>
+        All = Chat | Direct | Batch | Mcp,
+    }
+
+    /// <summary>
     /// Minimal projection of a tool exposed by the host's tool manager, scoped to the
     /// fields a provider needs when formatting tools for an LLM request.
     /// </summary>
@@ -36,6 +61,9 @@ namespace SmartHopper.ProviderSdk.Hosting
 
         /// <summary>Whether the tool is enabled and available for use.</summary>
         public bool Enabled { get; set; } = true;
+
+        /// <summary>Gets or sets the surfaces on which this tool is available.</summary>
+        public AIToolSurface Surfaces { get; set; } = AIToolSurface.All;
 
         /// <summary>Tool category (e.g. <c>knowledge</c>, <c>script</c>); free-form.</summary>
         public string Category { get; set; }

@@ -29,6 +29,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.AICall.Tools;
     using SmartHopper.Infrastructure.AICall.Utilities;
+    using SmartHopper.Infrastructure.Consent;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Requests;
@@ -262,9 +263,23 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 Debug.WriteLine($"[ConversationSession] Warning: failed to persist tool_call before execution: {ex.Message}");
             }
 
-            var toolRq = new AIToolCall();
+            var toolRq = new AIToolCall
+            {
+                CancellationToken = ct,
+                ToolSurface = this.Request.ToolSurface,
+                InvocationContext = new MutationInvocationContext
+                {
+                    Source = this.Request.ToolSurface == SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat
+                        ? MutationInvocationSource.WebChat
+                        : MutationInvocationSource.DirectTool,
+                    OwnerId = this.GetHashCode().ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    ToolCallId = tc.Id,
+                    ToolName = tc.Name,
+                    Surface = this.Request.ToolSurface,
+                    Presenter = this.ConsentPresenter,
+                },
+            };
             toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);
-            toolRq.CancellationToken = ct;
 
             // Measure tool execution time
             var stopwatch = Stopwatch.StartNew();

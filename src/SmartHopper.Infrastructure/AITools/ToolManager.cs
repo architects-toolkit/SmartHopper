@@ -147,6 +147,14 @@ namespace SmartHopper.Infrastructure.AITools
                 }
             }
 
+            var surface = toolCall.ToolSurface;
+            toolCall.InvocationContext.Surface = surface;
+            if ((tool.Surfaces & surface) == 0)
+            {
+                output.CreateToolError($"Tool '{toolInfo.Name}' is not available on the {surface} surface.", toolCall);
+                return output;
+            }
+
             // Normalize a null arguments object to an empty JObject when the tool schema has no
             // required parameters. ToolJsonSchemaValidator validates this case but cannot return the
             // normalized instance because IValidator<T> is side-effect free, so the normalization
@@ -163,8 +171,16 @@ namespace SmartHopper.Infrastructure.AITools
                 }
             }
 
+            IMutationUndoScope? undoScope = null;
             try
             {
+                if (tool is AIMutatingTool && MutationUndoCoordinator.Current != null)
+                {
+                    undoScope = await MutationUndoCoordinator.Current
+                        .BeginAsync(toolInfo.Name, toolCall.CancellationToken)
+                        .ConfigureAwait(false);
+                }
+
                 // Execute the tool
                 Debug.WriteLine($"[AIToolManager] Tool found, executing: {toolInfo.Name}");
 
@@ -229,6 +245,11 @@ namespace SmartHopper.Infrastructure.AITools
                     output.Messages = result.Messages;
                 }
 
+                if (undoScope != null)
+                {
+                    await undoScope.CompleteAsync(output, System.Threading.CancellationToken.None).ConfigureAwait(false);
+                }
+
                 return output;
             }
             catch (Exception ex)
@@ -237,6 +258,11 @@ namespace SmartHopper.Infrastructure.AITools
 
                 // Standardize as a tool error and add a structured message tagged with Tool origin
                 output.CreateToolError($"Error executing tool '{toolInfo.Name}': {ex.Message}", toolCall);
+                if (undoScope != null)
+                {
+                    await undoScope.CompleteAsync(output, System.Threading.CancellationToken.None).ConfigureAwait(false);
+                }
+
                 return output;
             }
         }

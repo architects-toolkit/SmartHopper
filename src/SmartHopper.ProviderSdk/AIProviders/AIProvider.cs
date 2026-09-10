@@ -793,6 +793,17 @@ namespace SmartHopper.ProviderSdk.AIProviders
         /// <returns>A JArray of formatted tool function definitions matching the filter, or null if an error occurs.</returns>
         protected JArray GetFormattedTools(string toolFilter)
         {
+            return this.GetFormattedTools(toolFilter, AIToolSurface.Direct);
+        }
+
+        /// <summary>
+        /// Common tool formatting for function definitions on a specific execution surface.
+        /// </summary>
+        /// <param name="toolFilter">The filter to apply to tool categories.</param>
+        /// <param name="surface">The requesting execution surface.</param>
+        /// <returns>A JArray of formatted tool function definitions matching the filter and surface.</returns>
+        protected JArray GetFormattedTools(string toolFilter, AIToolSurface surface)
+        {
             try
             {
                 ProviderSdkHost.ToolRegistry.DiscoverTools();
@@ -807,9 +818,8 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 var toolFilterObj = Filtering.Parse(toolFilter);
                 foreach (var tool in tools)
                 {
-                    if (!tool.Value.Enabled)
+                    if (!tool.Value.Enabled || (tool.Value.Surfaces & surface) == 0)
                     {
-                        // Skip tools that are disabled (e.g., experimental or unsupported)
                         continue;
                     }
 

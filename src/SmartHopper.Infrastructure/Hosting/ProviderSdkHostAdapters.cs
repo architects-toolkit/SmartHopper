@@ -119,8 +119,9 @@ namespace SmartHopper.Infrastructure.Hosting
                 result[kvp.Key] = new ProviderToolDefinition
                 {
                     Name = tool.Name,
-                    Description = tool.Description,
+                    Description = tool.RichDescription,
                     Enabled = tool.Enabled,
+                    Surfaces = tool.Surfaces,
                     Category = tool.Category,
                     ParametersSchema = tool.ParametersSchema,
                 };
