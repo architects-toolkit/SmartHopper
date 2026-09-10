@@ -48,7 +48,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <inheritdoc/>
         public IEnumerable<AITool> GetTools()
         {
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Stage removal of all components from the Grasshopper canvas and let the user visually review and select removals before applying them. Optionally keep locked components. Protected components (and their direct neighbors) are always preserved. Supports undo (Ctrl+Z).",
                 category: "Components",
@@ -63,7 +63,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }",
                 execute: this.ClearCanvasAsync,
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "delete", "destructive" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""deletedCount"": { ""type"": ""integer"" }, ""deleted"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""rejectedCount"": { ""type"": ""integer"" }, ""skippedLockedCount"": { ""type"": ""integer"" }, ""protectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""message"": { ""type"": ""string"" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: true));
@@ -141,7 +140,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var reviewSession = CanvasChangeReviewService.CreateRemovalSession(this.toolName, allowedGuids);
                 var applyReview = reviewSession.Items.Count > 0 &&
-                    await CanvasChangeReviewService.ReviewAsync(reviewSession).ConfigureAwait(false);
+                    await CanvasChangeReviewService.ReviewAsync(reviewSession, toolCall.InvocationContext, toolCall.CancellationToken).ConfigureAwait(false);
                 IReadOnlyList<Guid> acceptedGuids = applyReview
                     ? CanvasChangeReviewService.GetAcceptedRemovalGuids(reviewSession)
                     : Array.Empty<Guid>();

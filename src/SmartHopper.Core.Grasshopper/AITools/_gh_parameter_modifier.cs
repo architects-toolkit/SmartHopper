@@ -47,7 +47,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         public IEnumerable<AITool> GetTools()
         {
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: "gh_parameter_data_mapping_flatten",
                 description: "Set a parameter's data mapping to Flatten",
                 category: "NotTested",
@@ -62,13 +62,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 execute: this.FlattenParameterAsync,
                 requiredCapabilities: this.toolCapabilityRequirements,
-                mutatesCanvas: true,
                 enabled: false,
                 tags: new[] { "not-tested", "parameter", "canvas", "mutating" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""parameterIndex"": { ""type"": ""integer"" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
 
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: "gh_parameter_data_mapping_graft",
                 description: "Set a parameter's data mapping to Graft",
                 category: "NotTested",
@@ -83,13 +82,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 execute: this.GraftParameterAsync,
                 requiredCapabilities: this.toolCapabilityRequirements,
-                mutatesCanvas: true,
                 enabled: false,
                 tags: new[] { "not-tested", "parameter", "canvas", "mutating" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""parameterIndex"": { ""type"": ""integer"" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
 
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: "gh_parameter_data_mapping_none",
                 description: "Set a parameter's data mapping to None",
                 category: "NotTested",
@@ -104,13 +102,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 execute: this.NoneParameterAsync,
                 requiredCapabilities: this.toolCapabilityRequirements,
-                mutatesCanvas: true,
                 enabled: false,
                 tags: new[] { "not-tested", "parameter", "canvas", "mutating" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""parameterIndex"": { ""type"": ""integer"" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
 
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: "gh_parameter_reverse",
                 description: "Reverse the order of items in a parameter",
                 category: "NotTested",
@@ -126,13 +123,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 execute: this.ReverseParameterAsync,
                 requiredCapabilities: this.toolCapabilityRequirements,
-                mutatesCanvas: true,
                 enabled: false,
                 tags: new[] { "not-tested", "parameter", "canvas", "mutating" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""parameterIndex"": { ""type"": ""integer"" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
 
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: "gh_parameter_simplify",
                 description: "Simplify geometry in a parameter (removes redundant control points)",
                 category: "NotTested",
@@ -148,7 +144,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 execute: this.SimplifyParameterAsync,
                 requiredCapabilities: this.toolCapabilityRequirements,
-                mutatesCanvas: true,
                 enabled: false,
                 tags: new[] { "not-tested", "parameter", "canvas", "mutating" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""parameterIndex"": { ""type"": ""integer"" } } }",
@@ -315,8 +310,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 var toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.GetArgumentsOrEmpty();
+                var componentGuid = Guid.Parse(args["componentGuid"]?.ToString() ?? throw new ArgumentException("Missing componentGuid"));
+                var review = CanvasChangeReviewService.CreateComponentStateSession(
+                    toolName,
+                    new[] { componentGuid },
+                    $"Apply parameter operation: {toolName}");
+                var approved = await CanvasChangeReviewService.ReviewAsync(
+                    review,
+                    toolCall.InvocationContext,
+                    toolCall.CancellationToken).ConfigureAwait(false);
+                if (!approved || !CanvasChangeReviewService.GetAcceptedComponentGuids(review).Contains(componentGuid))
+                {
+                    output.CreateSuccess(AIBodyBuilder.Create()
+                        .AddToolResult(new JObject
+                        {
+                            ["tool"] = toolName,
+                            ["success"] = false,
+                            ["rejected"] = true,
+                        }, toolInfo.Id, toolName)
+                        .Build(), toolCall);
+                    return output;
+                }
 
-                var tcs = new TaskCompletionSource<AIReturn>();
+                var tcs = new TaskCompletionSource<AIReturn>(TaskCreationOptions.RunContinuationsAsynchronously);
 
                 RhinoApp.InvokeOnUiThread(() =>
                 {

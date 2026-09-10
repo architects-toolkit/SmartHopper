@@ -50,7 +50,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         public IEnumerable<AITool> GetTools()
         {
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Stage a visual group around components, show the user an in-canvas review, and create it only after acceptance. Use this to organize or annotate related components. Requires component GUIDs from gh_get.",
                 category: "Components",
@@ -74,13 +74,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""guids""]
                 }",
                 execute: this.GhGroupAsync,
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "organization" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""group"": { ""type"": ""string"", ""description"": ""Instance GUID of the created group."" }, ""grouped"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the components that were added to the group."" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
 
             // Specialized wrapper: gh_group_selected
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: "gh_group_selected",
                 description: "Stage a group around currently selected components and show the user an in-canvas review before creation. Quick way to organize selected items without specifying GUIDs manually.",
                 category: "Components",
@@ -98,7 +97,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }",
                 execute: this.GhGroupSelectedAsync,
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "organization" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""group"": { ""type"": ""string"", ""description"": ""Instance GUID of the created group."" }, ""grouped"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the components that were added to the group."" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
@@ -172,7 +170,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     this.toolName,
                     proposedDocument,
                     new[] { reviewItem });
-                if (!await CanvasChangeReviewService.ReviewAsync(reviewSession).ConfigureAwait(false) ||
+                if (!await CanvasChangeReviewService.ReviewAsync(reviewSession, toolCall.InvocationContext, toolCall.CancellationToken).ConfigureAwait(false) ||
                     !reviewSession.IsEffectivelyAccepted(reviewItem))
                 {
                     var rejectedResult = new JObject

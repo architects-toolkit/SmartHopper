@@ -52,7 +52,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <returns></returns>
         public IEnumerable<AITool> GetTools()
         {
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Automatically arrange components into a clean grid layout respecting data flow direction. Organizes components left-to-right based on their connections. Use this to clean up messy definitions. Requires component GUIDs from gh_get.",
                 category: "Components",
@@ -81,13 +81,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [ ""guids"" ]
                 }",
                 execute: this.GhTidyUpAsync,
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "layout" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""moved"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved."" }, ""affectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved (alias for moved)."" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
 
             // Specialized wrapper: gh_tidy_up_selected
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: "gh_tidy_up_selected",
                 description: "Organize currently selected components into a tidy grid layout. Quick way to clean up selected items without needing to specify GUIDs manually. Arranges components left-to-right based on connections.",
                 category: "Components",
@@ -110,7 +109,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }",
                 execute: this.GhTidyUpSelectedAsync,
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "layout" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""moved"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved."" }, ""affectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved (alias for moved)."" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
@@ -119,7 +117,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Reorganize selected components into a tidy grid layout by GUID list.
         /// </summary>
-        private Task<AIReturn> GhTidyUpAsync(AIToolCall toolCall)
+        private async Task<AIReturn> GhTidyUpAsync(AIToolCall toolCall)
         {
             // Prepare the output
             var output = new AIReturn()
@@ -168,7 +166,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     Debug.WriteLine("[GhObjTools] GhTidyUpAsync: No matching components found after filtering.");
                     output.CreateError("No matching components found.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 var doc = GhJsonGrasshopper.Serialize(selected, SerializationOptions.Default);
@@ -207,7 +205,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     Debug.WriteLine("[GhObjTools] GhTidyUpAsync: Layout produced no positions.");
                     output.CreateError("Layout produced no positions for the selected components.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 if (!hasStart)
@@ -220,11 +218,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     origin = new PointF(origPivot.X - firstKvp.Value.X, origPivot.Y - firstKvp.Value.Y);
                 }
 
+                var targets = positions.ToDictionary(
+                    pair => pair.Key,
+                    pair => new PointF(origin.X + pair.Value.X, origin.Y + pair.Value.Y));
+                var reviewSession = CanvasChangeReviewService.CreateMoveSession(this.toolName, targets, relative: false);
+                var reviewed = await CanvasChangeReviewService.ReviewAsync(
+                    reviewSession,
+                    toolCall.InvocationContext,
+                    toolCall.CancellationToken).ConfigureAwait(false);
+                var acceptedGuids = reviewed
+                    ? CanvasChangeReviewService.GetAcceptedComponentGuids(reviewSession)
+                    : new HashSet<Guid>();
                 var moved = new List<string>();
-                foreach (var kvp in positions)
+                foreach (var kvp in targets.Where(pair => acceptedGuids.Contains(pair.Key)))
                 {
                     var guid = kvp.Key;
-                    var target = new PointF(origin.X + kvp.Value.X, origin.Y + kvp.Value.Y);
+                    var target = kvp.Value;
                     var ok = CanvasAccess.MoveInstance(guid, target, relative: false);
                     Debug.WriteLine(ok
                         ? $"[GhObjTools] GhTidyUpAsync: Moved {guid} to ({target.X},{target.Y})"
@@ -241,12 +250,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .Build();
 
                 output.CreateSuccess(immutableBody, toolCall);
-                return Task.FromResult(output);
+                return output;
             }
             catch (Exception ex)
             {
                 output.CreateError($"Error: {ex.Message}");
-                return Task.FromResult(output);
+                return output;
             }
         }
 
@@ -311,6 +320,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 Provider = toolCall.Provider,
                 Model = toolCall.Model,
+                ToolSurface = toolCall.ToolSurface,
+                CancellationToken = toolCall.CancellationToken,
+                InvocationContext = toolCall.InvocationContext.ForTool(toolInfo.Id, toolInfo.Name ?? this.toolName),
                 Body = AIBodyBuilder.Create()
                     .AddToolCall(
                         id: toolInfo.Id,

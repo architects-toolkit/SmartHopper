@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Eto.Drawing;
 using Eto.Forms;
 using Rhino.UI;
@@ -131,12 +132,15 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// </summary>
         /// <param name="session">Review session.</param>
         /// <returns><c>true</c> when the selected changes should be applied.</returns>
-        public static bool ShowReview(CanvasChangeReviewSession session)
+        public static bool ShowReview(CanvasChangeReviewSession session, CancellationToken cancellationToken = default)
         {
             using var dialog = new CanvasChangeReviewDialog(session);
+            using var registration = cancellationToken.Register(() =>
+                Application.Instance?.AsyncInvoke(() => dialog.Close(false)));
             CanvasChangePreviewOverlay.Begin(session);
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return dialog.ShowModal(RhinoEtoApp.MainWindow) == true;
             }
             finally
