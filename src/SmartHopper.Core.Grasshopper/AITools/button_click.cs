@@ -46,7 +46,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <returns>Collection of AI tools.</returns>
         public IEnumerable<AITool> GetTools()
         {
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Simulate a momentary click on Grasshopper Buttons (not Boolean Toggles). The button is pressed for 100 ms, then released. Provide the instance GUIDs of the buttons.",
                 category: "Components",
@@ -62,13 +62,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""instanceGuids""]
                 }",
                 execute: this.ButtonClickToolAsync,
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "button" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""clickedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""notFoundGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
-        private Task<AIReturn> ButtonClickToolAsync(AIToolCall toolCall)
+        private async Task<AIReturn> ButtonClickToolAsync(AIToolCall toolCall)
         {
             var output = new AIReturn { Request = toolCall };
 
@@ -83,7 +82,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (guidArray == null || guidArray.Count == 0)
                 {
                     output.CreateError("Missing or empty 'instanceGuids' parameter.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 var requestedGuids = guidArray
@@ -94,7 +93,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (requestedGuids.Count == 0)
                 {
                     output.CreateError("No valid GUIDs provided in 'instanceGuids'.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 var (allowedGuids, protectedGuids) = CanvasProtection.FilterProtectedGuids(requestedGuids);
@@ -107,10 +106,21 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         CanvasProtection.FormatProtectionMessage(protectedGuids));
                 }
 
+                var review = CanvasChangeReviewService.CreateComponentStateSession(
+                    toolInfo.Name ?? "button_click",
+                    allowedGuids,
+                    "Trigger button action");
+                var approved = await CanvasChangeReviewService.ReviewAsync(
+                    review,
+                    toolCall.InvocationContext,
+                    toolCall.CancellationToken).ConfigureAwait(false);
+                var accepted = approved
+                    ? CanvasChangeReviewService.GetAcceptedComponentGuids(review)
+                    : new HashSet<Guid>();
                 var clickedGuids = new List<Guid>();
                 var notFoundGuids = new List<string>();
 
-                foreach (var guid in allowedGuids)
+                foreach (var guid in allowedGuids.Where(accepted.Contains))
                 {
                     if (ComponentManipulation.ButtonClick(guid))
                     {
@@ -142,12 +152,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .Build();
 
                 output.CreateSuccess(body, toolCall);
-                return Task.FromResult(output);
+                return output;
             }
             catch (Exception ex)
             {
                 output.CreateError($"Error: {ex.Message}");
-                return Task.FromResult(output);
+                return output;
             }
         }
     }

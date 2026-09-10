@@ -20,9 +20,11 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using GhJSON.Core.SchemaModels;
 using GhJSON.Grasshopper;
+using SmartHopper.Infrastructure.Consent;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
@@ -54,18 +56,49 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// </summary>
         /// <param name="session">Session to review.</param>
         /// <returns><c>true</c> when the user chooses to apply selected changes.</returns>
-        public static async Task<bool> ReviewAsync(CanvasChangeReviewSession session)
+        public static async Task<bool> ReviewAsync(
+            CanvasChangeReviewSession session,
+            MutationInvocationContext? context = null,
+            CancellationToken cancellationToken = default)
+        {
+            ConsentGate.RegisterPresenter(CanvasChangeConsentPresenter.Instance);
+            var decision = await MutatingOperationExecutor.ReviewAsync(
+                new CanvasMutationConsentProposal(session),
+                context,
+                cancellationToken).ConfigureAwait(false);
+            if (!decision.IsApproved)
+            {
+                session.SetAllAccepted(false);
+                return false;
+            }
+
+            var accepted = decision.AcceptedItemKeys.ToHashSet(StringComparer.Ordinal);
+            foreach (var item in session.Items)
+            {
+                session.SetAccepted(item.Key, accepted.Contains(item.Key));
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Shows the underlying graphical review dialog on Rhino's UI thread.
+        /// </summary>
+        internal static async Task<bool> ShowReviewDialogAsync(
+            CanvasChangeReviewSession session,
+            CancellationToken cancellationToken)
         {
             var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var registration = cancellationToken.Register(() => completion.TrySetCanceled(cancellationToken));
             global::Rhino.RhinoApp.InvokeOnUiThread(() =>
             {
                 try
                 {
-                    completion.SetResult(CanvasChangeReviewDialog.ShowReview(session));
+                    completion.TrySetResult(CanvasChangeReviewDialog.ShowReview(session, cancellationToken));
                 }
                 catch (Exception ex)
                 {
-                    completion.SetException(ex);
+                    completion.TrySetException(ex);
                 }
             });
             return await completion.Task.ConfigureAwait(false);
@@ -276,6 +309,34 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     session.IsEffectivelyAccepted(item))
                 .Select(item => item.ExistingInstanceGuid!.Value)
                 .ToList();
+        }
+
+        /// <summary>
+        /// Creates a selectable review for non-geometric component state changes.
+        /// </summary>
+        public static CanvasChangeReviewSession CreateComponentStateSession(
+            string source,
+            IEnumerable<Guid> instanceGuids,
+            string detail)
+        {
+            var document = GhJsonGrasshopper.GetByGuids(instanceGuids);
+            var items = document.Components
+                .Where(component => component.InstanceGuid.HasValue)
+                .Select(component => new CanvasChangeReviewItem(
+                    $"state:{component.InstanceGuid}",
+                    CanvasChangeKind.ComponentModified,
+                    component.NickName ?? component.Name ?? "Component",
+                    detail)
+                {
+                    ComponentId = component.Id,
+                    ExistingInstanceGuid = component.InstanceGuid,
+                })
+                .ToList();
+            return new CanvasChangeReviewSession(
+                "Review AI component state changes",
+                source,
+                document,
+                items);
         }
 
         private static GhJsonComponent CopyWithPivot(GhJsonComponent component, GhJsonPivot pivot)

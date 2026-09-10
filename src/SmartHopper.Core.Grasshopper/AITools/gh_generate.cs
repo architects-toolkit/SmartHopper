@@ -108,7 +108,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "ghjson", "mutating", "ai-generation" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""ghjson"": { ""type"": [""string"", ""null""] }, ""instanceGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""components"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""message"": { ""type"": ""string"" } }, ""required"": [""success""] }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                surfaces: SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp);
         }
 
         private async Task<AIReturn> ExecuteGenerateAsync(AIToolCall toolCall)
@@ -261,6 +262,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     Model = toolCall.Model,
                     Endpoint = "gh_put",
                     SkipMetricsValidation = true,
+                    ToolSurface = toolCall.ToolSurface,
+                    CancellationToken = toolCall.CancellationToken,
+                    InvocationContext = toolCall.InvocationContext.ForTool(ghPutInteraction.Id, "gh_put"),
                 };
                 ghPutToolCall.Body = AIBodyBuilder.Create()
                     .Add(ghPutInteraction)

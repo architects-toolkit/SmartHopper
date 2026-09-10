@@ -47,7 +47,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <returns></returns>
         public IEnumerable<AITool> GetTools()
         {
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Lock (disable) or unlock (enable) components. Locked components don't execute and show as grayed out. Use this to temporarily disable parts of a definition without deleting them. Requires component GUIDs from gh_get.",
                 category: "Components",
@@ -67,13 +67,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [ ""guids"", ""locked"" ]
                 }",
                 execute: this.GhToggleLockAsync,
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "state" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
 
             // Specialized wrapper: gh_lock_selected
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: "gh_component_lock_selected",
                 description: "Lock (disable) currently selected components. Quick way to disable selected items without needing to specify GUIDs manually. Locked components don't execute and show as grayed out. IMPORTANT: This tool will not affect the enabled SmartHopper MCP Server component or any component directly wired to it.",
                 category: "Components",
@@ -82,13 +81,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""properties"": {}
                 }",
                 execute: (toolCall) => this.GhToggleLockSelectedAsync(toolCall, locked: true),
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "state" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
 
             // Specialized wrapper: gh_unlock_selected
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: "gh_component_unlock_selected",
                 description: "Unlock (enable) currently selected components. Quick way to enable selected items without needing to specify GUIDs manually. Unlocked components will execute normally. IMPORTANT: This tool will not affect the enabled SmartHopper MCP Server component or any component directly wired to it.",
                 category: "Components",
@@ -97,7 +95,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""properties"": {}
                 }",
                 execute: (toolCall) => this.GhToggleLockSelectedAsync(toolCall, locked: false),
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "state" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
@@ -147,12 +144,21 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         CanvasProtection.FormatProtectionMessage(protectedGuids));
                 }
 
+                var review = CanvasChangeReviewService.CreateComponentStateSession(
+                    toolInfo.Name ?? this.toolName,
+                    allowedGuids,
+                    locked ? "Lock component" : "Unlock component");
+                var approved = await CanvasChangeReviewService.ReviewAsync(
+                    review,
+                    toolCall.InvocationContext,
+                    toolCall.CancellationToken).ConfigureAwait(false);
+                var accepted = approved
+                    ? CanvasChangeReviewService.GetAcceptedComponentGuids(review)
+                    : new HashSet<Guid>();
                 var updated = new List<string>();
-                foreach (var guid in allowedGuids)
+                foreach (var guid in allowedGuids.Where(accepted.Contains))
                 {
-                    Debug.WriteLine($"[GhObjTools] Parsed GUID: {guid}");
                     ComponentManipulation.SetComponentLock(guid, locked);
-                    Debug.WriteLine($"[GhObjTools] Set lock to {locked} for GUID: {guid}");
                     updated.Add(guid.ToString());
                 }
 
@@ -203,6 +209,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 Provider = toolCall.Provider,
                 Model = toolCall.Model,
+                ToolSurface = toolCall.ToolSurface,
+                CancellationToken = toolCall.CancellationToken,
+                InvocationContext = toolCall.InvocationContext.ForTool(toolInfo.Id, toolInfo.Name),
                 Body = AIBodyBuilder.Create()
                     .AddToolCall(
                         id: toolInfo.Id,
