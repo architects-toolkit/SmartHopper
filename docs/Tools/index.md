@@ -92,7 +92,9 @@ public abstract class AITool
 
 | Type | Purpose |
 | --- | --- |
-| `AITool` | Base class for all tools |
+| `AITool` | Base class for tool metadata, schemas, execution, and surfaces |
+| `AIMutatingTool` | Non-batch tool type for consent-controlled canvas/document changes |
+| `AIToolSurface` | Explicit Chat, Direct, Batch, and MCP exposure flags |
 | `AIToolRequest` | Request wrapper with name and parameters |
 | `ToolResult` | Structured result with payload and envelope |
 | `ToolResultEnvelope` | Standard metadata attached to every result |

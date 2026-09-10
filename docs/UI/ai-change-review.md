@@ -162,7 +162,8 @@ This keeps GhJSON reusable by non-AI clients while avoiding SmartHopper-specific
 ### Data Flow
 
 ```text
-AI tool → build proposal (GhJsonDocument + review items)
+AI tool/component → build proposal (GhJsonDocument + review items)
+        → ConsentGate (one invocation, one decision)
         → CanvasChangeReviewService.ReviewAsync
         → CanvasChangePreviewOverlay paints on live canvas
         → CanvasChangeReviewDialog collects accept/reject

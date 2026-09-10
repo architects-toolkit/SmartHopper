@@ -65,6 +65,7 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 - **Bearer token optional.** If a token is configured, requests without `Authorization: Bearer ...` are rejected with HTTP 401.
 - **Read-only by default.** Tools that alter the canvas are hidden unless `ExposeMutatingTools` is enabled.
 - **Disabled tools are never exposed.** If `AITool.Enabled` is `false`, the tool is hidden from MCP regardless of the allow-list or mutating-tool policy.
+- **Tool surfaces are enforced.** Tools without `AIToolSurface.Mcp`, including WebChat control tools such as `plan_propose`, remain hidden even when named in an MCP allow-list.
 - **Allow-list overrides the mutating filter.** If `EnabledTools` is set, only those tools are exposed; this overrides `ExposeMutatingTools` but not the `Enabled` flag.
 - **No file-system or shell access.** MCP only exposes existing `IAIToolProvider` tools.
 - **No payload logging.** Requests are logged without GhJSON payload contents.
