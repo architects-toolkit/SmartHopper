@@ -48,7 +48,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         public IEnumerable<AITool> GetTools()
         {
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Stage Grasshopper wire removals, show the user an in-canvas visual review, and remove only accepted connections. Requires component GUIDs (use gh_get_selected or gh_get to find them first).",
                 category: "Components",
@@ -85,7 +85,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""connections""]
                 }",
                 execute: this.GhDisconnectToolAsync,
-                mutatesCanvas: true,
                 enabled: true,
                 tags: new[] { "canvas", "components", "mutating", "connections", "disconnect" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""successful"": { ""type"": ""array"", ""items"": { ""type"": ""object"" } }, ""failed"": { ""type"": ""array"", ""items"": { ""type"": ""object"" } }, ""successCount"": { ""type"": ""integer"" }, ""failCount"": { ""type"": ""integer"" } } }",
@@ -149,7 +148,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     proposals,
                     CanvasChangeKind.ConnectionRemoved);
                 var applyReview = reviewSession.Items.Count > 0 &&
-                    await CanvasChangeReviewService.ReviewAsync(reviewSession).ConfigureAwait(false);
+                    await CanvasChangeReviewService.ReviewAsync(reviewSession, toolCall.InvocationContext, toolCall.CancellationToken).ConfigureAwait(false);
                 var acceptedIndexes = applyReview
                     ? CanvasChangeReviewService.GetAcceptedConnectionProposalIndexes(reviewSession)
                     : new HashSet<int>();

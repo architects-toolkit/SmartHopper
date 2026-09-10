@@ -25,10 +25,7 @@ using System.Threading.Tasks;
 using GhJSON.Core;
 using GhJSON.Core.Serialization;
 using GhJSON.Grasshopper;
-using Grasshopper;
 using Newtonsoft.Json.Linq;
-using Rhino;
-using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -113,7 +110,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "canvas", "components", "mutating", "connect", "ai-generation" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""reasoning"": { ""type"": ""string"" }, ""suggestedConnections"": { ""type"": ""array"" }, ""connectionResult"": { ""type"": ""object"" } } }",
                 requiredCapabilities: AICapability.TextInput | AICapability.TextOutput,
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                surfaces: SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp);
         }
 
         /// <summary>
@@ -171,8 +169,28 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 Debug.WriteLine($"[gh_smart_connect] AI suggested {connectionsJson.Count} connection(s)");
 
-                // Step 3: Execute connections directly via ghjson-dotnet facade
-                var connectResult = await ExecuteConnectionsAsync(connectionsJson).ConfigureAwait(false);
+                var connectInteraction = new AIInteractionToolCall
+                {
+                    Id = Guid.NewGuid().ToString("N"),
+                    Name = "gh_connect",
+                    Arguments = new JObject { ["connections"] = connectionsJson },
+                    Agent = AIAgent.Assistant,
+                };
+                var connectCall = new AIToolCall
+                {
+                    Provider = toolCall.Provider,
+                    Model = toolCall.Model,
+                    Endpoint = "gh_connect",
+                    SkipMetricsValidation = true,
+                    ToolSurface = toolCall.ToolSurface,
+                    CancellationToken = toolCall.CancellationToken,
+                    InvocationContext = toolCall.InvocationContext.ForTool(connectInteraction.Id, "gh_connect"),
+                };
+                connectCall.FromToolCallInteraction(connectInteraction, toolCall.Provider, toolCall.Model);
+                var connectReturn = await AIToolManager.ExecuteTool(connectCall).ConfigureAwait(false);
+                var connectResult = connectReturn.Body?.Interactions
+                    .OfType<AIInteractionToolResult>()
+                    .LastOrDefault()?.Result;
 
                 // Build combined result
                 var toolResult = new JObject
@@ -326,134 +344,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 Debug.WriteLine($"[gh_smart_connect] Error parsing AI response: {ex.Message}");
                 return (null, null);
-            }
-        }
-
-        /// <summary>
-        /// Executes the suggested connections directly via the ghjson-dotnet facade.
-        /// Replicates the same logic as the gh_connect tool (CanvasProtection check,
-        /// GhJsonGrasshopper.Connect, solution recompute) without the tool-call indirection.
-        /// </summary>
-        /// <param name="connections">JArray of connection objects with sourceGuid, sourceParam, targetGuid, targetParam.</param>
-        /// <returns>A JObject with successful/failed arrays and counts, or null if no connections.</returns>
-        private static async Task<JObject> ExecuteConnectionsAsync(JArray connections)
-        {
-            if (connections == null || connections.Count == 0)
-            {
-                return null;
-            }
-
-            try
-            {
-                var connectTcs = new TaskCompletionSource<JObject>();
-                Rhino.RhinoApp.InvokeOnUiThread(() =>
-                {
-                    try
-                    {
-                        var doc = GhJsonGrasshopper.GetActiveDocument();
-                        if (doc == null)
-                        {
-                            Debug.WriteLine("[gh_smart_connect] No active Grasshopper document found");
-                            connectTcs.SetResult(null);
-                            return;
-                        }
-
-                        var successfulConnections = new List<JObject>();
-                        var failedConnections = new List<JObject>();
-                        var protectedGuids = CanvasProtection.GetProtectedInstanceGuids();
-
-                        foreach (var connSpec in connections)
-                        {
-                            var sourceGuidStr = connSpec["sourceGuid"]?.ToString();
-                            var targetGuidStr = connSpec["targetGuid"]?.ToString();
-                            var sourceParamName = connSpec["sourceParam"]?.ToString();
-                            var targetParamName = connSpec["targetParam"]?.ToString();
-
-                            if (string.IsNullOrEmpty(sourceGuidStr) || string.IsNullOrEmpty(targetGuidStr))
-                            {
-                                failedConnections.Add(new JObject
-                                {
-                                    ["error"] = "Missing sourceGuid or targetGuid",
-                                    ["spec"] = connSpec,
-                                });
-                                continue;
-                            }
-
-                            if (!Guid.TryParse(sourceGuidStr, out var sourceGuid) ||
-                                !Guid.TryParse(targetGuidStr, out var targetGuid))
-                            {
-                                failedConnections.Add(new JObject
-                                {
-                                    ["error"] = "Invalid GUID format",
-                                    ["sourceGuid"] = sourceGuidStr,
-                                    ["targetGuid"] = targetGuidStr,
-                                });
-                                continue;
-                            }
-
-                            if (protectedGuids.Contains(sourceGuid) || protectedGuids.Contains(targetGuid))
-                            {
-                                failedConnections.Add(new JObject
-                                {
-                                    ["error"] = "Connection rejected because it involves a protected component.",
-                                    ["sourceGuid"] = sourceGuidStr,
-                                    ["targetGuid"] = targetGuidStr,
-                                });
-                                continue;
-                            }
-
-                            bool success = GhJsonGrasshopper.Connect(sourceGuid, targetGuid, sourceParamName, targetParamName);
-
-                            if (success)
-                            {
-                                successfulConnections.Add(new JObject
-                                {
-                                    ["sourceGuid"] = sourceGuidStr,
-                                    ["targetGuid"] = targetGuidStr,
-                                    ["sourceParam"] = sourceParamName ?? "(first output)",
-                                    ["targetParam"] = targetParamName ?? "(first input)",
-                                    ["status"] = "connected",
-                                });
-                            }
-                            else
-                            {
-                                failedConnections.Add(new JObject
-                                {
-                                    ["error"] = "Connection failed - check component GUIDs and parameter names",
-                                    ["sourceGuid"] = sourceGuidStr,
-                                    ["targetGuid"] = targetGuidStr,
-                                });
-                            }
-                        }
-
-                        if (successfulConnections.Count > 0)
-                        {
-                            doc.NewSolution(false);
-                            Instances.RedrawCanvas();
-                        }
-
-                        var result = new JObject
-                        {
-                            ["successful"] = JArray.FromObject(successfulConnections),
-                            ["failed"] = JArray.FromObject(failedConnections),
-                            ["successCount"] = successfulConnections.Count,
-                            ["failCount"] = failedConnections.Count,
-                        };
-
-                        connectTcs.SetResult(result);
-                    }
-                    catch (Exception ex)
-                    {
-                        connectTcs.SetException(ex);
-                    }
-                });
-
-                return await connectTcs.Task.ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[gh_smart_connect] Error executing connections: {ex.Message}");
-                return null;
             }
         }
     }

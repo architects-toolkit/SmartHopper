@@ -29,6 +29,7 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.Consent;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.Diagnostics;
@@ -257,10 +258,29 @@ namespace SmartHopper.Components.Grasshopper
                         var removedGuids = ExtractRemovedGuids(baseDoc, resultJson);
                         if (removedGuids.Count > 0)
                         {
-                            var deleteResult = GhJsonGrasshopper.Delete(removedGuids);
-                            if (!deleteResult.Success)
+                            var removeInteraction = new AIInteractionToolCall
                             {
-                                this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Failed to delete some removed components: {string.Join(", ", deleteResult.Failed)}");
+                                Name = "gh_remove",
+                                Arguments = new JObject
+                                {
+                                    ["instanceGuids"] = JArray.FromObject(removedGuids.Select(guid => guid.ToString())),
+                                },
+                                Agent = AIAgent.Assistant,
+                            };
+                            var removeCall = this.CreateComponentMutationCall(removeInteraction);
+                            var removeResult = await removeCall.Exec(token).ConfigureAwait(false);
+                            if (!removeResult.Success)
+                            {
+                                this.CollectMessage(SHRuntimeMessageSeverity.Warning, "Reviewed component removals did not complete successfully.");
+                                return;
+                            }
+
+                            var removalPayload = ToolCallResult.FromAIReturn(removeResult);
+                            var removedCount = removalPayload?["removedGuids"]?.Count() ?? 0;
+                            if (removedCount != removedGuids.Count)
+                            {
+                                this.CollectMessage(SHRuntimeMessageSeverity.Info, "Patch application stopped because not all removals were accepted.");
+                                return;
                             }
                         }
                     }
@@ -283,12 +303,8 @@ namespace SmartHopper.Components.Grasshopper
                             Agent = AIAgent.Assistant,
                         };
 
-                        var putToolCall = new AIToolCall();
-                        putToolCall.Endpoint = "gh_put";
-                        putToolCall.FromToolCallInteraction(putToolCallInteraction);
-                        putToolCall.SkipMetricsValidation = true;
-
-                        var putAiResult = await putToolCall.Exec().ConfigureAwait(false);
+                        var putToolCall = this.CreateComponentMutationCall(putToolCallInteraction);
+                        var putAiResult = await putToolCall.Exec(token).ConfigureAwait(false);
 
                         if (!putAiResult.Success)
                         {
@@ -305,6 +321,26 @@ namespace SmartHopper.Components.Grasshopper
                     Debug.WriteLine($"[GhPatchApplyToCanvas] Error: {ex.Message}");
                     this.error = ex.Message;
                 }
+            }
+
+            private AIToolCall CreateComponentMutationCall(AIInteractionToolCall interaction)
+            {
+                var call = new AIToolCall
+                {
+                    Endpoint = interaction.Name,
+                    SkipMetricsValidation = true,
+                    ToolSurface = SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct,
+                    InvocationContext = new MutationInvocationContext
+                    {
+                        Source = MutationInvocationSource.GrasshopperComponent,
+                        OwnerId = this.Parent.InstanceGuid.ToString(),
+                        ToolCallId = interaction.Id,
+                        ToolName = interaction.Name,
+                        Surface = SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct,
+                    },
+                };
+                call.FromToolCallInteraction(interaction);
+                return call;
             }
 
             /// <inheritdoc/>

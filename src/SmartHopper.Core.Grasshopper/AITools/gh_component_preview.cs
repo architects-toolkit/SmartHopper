@@ -46,7 +46,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <returns></returns>
         public IEnumerable<AITool> GetTools()
         {
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Show or hide component geometry preview in the Rhino viewport. Hiding preview improves performance for complex definitions. Only affects components that generate geometry. Requires component GUIDs from gh_get.",
                 category: "Components",
@@ -66,13 +66,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [ ""guids"", ""previewOn"" ]
                 }",
                 execute: this.GhTogglePreviewAsync,
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "preview", "viewport" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
 
             // Specialized wrapper: gh_hide_preview_selected
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: "gh_component_hide_preview_selected",
                 description: "Hide geometry preview for currently selected components. Quick way to hide preview for selected items without needing to specify GUIDs manually. Improves performance for complex definitions.",
                 category: "Components",
@@ -81,13 +80,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""properties"": {}
                 }",
                 execute: (toolCall) => this.GhTogglePreviewSelectedAsync(toolCall, previewOn: false),
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "preview", "viewport" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
 
             // Specialized wrapper: gh_show_preview_selected
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: "gh_component_show_preview_selected",
                 description: "Show geometry preview for currently selected components. Quick way to enable preview for selected items without needing to specify GUIDs manually.",
                 category: "Components",
@@ -96,7 +94,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""properties"": {}
                 }",
                 execute: (toolCall) => this.GhTogglePreviewSelectedAsync(toolCall, previewOn: true),
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "preview", "viewport" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
@@ -119,22 +116,27 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var guids = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
                 var previewOn = args["previewOn"]?.ToObject<bool>() ?? false;
                 Debug.WriteLine($"[GhObjTools] GhTogglePreviewAsync: previewOn={previewOn}, guids count={guids.Count}");
+                var requested = guids
+                    .Select(value => Guid.TryParse(value, out var guid) ? (Guid?)guid : null)
+                    .OfType<Guid>()
+                    .ToList();
+                var (allowed, _) = CanvasProtection.FilterProtectedGuids(requested);
+                var review = CanvasChangeReviewService.CreateComponentStateSession(
+                    toolInfo.Name ?? this.toolName,
+                    allowed,
+                    previewOn ? "Enable viewport preview" : "Disable viewport preview");
+                var approved = await CanvasChangeReviewService.ReviewAsync(
+                    review,
+                    toolCall.InvocationContext,
+                    toolCall.CancellationToken).ConfigureAwait(false);
+                var accepted = approved
+                    ? CanvasChangeReviewService.GetAcceptedComponentGuids(review)
+                    : new HashSet<Guid>();
                 var updated = new List<string>();
-
-                foreach (var s in guids)
+                foreach (var guid in allowed.Where(accepted.Contains))
                 {
-                    Debug.WriteLine($"[GhObjTools] Processing GUID string: {s}");
-                    if (Guid.TryParse(s, out var guid))
-                    {
-                        Debug.WriteLine($"[GhObjTools] Parsed GUID: {guid}");
-                        ComponentManipulation.SetComponentPreview(guid, previewOn);
-                        Debug.WriteLine($"[GhObjTools] Set preview to {previewOn} for GUID: {guid}");
-                        updated.Add(guid.ToString());
-                    }
-                    else
-                    {
-                        Debug.WriteLine($"[GhObjTools] Invalid GUID: {s}");
-                    }
+                    ComponentManipulation.SetComponentPreview(guid, previewOn);
+                    updated.Add(guid.ToString());
                 }
 
                 var toolResult = new JObject();
@@ -181,6 +183,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 Provider = toolCall.Provider,
                 Model = toolCall.Model,
+                ToolSurface = toolCall.ToolSurface,
+                CancellationToken = toolCall.CancellationToken,
+                InvocationContext = toolCall.InvocationContext.ForTool(toolInfo.Id, toolInfo.Name),
                 Body = AIBodyBuilder.Create()
                     .AddToolCall(
                         id: toolInfo.Id,

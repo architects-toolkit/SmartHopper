@@ -46,7 +46,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <returns>Collection of AI tools.</returns>
         public IEnumerable<AITool> GetTools()
         {
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Stage component removals by instance GUID, show the user an in-canvas visual review, and remove only accepted objects. The operation records an undo event so the user can reverse it with Ctrl+Z. Use GUIDs from gh_get or similar tools.",
                 category: "Components",
@@ -62,7 +62,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""instanceGuids""]
                 }",
                 execute: this.GhRemoveToolAsync,
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "delete" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""removedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""rejectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""notFoundGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } } } }",
                 annotations: new AIToolAnnotations(destructiveHint: true));
@@ -110,7 +109,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var reviewSession = CanvasChangeReviewService.CreateRemovalSession(this.toolName, allowedGuids);
                 var applyReview = reviewSession.Items.Count > 0 &&
-                    await CanvasChangeReviewService.ReviewAsync(reviewSession).ConfigureAwait(false);
+                    await CanvasChangeReviewService.ReviewAsync(reviewSession, toolCall.InvocationContext, toolCall.CancellationToken).ConfigureAwait(false);
                 IReadOnlyList<Guid> acceptedGuids = applyReview
                     ? CanvasChangeReviewService.GetAcceptedRemovalGuids(reviewSession)
                     : Array.Empty<Guid>();

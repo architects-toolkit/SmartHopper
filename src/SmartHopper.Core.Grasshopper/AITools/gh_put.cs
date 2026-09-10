@@ -56,7 +56,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <returns></returns>
         public IEnumerable<AITool> GetTools()
         {
-            yield return new AITool(
+            yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Stage components from GhJSON, show the user an in-canvas visual diff, and place only accepted changes. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. Component-specific state (e.g. Number Slider values under componentState.extensions['gh.numberslider'].value using the format 'current<min~max>', Panel text under componentState.extensions['gh.panel'].text) is preserved. Example: gh_put({ ghjson: '...' }) or gh_put({ ghjson: 'C:/path/to/file.ghjson' }). See also: gh_get, script_generate_and_place_on_canvas.",
                 category: "Components",
@@ -70,7 +70,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""ghjson""]
                 }",
                 execute: this.GhPutToolAsync,
-                mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "ghjson" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""components"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Names of the placed or replaced components."" }, ""instanceGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the placed or replaced components."" }, ""acceptedChanges"": { ""type"": ""integer"" }, ""rejectedChanges"": { ""type"": ""integer"" }, ""analysis"": { ""type"": [""string"", ""null""], ""description"": ""Validation, review, error, or warning summary. Null when nothing notable happened."" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
@@ -172,7 +171,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var changePlan = GhPutChangePlan.Create(document, existingDocument);
                 if (changePlan.Session.Items.Count > 0)
                 {
-                    if (!await CanvasChangeReviewService.ReviewAsync(changePlan.Session).ConfigureAwait(false))
+                    if (!await CanvasChangeReviewService.ReviewAsync(changePlan.Session, toolCall.InvocationContext, toolCall.CancellationToken).ConfigureAwait(false))
                     {
                         return CreateNoPlacementResult(output, toolCall, "The user cancelled the staged canvas changes.", changePlan.Session.Items.Count);
                     }

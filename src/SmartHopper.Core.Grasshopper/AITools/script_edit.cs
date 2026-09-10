@@ -168,7 +168,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: true,
                 tags: new[] { "scripting", "script", "canvas", "mutating", "ghjson" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON of the updated component."" }, ""instanceGuid"": { ""type"": ""string"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                surfaces: SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp);
         }
 
         private async Task<AIReturn> ExecuteAsync(AIToolCall toolCall)
@@ -626,6 +627,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     Model = toolCall.Model,
                     Endpoint = "gh_put",
                     SkipMetricsValidation = true,
+                    ToolSurface = toolCall.ToolSurface,
+                    CancellationToken = toolCall.CancellationToken,
+                    InvocationContext = toolCall.InvocationContext.ForTool(ghPutToolCallInteraction.Id, "gh_put"),
                 };
                 ghPutToolCall.Body = AIBodyBuilder.Create()
                     .Add(ghPutToolCallInteraction)
