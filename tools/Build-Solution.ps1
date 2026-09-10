@@ -133,9 +133,10 @@ if ($OutErrors -and $OutWarnings) {
 } elseif ($OutWarnings) {
     $dotnetBuildArgs += "-clp:WarningsOnly;Summary"
 } else {
-    # Quiet verbosity hides warnings and informational output; Summary keeps the
-    # final build result block. Note: MSBuild always prints errors if they occur.
-    $dotnetBuildArgs += "-v:q", "-clp:Summary"
+    # ErrorsOnly keeps the build output readable (the solution has thousands of
+    # analyzer/style warnings) while ensuring compile errors are always visible.
+    # Summary keeps the final build result block.
+    $dotnetBuildArgs += "-clp:ErrorsOnly;Summary"
 }
 & dotnet build @dotnetBuildArgs
 if ($LASTEXITCODE -ne 0) {
