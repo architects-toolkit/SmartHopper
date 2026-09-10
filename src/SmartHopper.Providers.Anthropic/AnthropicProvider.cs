@@ -704,7 +704,7 @@ namespace SmartHopper.Providers.Anthropic
             {
                 try
                 {
-                    var toolsOpenAI = this.GetFormattedTools(toolFilter);
+                    var toolsOpenAI = this.GetFormattedTools(toolFilter, request.ToolSurface);
                     if (toolsOpenAI != null && toolsOpenAI.Count > 0)
                     {
                         var toolsAnthropic = new JArray();
