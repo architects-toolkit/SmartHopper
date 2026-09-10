@@ -568,3 +568,38 @@ hr {
 #scroll-bottom-btn.hidden {
     display: none !important;
 }
+
+.plan-consent-card {
+    margin: 12px;
+    padding: 16px;
+    border: 1px solid #8b5cf6;
+    border-radius: 8px;
+    background: rgba(139, 92, 246, 0.08);
+}
+
+.plan-consent-card h3 {
+    margin: 0 0 8px;
+}
+
+.plan-consent-card ol {
+    padding-left: 24px;
+}
+
+.plan-consent-card code {
+    color: #8b5cf6;
+}
+
+.plan-consent-note {
+    font-size: 0.9em;
+    opacity: 0.75;
+}
+
+.plan-consent-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.plan-consent-card.resolved {
+    opacity: 0.7;
+}

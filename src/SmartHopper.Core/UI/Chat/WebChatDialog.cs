@@ -144,9 +144,6 @@ namespace SmartHopper.Core.UI.Chat
                     this.ShowInTaskbar = false;
                 }
 
-                // Create session with attached observer from the start
-                this._currentSession = new ConversationSession(request, new WebChatObserver(this), generateGreeting: this._generateGreeting);
-
                 // Window basics
                 this.ClientSize = new Size(720, 640);
                 this.MinimumSize = new Size(560, 420);
@@ -157,6 +154,13 @@ namespace SmartHopper.Core.UI.Chat
                 this._webView.DocumentLoaded += this.WebView_DocumentLoaded;
                 this._webView.DocumentLoading += this.WebView_DocumentLoading;
                 this.Content = this._webView;
+
+                // Create the session after the WebView so its consent presenter can render plan cards.
+                this._currentSession = new ConversationSession(
+                    request,
+                    new WebChatObserver(this),
+                    generateGreeting: this._generateGreeting,
+                    consentPresenter: new WebChatPlanConsentPresenter(this));
 
                 // If the user drags/resizes the dialog while we are rendering/upserting messages,
                 // defer DOM work to keep Rhino/Eto responsive.
@@ -1249,6 +1253,15 @@ namespace SmartHopper.Core.UI.Chat
                                         DebugLog($"[WebChatDialog] Deferred SendMessage error: {ex.Message}");
                                     }
                                 });
+                                break;
+                            }
+
+                        case "consent":
+                            {
+                                var requestId = query.TryGetValue("id", out var id) ? id : string.Empty;
+                                var approved = query.TryGetValue("decision", out var decision) &&
+                                    string.Equals(decision, "approve", StringComparison.OrdinalIgnoreCase);
+                                Application.Instance?.AsyncInvoke(() => this.ResolvePlanConsent(requestId, approved));
                                 break;
                             }
 

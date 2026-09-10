@@ -1256,3 +1256,85 @@ document.addEventListener('copy', function(e) {
       e.preventDefault();
     }
   });
+
+function showPlanConsent(plan) {
+    const container = document.getElementById('chat-container');
+    if (!container || !plan || !plan.id) return;
+    const existing = Array.from(document.querySelectorAll('.plan-consent-card'))
+        .find(node => node.dataset.consentId === plan.id);
+    if (existing) return;
+
+    const card = document.createElement('section');
+    card.className = 'plan-consent-card';
+    card.dataset.consentId = plan.id;
+
+    const title = document.createElement('h3');
+    title.textContent = plan.goal || 'Proposed plan';
+    card.appendChild(title);
+
+    const summary = document.createElement('p');
+    summary.textContent = plan.summary || '';
+    card.appendChild(summary);
+
+    const list = document.createElement('ol');
+    (plan.steps || []).forEach(step => {
+        const item = document.createElement('li');
+        item.textContent = step.description || step.id || 'Step';
+        if (step.tool) {
+            const tool = document.createElement('code');
+            tool.textContent = ` ${step.tool}${step.mutatesCanvas ? ' (canvas change)' : ''}`;
+            item.appendChild(tool);
+        }
+        list.appendChild(item);
+    });
+    card.appendChild(list);
+
+    const appendDetails = (label, values) => {
+        if (!values || values.length === 0) return;
+        const heading = document.createElement('strong');
+        heading.textContent = label;
+        card.appendChild(heading);
+        const details = document.createElement('ul');
+        values.forEach(value => {
+            const item = document.createElement('li');
+            item.textContent = value;
+            details.appendChild(item);
+        });
+        card.appendChild(details);
+    };
+    appendDetails('Assumptions', plan.assumptions);
+    appendDetails('Success criteria', plan.successCriteria);
+
+    const note = document.createElement('p');
+    note.className = 'plan-consent-note';
+    note.textContent = 'Approving this approach does not approve canvas changes. Each concrete change receives a graphical review.';
+    card.appendChild(note);
+
+    const actions = document.createElement('div');
+    actions.className = 'plan-consent-actions';
+    const reject = document.createElement('button');
+    reject.type = 'button';
+    reject.textContent = 'Reject';
+    reject.addEventListener('click', () => {
+        window.location.href = `sh://event?type=consent&id=${encodeURIComponent(plan.id)}&decision=reject`;
+    });
+    const approve = document.createElement('button');
+    approve.type = 'button';
+    approve.textContent = 'Approve plan';
+    approve.addEventListener('click', () => {
+        window.location.href = `sh://event?type=consent&id=${encodeURIComponent(plan.id)}&decision=approve`;
+    });
+    actions.appendChild(reject);
+    actions.appendChild(approve);
+    card.appendChild(actions);
+    insertAboveThinkingIfPresent(container, card);
+    scrollToBottom();
+}
+
+function resolvePlanConsent(id) {
+    const card = Array.from(document.querySelectorAll('.plan-consent-card'))
+        .find(node => node.dataset.consentId === id);
+    if (!card) return;
+    card.classList.add('resolved');
+    card.querySelectorAll('button').forEach(button => { button.disabled = true; });
+}
