@@ -208,3 +208,58 @@ $pwd = ConvertTo-SecureString "your-password" -AsPlainText -Force
 **Note:** If you don't provide `-PfxPassword`, the signing script will prompt interactively when needed.
 
 **Environment requirement:** Run `tools/Build-Solution.ps1` (and the underlying signing scripts) from **Developer PowerShell for Visual Studio 2022** or another VS Developer shell. This ensures `sn.exe` and Windows SDK tools are on `PATH`. Running from a plain PowerShell may fail with errors like `sn.exe not found`.
+
+### Troubleshooting
+
+#### PowerShell execution policy blocks `Build-Solution.ps1`
+
+If you see an error such as:
+
+```text
+.\tools\Build-Solution.ps1 : Cannot load ... because running scripts is disabled on this system.
+```
+
+PowerShell's execution policy is preventing the script from running. Choose one of the following fixes:
+
+1. **Recommended: allow local scripts for your user**
+
+   Open **Developer PowerShell for Visual Studio 2022 as Administrator** and run:
+
+   ```powershell
+   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+   ```
+
+   This allows locally created scripts to run while still requiring downloaded scripts to be signed or unblocked.
+
+2. **Unblock the script files**
+
+   If the files came from a download or a zip archive, Windows may have marked them as blocked. In a PowerShell prompt from the repository root, run:
+
+   ```powershell
+   Get-ChildItem -Path tools\*.ps1 | Unblock-File
+   ```
+
+   Then retry `Build-Solution.ps1`.
+
+3. **Run a single invocation with the policy bypassed**
+
+   If you cannot or do not want to change the persistent execution policy, run the script explicitly with a bypass for that call only:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\tools\Build-Solution.ps1 -Testing
+   ```
+
+   This does not change your system settings.
+
+4. **Set policy for the current process only**
+
+   For the current shell session only, run:
+
+   ```powershell
+   Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+   .\tools\Build-Solution.ps1 -Testing
+   ```
+
+   The policy reverts when the shell closes.
+
+**Security note:** Do not set `Unrestricted` at the `LocalMachine` scope unnecessarily. Prefer `RemoteSigned` at the `CurrentUser` scope, or use a per-process/per-invocation bypass.
