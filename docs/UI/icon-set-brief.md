@@ -1,3 +1,5 @@
+<!-- docs-validation: ignore -->
+
 # SmartHopper Icon Set — Design Brief
 
 Brief for generating a new, coherent icon set (e.g. with an AI icon-set generator such as mew.design) covering the Grasshopper component icons and app identity assets of SmartHopper.

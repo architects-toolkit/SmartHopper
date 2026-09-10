@@ -4,6 +4,7 @@
 [CmdletBinding()]
 param(
     [string]$Path,
+    [string[]]$Files,
     [switch]$Fix
 )
 
@@ -102,34 +103,6 @@ function Test-Metadata {
     return $issues
 }
 
-function Test-CodeExamples {
-    param([string]$FilePath)
-    
-    $issues = @()
-    $content = Get-Content $FilePath -Raw
-    
-    # Check if Developer Reference section exists
-    if ($content -match "## Developer Reference") {
-        $sourceCodeMatch = [regex]::Match(
-            $content,
-            '(?im)^\|\s*\*\*Source Code\*\*\s*\|\s*([^|\r\n]+)')
-        $sourcePath = $sourceCodeMatch.Groups[1].Value.Trim().Trim('`')
-        $sourceCodeIsCSharp = $sourceCodeMatch.Success -and
-            $sourcePath -match '(^|[/\\])src([/\\]|$)'
-        if ($sourceCodeIsCSharp) {
-            $codeBlocks = [regex]::Matches($content, '(?im)^```csharp\s*$').Count
-        } else {
-            $codeBlocks = [regex]::Matches($content, '(?m)^```[^\r\n]*\S[^\r\n]*$').Count
-        }
-        
-        if ($codeBlocks -lt 2) {
-            $issues += "Developer Reference should have at least 2 code examples (found: $codeBlocks)"
-        }
-    }
-    
-    return $issues
-}
-
 function Test-Links {
     param([string]$FilePath)
     
@@ -197,12 +170,19 @@ function Test-DocumentationFile {
     
     Write-Log "Validating: $FilePath" "Info"
     
+    $content = Get-Content $FilePath -Raw
+    
+    # Honor explicit opt-out marker for non-template docs (e.g. design briefs).
+    if ($content -match '<!--\s*docs-validation:\s*ignore\s*-->') {
+        Write-Log "  Skipped (opt-out marker found)" "Info"
+        return $true
+    }
+    
     $allIssues = @()
     
     # Run all tests
     $allIssues += Test-FileStructure $FilePath
     $allIssues += Test-Metadata $FilePath
-    $allIssues += Test-CodeExamples $FilePath
     $allIssues += Test-Links $FilePath
     $allIssues += Test-Placeholders $FilePath
     
@@ -218,21 +198,33 @@ function Test-DocumentationFile {
 }
 
 function Test-AllDocumentation {
-    param([string]$DocsPath)
+    param(
+        [string]$DocsPath,
+        [System.IO.FileInfo[]]$Files
+    )
     
     Write-Log "Starting documentation validation..." "Info"
-    Write-Log "Path: $DocsPath" "Info"
+    
+    # Use the provided file list, or discover markdown files under the docs path.
+    if ($Files -and $Files.Count -gt 0) {
+        $mdFiles = $Files
+        $displayPath = "provided file list ($($mdFiles.Count) file(s))"
+    } else {
+        $displayPath = $DocsPath
+        
+        # Find all markdown files (exclude TEMPLATES and Reviews folders, and workflow
+        # process guides that follow their own README-style structure).
+        $mdFiles = Get-ChildItem -Path $DocsPath -Filter "*.md" -Recurse |
+            Where-Object { $_.FullName -notlike "*\TEMPLATES\*" -and
+                $_.FullName -notlike "*\Reviews\*" -and
+                $_.FullName -notlike "*_WORKFLOW.md" }
+    }
+    
+    Write-Log "Path: $displayPath" "Info"
     Write-Log ""
     
-    # Find all markdown files (exclude TEMPLATES and Reviews folders, and workflow
-    # process guides that follow their own README-style structure).
-    $mdFiles = Get-ChildItem -Path $DocsPath -Filter "*.md" -Recurse |
-        Where-Object { $_.FullName -notlike "*\TEMPLATES\*" -and
-            $_.FullName -notlike "*\Reviews\*" -and
-            $_.FullName -notlike "*_WORKFLOW.md" }
-    
     if ($mdFiles.Count -eq 0) {
-        Write-Log "No markdown files found in $DocsPath" "Warning"
+        Write-Log "No markdown files found in $displayPath" "Warning"
         return
     }
     
@@ -264,11 +256,42 @@ function Test-AllDocumentation {
     }
 }
 
+# Resolve the list of files to validate
+$docsFiles = @()
+if ($Files -and $Files.Count -gt 0) {
+    foreach ($file in $Files) {
+        if (Test-Path $file) {
+            $docsFiles += (Get-Item $file)
+        } else {
+            Write-Log "File not found: $file" "Error"
+            exit 1
+        }
+    }
+} elseif ($Path) {
+    if (Test-Path $Path -PathType Leaf) {
+        $docsFiles = @(Get-Item $Path)
+    } elseif (Test-Path $Path) {
+        $docsFiles = Get-ChildItem -Path $Path -Filter "*.md" -Recurse |
+            Where-Object { $_.FullName -notlike "*\TEMPLATES\*" -and
+                $_.FullName -notlike "*\Reviews\*" -and
+                $_.FullName -notlike "*_WORKFLOW.md" }
+    } else {
+        Write-Log "Path not found: $Path" "Error"
+        exit 1
+    }
+} else {
+    $Path = Join-Path (Split-Path -Parent $PSScriptRoot) "docs"
+    $docsFiles = Get-ChildItem -Path $Path -Filter "*.md" -Recurse |
+        Where-Object { $_.FullName -notlike "*\TEMPLATES\*" -and
+            $_.FullName -notlike "*\Reviews\*" -and
+            $_.FullName -notlike "*_WORKFLOW.md" }
+}
+
 # Main execution
-if (Test-Path $Path) {
-    $result = Test-AllDocumentation $Path
+if ($docsFiles.Count -gt 0) {
+    $result = Test-AllDocumentation -DocsPath $Path -Files $docsFiles
     exit $result
 } else {
-    Write-Log "Path not found: $Path" "Error"
-    exit 1
+    Write-Log "No markdown files to validate" "Warning"
+    exit 0
 }

@@ -70,8 +70,25 @@ jobs:
           Write-Host "Running documentation validation..."
           Write-Host ""
 
-          # Run the validation script and capture output
-          $output = & .\tools\Validate-Documentation.ps1 2>&1
+          # Scope validation to docs changed in this PR.
+          # If no docs .md files changed (e.g. only the validation script itself changed),
+          # fall back to the full docs directory as a smoke test.
+          $base = "${{ github.event.pull_request.base.sha }}"
+          $changed = git diff --name-only --diff-filter=AM "${base}..HEAD" |
+            Where-Object { $_ -like 'docs/**/*.md' } |
+            ForEach-Object { Resolve-Path $_ | Select-Object -ExpandProperty Path }
+
+          if ($changed) {
+            Write-Host "Validating $($changed.Count) changed documentation file(s):"
+            $changed | ForEach-Object { Write-Host "  $_" }
+            Write-Host ""
+            $output = & .\tools\Validate-Documentation.ps1 -Files $changed 2>&1
+          } else {
+            Write-Host "No docs .md files changed; running full docs smoke test."
+            Write-Host ""
+            $output = & .\tools\Validate-Documentation.ps1 2>&1
+          }
+
           $exitCode = $LASTEXITCODE
 
           # Write output to console
