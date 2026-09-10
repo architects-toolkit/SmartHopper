@@ -78,7 +78,7 @@ This is the root documentation hub for SmartHopper. It organizes all guides, ref
 
 #### UI
 
-- [Chat UI](UI/Chat/index.md) -- web chat interface and host bridge
+- [User Interface](UI/index.md) -- chat UI, canvas overlays, and AI change review
 
 #### Usage Guides
 

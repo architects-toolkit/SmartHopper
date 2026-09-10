@@ -50,7 +50,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Clear all components from the Grasshopper canvas. Optionally keep locked components. Protected components (and their direct neighbors) are always preserved. This is a destructive operation - use with caution. Supports undo (Ctrl+Z).",
+                description: "Stage removal of all components from the Grasshopper canvas and let the user visually review and select removals before applying them. Optionally keep locked components. Protected components (and their direct neighbors) are always preserved. Supports undo (Ctrl+Z).",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -65,11 +65,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.ClearCanvasAsync,
                 mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "delete", "destructive" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""deletedCount"": { ""type"": ""integer"" }, ""deleted"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""skippedLockedCount"": { ""type"": ""integer"" }, ""protectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""message"": { ""type"": ""string"" } } }",
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""deletedCount"": { ""type"": ""integer"" }, ""deleted"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""rejectedCount"": { ""type"": ""integer"" }, ""skippedLockedCount"": { ""type"": ""integer"" }, ""protectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""message"": { ""type"": ""string"" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: true));
         }
 
-        private Task<AIReturn> ClearCanvasAsync(AIToolCall toolCall)
+        private async Task<AIReturn> ClearCanvasAsync(AIToolCall toolCall)
         {
             var output = new AIReturn { Request = toolCall };
 
@@ -85,7 +85,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (doc == null)
                 {
                     output.CreateError("No active Grasshopper document found.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 // Collect all canvas object GUIDs
@@ -136,17 +136,26 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         .Build();
 
                     output.CreateSuccess(body, toolCall);
-                    return Task.FromResult(output);
+                    return output;
                 }
+
+                var reviewSession = CanvasChangeReviewService.CreateRemovalSession(this.toolName, allowedGuids);
+                var applyReview = reviewSession.Items.Count > 0 &&
+                    await CanvasChangeReviewService.ReviewAsync(reviewSession).ConfigureAwait(false);
+                IReadOnlyList<Guid> acceptedGuids = applyReview
+                    ? CanvasChangeReviewService.GetAcceptedRemovalGuids(reviewSession)
+                    : Array.Empty<Guid>();
+                var rejectedCount = reviewSession.Items.Count - acceptedGuids.Count;
 
                 // Delete via GhJsonGrasshopper (handles UI thread + undo)
                 var deleteOptions = new DeleteOptions { Redraw = true };
-                var deleteResult = GhJsonGrasshopper.Delete(allowedGuids, deleteOptions);
+                var deleteResult = GhJsonGrasshopper.Delete(acceptedGuids, deleteOptions);
 
                 var result = new JObject
                 {
                     ["deletedCount"] = deleteResult.DeletedCount,
                     ["deleted"] = JArray.FromObject(deleteResult.Deleted.Select(g => g.ToString())),
+                    ["rejectedCount"] = rejectedCount,
                     ["skippedLockedCount"] = skippedLockedCount,
                     ["protectedGuids"] = JArray.FromObject(protectedGuids.Select(g => g.ToString())),
                 };
@@ -162,20 +171,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 result["message"] = deleteResult.DeletedCount > 0
-                    ? $"Successfully cleared canvas. Deleted {deleteResult.DeletedCount} component(s)."
-                    : "No components were deleted.";
+                    ? $"Deleted {deleteResult.DeletedCount} component(s); the user rejected {rejectedCount} staged removal(s)."
+                    : rejectedCount > 0
+                        ? "The user rejected all staged removals."
+                        : "No components were deleted.";
 
                 var outBody = AIBodyBuilder.Create()
                     .AddToolResult(result)
                     .Build();
 
                 output.CreateSuccess(outBody, toolCall);
-                return Task.FromResult(output);
+                return output;
             }
             catch (Exception ex)
             {
                 output.CreateError($"Error clearing canvas: {ex.Message}");
-                return Task.FromResult(output);
+                return output;
             }
         }
     }

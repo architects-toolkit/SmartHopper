@@ -4,7 +4,66 @@
 
 Brief for generating a new, coherent icon set (e.g. with an AI icon-set generator such as mew.design) covering the Grasshopper component icons and app identity assets of SmartHopper.
 
-## 1. Technical constraints
+---
+
+## Metadata
+
+| Property | Value |
+| --- | --- |
+| **Source Code** | `src/SmartHopper.Components/Resources/` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-09-07 |
+| **Documentation Maintainer** | Devin AI |
+
+---
+
+## Why Read This?
+
+Component icons are the primary visual language of SmartHopper on the Grasshopper canvas. This brief defines the badge grammar, color system, and per-icon design specs so a regenerated icon set stays coherent.
+
+**You should read this if you:**
+
+- Are generating or redrawing component or brand icons
+- Need to understand the badge grammar (direction, source, and AI markers)
+- Are adding a new component and need a consistent icon spec
+
+---
+
+## End-User Guide
+
+### What users see
+
+Every component icon is a main central glyph plus one or two small corner badges that encode semantics: direction (data into AI vs out of AI), source/type, and whether the component calls an AI provider. The numbered sections below describe this grammar in detail.
+
+---
+
+## Developer Reference
+
+### Icon assets and assignment
+
+Component icons are 24×24 PNGs embedded as `Bitmap` resources and exposed through each component's `Icon` override:
+
+```csharp
+// Each component surfaces its icon from embedded resources.
+protected override Bitmap Icon => Properties.Resources.aichat;
+```
+
+The Grasshopper category tab icon is registered once at assembly load:
+
+```csharp
+// SmartHopperAssemblyPriority registers the category identity.
+Instances.ComponentServer.AddCategoryIcon("SmartHopper", Resources.smarthopper);
+```
+
+---
+
+## Architecture & Design
+
+### Design brief
+
+The numbered sections below are the full generation brief: technical constraints, the current icon system, the proposed badge grammar, the per-icon inventory, and the color system.
+
+### 1. Technical constraints
 
 | Constraint | Value | Why |
 | --- | --- | --- |
@@ -15,7 +74,7 @@ Brief for generating a new, coherent icon set (e.g. with an AI icon-set generato
 | Theme | Must work on light **and** dark Grasshopper themes | Avoid pure black or pure white-only silhouettes; prefer mid-tone fills + outlines |
 | Legibility rule | Max **2 badges** per icon, badges ≥ 8 px | At 24 px, anything finer turns to noise |
 
-## 2. Current system
+### 2. Current system
 
 Every component icon is a **main central glyph** plus **one or two small badges** at the bottom corners that encode semantics. The codebase already reveals a consistent grammar:
 
@@ -25,7 +84,7 @@ Every component icon is a **main central glyph** plus **one or two small badges*
 - GhJSON icons = document glyph + operation badge (get / put / merge / diff / patch).
 - "Side" icons (settings, context, models, metrics) have no direction badge.
 
-## 3. Proposed badge grammar
+### 3. Proposed badge grammar
 
 Fixed positions so badges are predictable:
 
@@ -40,7 +99,7 @@ Fixed positions so badges are predictable:
 
 Recommended: generate the set **modularly** — first ~15 core glyphs and ~12 badges as standalone assets, then ask the generator to compose each icon. That guarantees consistency that one-shot generation won't.
 
-## 4. Similarity groups found in the codebase
+### 4. Similarity groups found in the codebase
 
 1. **Direction pairs** — the largest pattern: `toai-*` (B. Input) vs `aito*` (C. Output). Same type glyph, mirrored direction badge.
 2. **Data-type family** — text, text list, boolean, integer, number, JSON, list, image, audio, speech, file, web, GhJSON, context, prompt.
@@ -50,9 +109,9 @@ Recommended: generate the set **modularly** — first ~15 core glyphs and ~12 ba
 6. **Side/config icons** — settings, extra settings, models, context providers, file metadata, metrics: no direction badge; these live next to the AI pipeline.
 7. **Viewers/captures** — image viewer, audio viewer, canvas/viewport capture: "display/capture" family, no AI badge.
 
-## 5. Full icon inventory and per-icon design spec
+### 5. Full icon inventory and per-icon design spec
 
-### 5.1 Brand / app identity
+#### 5.1 Brand / app identity
 
 | Asset | Used by | Design spec |
 | --- | --- | --- |
@@ -61,7 +120,7 @@ Recommended: generate the set **modularly** — first ~15 core glyphs and ~12 ba
 | `img/smarthopper.png` | Repo/README logo | Large-format variant of the mascot. |
 | Provider logos (8) | `SmartHopper.Providers.*`: anthropic, deepseek, gemini, localai, mistralai, ollama, openai, openrouter | **Do not AI-generate** — third-party trademarks. Keep official brand marks, normalized to a consistent square frame. |
 
-### 5.2 "A. AI" category — assistant & configuration
+#### 5.2 "A. AI" category — assistant & configuration
 
 | Component | Icon resource | Design spec |
 | --- | --- | --- |
@@ -72,7 +131,7 @@ Recommended: generate the set **modularly** — first ~15 core glyphs and ~12 ba
 | File Metadata (`AIFileMetadataComponent`) | `context` | Document with a tag/label line — represents file-level metadata context. |
 | AI Models (`AIModelsComponent`) | `aimodels` | Stacked/layered nodes or a list with a spark — "catalog of models". |
 
-### 5.3 "B. Input" category — data → AI (`toai-*`)
+#### 5.3 "B. Input" category — data → AI (`toai-*`)
 
 Shared spec: **type glyph center + "arrow into AI spark" badge bottom-right**. List variants add a bottom-left `≡`/`[]` badge.
 
@@ -101,7 +160,7 @@ Shared spec: **type glyph center + "arrow into AI spark" badge bottom-right**. L
 | Ladybug Post to AI | **missing** | Post card | to-AI + Ladybug mark |
 | Ladybug Topic to AI | **missing** | Topic stack | to-AI + Ladybug mark |
 
-### 5.4 "C. Output" category — AI → data (`aito*`)
+#### 5.4 "C. Output" category — AI → data (`aito*`)
 
 Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right**. Mirror of 5.3.
 
@@ -122,7 +181,7 @@ Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right*
 | AI to Script | `aitoscript` | `</>` code glyph |
 | AI to GhJSON | `aitogh` | GH document |
 
-### 5.5 "Text" category — AI text ops
+#### 5.5 "Text" category — AI text ops
 
 | Component | Icon | Design spec |
 | --- | --- | --- |
@@ -130,14 +189,14 @@ Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right*
 | AI Text To Text List | `textlistgenerate` | "T" + list lines + AI spark |
 | AI Text To Boolean | `textevaluate` | "T" + check/?-evaluate badge — reads as "question → true/false" |
 
-### 5.6 "List" category
+#### 5.6 "List" category
 
 | Component | Icon | Design spec |
 | --- | --- | --- |
 | AI List Filter | `listfilter` | List `≡` + funnel badge + AI spark |
 | AI List To Boolean | `listevaluate` | List `≡` + check/evaluate badge + AI spark |
 
-### 5.7 "JSON" category — pure data toolkit (no AI)
+#### 5.7 "JSON" category — pure data toolkit (no AI)
 
 | Component | Icon | Design spec |
 | --- | --- | --- |
@@ -154,7 +213,7 @@ Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right*
 | JSON Schema Prop | `jsonschemaprop` | Schema badge + single key glyph |
 | AI Text → JSON | `jsonai` | `{ }` + AI spark (only AI-powered member of the family) |
 
-### 5.8 "Knowledge" category — research sources
+#### 5.8 "Knowledge" category — research sources
 
 | Component | Icon | Design spec |
 | --- | --- | --- |
@@ -171,7 +230,7 @@ Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right*
 | McNeel × (search / post get / post open / post summarize / topic summarize) | `mcneel*` | Same action badges, source glyph = McNeel mark (rhino/"M") |
 | Ladybug × same 5 actions | `ladybug*` | Same action badges, source glyph = ladybug beetle |
 
-### 5.9 "Grasshopper" category — GhJSON document ops
+#### 5.9 "Grasshopper" category — GhJSON document ops
 
 | Component | Icon | Design spec |
 | --- | --- | --- |
@@ -191,7 +250,7 @@ Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right*
 | AI Smart Connect | **missing** | Two component nodes + wire/plug + AI spark |
 | AI Canvas Report | **missing** | Clipboard/report + canvas grid + AI spark |
 
-### 5.10 "Img" / "Audio" categories
+#### 5.10 "Img" / "Audio" categories
 
 | Component | Icon | Design spec |
 | --- | --- | --- |
@@ -202,14 +261,14 @@ Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right*
 | Viewport To Image | **new:** `viewportcapture` (replaces shared `aitoimg`) | Perspective viewport frame + capture/camera badge; blue non-AI helper |
 | Audio Viewer | `audio` | Speaker/waveform in a display frame — no AI badge |
 
-### 5.11 "Script" category
+#### 5.11 "Script" category
 
 | Component | Icon | Design spec |
 | --- | --- | --- |
 | AI Script Generate | `scriptgenerate` | `</>` code glyph + AI spark |
 | AI Script Review | `scriptreview` | `</>` + magnifier/check badge + AI spark |
 
-### 5.12 "Utils" / "MCP"
+#### 5.12 "Utils" / "MCP"
 
 | Component | Icon | Design spec |
 | --- | --- | --- |
@@ -217,7 +276,7 @@ Shared spec: **type glyph center + "AI spark with arrow out" badge bottom-right*
 | Combine Metrics | **missing** | Chart bars + merge badge |
 | SmartHopper MCP Server | **missing** (no `Icon` override) | Server/plug node + SmartHopper spark — represents the loopback MCP endpoint |
 
-## 6. New composed icons required because of missing or shared assets
+### 6. New composed icons required because of missing or shared assets
 
 The new set must include the following **22 distinct 24×24 component icons** in addition to replacing the icons already listed above. Fourteen fill current gaps; eight separate components that currently reuse an icon with different semantics. Resource names below are proposed identifiers and can be adjusted during integration.
 
@@ -246,7 +305,7 @@ The new set must include the following **22 distinct 24×24 component icons** in
 | Combine Metrics | `metricscombine` | Current `Icon => null` | Metrics-chart full glyph + merge badge |
 | SmartHopper MCP Server | `mcpserver` | No `Icon` override | Server-node full glyph + MCP/connection badge |
 
-## 7. Color system
+### 7. Color system
 
 Color should accelerate recognition, but **never carry meaning alone**: each role also has a unique full glyph or badge silhouette. Use color on the principal glyph and the semantically important badge, with dark slate outlines and off-white cutouts for contrast.
 
@@ -262,7 +321,7 @@ Color should accelerate recognition, but **never carry meaning alone**: each rol
 | Knockout / highlight | Off-white | `#F4F6F8` | Interior cutouts, badge symbols, separation keylines | Remains readable on dark canvas themes |
 | Error/status only | Red | `#C0392B` | Existing invalid-model runtime badge only | Reserve red for actual errors; never use it as a component-category color |
 
-### 7.1 Color application rules
+#### 7.1 Color application rules
 
 1. Use at most **two semantic colors** in one icon, plus slate and off-white neutrals.
 2. The **main glyph color identifies the domain**: gray configuration, pink knowledge, teal canvas/GhJSON, blue deterministic data/media, or green AI-first components.
@@ -273,11 +332,11 @@ Color should accelerate recognition, but **never carry meaning alone**: each rol
 7. Do not use gradients, shadows, semitransparent hairlines, or red/green color contrast as the only distinction.
 8. Third-party source marks may keep recognizable brand shapes, but recolor them raspberry pink where trademark guidance permits. If recoloring is not permitted, use the official mark inside a consistent pink source-badge frame.
 
-## 8. Deduplicated drawing inventory
+### 8. Deduplicated drawing inventory
 
 Generate these drawings as reusable masters before composing the 24×24 icons. A drawing appears **once** in this list even when dozens of icons reuse it.
 
-### 8.1 Full-size drawings
+#### 8.1 Full-size drawings
 
 Full-size drawings occupy approximately **14–18 px** of the 24×24 artboard and provide the icon's primary silhouette.
 
@@ -317,7 +376,7 @@ Full-size drawings occupy approximately **14–18 px** of the 24×24 artboard an
 | F32 | MCP server | Gray | Compact server stack with one network port/node | SmartHopper MCP Server |
 | F33 | Scattered components | Teal | Three displaced component rectangles | Tidy Up before-state |
 
-### 8.2 Badge-size drawings
+#### 8.2 Badge-size drawings
 
 Badge drawings occupy approximately **7–9 px**, use filled geometric silhouettes, and normally sit bottom-right. Source/type modifiers sit bottom-left. Draw every badge on the same nominal 9×9 artboard with at least a 1 px clear zone.
 
@@ -365,7 +424,7 @@ Badge drawings occupy approximately **7–9 px**, use filled geometric silhouett
 | B40 | Providers / registry | Gray | Three short rows with connection dots | Context Providers / AI Models |
 | B41 | MCP connection | Gray | Two linked nodes with a central port | MCP Server |
 
-### 8.3 Runtime badges drawn by code
+#### 8.3 Runtime badges drawn by code
 
 These are not PNG assets but should be included in the visual design handoff because they appear next to the generated icons. Keep their existing semantics and colors:
 
@@ -378,7 +437,7 @@ These are not PNG assets but should be included in the visual design handoff bec
 | Replaced model | Runtime 16×16 | Blue `#3498DB` | Filled circle + white refresh arrow |
 | Provider identity | Runtime 16×16 | Provider brand | Official provider logo in the bottom strip; do not regenerate |
 
-## 9. Gaps and cleanup notes
+### 9. Gaps and cleanup notes
 
 - **14 components currently ship without icons** (`Icon => null` or no override): the 4 forum `*2AI` inputs, 4 GhJSON/GhPatch file operations, `GhValidate`, `GhPatchApplyToCanvas`, `AIGhConnect`, `AIGhReport`, `CombineMetrics`, and `SmartHopperMcpServer`.
 - **Eight additional components require new dedicated compositions** because they currently reuse an icon with different semantics: Boolean/Integer/Number List to AI, JSON Get Value, JSON Set Value, AI Web To Markdown, Canvas To Image, and Viewport To Image.
@@ -387,7 +446,7 @@ These are not PNG assets but should be included in the visual design handoff bec
 - Template/junk entries `Bitmap1`, `Color1`, `Icon1`, and `Name1` should not be recreated.
 - Chat UI uses an inline chart emoji for metrics; it is outside the Grasshopper component icon set but should eventually use the same F29 metrics drawing for product consistency.
 
-## 10. Suggested generation prompts
+### 10. Suggested generation prompts
 
 Use one style preamble for every full-size drawing:
 
