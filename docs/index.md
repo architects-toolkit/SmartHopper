@@ -69,6 +69,7 @@ This is the root documentation hub for SmartHopper. It organizes all guides, ref
 - [AIInputPayload](Architecture/AIInputPayload.md) -- unified input format
 - [AIRequestParameters](Architecture/AIRequestParameters.md) -- request customization
 - [VersatileAudio](Architecture/VersatileAudio.md) -- audio type system
+- [Agentic Copilot and Consent](Architecture/agent-copilot.md) -- planning, tool surfaces, and graphical mutation approval
 - [Design Decisions](DESIGN_DECISIONS/index.md) -- rationale behind key choices
 
 #### Context & Tools
