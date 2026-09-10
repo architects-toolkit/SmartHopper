@@ -223,7 +223,10 @@ namespace SmartHopper.Core.UI.Chat
             var requiredCapabilities = ComputeRequiredCapabilities(toolFilter);
             var composedSystemPrompt = AgentKnowledgeCatalog.ComposeGrasshopperSystemPrompt(systemPrompt);
 
-            var request = new AIRequestCall();
+            var request = new AIRequestCall
+            {
+                ToolSurface = SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat,
+            };
             request.Initialize(
                 provider: providerName,
                 model: modelName,
