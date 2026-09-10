@@ -100,7 +100,9 @@ AIToolManager.RegisterTool(tool);
 
 | Type | Purpose |
 | --- | --- |
-| `AITool` | Immutable contract for all tools |
+| `AITool` | Immutable contract for all tools; carries schema, execution, and surface flags |
+| `AIMutatingTool` | Tool type for consent-controlled canvas/document changes |
+| `AIToolSurface` | Explicit Chat, Direct, Batch, and MCP exposure flags |
 | `AIToolCall` | Request to execute one registered tool |
 | `AIReturn` | Normalized result with body, metrics, and diagnostics |
 | `ToolResultEnvelope` | Optional metadata attached to a tool result payload |

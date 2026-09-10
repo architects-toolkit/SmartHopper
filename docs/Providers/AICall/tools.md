@@ -43,6 +43,8 @@ This page documents how tool calls are represented, executed, and orchestrated w
 ### Safety and capability notes
 
 - Keep `ToolFilter` restrictive; enable only the tools you need for the task.
+- Tool surfaces are enforced separately from filters. Chat-only control tools such as `plan_propose` are unavailable through MCP and batch execution.
+- Canvas-mutating tools use invocation-scoped consent and graphical review; approval applies to one concrete call only.
 - Ensure tool argument validation and defensive coding in tool implementations.
 - Providers may infer `FunctionCalling` capability when tools are enabled via `AIRequestCall.IsValid()`; verify capability selection and errors through structured runtime messages.
 

@@ -34,7 +34,7 @@ _Note: This documentation was written by AI on its own. It may contain some mist
 
 ### Overview
 
-`ScriptModifier` provides a complete API for modifying script components programmatically, with **100% parity** with GhJSON serialization capabilities.
+`ScriptModifier` provides low-level apply primitives for modifying script components programmatically. SmartHopper AI tools and components must stage and review the proposed script change through the shared consent pipeline before invoking these methods; `ScriptModifier` itself does not open UI.
 
 **Key Features**:
 
