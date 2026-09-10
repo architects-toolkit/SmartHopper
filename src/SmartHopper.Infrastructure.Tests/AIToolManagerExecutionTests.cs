@@ -28,6 +28,7 @@ namespace SmartHopper.Infrastructure.Tests
     using SmartHopper.ProviderSdk.AICall.Core.Requests;
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
     using SmartHopper.ProviderSdk.Diagnostics;
+    using SmartHopper.ProviderSdk.Hosting;
     using Xunit;
 
     /// <summary>
@@ -250,9 +251,117 @@ namespace SmartHopper.Infrastructure.Tests
             Assert.True(result.Messages.Exists(m => m.Severity == SHRuntimeMessageSeverity.Error));
         }
 
+        [Fact]
+        public async Task ExecuteTool_ToolUnavailableOnSurface_ReturnsErrorWithoutExecuting()
+        {
+            this.ResetTools();
+            var executed = false;
+            var tool = new AITool(
+                "chat_only",
+                "Chat only",
+                "Control",
+                "{}",
+                _ =>
+                {
+                    executed = true;
+                    return Task.FromResult(new AIReturn());
+                },
+                surfaces: AIToolSurface.Chat);
+            AIToolManager.RegisterTool(tool);
+            var toolCall = new AIToolCall
+            {
+                Provider = "test",
+                Model = "test-model",
+                ToolSurface = AIToolSurface.Mcp,
+                InvocationContext = new SmartHopper.Infrastructure.Consent.MutationInvocationContext
+                {
+                    Surface = AIToolSurface.Mcp,
+                },
+                Body = AIBodyBuilder.Create()
+                    .Add(new AIInteractionToolCall
+                    {
+                        Id = "call-1",
+                        Name = tool.Name,
+                        Arguments = new JObject(),
+                    })
+                    .Build(),
+            };
+
+            var result = await AIToolManager.ExecuteTool(toolCall);
+
+            Assert.False(executed);
+            Assert.Contains(result.Messages, message => message.Message?.Contains("not available") == true);
+        }
+
+        [Fact]
+        public async Task ExecuteTool_MutatingTool_CompletesUndoScope()
+        {
+            this.ResetTools();
+            var coordinator = new RecordingUndoCoordinator();
+            MutationUndoCoordinator.Current = coordinator;
+            try
+            {
+                var tool = new AIMutatingTool(
+                    "mutation",
+                    "Mutation",
+                    "Test",
+                    "{}",
+                    call =>
+                    {
+                        var result = new AIReturn { Request = call };
+                        result.SetBody(AIBodyBuilder.Create()
+                            .AddToolResult(new JObject { ["success"] = true })
+                            .Build());
+                        return Task.FromResult(result);
+                    });
+                AIToolManager.RegisterTool(tool);
+                var interaction = new AIInteractionToolCall
+                {
+                    Id = "mutation-call",
+                    Name = tool.Name,
+                    Arguments = new JObject(),
+                };
+                var call = new AIToolCall
+                {
+                    Provider = "test",
+                    Model = "test-model",
+                };
+                call.FromToolCallInteraction(interaction);
+
+                await AIToolManager.ExecuteTool(call);
+
+                Assert.True(coordinator.Scope.Completed);
+            }
+            finally
+            {
+                MutationUndoCoordinator.Current = null;
+            }
+        }
+
         private void ResetTools()
         {
             typeof(AIToolManager).GetMethod("ResetTools", BindingFlags.Static | BindingFlags.NonPublic)?.Invoke(null, null);
+        }
+
+        private sealed class RecordingUndoCoordinator : IMutationUndoCoordinator
+        {
+            public RecordingUndoScope Scope { get; } = new RecordingUndoScope();
+
+            public Task<IMutationUndoScope> BeginAsync(string toolName, System.Threading.CancellationToken cancellationToken)
+            {
+                return Task.FromResult<IMutationUndoScope>(this.Scope);
+            }
+        }
+
+        private sealed class RecordingUndoScope : IMutationUndoScope
+        {
+            public bool Completed { get; private set; }
+
+            public Task CompleteAsync(AIReturn result, System.Threading.CancellationToken cancellationToken)
+            {
+                this.Completed = true;
+                return Task.CompletedTask;
+            }
         }
 
         #endregion
