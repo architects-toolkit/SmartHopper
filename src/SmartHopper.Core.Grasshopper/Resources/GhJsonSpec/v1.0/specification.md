@@ -208,6 +208,7 @@ Each item is a **Parameter Settings** object:
 | `isInverted` | boolean | No | Invert modifier (boolean params) |
 | `isUnitized` | boolean | No | Unitize modifier (vector params) |
 | `internalizedData` | object | No | Internalized data tree |
+| `runtimeData` | object | No | Runtime (volatile) data tree |
 
 ---
 
