@@ -103,7 +103,7 @@ A GhPatch document is a JSON object with the following top-level structure:
 The normalised form for checksum purposes:
 
 1. Apply the default `Fix` operations (assign missing IDs, regenerate metadata counters, etc.) without regenerating instance GUIDs.
-2. Drop volatile fields (`metadata.modified`, `metadata.componentCount`, `metadata.connectionCount`, `metadata.groupCount`, `components[].warnings`, `components[].errors`, `components[].remarks`).
+2. Drop volatile fields (`metadata.modified`, `metadata.componentCount`, `metadata.connectionCount`, `metadata.groupCount`, `components[].warnings`, `components[].errors`, `components[].remarks`, `components[].inputSettings[].runtimeData`, `components[].outputSettings[].runtimeData`).
 3. Sort each array deterministically (`components` by `id`, `connections` by `(from.id, to.id, from.paramName, to.paramName)`, `groups` by `id`).
 4. Serialise as canonical JSON (sorted object keys, no insignificant whitespace).
 5. Hash with the chosen algorithm.
