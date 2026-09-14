@@ -16,6 +16,7 @@ Many thanks to the following contributors to this release:
 ### Added
 
 - Added an agentic WebChat planning flow through the Chat-only `plan_propose` tool. Proposed multi-step plans pause in an interactive chat card until approved or rejected; plan approval never pre-approves later canvas edits.
+- Added a Chat-only `plan_tasks` tool that renders a live task plan card in WebChat. The model sends the complete task list on every call, tasks show as pending, in progress, or completed, and a progress indicator updates in place per plan ID through the new `ITaskPlanPresenter` invocation seam.
 - Added invocation-scoped `ConsentGate`, explicit `AIToolSurface` exposure controls, and `AIMutatingTool` metadata so WebChat, MCP, direct AITool calls, and Grasshopper components share one-call mutation consent without requiring a `ConversationSession`.
 - Added automatic Grasshopper undo coordination around every `AIMutatingTool`: operation-specific undo actions are verified and multiple records from one tool call are merged into one Ctrl+Z step.
 - Added document-staged visual review for structural AI canvas changes. `gh_put`, `gh_remove`, `gh_clear`, `gh_connect`, `gh_disconnect`, `gh_move`, `gh_group`, and `gh_group_selected` now paint proposed additions, modifications, removals, wires, target positions, and groups over the actual Grasshopper canvas and apply only user-accepted changes.

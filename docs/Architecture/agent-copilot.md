@@ -10,7 +10,7 @@ SmartHopper WebChat can propose explicit plans and all supported AI-driven canva
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Infrastructure/Consent/`, `src/SmartHopper.Core/UI/Chat/`, `src/SmartHopper.Core.Grasshopper/AITools/` |
 | **Since Version** | 2.1.0 |
-| **Last Updated** | 2026-09-10 |
+| **Last Updated** | 2026-09-13 |
 | **Documentation Maintainer** | Devin AI |
 
 ---
@@ -22,6 +22,8 @@ Read this when changing plan approval, tool exposure, graphical canvas review, o
 ## End-User Guide
 
 For non-trivial multi-step work, the assistant may show a plan card. Approving it permits the assistant to continue with that approach; it does not approve later canvas edits.
+
+While working, the assistant can maintain a live task plan card that lists each task as pending, in progress, or completed, with a progress indicator. The card updates in place as work advances.
 
 Each concrete canvas mutation is reviewed separately. Structural and component-state changes are painted on the live canvas and listed as selectable changes. Apply accepts the selected subset; Reject or Cancel leaves the rejected subset unchanged.
 
@@ -44,6 +46,8 @@ The same graphical review applies when a mutating tool is triggered by WebChat, 
 | `CanvasMutationConsentProposal` | Adapts `CanvasChangeReviewSession` to consent |
 | `CanvasChangeConsentPresenter` | Uses the graphical canvas review dialog and overlay |
 | `PlanConsentProposal` | Structured WebChat plan |
+| `TaskPlan` | Full-state copilot task list snapshot |
+| `ITaskPlanPresenter` | UI adapter that renders task plan updates without a user decision |
 
 ### Execution flow
 
@@ -62,7 +66,7 @@ caller -> AIToolCall / mutation operation
 ### Tool surfaces
 
 - Existing ordinary tools default to all surfaces for compatibility.
-- `plan_propose` is Chat-only and is rejected by MCP and batch execution.
+- `plan_propose` and `plan_tasks` are Chat-only and are rejected by MCP and batch execution.
 - `AIMutatingTool` excludes Batch by default.
 - Surface checks occur both when formatting/discovering tools and immediately before execution.
 
@@ -75,6 +79,8 @@ Consent waits use the invocation cancellation token. Cancelling WebChat, a compo
 Every `AIMutatingTool` is wrapped by the host undo coordinator. Existing operation-specific APIs still record the correct pivot, wire, object, state, add, and remove actions; the coordinator verifies that a successful call produced an undo record and merges multiple records from one tool call into one Ctrl+Z step.
 
 Consent is invocation-scoped rather than conversation-scoped because SmartHopper has several mutation callers. UI is separated through presenters: WebChat renders plan cards, while Core.Grasshopper owns GhJSON-aware canvas overlays. Low-level helpers such as `ScriptModifier`, `CanvasAccess`, and `GhJsonGrasshopper` remain apply primitives and must not open consent UI themselves.
+
+Task plan visualization rides the same invocation-context presenter seam as consent but never blocks on a decision. `plan_tasks` sends a complete `TaskPlan` snapshot on every call; the WebChat presenter upserts one card per plan ID so progress renders in place instead of stacking cards. Because no consent is involved, the tool call returns immediately after the update is queued.
 
 Plan approval and mutation approval are deliberately separate. A textual plan cannot authorize a later concrete graph whose arguments or affected objects may differ.
 
