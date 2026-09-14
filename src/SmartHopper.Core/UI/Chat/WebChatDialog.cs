@@ -160,7 +160,8 @@ namespace SmartHopper.Core.UI.Chat
                     request,
                     new WebChatObserver(this),
                     generateGreeting: this._generateGreeting,
-                    consentPresenter: new WebChatPlanConsentPresenter(this));
+                    consentPresenter: new WebChatPlanConsentPresenter(this),
+                    taskPlanPresenter: new WebChatTaskPlanPresenter(this));
 
                 // If the user drags/resizes the dialog while we are rendering/upserting messages,
                 // defer DOM work to keep Rhino/Eto responsive.
