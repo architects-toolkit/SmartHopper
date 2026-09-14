@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.Planning;
 using SmartHopper.ProviderSdk.Hosting;
 
 namespace SmartHopper.Infrastructure.Consent
@@ -128,6 +129,9 @@ namespace SmartHopper.Infrastructure.Consent
         /// <summary>Gets or sets an invocation-specific presenter.</summary>
         public IConsentPresenter? Presenter { get; set; }
 
+        /// <summary>Gets or sets an invocation-specific task plan presenter.</summary>
+        public ITaskPlanPresenter? TaskPlanPresenter { get; set; }
+
         /// <summary>Creates a defensive copy for one tool call.</summary>
         public MutationInvocationContext ForTool(string? toolCallId, string? toolName)
         {
@@ -140,6 +144,7 @@ namespace SmartHopper.Infrastructure.Consent
                 ToolName = toolName,
                 Surface = this.Surface,
                 Presenter = this.Presenter,
+                TaskPlanPresenter = this.TaskPlanPresenter,
             };
         }
     }

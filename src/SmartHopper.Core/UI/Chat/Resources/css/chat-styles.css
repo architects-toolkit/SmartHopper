@@ -603,3 +603,81 @@ hr {
 .plan-consent-card.resolved {
     opacity: 0.7;
 }
+
+.task-plan-card {
+    margin: 12px;
+    padding: 14px 16px;
+    border: 1px solid #0ea5e9;
+    border-radius: 8px;
+    background: rgba(14, 165, 233, 0.08);
+}
+
+.task-plan-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.task-plan-header h3 {
+    margin: 0;
+}
+
+.task-plan-progress-label {
+    font-size: 0.85em;
+    opacity: 0.75;
+}
+
+.task-plan-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(14, 165, 233, 0.2);
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.task-plan-progress-fill {
+    height: 100%;
+    background: #0ea5e9;
+    transition: width 0.3s ease;
+}
+
+.task-plan-tasks {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.task-plan-task {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 2px 0;
+}
+
+.task-plan-icon {
+    width: 1em;
+    flex-shrink: 0;
+    text-align: center;
+}
+
+.task-plan-task.status-completed {
+    opacity: 0.65;
+}
+
+.task-plan-task.status-completed .task-plan-icon {
+    color: #22c55e;
+}
+
+.task-plan-task.status-completed .task-plan-text {
+    text-decoration: line-through;
+}
+
+.task-plan-task.status-in-progress {
+    font-weight: 600;
+}
+
+.task-plan-task.status-in-progress .task-plan-icon {
+    color: #0ea5e9;
+}

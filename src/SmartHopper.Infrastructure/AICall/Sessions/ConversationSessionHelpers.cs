@@ -277,6 +277,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     ToolName = tc.Name,
                     Surface = this.Request.ToolSurface,
                     Presenter = this.ConsentPresenter,
+                    TaskPlanPresenter = this.TaskPlanPresenter,
                 },
             };
             toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);

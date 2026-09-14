@@ -1338,3 +1338,67 @@ function resolvePlanConsent(id) {
     card.classList.add('resolved');
     card.querySelectorAll('button').forEach(button => { button.disabled = true; });
 }
+
+function updateTaskPlan(plan) {
+    const container = document.getElementById('chat-container');
+    if (!container || !plan || !plan.id) return;
+
+    let card = Array.from(container.querySelectorAll('.task-plan-card'))
+        .find(node => node.dataset.planId === plan.id);
+    const isNew = !card;
+    if (isNew) {
+        card = document.createElement('section');
+        card.className = 'task-plan-card';
+        card.dataset.planId = plan.id;
+    } else {
+        card.innerHTML = '';
+    }
+
+    const tasks = Array.isArray(plan.tasks) ? plan.tasks : [];
+    const completed = tasks.filter(task => task.status === 'completed').length;
+
+    const header = document.createElement('div');
+    header.className = 'task-plan-header';
+    const title = document.createElement('h3');
+    title.textContent = plan.goal || 'Task plan';
+    header.appendChild(title);
+    const progressLabel = document.createElement('span');
+    progressLabel.className = 'task-plan-progress-label';
+    progressLabel.textContent = `${completed}/${tasks.length}`;
+    header.appendChild(progressLabel);
+    card.appendChild(header);
+
+    const bar = document.createElement('div');
+    bar.className = 'task-plan-progress';
+    const fill = document.createElement('div');
+    fill.className = 'task-plan-progress-fill';
+    fill.style.width = tasks.length > 0 ? `${Math.round((completed / tasks.length) * 100)}%` : '0%';
+    bar.appendChild(fill);
+    card.appendChild(bar);
+
+    const list = document.createElement('ul');
+    list.className = 'task-plan-tasks';
+    tasks.forEach(task => {
+        const status = task.status === 'in_progress' || task.status === 'completed' ? task.status : 'pending';
+        const item = document.createElement('li');
+        item.className = `task-plan-task status-${status.replace('_', '-')}`;
+
+        const icon = document.createElement('span');
+        icon.className = 'task-plan-icon';
+        icon.textContent = status === 'completed' ? '✓' : status === 'in_progress' ? '▶' : '○';
+        item.appendChild(icon);
+
+        const text = document.createElement('span');
+        text.className = 'task-plan-text';
+        text.textContent = task.description || task.id || 'Task';
+        item.appendChild(text);
+
+        list.appendChild(item);
+    });
+    card.appendChild(list);
+
+    if (isNew) {
+        insertAboveThinkingIfPresent(container, card);
+        scrollToBottom();
+    }
+}
