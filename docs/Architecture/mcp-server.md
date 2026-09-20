@@ -42,6 +42,7 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
   - `Port` — TCP port to bind on loopback.
   - `BearerToken` — optional static bearer token.
   - `ExposeMutatingTools` — whether tools marked as mutating may be exposed.
+  - `Auto-approve AI Changes` (`AA`) — when true, canvas mutations requested through this server are applied without showing the review dialog. Undo is still recorded. Defaults to false.
 - Outputs:
   - `Url` — the MCP endpoint when the server is running.
   - `Status` — a short status string.
@@ -54,6 +55,7 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 | Bearer token | empty | Empty means no bearer auth; loopback-only still applies. |
 | Enabled tools | `null` | Null or empty means the full read-only surface is eligible. |
 | Expose mutating tools | `false` | Mutating tools stay hidden unless explicitly allowed. |
+| Auto-approve AI changes | `false` | Opt-in per server instance; skips the review dialog for mutations requested through that server. |
 | Server name | `smarthopper` | Reported during MCP `initialize`. |
 | Server version | assembly informational version fallback | Can be overridden from options. |
 | Bind address | loopback only | `127.0.0.1` only in phase 1. IPv6 loopback is not registered. |
@@ -69,6 +71,7 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 - **Allow-list overrides the mutating filter.** If `EnabledTools` is set, only those tools are exposed; this overrides `ExposeMutatingTools` but not the `Enabled` flag.
 - **No file-system or shell access.** MCP only exposes existing `IAIToolProvider` tools.
 - **No payload logging.** Requests are logged without GhJSON payload contents.
+- **Review-by-default for mutations.** Even with `ExposeMutatingTools` on, every canvas mutation still goes through the consent review unless the serving component explicitly sets `Auto-approve AI Changes`.
 
 ### What Mutating Tools Mean
 
@@ -94,7 +97,7 @@ A tool is considered enabled when its `AITool.Enabled` flag is `true` (the defau
 | --- | --- |
 | `initialize` | Returns protocol version `2025-03-26`, server name, version, and supported capabilities. |
 | `tools/list` | Uses `AIToolMcpAdapter.BuildDescriptors()` to project the `AIToolManager` catalog. Each tool descriptor includes `inputSchema`, `outputSchema`, `tags`, and MCP `annotations`. |
-| `tools/call` | Resolves the named tool, builds `AIToolCall`, executes it through the adapter, and wraps the result in MCP `text` content. |
+| `tools/call` | Resolves the named tool, builds `AIToolCall`, executes it through the adapter, and wraps the result in MCP content — `image` + `text` blocks for screenshot payloads, `text` otherwise. |
 | `notifications/initialized` | Acknowledged as a notification. |
 | `ping` | Lightweight health check. |
 | `resources/list` | Returns static documentation URIs exposed by `IMcpResourceProvider`. |
@@ -131,7 +134,19 @@ The adapter expects MCP clients to send a tool name and a JSON object of argumen
 4. `AIToolMcpAdapter` builds an `AIToolCall` and invokes it through the configured executor (`AIToolCall.Exec()` by default).
 5. The adapter extracts the last `AIInteractionToolResult` from `AIReturn.Body` and returns it as the MCP response payload; if no tool result is present, the adapter falls back to the first Tool/Provider/Network error or an empty object.
 
-`canvas_screenshot` and `viewport_screenshot` use this unchanged path. They return `{ imageBase64, mimeType, width, height }` (plus `viewName` for a Rhino viewport), are marked `readOnlyHint: true`, and remain available under the default read-only MCP policy. Capture is marshalled to Rhino's UI thread and dimensions are limited to 4096 pixels per axis. Screenshot payloads can contain sensitive project information; use bearer authentication when other local processes are not trusted and avoid forwarding captures to external services without user intent.
+`canvas_screenshot` and `viewport_screenshot` return `{ imageBase64, mimeType, width, height }` (plus `viewName` for a Rhino viewport). The dispatcher splits such payloads into a native MCP `image` content block (`{type:"image", data, mimeType}`) followed by a `text` block with the remaining metadata — ordinary JSON results stay text-only. Both tools accept an optional `savePath` that also writes the PNG to disk (creating parent directories) and reports the normalized path as `savedTo`. Capture is marshalled to Rhino's UI thread and dimensions are limited to 4096 pixels per axis. Screenshot payloads can contain sensitive project information; use bearer authentication when other local processes are not trusted and avoid forwarding captures to external services without user intent.
+
+### Idempotent Mutation Retries
+
+Mutating `tools/call` invocations accept an optional `requestId` argument. `McpToolCallCache` keeps the serialized result of each served `(toolName, requestId)` pair for ~10 minutes in memory; a retry with the same pair returns the cached result without re-executing the tool, so a dropped connection cannot apply the same canvas change twice. `requestId` is ignored for read-only tools and on non-MCP surfaces.
+
+### Auto-Approve Consent Policy
+
+`McpServerOptions.AutoApproveMutations` flows into `MutationInvocationContext.AutoApproveMutations` when the adapter builds the call. `ConsentGate.RequestAsync` short-circuits before presenter resolution when `Surface == AIToolSurface.Mcp` and the flag is set, returning `Approved` with every proposal item key — the review dialog is never invoked and undo recording is unaffected. Any other surface, or an MCP server with the flag off, keeps the interactive review.
+
+### Compact Validation Errors
+
+When argument validation fails (`SHRuntimeMessageOrigin.Validation`), the MCP error payload includes only the called tool's `expectedSchema` plus the error message — the full tool catalog is never echoed inside an error response.
 
 ### Shared Agent Knowledge, Resources, and Prompts
 
@@ -258,8 +273,9 @@ Phase 1 is implemented under `src/SmartHopper.Infrastructure/Mcp/` rather than a
 - `McpServer.cs` — loopback HTTP transport, loopback peer guard, bearer-token auth, request limits
 - `JsonRpcDispatcher.cs` — MCP method dispatch and result shaping
 - `AIToolMcpAdapter.cs` — projects `AIToolManager` into MCP descriptors and calls
-- `McpServerOptions.cs` — port, token, allow-list, and mutating-tool settings
+- `McpServerOptions.cs` — port, token, allow-list, mutating-tool, and auto-approve settings
 - `McpServerLifecycle.cs` — ref-counted singleton server manager
+- `McpToolCallCache.cs` — ~10-minute in-memory idempotency cache for mutating `tools/call` retries keyed by `requestId`
 - `McpToolDescriptor.cs` / `McpToolCallResult.cs` — protocol DTOs
 - `McpResource.cs` / `McpPrompt.cs` / `McpPromptMessage.cs` — resource and prompt DTOs
 - `IMcpResourceProvider.cs` / `IMcpPromptProvider.cs` — provider contracts

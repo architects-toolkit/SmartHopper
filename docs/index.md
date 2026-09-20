@@ -102,6 +102,10 @@ This is the root documentation hub for SmartHopper. It organizes all guides, ref
 
 - [Architecture Reviews](Reviews/index.md) -- analysis of SmartHopper components
 
+### Plans
+
+- [Plans](plans/index.md) -- working plans for multi-part changes across repos
+
 ### Documentation Guidelines
 
 - [Templates](TEMPLATES/README.md) -- templates for new documentation files
