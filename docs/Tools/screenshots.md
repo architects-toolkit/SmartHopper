@@ -30,6 +30,7 @@ Captures the current Grasshopper canvas viewport with `GH_Canvas.GetCanvasScreen
 | --- | --- | --- | --- |
 | `maxWidth` | integer | `1920` | Maximum output width, from 1 to 4096 pixels. |
 | `maxHeight` | integer | `1080` | Maximum output height, from 1 to 4096 pixels. |
+| `savePath` | string | none | Optional absolute file path that also receives the PNG. Parent directories are created and existing files overwritten; the normalized path is reported as `savedTo`. |
 
 ### `viewport_screenshot`
 
@@ -40,8 +41,9 @@ Captures the active Rhino viewport, or the first viewport matching `viewName`, w
 | `viewName` | string | active view | Optional viewport name, matched case-insensitively. |
 | `width` | integer | `1024` | Maximum output width, from 1 to 4096 pixels. |
 | `height` | integer | `1024` | Maximum output height, from 1 to 4096 pixels. |
+| `savePath` | string | none | Optional absolute file path that also receives the PNG. Parent directories are created and existing files overwritten; the normalized path is reported as `savedTo`. |
 
-Both tools preserve aspect ratio and do not upscale captures smaller than the requested bounds. Results contain `imageBase64`, `mimeType`, `width`, and `height`; viewport results also contain the resolved `viewName`.
+Both tools preserve aspect ratio and do not upscale captures smaller than the requested bounds. Results contain `imageBase64`, `mimeType`, `width`, and `height`; viewport results also contain the resolved `viewName`, and both report `savedTo` when `savePath` is provided. Over MCP, the dispatcher emits the capture as a native `image` content block plus a `text` block with the remaining metadata — ordinary JSON tool results stay text-only.
 
 ### Grasshopper Components
 

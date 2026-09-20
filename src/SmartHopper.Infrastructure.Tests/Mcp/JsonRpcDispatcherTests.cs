@@ -113,6 +113,80 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         }
 
         [Fact]
+        public async Task Dispatch_ToolsCall_ImagePayload_ReturnsImageContentBlock()
+        {
+            var dispatcher = BuildDispatcher(new McpServerOptions(),
+                executor: call =>
+                {
+                    var ret = new AIReturn
+                    {
+                        Request = call,
+                        SkipRequestValidation = true,
+                        SkipMetricsValidation = true,
+                    };
+                    ret.SetBody(AIBody.Empty.WithAppended(new AIInteractionToolResult
+                    {
+                        Name = call.GetToolCall().Name,
+                        Result = new JObject
+                        {
+                            ["imageBase64"] = "QUJD",
+                            ["mimeType"] = "image/png",
+                            ["width"] = 4,
+                            ["height"] = 4,
+                        },
+                    }));
+                    return Task.FromResult(ret);
+                },
+                tools: ("canvas_screenshot", ReadOnlySchema, false));
+
+            var raw = await dispatcher.DispatchAsync(
+                "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"canvas_screenshot\",\"arguments\":{}}}");
+
+            var obj = JObject.Parse(raw!);
+            Assert.Equal(false, (bool?)obj["result"]?["isError"]);
+            var content = (JArray?)obj["result"]?["content"];
+            Assert.NotNull(content);
+            Assert.Equal("image", (string?)content![0]?["type"]);
+            Assert.Equal("QUJD", (string?)content[0]?["data"]);
+            Assert.Equal("image/png", (string?)content[0]?["mimeType"]);
+            Assert.Equal("text", (string?)content[1]?["type"]);
+            var metadata = JObject.Parse((string?)content[1]!["text"]!);
+            Assert.Equal(4, (int?)metadata["width"]);
+            Assert.Null(metadata["imageBase64"]);
+        }
+
+        [Fact]
+        public async Task Dispatch_ToolsCall_JsonPayload_StaysTextOnly()
+        {
+            var dispatcher = BuildDispatcher(new McpServerOptions(),
+                executor: call =>
+                {
+                    var ret = new AIReturn
+                    {
+                        Request = call,
+                        SkipRequestValidation = true,
+                        SkipMetricsValidation = true,
+                    };
+                    ret.SetBody(AIBody.Empty.WithAppended(new AIInteractionToolResult
+                    {
+                        Name = call.GetToolCall().Name,
+                        Result = new JObject { ["ok"] = true },
+                    }));
+                    return Task.FromResult(ret);
+                },
+                tools: ("gh_get", ReadOnlySchema, false));
+
+            var raw = await dispatcher.DispatchAsync(
+                "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"gh_get\",\"arguments\":{}}}");
+
+            var obj = JObject.Parse(raw!);
+            var content = (JArray?)obj["result"]?["content"];
+            Assert.NotNull(content);
+            Assert.Single(content!);
+            Assert.Equal("text", (string?)content[0]?["type"]);
+        }
+
+        [Fact]
         public async Task Dispatch_UnknownMethod_ReturnsMethodNotFoundError()
         {
             var dispatcher = BuildDispatcher(new McpServerOptions());

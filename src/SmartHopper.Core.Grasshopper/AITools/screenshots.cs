@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
@@ -49,6 +50,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""maximum"": 4096,
                     ""default"": 1080,
                     ""description"": ""Maximum output height in pixels.""
+                },
+                ""savePath"": {
+                    ""type"": ""string"",
+                    ""description"": ""Optional absolute file path that also receives the PNG. Parent directories are created and existing files are overwritten.""
                 }
             }
         }";
@@ -58,7 +63,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ""imageBase64"": { ""type"": ""string"" },
                 ""mimeType"": { ""type"": ""string"", ""const"": ""image/png"" },
                 ""width"": { ""type"": ""integer"" },
-                ""height"": { ""type"": ""integer"" }
+                ""height"": { ""type"": ""integer"" },
+                ""savedTo"": { ""type"": ""string"", ""description"": ""Absolute path the PNG was written to, when savePath was provided."" }
             },
             ""required"": [""imageBase64"", ""mimeType"", ""width"", ""height""]
         }";
@@ -83,6 +89,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""maximum"": 4096,
                     ""default"": 1024,
                     ""description"": ""Maximum output height in pixels.""
+                },
+                ""savePath"": {
+                    ""type"": ""string"",
+                    ""description"": ""Optional absolute file path that also receives the PNG. Parent directories are created and existing files are overwritten.""
                 }
             }
         }";
@@ -93,7 +103,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ""mimeType"": { ""type"": ""string"", ""const"": ""image/png"" },
                 ""width"": { ""type"": ""integer"" },
                 ""height"": { ""type"": ""integer"" },
-                ""viewName"": { ""type"": ""string"" }
+                ""viewName"": { ""type"": ""string"" },
+                ""savedTo"": { ""type"": ""string"", ""description"": ""Absolute path the PNG was written to, when savePath was provided."" }
             },
             ""required"": [""imageBase64"", ""mimeType"", ""width"", ""height"", ""viewName""]
         }";
@@ -163,7 +174,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private static AIBody BuildToolResultBody(
             AIInteractionToolCall toolInfo,
             ImageCaptureResult capture,
-            bool includeViewName)
+            bool includeViewName,
+            string? savePath)
         {
             var result = new JObject
             {
@@ -178,9 +190,39 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 result["viewName"] = capture.ViewName ?? string.Empty;
             }
 
+            var savedTo = SavePng(capture, savePath);
+            if (savedTo != null)
+            {
+                result["savedTo"] = savedTo;
+            }
+
             return AIBodyBuilder.Create()
                 .AddToolResult(result, toolInfo.Id, toolInfo.Name)
                 .Build();
+        }
+
+        /// <summary>
+        /// Writes the captured PNG to <paramref name="savePath"/> when provided, creating
+        /// parent directories and overwriting existing files. Returns the normalized
+        /// absolute path that was written, or <see langword="null"/> when no savePath
+        /// was given.
+        /// </summary>
+        private static string? SavePng(ImageCaptureResult capture, string? savePath)
+        {
+            if (string.IsNullOrWhiteSpace(savePath))
+            {
+                return null;
+            }
+
+            var fullPath = Path.GetFullPath(savePath.Trim());
+            var directory = Path.GetDirectoryName(fullPath);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.WriteAllBytes(fullPath, Convert.FromBase64String(capture.ImageBase64));
+            return fullPath;
         }
 
         private async Task<AIReturn> CaptureCanvasAsync(AIToolCall toolCall)
@@ -192,11 +234,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.GetArgumentsOrEmpty();
                 int maxWidth = ReadDimension(args, "maxWidth", CanvasCaptureService.DefaultMaxWidth);
                 int maxHeight = ReadDimension(args, "maxHeight", CanvasCaptureService.DefaultMaxHeight);
+                var savePath = args["savePath"]?.ToString();
                 var capture = await this.canvasCaptureService
                     .CaptureCanvasAsync(maxWidth, maxHeight)
                     .ConfigureAwait(false);
 
-                output.CreateSuccess(BuildToolResultBody(toolInfo, capture, includeViewName: false), toolCall);
+                output.CreateSuccess(BuildToolResultBody(toolInfo, capture, includeViewName: false, savePath), toolCall);
             }
             catch (Exception ex)
             {
@@ -216,11 +259,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string? viewName = args["viewName"]?.ToString();
                 int width = ReadDimension(args, "width", ViewportCaptureService.DefaultWidth);
                 int height = ReadDimension(args, "height", ViewportCaptureService.DefaultHeight);
+                var savePath = args["savePath"]?.ToString();
                 var capture = await this.viewportCaptureService
                     .CaptureViewportAsync(viewName, width, height)
                     .ConfigureAwait(false);
 
-                output.CreateSuccess(BuildToolResultBody(toolInfo, capture, includeViewName: true), toolCall);
+                output.CreateSuccess(BuildToolResultBody(toolInfo, capture, includeViewName: true, savePath), toolCall);
             }
             catch (Exception ex)
             {
