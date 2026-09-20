@@ -176,15 +176,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // refinements that use real component bounds and input-port positions for
                 // alignment and collision avoidance. This is the same pipeline used by gh_put,
                 // so placement and tidy-up stay consistent.
-                const float spacingX = 200f;
-                const float spacingY = 100f;
-                const float islandSpacingY = 150f;
+                const float spacingX = 80f;
+                const float spacingY = 28f;
+                const float islandSpacingY = 100f;
 
                 var layoutResult = GhJSON.Core.GhJson.CalculateLayout(doc, new LayoutOptions
                 {
                     SpacingX = spacingX,
                     SpacingY = spacingY,
                     IslandSpacingY = islandSpacingY,
+
+                    // Feed live component bounds so column widths and row heights match
+                    // real Grasshopper geometry instead of the library defaults.
+                    NodeSizeProvider = CanvasAccess.GetNodeSize,
                 });
 
                 var positions = LayoutRefinementEngine.ApplyRefinements(
