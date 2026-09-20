@@ -48,7 +48,43 @@ namespace SmartHopper.Providers.DeepSeek
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between June 2026 and September 2026
+                // Released between March 2026 and June 2026
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek-v4-pro",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 10000,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 4, 24),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000000422298m,
+                        Completion = 0.000000844596m,
+                        InputCacheRead = 0.0000000351915m,
+                    },
+                },
+
+
+
+                // Released before September 2024 or unknown release date
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek-flash",
+                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9995,
+                },
+
+
+
+                // Deprecated models
 
                 new AIModelCapabilities
                 {
@@ -56,8 +92,10 @@ namespace SmartHopper.Providers.DeepSeek
                     Model = "deepseek-v4-flash-vision-exp",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 10000,
+                    Deprecated = true,
+                    Rank = 0,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 21),
                     Pricing = new AIModelPricing
@@ -66,11 +104,14 @@ namespace SmartHopper.Providers.DeepSeek
                         Completion = 0.00000066m,
                         InputCacheRead = 0.000000007m,
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000011m,
+                        Completion = 0.00000033m,
+                        InputCacheRead = 0.0000000035m,
+                    },
+                    Aliases = new List<string> { "deepseek-v4-flash-vision-exp:batch" },
                 },
-
-
-
-                // Released between March 2026 and June 2026
 
                 new AIModelCapabilities
                 {
@@ -80,7 +121,8 @@ namespace SmartHopper.Providers.DeepSeek
                     Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9995,
+                    Deprecated = true,
+                    Rank = -5,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
@@ -94,33 +136,11 @@ namespace SmartHopper.Providers.DeepSeek
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "deepseek-v4-pro",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9990,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 4, 24),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000717924m,
-                        Completion = 0.000001435848m,
-                        InputCacheRead = 0.000000059827m,
-                    },
-                },
-
-
-
-                // Deprecated models
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "deepseek-chat",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Deprecated = true,
-                    Rank = 0,
+                    Rank = -10,
                     ContextLimit = 60000,
                     Created = new DateTime(2024, 12, 26),
                 },
@@ -133,7 +153,7 @@ namespace SmartHopper.Providers.DeepSeek
                     Default = AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
                     Deprecated = true,
-                    Rank = -5,
+                    Rank = -15,
                     ContextLimit = 64000,
                 }
             };
