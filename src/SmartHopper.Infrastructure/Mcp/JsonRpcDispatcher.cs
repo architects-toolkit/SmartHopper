@@ -373,20 +373,69 @@ namespace SmartHopper.Infrastructure.Mcp
 
         private static JObject BuildToolCallEnvelope(McpToolCallResult result)
         {
-            var content = new JArray
+            var content = new JArray();
+
+            // Binary payloads travel as native MCP content blocks: a result carrying
+            // {imageBase64, mimeType:"image/..."} becomes an "image" block while the
+            // remaining metadata (width, height, savedTo, ...) stays in a text block.
+            if (!result.IsError && TryBuildImageContent(result.Payload, out var imageBlock, out var metadataPayload))
             {
-                new JObject
+                content.Add(imageBlock);
+                content.Add(new JObject
+                {
+                    ["type"] = "text",
+                    ["text"] = metadataPayload!.ToString(Formatting.None),
+                });
+            }
+            else
+            {
+                content.Add(new JObject
                 {
                     ["type"] = "text",
                     ["text"] = result.Payload.ToString(Formatting.None),
-                },
-            };
+                });
+            }
 
             return new JObject
             {
                 ["content"] = content,
                 ["isError"] = result.IsError,
             };
+        }
+
+        /// <summary>
+        /// Detects a tool payload carrying a base64 image and splits it into an MCP
+        /// <c>image</c> content block plus a text block with the remaining fields.
+        /// </summary>
+        private static bool TryBuildImageContent(JToken? payload, out JObject? imageBlock, out JToken? metadataPayload)
+        {
+            imageBlock = null;
+            metadataPayload = null;
+            if (payload is not JObject obj)
+            {
+                return false;
+            }
+
+            var data = obj["imageBase64"]?.ToString();
+            var mimeType = obj["mimeType"]?.ToString();
+            if (string.IsNullOrWhiteSpace(data)
+                || string.IsNullOrWhiteSpace(mimeType)
+                || !mimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            imageBlock = new JObject
+            {
+                ["type"] = "image",
+                ["data"] = data,
+                ["mimeType"] = mimeType,
+            };
+
+            var metadata = (JObject)obj.DeepClone();
+            metadata.Remove("imageBase64");
+            metadataPayload = metadata;
+            return true;
         }
 
         private static JObject BuildToolError(string message)
