@@ -309,6 +309,60 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
         }
 
 #if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession extracts tool-result images into interaction Images and compacts the result JSON [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession extracts tool-result images into interaction Images and compacts the result JSON [Core]")]
+#endif
+        public async Task RunToStableResult_ToolResultImage_IsExtractedFromResultJson()
+        {
+            // The provider requests a tool once, then answers with text.
+            var callCount = 0;
+            var request = CreateTestableRequest();
+            request.ResponseInteractionsFactory = () =>
+                ++callCount == 1
+                    ? new List<IAIInteraction> { CreateToolCall("call_img") }
+                    : new List<IAIInteraction> { new AIInteractionText { Agent = AIAgent.Assistant, Content = "done" } };
+
+            var executor = new MockProviderExecutor
+            {
+                OnExecTool = tc =>
+                {
+                    var ret = new AIReturn();
+                    ret.SetBody(AIBodyBuilder.Create()
+                        .Add(new AIInteractionToolResult
+                        {
+                            Id = tc.GetToolCall().Id,
+                            Name = "canvas_screenshot",
+                            Result = new JObject
+                            {
+                                ["imageBase64"] = "QUJD",
+                                ["mimeType"] = "image/png",
+                                ["imageAudience"] = "model",
+                                ["width"] = 10,
+                            },
+                        })
+                        .Build());
+                    return ret;
+                },
+            };
+            var session = new ConversationSession(request, executor: executor);
+
+            await session.RunToStableResult(new SessionOptions { ProcessTools = true }).ConfigureAwait(false);
+
+            var result = session.Request.Body.Interactions.OfType<AIInteractionToolResult>().Single();
+            Assert.Null(result.Result["imageBase64"]);
+            Assert.Null(result.Result["imageAudience"]);
+            Assert.True(result.Result["imageAttached"]?.Value<bool>());
+            Assert.Equal("image/png", result.Result["mimeType"]?.ToString());
+
+            var image = Assert.Single(result.Images);
+            Assert.Equal("QUJD", image.ImageData);
+            Assert.Equal("image/png", image.MimeType);
+            Assert.True(image.SendToModel);
+            Assert.Equal(10, image.Width);
+        }
+
+#if NET7_WINDOWS
         [Fact(DisplayName = "ConversationSession hides tools from the provider when ProcessTools is false and restores the filter afterwards [Windows]")]
 #else
         [Fact(DisplayName = "ConversationSession hides tools from the provider when ProcessTools is false and restores the filter afterwards [Core]")]

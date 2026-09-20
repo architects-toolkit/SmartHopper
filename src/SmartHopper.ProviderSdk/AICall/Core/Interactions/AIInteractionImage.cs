@@ -293,8 +293,9 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 
             if (!string.IsNullOrWhiteSpace(this.ImageData))
             {
-                // Assume PNG if unknown; browsers will render data URIs
-                return $"![generated image](data:image/png;base64,{this.ImageData})";
+                // Browsers will render data URIs; use the declared MIME type when known
+                var mime = string.IsNullOrWhiteSpace(this.MimeType) ? "image/png" : this.MimeType;
+                return $"![image](data:{mime};base64,{this.ImageData})";
             }
 
             return this.ToString();

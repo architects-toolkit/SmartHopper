@@ -282,11 +282,45 @@ namespace SmartHopper.Providers.Anthropic
             else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
                 var resultText = toolResultInteraction.Result?.ToString(Formatting.None) ?? string.Empty;
+                var images = toolResultInteraction.GetModelImages();
+                if (images.Count == 0)
+                {
+                    return new JObject
+                    {
+                        ["type"] = "tool_result",
+                        ["tool_use_id"] = toolResultInteraction.Id ?? string.Empty,
+                        ["content"] = resultText,
+                    };
+                }
+
+                // Anthropic tool_result content accepts image blocks natively
+                var contentBlocks = new JArray
+                {
+                    new JObject
+                    {
+                        ["type"] = "text",
+                        ["text"] = resultText,
+                    },
+                };
+                foreach (var img in images)
+                {
+                    contentBlocks.Add(new JObject
+                    {
+                        ["type"] = "image",
+                        ["source"] = new JObject
+                        {
+                            ["type"] = "base64",
+                            ["media_type"] = img.MimeType ?? "image/png",
+                            ["data"] = img.ImageData,
+                        },
+                    });
+                }
+
                 return new JObject
                 {
                     ["type"] = "tool_result",
                     ["tool_use_id"] = toolResultInteraction.Id ?? string.Empty,
-                    ["content"] = resultText,
+                    ["content"] = contentBlocks,
                 };
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)

@@ -63,6 +63,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             ""properties"": {
                 ""imageBase64"": { ""type"": ""string"" },
                 ""mimeType"": { ""type"": ""string"", ""const"": ""image/png"" },
+                ""imageAudience"": { ""type"": ""string"", ""const"": ""model"", ""description"": ""Declares the image is intended for model vision; the session extracts it into a model-visible image part."" },
                 ""width"": { ""type"": ""integer"" },
                 ""height"": { ""type"": ""integer"" },
                 ""savedTo"": { ""type"": ""string"", ""description"": ""Absolute path the PNG was written to, when savePath was provided."" }
@@ -102,6 +103,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             ""properties"": {
                 ""imageBase64"": { ""type"": ""string"" },
                 ""mimeType"": { ""type"": ""string"", ""const"": ""image/png"" },
+                ""imageAudience"": { ""type"": ""string"", ""const"": ""model"", ""description"": ""Declares the image is intended for model vision; the session extracts it into a model-visible image part."" },
                 ""width"": { ""type"": ""integer"" },
                 ""height"": { ""type"": ""integer"" },
                 ""viewName"": { ""type"": ""string"" },
@@ -169,6 +171,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             ""properties"": {
                 ""imageBase64"": { ""type"": ""string"" },
                 ""mimeType"": { ""type"": ""string"", ""const"": ""image/png"" },
+                ""imageAudience"": { ""type"": ""string"", ""const"": ""display"", ""description"": ""Declares the image is display-only; it is rendered in WebChat but never sent to the model."" },
                 ""width"": { ""type"": ""integer"" },
                 ""height"": { ""type"": ""integer"" },
                 ""savedTo"": { ""type"": ""string"", ""description"": ""Absolute path the PNG was written to, when savePath was provided."" }
@@ -260,12 +263,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
             AIInteractionToolCall toolInfo,
             ImageCaptureResult capture,
             bool includeViewName,
-            string? savePath)
+            string? savePath,
+            string imageAudience)
         {
             var result = new JObject
             {
                 ["imageBase64"] = capture.ImageBase64,
                 ["mimeType"] = "image/png",
+                ["imageAudience"] = imageAudience,
                 ["width"] = capture.Width,
                 ["height"] = capture.Height,
             };
@@ -324,7 +329,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .CaptureCanvasAsync(maxWidth, maxHeight)
                     .ConfigureAwait(false);
 
-                output.CreateSuccess(BuildToolResultBody(toolInfo, capture, includeViewName: false, savePath), toolCall);
+                output.CreateSuccess(BuildToolResultBody(toolInfo, capture, includeViewName: false, savePath, imageAudience: "model"), toolCall);
             }
             catch (Exception ex)
             {
@@ -349,7 +354,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .CaptureViewportAsync(viewName, width, height)
                     .ConfigureAwait(false);
 
-                output.CreateSuccess(BuildToolResultBody(toolInfo, capture, includeViewName: true, savePath), toolCall);
+                output.CreateSuccess(BuildToolResultBody(toolInfo, capture, includeViewName: true, savePath, imageAudience: "model"), toolCall);
             }
             catch (Exception ex)
             {
@@ -372,7 +377,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .CaptureHiResAsync(request)
                     .ConfigureAwait(false);
 
-                output.CreateSuccess(BuildToolResultBody(toolInfo, capture, includeViewName: false, savePath), toolCall);
+                output.CreateSuccess(BuildToolResultBody(toolInfo, capture, includeViewName: false, savePath, imageAudience: "display"), toolCall);
             }
             catch (Exception ex)
             {

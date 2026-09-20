@@ -11,7 +11,7 @@ Capture the visible Grasshopper canvas or a Rhino viewport as a bounded base64 P
 | **Source Code** | `src/SmartHopper.Core.Grasshopper/AITools/screenshots.cs` |
 | **Components** | `Canvas To Image`, `Viewport To Image` |
 | **Since Version** | 2.0.0 |
-| **Last Updated** | 2026-09-06 |
+| **Last Updated** | 2026-09-20 |
 | **Documentation Maintainer** | Devin AI |
 
 ---
@@ -43,7 +43,35 @@ Captures the active Rhino viewport, or the first viewport matching `viewName`, w
 | `height` | integer | `1024` | Maximum output height, from 1 to 4096 pixels. |
 | `savePath` | string | none | Optional absolute file path that also receives the PNG. Parent directories are created and existing files overwritten; the normalized path is reported as `savedTo`. |
 
+### `canvas_hi-res_screenshot`
+
+Renders an arbitrary region of the Grasshopper canvas at a chosen scale using `GH_Canvas.GenerateHiResImageTile`, independent of the visible viewport. Tiles are composited in memory; `background` supports a real alpha channel.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `scope` | string | `document` | `document`, `selection`, `guids`, or `bounds`. |
+| `guids` | string[] | none | Instance GUIDs to frame; required for `scope=guids`. |
+| `bounds` | object | none | `{x, y, width, height}` in canvas units; required for `scope=bounds`. |
+| `padding` | number | `20` | Canvas-unit margin around the resolved region. |
+| `scale` | number | `1.0` | Render zoom; `1.0` matches on-screen detail, higher sharpens for print (max 32). |
+| `background` | string | `transparent` | `transparent`, `white`, `canvas`, or `#RRGGBB`/`#AARRGGBB`. |
+| `maxDimension` | integer | `16384` | Per-side pixel cap (hard maximum 30000). |
+| `savePath` | string | none | Same convention as the other capture tools. |
+
+Its results declare `"imageAudience": "display"` — the image renders in WebChat and as an MCP `image` block but is never sent to the model, keeping publish-quality captures out of the token budget.
+
 Both tools preserve aspect ratio and do not upscale captures smaller than the requested bounds. Results contain `imageBase64`, `mimeType`, `width`, and `height`; viewport results also contain the resolved `viewName`, and both report `savedTo` when `savePath` is provided. Over MCP, the dispatcher emits the capture as a native `image` content block plus a `text` block with the remaining metadata — ordinary JSON tool results stay text-only.
+
+### Image audience and session handling
+
+Screenshot results also carry `"imageAudience"`, which declares who should receive the image:
+
+| Audience | Meaning | Tools |
+| --- | --- | --- |
+| `model` | Sent to the model as a real image input (vision) | `canvas_screenshot`, `viewport_screenshot` |
+| `display` | Rendered in WebChat only; never sent to the model | `canvas_hi-res_screenshot` |
+
+When a `ConversationSession` persists a tool result containing `imageBase64` + `mimeType` (`image/*`), `ToolResultMediaExtractor` removes the base64 payload from the result JSON (leaving `imageAttached: true` plus the size metadata) and attaches a `ToolResultImage` to `AIInteractionToolResult.Images`. WebChat renders the image inside the tool-result bubble; provider codecs emit `SendToModel` images natively per API (Anthropic `tool_result` image blocks, OpenAI Responses `input_image` items, Gemini `inline_data` parts, or a trailing user-role `image_url` message on OpenAI-compatible chat providers). Providers without image support receive the compact JSON only. The tool's own result keeps the full payload, so MCP output is unchanged.
 
 ### Grasshopper Components
 

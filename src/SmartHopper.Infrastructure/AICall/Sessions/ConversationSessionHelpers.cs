@@ -318,6 +318,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 TurnId = tc.TurnId,
             };
 
+            // Extract image payloads out of the result JSON so providers never receive
+            // base64 as text and WebChat renders them as images on the tool-result bubble.
+            if (ToolResultMediaExtractor.TrySplit(toolInteraction.Result, out var compactResult, out var resultImages))
+            {
+                toolInteraction = toolInteraction with { Result = compactResult, Images = resultImages };
+            }
+
             this.PersistToolResult(toolInteraction, turnId);
 
             // Attach tool metrics and completion time to the tool result interaction

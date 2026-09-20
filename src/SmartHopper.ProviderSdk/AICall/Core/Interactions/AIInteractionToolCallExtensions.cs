@@ -16,6 +16,8 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 {
@@ -33,6 +35,25 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         public static JObject GetArgumentsOrEmpty(this AIInteractionToolCall toolCall)
         {
             return toolCall?.Arguments ?? new JObject();
+        }
+
+        /// <summary>
+        /// Returns the images attached to a tool result that are marked for model consumption
+        /// (<see cref="ToolResultImage.SendToModel"/>). Provider codecs use this to emit image
+        /// content natively; display-only images are never returned.
+        /// </summary>
+        /// <param name="toolResult">The tool result to read images from.</param>
+        /// <returns>Model-bound images, or an empty list.</returns>
+        public static List<ToolResultImage> GetModelImages(this AIInteractionToolResult toolResult)
+        {
+            if (toolResult?.Images == null)
+            {
+                return new List<ToolResultImage>();
+            }
+
+            return toolResult.Images
+                .Where(i => i != null && i.SendToModel && !string.IsNullOrEmpty(i.ImageData))
+                .ToList();
         }
     }
 }

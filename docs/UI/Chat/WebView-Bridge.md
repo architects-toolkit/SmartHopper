@@ -36,6 +36,8 @@ The WebView ↔ Host Bridge is the communication backbone of SmartHopper's Chat 
 The WebView sends actions to the host by navigating to custom URL schemes (navigation is intercepted and canceled by the host):
 
 - `sh://event?type=send&text=...`
+- `sh://event?type=attach`
+- `sh://event?type=detach&id=...`
 - `sh://event?type=clear`
 - `sh://event?type=cancel`
 - `clipboard://copy?text=...`
@@ -60,6 +62,14 @@ The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
 - **cancel**
   - JS → host: `sh://event?type=cancel`
   - Host cancels current CTS.
+- **attach**
+  - JS → host: `sh://event?type=attach`
+  - Host opens a native file picker, validates each file (image magic bytes, ≤15 MB, ≤4 pending), and stages bytes C#-side. Base64 never travels over the URL scheme.
+  - Host → JS: `addAttachmentChip(id, name, dataUri)` renders a removable thumbnail chip.
+- **detach**
+  - JS → host: `sh://event?type=detach&id=...`
+  - Host removes the pending attachment and calls `removeAttachmentChip(id)`.
+  - On send, staged attachments become user-role `AIInteractionImage` interactions and the host clears the strip via `clearAttachments()`.
 - **clipboard**
   - JS → host: `clipboard://copy?text=...`
   - Host sets system clipboard and calls `showToast('Copied to clipboard')`.

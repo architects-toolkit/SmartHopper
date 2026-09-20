@@ -801,6 +801,11 @@ function setupCollapsibleHandlers(rootNode) {
                 });
             }
 
+            // Messages that contain images start expanded so the image is visible
+            if (content.querySelector('img')) {
+                msg.classList.add('expanded');
+            }
+
             // Initial state
             refresh();
 
@@ -1014,13 +1019,25 @@ document.addEventListener('DOMContentLoaded', function () {
             scrollBtn: !!scrollBtn
         });
 
+        const attachBtn = document.getElementById('attach-button');
+        const attachStrip = document.getElementById('attachment-strip');
+
+        if (attachBtn) {
+            attachBtn.addEventListener('click', () => {
+                console.log('[JS] Attach button clicked');
+                window.location.href = 'sh://event?type=attach';
+            });
+            console.log('[JS] Attach button click handler attached');
+        }
+
         if (sendBtn) {
             sendBtn.addEventListener('click', () => {
                 console.log('[JS] Send button clicked');
                 const text = (input && input.value || '').trim();
-                console.log('[JS] Input text:', text);
-                if (!text) {
-                    console.log('[JS] No text to send, returning');
+                const hasAttachments = !!(attachStrip && attachStrip.children.length > 0);
+                console.log('[JS] Input text:', text, 'attachments:', hasAttachments);
+                if (!text && !hasAttachments) {
+                    console.log('[JS] No text or attachments to send, returning');
                     return;
                 }
 
@@ -1169,6 +1186,57 @@ function setProcessing(on) {
     } catch (err) {
         console.warn('[JS] setProcessing: control toggle failed', err);
     }
+}
+
+// Attachment helpers — called by the host via ExecuteScript.
+// The host owns the attachment data; chips are visual only and identified by stable id.
+function addAttachmentChip(id, name, dataUri) {
+    const strip = document.getElementById('attachment-strip');
+    if (!strip) return;
+    strip.classList.remove('hidden');
+
+    const chip = document.createElement('div');
+    chip.className = 'attachment-chip';
+    chip.dataset.aid = id;
+
+    const img = document.createElement('img');
+    img.src = dataUri;
+    img.alt = name || 'attachment';
+
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'attachment-remove';
+    rm.textContent = '\u00d7';
+    rm.title = 'Remove attachment';
+    rm.addEventListener('click', () => {
+        window.location.href = 'sh://event?type=detach&id=' + encodeURIComponent(id);
+    });
+
+    chip.appendChild(img);
+    chip.appendChild(rm);
+    strip.appendChild(chip);
+}
+
+function removeAttachmentChip(id) {
+    const strip = document.getElementById('attachment-strip');
+    if (!strip) return;
+    const chip = strip.querySelector('.attachment-chip[data-aid="' + id + '"]');
+    if (chip) chip.remove();
+    if (!strip.children.length) strip.classList.add('hidden');
+}
+
+function clearAttachments() {
+    const strip = document.getElementById('attachment-strip');
+    if (!strip) return;
+    strip.innerHTML = '';
+    strip.classList.add('hidden');
+}
+
+function setAttachEnabled(enabled, tooltip) {
+    const btn = document.getElementById('attach-button');
+    if (!btn) return;
+    btn.disabled = !enabled;
+    if (tooltip) btn.title = tooltip;
 }
 
 function resetMessages() {
