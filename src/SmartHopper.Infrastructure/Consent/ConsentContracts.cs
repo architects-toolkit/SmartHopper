@@ -126,6 +126,13 @@ namespace SmartHopper.Infrastructure.Consent
         /// <summary>Gets or sets the execution surface.</summary>
         public AIToolSurface Surface { get; set; } = AIToolSurface.Direct;
 
+        /// <summary>
+        /// Gets or sets a value indicating whether the surface that produced this invocation
+        /// auto-approves mutation proposals without invoking a consent presenter. Set by the
+        /// MCP adapter from the owning server's options; undo recording is unaffected.
+        /// </summary>
+        public bool AutoApproveMutations { get; set; }
+
         /// <summary>Gets or sets an invocation-specific presenter.</summary>
         public IConsentPresenter? Presenter { get; set; }
 
@@ -143,6 +150,7 @@ namespace SmartHopper.Infrastructure.Consent
                 ToolCallId = toolCallId,
                 ToolName = toolName,
                 Surface = this.Surface,
+                AutoApproveMutations = this.AutoApproveMutations,
                 Presenter = this.Presenter,
                 TaskPlanPresenter = this.TaskPlanPresenter,
             };

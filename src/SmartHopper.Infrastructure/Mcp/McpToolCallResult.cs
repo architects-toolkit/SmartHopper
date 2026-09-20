@@ -49,13 +49,14 @@ namespace SmartHopper.Infrastructure.Mcp
             return new McpToolCallResult(false, payload ?? new JObject(), null);
         }
 
-        /// <summary>Creates an error result.</summary>
-        public static McpToolCallResult Error(string message)
+        /// <summary>
+        /// Creates an error result. Optional <paramref name="details"/> are merged into the
+        /// error payload alongside <c>error</c> (e.g. the called tool's expectedSchema).
+        /// </summary>
+        public static McpToolCallResult Error(string message, JObject? details = null)
         {
-            var payload = new JObject
-            {
-                ["error"] = message ?? string.Empty,
-            };
+            var payload = details != null ? (JObject)details.DeepClone() : new JObject();
+            payload["error"] = message ?? string.Empty;
             return new McpToolCallResult(true, payload, message);
         }
     }
