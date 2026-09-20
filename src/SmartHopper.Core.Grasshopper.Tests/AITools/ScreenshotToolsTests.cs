@@ -103,6 +103,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
             Assert.Equal(600, canvasService.MaxHeight);
             Assert.Equal("canvas-png", (string?)result.Payload["imageBase64"]);
             Assert.Equal("image/png", (string?)result.Payload["mimeType"]);
+            Assert.Equal("model", (string?)result.Payload["imageAudience"]);
             Assert.Equal(640, (int?)result.Payload["width"]);
             Assert.Equal(360, (int?)result.Payload["height"]);
         }
@@ -199,6 +200,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
             Assert.Equal(Color.White.ToArgb(), request.Background.ToArgb());
             Assert.Equal("hires-png", (string?)result.Payload["imageBase64"]);
             Assert.Equal("image/png", (string?)result.Payload["mimeType"]);
+            Assert.Equal("display", (string?)result.Payload["imageAudience"]);
             Assert.Equal(2048, (int?)result.Payload["width"]);
         }
 

@@ -17,6 +17,7 @@
  */
 
 using System.Collections.Generic;
+using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -36,6 +37,13 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// Gets the result of the tool call.
         /// </summary>
         public JObject Result { get; init; }
+
+        /// <summary>
+        /// Gets the image payloads produced by this tool result. These are extracted from the
+        /// result JSON by <see cref="ToolResultMediaExtractor"/> so the image stays attached to
+        /// the tool result rather than being serialized as base64 text to providers.
+        /// </summary>
+        public List<ToolResultImage> Images { get; init; } = new List<ToolResultImage>();
 
         /// <summary>
         /// Gets the structured runtime messages produced while generating this tool result.
@@ -117,11 +125,35 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Gets the raw markdown content to render for this interaction (pretty-printed JSON result).
+        /// Gets the raw markdown content to render for this interaction (pretty-printed JSON
+        /// result followed by one markdown image per attached <see cref="ToolResultImage"/>).
         /// </summary>
         public override string GetRawContentForRender()
         {
-            return this.Result != null && this.Result.HasValues ? JsonConvert.SerializeObject(this.Result, Formatting.Indented) : string.Empty;
+            var json = this.Result != null && this.Result.HasValues ? JsonConvert.SerializeObject(this.Result, Formatting.Indented) : string.Empty;
+
+            if (this.Images == null || this.Images.Count == 0)
+            {
+                return json;
+            }
+
+            var sb = new StringBuilder(json);
+            var label = string.IsNullOrWhiteSpace(this.Name) ? "Tool result image" : $"{this.Name} image";
+            foreach (var image in this.Images)
+            {
+                if (string.IsNullOrEmpty(image.ImageData))
+                {
+                    continue;
+                }
+
+                sb.Append("\n\n![").Append(label).Append("](data:")
+                    .Append(image.MimeType ?? "image/png")
+                    .Append(";base64,")
+                    .Append(image.ImageData)
+                    .Append(')');
+            }
+
+            return sb.ToString();
         }
 
         /// <summary>

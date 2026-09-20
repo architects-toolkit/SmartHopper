@@ -26,9 +26,11 @@
     <button id="scroll-bottom-btn" class="hidden" type="button" title="Scroll to bottom" aria-label="Scroll to bottom">↓</button>
 
     <div id="input-bar">
+        <div id="attachment-strip" class="hidden"></div>
         <textarea id="user-input" placeholder="Type a message..." rows="3"></textarea>
         <div class="actions">
             <div class="actions-left">
+                <button id="attach-button" type="button" title="Attach image" aria-label="Attach image">&#128206;</button>
                 {{debugActionsLeft}}
             </div>
             <div class="actions-right">
