@@ -115,6 +115,23 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         }
 
         /// <summary>
+        /// Returns the live bounds size of the document object with the given instance GUID,
+        /// or null when the object is missing or has no measurable bounds. Suitable for
+        /// <c>GhJSON.Core.DependencyGraph.LayoutOptions.NodeSizeProvider</c>, whose node keys
+        /// are component instance GUIDs (synthesized keys for id-only nodes simply miss here
+        /// and keep the default size).
+        /// </summary>
+        /// <param name="instanceGuid">The instance GUID of the document object.</param>
+        /// <returns>The live bounds size, or null when unknown.</returns>
+        public static SizeF? GetNodeSize(Guid instanceGuid)
+        {
+            var bounds = FindInstance(instanceGuid)?.Attributes?.Bounds;
+            return bounds.HasValue && bounds.Value.Width > 0 && bounds.Value.Height > 0
+                ? bounds.Value.Size
+                : null;
+        }
+
+        /// <summary>
         /// Moves an existing instance by setting its Pivot position by GUID.
         /// </summary>
         /// <param name="guid">The GUID of the instance to move.</param>
