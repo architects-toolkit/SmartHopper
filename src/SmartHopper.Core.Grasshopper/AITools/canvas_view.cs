@@ -56,7 +56,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: ToolName,
                 description: "Adjusts the Grasshopper canvas viewport without changing the document. Actions: 'zoomExtents' frames every object; 'frameGuids' frames the given component GUIDs; 'setZoom' sets the zoom factor (1 = 100%); 'setCenter' centres the view on canvas coordinates x/y.",
-                category: "Components",
+                category: "Canvas",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
