@@ -67,9 +67,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags.Add("data-intensive");
             }
 
-            var outputSchema = @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Serialized Grasshopper document in GhJSON format."" }, ""runtimeData"": { ""type"": ""object"", ""description"": ""Volatile data values for requested components."" }, ""pagination"": { ""type"": ""object"", ""description"": ""Pagination metadata."" }, ""serializationQuality"": { ""type"": ""object"" } } }";
+            var outputSchema = @"{ ""type"": ""object"", ""properties"": { ""detail"": { ""type"": ""string"" }, ""ghjson"": { ""type"": ""string"", ""description"": ""Serialized Grasshopper document in GhJSON format. Omitted when detail=summary."" }, ""components"": { ""type"": ""array"", ""description"": ""Compact per-component projection (instanceGuid, name, nickName, pivot, bounds). Only present when detail=summary."" }, ""runtimeData"": { ""type"": ""object"", ""description"": ""Volatile data values for requested components."" }, ""pagination"": { ""type"": ""object"", ""description"": ""Pagination metadata."" }, ""serializationQuality"": { ""type"": ""object"", ""description"": ""Omitted when detail=summary."" } } }";
 
-            var schema = includePagination ? AddPaginationToSchema(parametersSchema) : parametersSchema;
+            var schema = AddDetailToSchema(includePagination ? AddPaginationToSchema(parametersSchema) : parametersSchema);
 
             return new AITool(
                 name: name,
@@ -105,6 +105,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 properties["pageSize"] = JObject.Parse(@"{ ""type"": ""integer"", ""default"": 25, ""minimum"": 1, ""description"": ""Number of components per page. Default is 25."" }");
             }
 
+            return obj.ToString(Formatting.None);
+        }
+
+        /// <summary>
+        /// Adds the optional <c>detail</c> parameter (summary|full) to a JSON schema when it
+        /// is not already present. Defaults to full for backwards compatibility.
+        /// </summary>
+        private static string AddDetailToSchema(string parametersSchema)
+        {
+            var obj = JObject.Parse(parametersSchema);
+            var properties = obj["properties"] as JObject;
+            if (properties == null || properties.ContainsKey("detail"))
+            {
+                return parametersSchema;
+            }
+
+            properties["detail"] = JObject.Parse(@"{ ""type"": ""string"", ""enum"": [""summary"", ""full""], ""default"": ""full"", ""description"": ""Response detail level. 'full' (default) returns the complete GhJSON serialization. 'summary' omits 'ghjson' and 'serializationQuality' and returns a compact per-component projection with instanceGuid, name, nickName, pivot and live bounds."" }");
             return obj.ToString(Formatting.None);
         }
 
@@ -443,7 +460,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var viewportOnly = forceViewportOnly || (args["viewportOnly"]?.ToObject<bool>() ?? false);
                 var page = args["page"]?.ToObject<int>() ?? 1;
                 var pageSize = args["pageSize"]?.ToObject<int>() ?? 25;
-                Debug.WriteLine($"[gh_get] includeInternalizedData: {includeInternalizedData}, includeRuntimeData: {includeRuntimeData}, includeMessages: {includeMessages}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}, viewportOnly: {viewportOnly}, page: {page}, pageSize: {pageSize}");
+                var detail = args["detail"]?.ToString()?.ToLowerInvariant() ?? "full";
+                if (detail != "summary" && detail != "full")
+                {
+                    output.CreateError($"Invalid 'detail' value '{detail}'. Expected 'summary' or 'full'.");
+                    return Task.FromResult(output);
+                }
+
+                Debug.WriteLine($"[gh_get] includeInternalizedData: {includeInternalizedData}, includeRuntimeData: {includeRuntimeData}, includeMessages: {includeMessages}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}, viewportOnly: {viewportOnly}, page: {page}, pageSize: {pageSize}, detail: {detail}");
 
                 // Build the query using CanvasSelector
                 var selector = CanvasSelector.FromActiveCanvas();
@@ -591,19 +615,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .Distinct()
                     .ToList();
 
-                var json = GhJson.ToJson(document, new WriteOptions { Indented = false });
-
-                var thinComponents = document.Components
-                    .Where(c => c.Warnings?.Any(w => w.Contains("without a specialized handler")) == true)
-                    .Select(c => new { c.Name, c.Library })
-                    .ToList();
-
-                var missingPlugins = document.Components
-                    .Select(c => c.Library)
-                    .Where(l => !string.IsNullOrEmpty(l))
-                    .Distinct()
-                    .ToList();
-
                 var totalComponents = resultObjects.Count;
                 var pageCount = pageSize > 0 ? (int)Math.Ceiling((double)totalComponents / pageSize) : 1;
 
@@ -612,26 +623,97 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     output.AddRuntimeMessage(SHRuntimeMessageSeverity.Warning, SHRuntimeMessageOrigin.Tool, "No components matched the requested filters. Try relaxing filters or adjusting pagination.");
                 }
 
-                var toolResult = new JObject
+                JObject toolResult;
+                if (detail == "summary")
                 {
-                    ["names"] = JArray.FromObject(names),
-                    ["guids"] = JArray.FromObject(guidList),
-                    ["ghjson"] = json,
-                    ["pagination"] = new JObject
+                    // Compact projection: no ghjson serialization and no serializationQuality.
+                    // Bounds come from the live document objects, not the GhJSON model.
+                    var boundsByGuid = resultObjects
+                        .Where(o => o?.Attributes != null)
+                        .GroupBy(o => o.InstanceGuid)
+                        .ToDictionary(g => g.Key, g => g.First().Attributes.Bounds);
+
+                    var components = document.Components
+                        .Where(c => c.InstanceGuid.HasValue)
+                        .Select(c =>
+                        {
+                            var item = new JObject
+                            {
+                                ["instanceGuid"] = c.InstanceGuid!.Value.ToString(),
+                                ["name"] = c.Name,
+                                ["nickName"] = c.NickName,
+                                ["pivot"] = c.Pivot == null
+                                    ? null
+                                    : new JObject { ["x"] = c.Pivot.X, ["y"] = c.Pivot.Y },
+                            };
+                            if (boundsByGuid.TryGetValue(c.InstanceGuid.Value, out var bounds))
+                            {
+                                item["bounds"] = new JObject
+                                {
+                                    ["x"] = bounds.X,
+                                    ["y"] = bounds.Y,
+                                    ["width"] = bounds.Width,
+                                    ["height"] = bounds.Height,
+                                };
+                            }
+
+                            return item;
+                        })
+                        .ToList();
+
+                    toolResult = new JObject
                     {
-                        ["page"] = page,
-                        ["pageSize"] = pageSize,
-                        ["totalComponents"] = totalComponents,
-                        ["pageCount"] = pageCount,
-                        ["returnedComponents"] = document.Components.Count,
-                    },
-                    ["serializationQuality"] = new JObject
+                        ["detail"] = "summary",
+                        ["names"] = JArray.FromObject(names),
+                        ["guids"] = JArray.FromObject(guidList),
+                        ["components"] = JArray.FromObject(components),
+                        ["pagination"] = new JObject
+                        {
+                            ["page"] = page,
+                            ["pageSize"] = pageSize,
+                            ["totalComponents"] = totalComponents,
+                            ["pageCount"] = pageCount,
+                            ["returnedComponents"] = document.Components.Count,
+                        },
+                    };
+                }
+                else
+                {
+                    var json = GhJson.ToJson(document, new WriteOptions { Indented = false });
+
+                    var thinComponents = document.Components
+                        .Where(c => c.Warnings?.Any(w => w.Contains("without a specialized handler")) == true)
+                        .Select(c => new { c.Name, c.Library })
+                        .ToList();
+
+                    var missingPlugins = document.Components
+                        .Select(c => c.Library)
+                        .Where(l => !string.IsNullOrEmpty(l))
+                        .Distinct()
+                        .ToList();
+
+                    toolResult = new JObject
                     {
-                        ["totalComponents"] = totalComponents,
-                        ["thinComponents"] = JArray.FromObject(thinComponents),
-                        ["referencedPlugins"] = JArray.FromObject(missingPlugins),
-                    },
-                };
+                        ["detail"] = "full",
+                        ["names"] = JArray.FromObject(names),
+                        ["guids"] = JArray.FromObject(guidList),
+                        ["ghjson"] = json,
+                        ["pagination"] = new JObject
+                        {
+                            ["page"] = page,
+                            ["pageSize"] = pageSize,
+                            ["totalComponents"] = totalComponents,
+                            ["pageCount"] = pageCount,
+                            ["returnedComponents"] = document.Components.Count,
+                        },
+                        ["serializationQuality"] = new JObject
+                        {
+                            ["totalComponents"] = totalComponents,
+                            ["thinComponents"] = JArray.FromObject(thinComponents),
+                            ["referencedPlugins"] = JArray.FromObject(missingPlugins),
+                        },
+                    };
+                }
 
                 var body = AIBodyBuilder.Create()
                     .AddToolResult(toolResult)
