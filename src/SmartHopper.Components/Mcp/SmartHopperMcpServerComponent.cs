@@ -42,6 +42,7 @@ namespace SmartHopper.Components.Mcp
         private bool lastEnable;
         private string? lastToken;
         private bool lastExposeMutating;
+        private bool lastAutoApprove;
         private string? lastStatus;
 
         /// <summary>
@@ -101,6 +102,13 @@ namespace SmartHopper.Components.Mcp
                 GH_ParamAccess.item,
                 false);
             pManager[3].Optional = true;
+            pManager.AddBooleanParameter(
+                "Auto-approve AI Changes",
+                "AA",
+                "When true, canvas mutations requested through this MCP server are applied without showing the review dialog. Undo is still recorded. Defaults to false.",
+                GH_ParamAccess.item,
+                false);
+            pManager[4].Optional = true;
         }
 
         /// <inheritdoc/>
@@ -117,16 +125,18 @@ namespace SmartHopper.Components.Mcp
             int port = McpServerOptions.DefaultPort;
             string token = string.Empty;
             bool exposeMutating = false;
+            bool autoApprove = false;
 
             DA.GetData(0, ref enable);
             this.lastEnable = enable;
             DA.GetData(1, ref port);
             DA.GetData(2, ref token);
             DA.GetData(3, ref exposeMutating);
+            DA.GetData(4, ref autoApprove);
 
             try
             {
-                this.ApplyToggle(enable, port, token, exposeMutating);
+                this.ApplyToggle(enable, port, token, exposeMutating, autoApprove);
             }
             catch (Exception ex)
             {
@@ -158,7 +168,7 @@ namespace SmartHopper.Components.Mcp
             base.DocumentContextChanged(document, context);
         }
 
-        private void ApplyToggle(bool enable, int port, string token, bool exposeMutating)
+        private void ApplyToggle(bool enable, int port, string token, bool exposeMutating, bool autoApprove)
         {
             string? normalizedToken = string.IsNullOrWhiteSpace(token) ? null : token;
 
@@ -172,7 +182,8 @@ namespace SmartHopper.Components.Mcp
             if (this.acquired &&
                 this.currentPort == port &&
                 this.lastToken == normalizedToken &&
-                this.lastExposeMutating == exposeMutating)
+                this.lastExposeMutating == exposeMutating &&
+                this.lastAutoApprove == autoApprove)
             {
                 this.lastStatus = $"Running on {McpServerLifecycle.Find(port)?.Url}";
                 return;
@@ -187,12 +198,14 @@ namespace SmartHopper.Components.Mcp
                 Port = port,
                 BearerToken = normalizedToken,
                 ExposeMutatingTools = exposeMutating,
+                AutoApproveMutations = autoApprove,
             };
             var server = McpServerLifecycle.Acquire(this, options);
             this.acquired = true;
             this.currentPort = port;
             this.lastToken = normalizedToken;
             this.lastExposeMutating = exposeMutating;
+            this.lastAutoApprove = autoApprove;
             this.lastStatus = $"Running on {server.Url}";
         }
 

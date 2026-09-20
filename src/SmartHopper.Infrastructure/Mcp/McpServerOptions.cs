@@ -57,6 +57,13 @@ namespace SmartHopper.Infrastructure.Mcp
         public bool ExposeMutatingTools { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether mutation proposals raised by tool calls
+        /// served through this server are approved without invoking a consent presenter.
+        /// Undo recording is unaffected. Defaults to <c>false</c>.
+        /// </summary>
+        public bool AutoApproveMutations { get; set; }
+
+        /// <summary>
         /// Gets or sets the server identifier reported during MCP <c>initialize</c>.
         /// </summary>
         public string ServerName { get; set; } = "smarthopper";
@@ -78,6 +85,7 @@ namespace SmartHopper.Infrastructure.Mcp
                 BearerToken = this.BearerToken,
                 EnabledTools = this.EnabledTools == null ? null : new List<string>(this.EnabledTools),
                 ExposeMutatingTools = this.ExposeMutatingTools,
+                AutoApproveMutations = this.AutoApproveMutations,
                 ServerName = this.ServerName,
                 ServerVersion = this.ServerVersion,
             };
