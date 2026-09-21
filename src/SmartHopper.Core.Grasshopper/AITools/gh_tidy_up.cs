@@ -204,6 +204,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         AlignOneToOneConnections = true,
                         MinimizeConnectionLengths = true,
                         AvoidCollisions = true,
+
+                        // Same live-bounds source as the core layout, so per-island
+                        // re-spacing measures real component sizes.
+                        NodeSizeProvider = CanvasAccess.GetNodeSize,
                     });
 
                 if (positions.Count == 0)
