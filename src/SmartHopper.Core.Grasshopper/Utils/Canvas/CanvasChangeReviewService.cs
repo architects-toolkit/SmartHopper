@@ -99,7 +99,27 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 try
                 {
                     PopulateProposedBounds(session);
-                    completion.TrySetResult(CanvasChangeReviewDialog.ShowReview(session, cancellationToken));
+                    CanvasChangeReviewDialog.ShowReviewAsync(session, cancellationToken).ContinueWith(
+                        task =>
+                        {
+                            if (task.IsCanceled)
+                            {
+                                completion.TrySetCanceled(cancellationToken);
+                            }
+                            else if (task.IsFaulted)
+                            {
+                                completion.TrySetException(
+                                    (Exception?)task.Exception ??
+                                    new InvalidOperationException("The canvas change review dialog failed."));
+                            }
+                            else
+                            {
+                                completion.TrySetResult(task.Result);
+                            }
+                        },
+                        CancellationToken.None,
+                        TaskContinuationOptions.ExecuteSynchronously,
+                        TaskScheduler.Default);
                 }
                 catch (Exception ex)
                 {
