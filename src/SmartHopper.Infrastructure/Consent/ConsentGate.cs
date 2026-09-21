@@ -79,7 +79,7 @@ namespace SmartHopper.Infrastructure.Consent
                 // Surface policy: MCP invocations flagged by the owning server auto-approve
                 // the full proposal without a presenter. Undo recording is unaffected.
                 if (actualContext.Surface == SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp
-                    && actualContext.AutoApproveMutations)
+                    && actualContext.BypassMutationsApproval)
                 {
                     return new ConsentDecision
                     {

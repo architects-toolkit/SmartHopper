@@ -110,7 +110,8 @@ namespace SmartHopper.Infrastructure.Mcp
         }
 
         /// <summary>
-        /// Returns whether the named tool is currently exposed (allow-list + per-tool mutability).
+        /// Returns whether the named tool is currently exposed (allow-list, per-tool
+        /// mutability, and view-control category gating).
         /// </summary>
         public bool IsExposed(string toolName)
         {
@@ -137,6 +138,12 @@ namespace SmartHopper.Infrastructure.Mcp
             }
 
             if (!this.options.ExposeMutatingTools && tool.MutatesCanvas)
+            {
+                return false;
+            }
+
+            if (!this.options.AllowViewControl
+                && string.Equals(tool.Category, "ViewControl", StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
@@ -195,7 +202,7 @@ namespace SmartHopper.Infrastructure.Mcp
                 {
                     Source = MutationInvocationSource.Mcp,
                     Surface = SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp,
-                    AutoApproveMutations = this.options.AutoApproveMutations,
+                    BypassMutationsApproval = this.options.BypassMutationsApproval,
                     ToolCallId = interaction.Id,
                     ToolName = toolName,
                 },

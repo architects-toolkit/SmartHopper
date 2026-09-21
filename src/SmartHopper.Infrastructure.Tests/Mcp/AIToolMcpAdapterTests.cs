@@ -104,6 +104,53 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         }
 
         [Fact]
+        public void BuildDescriptors_OmitsViewControlToolsByDefault()
+        {
+            var tools = BuildCatalogWithCategory(
+                ("gh_get", "Test", ReadOnlySchema, false),
+                ("canvas_view", "ViewControl", ReadOnlySchema, false));
+            var adapter = new AIToolMcpAdapter(new McpServerOptions(), () => tools, _ => Task.FromResult(new AIReturn()));
+
+            var descriptors = adapter.BuildDescriptors();
+
+            Assert.Single(descriptors);
+            Assert.Equal("gh_get", descriptors[0].Name);
+            Assert.False(adapter.IsExposed("canvas_view"));
+        }
+
+        [Fact]
+        public void BuildDescriptors_IncludesViewControlToolsWhenOptedIn()
+        {
+            var tools = BuildCatalogWithCategory(
+                ("gh_get", "Test", ReadOnlySchema, false),
+                ("canvas_view", "ViewControl", ReadOnlySchema, false));
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { AllowViewControl = true },
+                () => tools,
+                _ => Task.FromResult(new AIReturn()));
+
+            var descriptors = adapter.BuildDescriptors();
+
+            Assert.Equal(2, descriptors.Count);
+            Assert.Contains(descriptors, d => d.Name == "canvas_view");
+        }
+
+        [Fact]
+        public void BuildDescriptors_AllowListOverridesViewControlFilter()
+        {
+            var tools = BuildCatalogWithCategory(("canvas_view", "ViewControl", ReadOnlySchema, false));
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { EnabledTools = new[] { "canvas_view" } },
+                () => tools,
+                _ => Task.FromResult(new AIReturn()));
+
+            var descriptors = adapter.BuildDescriptors();
+
+            Assert.Single(descriptors);
+            Assert.Equal("canvas_view", descriptors[0].Name);
+        }
+
+        [Fact]
         public void BuildDescriptors_ParsesParametersSchemaIntoJObject()
         {
             var tools = BuildCatalog(("gh_get", ReadOnlySchema, false));
@@ -242,7 +289,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             var control = new AITool(
                 "plan_propose",
                 "Plan",
-                "Control",
+                "Planning",
                 ReadOnlySchema,
                 _ => Task.FromResult(new AIReturn()),
                 mutatesCanvas: false,
@@ -343,7 +390,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             }
 
             var adapter = new AIToolMcpAdapter(
-                new McpServerOptions { ExposeMutatingTools = true, AutoApproveMutations = true },
+                new McpServerOptions { ExposeMutatingTools = true, BypassMutationsApproval = true },
                 () => tools,
                 Executor);
 
@@ -351,7 +398,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
 
             Assert.False(result.IsError);
             Assert.NotNull(observed);
-            Assert.True(observed!.AutoApproveMutations);
+            Assert.True(observed!.BypassMutationsApproval);
             Assert.Equal(SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp, observed.Surface);
         }
 
@@ -507,6 +554,24 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
                     execute: _ => Task.FromResult(new AIReturn()),
                     mutatesCanvas: mutatesCanvas,
                     enabled: enabled);
+            }
+
+            return dict;
+        }
+
+        private static IReadOnlyDictionary<string, AITool> BuildCatalogWithCategory(params (string name, string category, string schema, bool mutatesCanvas)[] entries)
+        {
+            var dict = new Dictionary<string, AITool>();
+            foreach (var (name, category, schema, mutatesCanvas) in entries)
+            {
+                dict[name] = new AITool(
+                    name: name,
+                    description: $"Test tool {name}",
+                    category: category,
+                    parametersSchema: schema,
+                    execute: _ => Task.FromResult(new AIReturn()),
+                    mutatesCanvas: mutatesCanvas,
+                    enabled: true);
             }
 
             return dict;
