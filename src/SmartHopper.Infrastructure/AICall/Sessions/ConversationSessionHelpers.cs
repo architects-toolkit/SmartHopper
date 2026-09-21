@@ -119,7 +119,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             public AIReturn ErrorYield;
             public bool ShouldBreak;
             public AIReturn LastDelta;
-            public AIReturn LastToolCallsDelta;
 
             /// <summary>
             /// Accumulated text interaction deltas during streaming. Only the final aggregated text is persisted to history.
@@ -278,6 +277,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     Surface = this.Request.ToolSurface,
                     Presenter = this.ConsentPresenter,
                     TaskPlanPresenter = this.TaskPlanPresenter,
+                    CanvasPointerPresenter = this.CanvasPointerPresenter,
+                    UserQuestionPresenter = this.UserQuestionPresenter,
                 },
             };
             toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);
@@ -380,8 +381,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// Persists final streaming snapshot (tool_calls and assistant text), updates last return,
         /// and logs unresolved pending tool-calls if any.
         /// </summary>
+        /// <param name="lastDelta">Final delta carrying the call's usage metrics and finish reason.</param>
+        /// <param name="turnId">Unified TurnId applied to the persisted text.</param>
+        /// <param name="accumulatedText">The assistant text interaction accumulated during streaming.</param>
         /// <param name="completionTime">Total time taken for the streaming operation in seconds.</param>
-        private void PersistStreamingSnapshot(AIReturn lastToolCallsDelta, AIReturn lastDelta, string turnId, AIInteractionText accumulatedText, double completionTime = 0)
+        private void PersistStreamingSnapshot(AIReturn lastDelta, string turnId, AIInteractionText accumulatedText, double completionTime = 0)
         {
             // Persist the final aggregated text interaction (accumulated during streaming)
             if (accumulatedText != null && !string.IsNullOrWhiteSpace(accumulatedText.Content))
@@ -392,17 +396,17 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     accumulatedText = accumulatedText with { TurnId = turnId };
                 }
 
-                // Transfer final metrics from the provider's last delta to the accumulated text
+                // Transfer call-level metrics from the provider's final delta to the accumulated text.
+                // The delta aggregate also includes usage attached to tool-call interactions.
+                var callMetrics = lastDelta?.Metrics;
+                if (callMetrics != null && (callMetrics.TotalTokens > 0 || callMetrics.TotalEstimatedTokens > 0))
+                {
+                    accumulatedText = accumulatedText with { Metrics = callMetrics with { CompletionTime = completionTime } };
+                }
+
                 var finalAssistant = lastDelta?.Body?.GetLastInteraction(AIAgent.Assistant) as AIInteractionText;
                 if (finalAssistant != null)
                 {
-                    // Copy complete metrics from the final provider delta
-                    if (finalAssistant.Metrics != null)
-                    {
-                        var metrics = finalAssistant.Metrics with { CompletionTime = completionTime };
-                        accumulatedText = accumulatedText with { Metrics = metrics };
-                    }
-
                     // Update time if available
                     if (finalAssistant.Time != default)
                     {

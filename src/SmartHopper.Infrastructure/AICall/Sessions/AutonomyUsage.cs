@@ -45,6 +45,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         public long MaxTokens { get; init; }
 
         /// <summary>
+        /// Gets a value indicating whether <see cref="Tokens"/> includes heuristic estimates for calls
+        /// where the provider did not report usage. The UI should display it as approximate.
+        /// </summary>
+        public bool TokensEstimated { get; init; }
+
+        /// <summary>
         /// Gets a value indicating whether a run is currently in progress.
         /// </summary>
         public bool IsRunning { get; init; }
