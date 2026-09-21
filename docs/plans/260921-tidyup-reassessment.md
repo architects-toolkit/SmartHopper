@@ -1,6 +1,6 @@
 # Live re-assessment: gh_tidy_up after bounds-aware spacing (GhJSON 1.2.0)
 
-**Status:** fixes applied (see addendum) — pending rebuild + live re-verification
+**Status:** fixes applied and **live-verified** (v4 run, see final addendum)
 **Date:** 2026-09-21
 **Branch tested:** `feature/mcp-canvas-usability` (built + signed `2.0.0-dev.260921`)
 **Method:** re-ran the original live test — `tidyup-test.ghjson` (19 components: math island with sliders/arithmetic/compare/panels + fan-out + skip edge; geometry island with sliders/Number param/panel input/Construct→Deconstruct Point/Sphere/panels), placed via `gh_put` (auto-approved), tidied via `gh_tidy_up`, evaluated with `canvas_hi-res_screenshot` (`scope=document`).
@@ -128,3 +128,42 @@ The whole pipeline (core `CoordinateAssigner`, `BoundsAwareSpacing`, `PortAlignm
 - Wire-through-bounds on skip edges (finding 3) — needs corridor reservation or routing awareness.
 - Leaf-panel port alignment for multi-output sources (finding 4).
 - Error responses still append the full tool catalog (finding 8).
+
+---
+
+## Addendum 2 — live verification after per-island spacing (2026-09-21, "v4")
+
+**Run:** clean canvas → `gh_put tidyup-test.ghjson` (19 placed, modern GUIDs) → `canvas_view zoomExtents` → `gh_tidy_up` ×2 → `gh_get summary`.
+**Screenshots:** `tidyup-v4-before.png`, `tidyup-v4-before-full.png`, `tidyup-v4-after.png`, `tidyup-v4-after-viewport.png`.
+
+### Verified fixes
+
+| Check | Result |
+| --- | --- |
+| Island left-edge alignment | **Aligned** — both islands' leftmost bounds at x=700 (math sliders, X/R sliders). |
+| Per-island/per-layer widths | **Working** — math spans x700→1478 (5 columns), geometry x700→1427 (4 columns); each column sized from its own members, ~80px edge-to-edge gaps. No global pitch remains. |
+| Slider wire visibility | **Fixed** — 40px pitch for 20px-high sliders (20px gaps); wires clearly readable (was ~5px). |
+| Vertical spacing | **Fixed** — compact rows, no oversized pitch. |
+| Panel sizing | **Fixed** — Result/GT? at 80×38; py/pz/sphere at 195×38 (fit "No data was collected" + nickName). Extensionless panels now content-fit; `wrap` is a width cap, not a target. |
+| Panel alignment | **Fixed** — panels now center-aligned to their source port row (py↔Dec.Y, pz↔Dec.Z, sphere↔Sph.S, Result↔Sub.R, GT?↔LT.»). |
+| Overlaps | None. |
+| No-op correctness | C slider was already at target → correctly absent from `moved` on pass 1. |
+| `canvas_view` | Works — no cross-thread crash. |
+| Name resolution | `"Deconstruct Point"` → modern `Deconstruct` (`9abae6b7`); `"Subtraction"` → modern `9c007a04`. Debugger-verified `2c56ab33`/`8a5aae11`/`670fcdba` are obsolete; test file updated. |
+| Stray component | Explained — not a code leak; an obsolete-GUID pin in the old test file + a leftover from earlier probing. |
+
+### Measured post-tidy geometry (pivot → bounds)
+
+```
+Math:     C(700,274) A(700,314) B(700,354) → LT(971,239) Add(975,338)
+          → GT?(1093,231) Mul(1131,328) → Sub(1284,318) → Result(1398,300)
+Geometry: X(700,600) Y(780,652) Z(740,684) R(700,786) → Pt(971,629)
+          → Dec(1118,484) Sph(1119,785) → py(1232,436) pz(1232,515) sphere(1232,767)
+```
+
+### Remaining defects
+
+1. **±1px oscillation on repeat runs** — pass 2 listed 15 objects as `moved`; `MoveInstance` returns `false` on sub-epsilon no-ops, so these were real moves of ~0.5–1px. The layout targets drift by sub-pixel amounts between runs (float pivots round to identical ints). Not harmful — undo entries are only recorded for real moves — but raising `MoveEpsilon` or rounding targets to whole pixels would make repeat runs fully quiescent. Minor.
+2. **Fan-in port-order crossing persists** — the wires into `LT` still cross (upper slider → lower port). Needs target-port-index ordering (A6).
+3. **Skip-edge corridor still unresolved** — long wires route close to intermediate component bounds; the dedicated wire-corridor idea (finding 3) remains the proper fix.
+4. **Tool-catalog dump on argument errors** — unchanged (finding 8).
