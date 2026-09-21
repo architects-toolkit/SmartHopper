@@ -37,11 +37,22 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
     /// </summary>
     public sealed class CanvasHiResCaptureService : ICanvasHiResCaptureService
     {
-        /// <summary>Default maximum output width or height in pixels.</summary>
-        public const int DefaultMaxDimension = 16384;
+        /// <summary>Bytes per pixel in the composited output bitmap (Format32bppArgb).</summary>
+        private const int BytesPerPixel = 4;
 
-        /// <summary>Absolute maximum output width or height in pixels.</summary>
-        public const int AbsoluteMaxDimension = 30000;
+        /// <summary>
+        /// Hard memory cap for the composited output bitmap, in bytes (2 GiB). This is
+        /// also near the practical ceiling for a single GDI+ bitmap, so it is not
+        /// scaled with total RAM; instead the effective budget tightens under memory
+        /// pressure (see <see cref="OutputBudgetBytes"/>).
+        /// </summary>
+        public const long MaxOutputBytes = 2L * 1024 * 1024 * 1024;
+
+        /// <summary>
+        /// Smallest output budget granted even under memory pressure (~64 MiB), so
+        /// ordinary-size captures keep working on a loaded machine.
+        /// </summary>
+        private const long MinOutputBytes = 64L * 1024 * 1024;
 
         /// <inheritdoc/>
         public Task<ImageCaptureResult> CaptureHiResAsync(CanvasHiResCaptureRequest request)
@@ -52,15 +63,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
             if (scale <= 0f || float.IsNaN(scale) || float.IsInfinity(scale))
             {
                 throw new ArgumentOutOfRangeException(nameof(request), scale, "Scale must be a positive finite number.");
-            }
-
-            int maxDimension = request.MaxDimension;
-            if (maxDimension < 1 || maxDimension > AbsoluteMaxDimension)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(request),
-                    maxDimension,
-                    $"MaxDimension must be between 1 and {AbsoluteMaxDimension} pixels.");
             }
 
             var completion = new TaskCompletionSource<ImageCaptureResult>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -87,14 +89,21 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
 
                     bounds.Inflate(request.Padding, request.Padding);
 
-                    int totalWidth = Math.Max(1, (int)Math.Ceiling(bounds.Width * scale));
-                    int totalHeight = Math.Max(1, (int)Math.Ceiling(bounds.Height * scale));
-                    if (totalWidth > maxDimension || totalHeight > maxDimension)
+                    double pixelWidth = Math.Ceiling(bounds.Width * scale);
+                    double pixelHeight = Math.Ceiling(bounds.Height * scale);
+                    double outputBytes = pixelWidth * pixelHeight * BytesPerPixel;
+                    long budget = OutputBudgetBytes();
+                    if (outputBytes > budget)
                     {
                         throw new InvalidOperationException(
-                            $"The requested export would be {totalWidth}x{totalHeight}px, exceeding the {maxDimension}px limit. " +
+                            $"The requested export would be {pixelWidth:F0}x{pixelHeight:F0}px " +
+                            $"({outputBytes / (1024.0 * 1024.0 * 1024.0):F1} GB) and exceed the current " +
+                            $"{budget / (1024.0 * 1024.0 * 1024.0):F1} GB memory budget. " +
                             "Lower 'scale' or narrow the region via scope/guids/bounds.");
                     }
+
+                    int totalWidth = Math.Max(1, (int)pixelWidth);
+                    int totalHeight = Math.Max(1, (int)pixelHeight);
 
                     var tileSize = GH_Canvas.GH_ImageSettings.TileSize;
                     int tileWidth = Math.Max(1, tileSize.Width);
@@ -162,6 +171,19 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
             }
 
             return completion.Task;
+        }
+
+        /// <summary>
+        /// Effective output budget for this call: the 2 GiB hard cap, tightened to the
+        /// headroom below the GC high-memory-load threshold when the process is under
+        /// memory pressure, and never below <see cref="MinOutputBytes"/> so ordinary
+        /// captures still run on a loaded machine.
+        /// </summary>
+        private static long OutputBudgetBytes()
+        {
+            var info = GC.GetGCMemoryInfo();
+            var headroom = info.HighMemoryLoadThresholdBytes - info.MemoryLoadBytes;
+            return Math.Min(MaxOutputBytes, Math.Max(headroom, MinOutputBytes));
         }
 
         private static RectangleF ResolveRegion(GH_Document document, CanvasHiResCaptureRequest request)
