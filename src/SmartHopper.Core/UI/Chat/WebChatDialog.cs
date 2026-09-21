@@ -36,6 +36,7 @@ using Rhino;
 using Rhino.UI;
 using SmartHopper.Infrastructure.AICall.Sessions;
 using SmartHopper.Infrastructure.AICall.Utilities;
+using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
@@ -558,6 +559,28 @@ namespace SmartHopper.Core.UI.Chat
                 DebugLog($"[WebChatDialog] DrainDomUpdateQueue error: {ex.Message}");
                 this._isDomUpdating = false;
                 this._domDrainScheduled = false;
+            }
+        }
+
+        /// <summary>
+        /// Pushes the current session's autonomy budget consumption (elapsed time and tokens versus
+        /// their configured limits) to the WebView meter.
+        /// </summary>
+        internal void PushAutonomyUsage()
+        {
+            try
+            {
+                var usage = this._currentSession?.GetAutonomyUsage();
+                if (usage == null)
+                {
+                    return;
+                }
+
+                this.ExecuteScript($"updateAutonomyUsage({JsonConvert.SerializeObject(usage)});");
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] PushAutonomyUsage error: {ex.Message}");
             }
         }
 
@@ -1176,6 +1199,13 @@ namespace SmartHopper.Core.UI.Chat
 
                 var options = new SessionOptions { ProcessTools = true, CancellationToken = this._currentCts.Token };
 
+                var assistant = SmartHopperSettings.Instance?.SmartHopperAssistant;
+                if (assistant != null)
+                {
+                    options.MaxAutonomousTime = TimeSpan.FromMinutes(Math.Max(0, assistant.MaxAutonomousTimeMinutes));
+                    options.MaxAutonomousTokens = Math.Max(0, assistant.MaxAutonomousTokens);
+                }
+
                 // Always attempt streaming first - ConversationSession handles validation internally
                 // and falls back to non-streaming if streaming is not supported
                 DebugLog("[WebChatDialog] Starting streaming path (session handles validation)");
@@ -1275,7 +1305,7 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     try
                     {
-                        var options = new SessionOptions { ProcessTools = false, MaxTurns = 1 };
+                        var options = new SessionOptions { ProcessTools = false };
                         await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
                     }
                     catch (Exception grex)

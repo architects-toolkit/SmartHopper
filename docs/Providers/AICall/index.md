@@ -49,7 +49,7 @@ This page is the entry point for understanding how SmartHopper structures AI req
 - Use `ConversationSession` when:
   - Tools may be called (e.g., `Body.ToolFilter` is set)
   - Multi-turn interaction or tool pass loops are expected
-  - You need observer callbacks or tighter control via `SessionOptions` (e.g., `ProcessTools`, `MaxTurns`, `MaxToolPasses`)
+  - You need observer callbacks or tighter control via `SessionOptions` (e.g., `ProcessTools`, `MaxAutonomousTime`, `MaxAutonomousTokens`)
 
 Note: Prefer creating an explicit `ConversationSession` when you need deterministic orchestration settings.
 
@@ -103,7 +103,7 @@ var session = new ConversationSession(request);
 var options = new SessionOptions
 {
     ProcessTools = true,
-    MaxTurns = 5,
+    MaxAutonomousTime = TimeSpan.FromMinutes(5),
 };
 
 // Run to completion

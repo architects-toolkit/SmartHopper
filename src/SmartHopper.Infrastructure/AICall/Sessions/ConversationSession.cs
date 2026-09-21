@@ -50,7 +50,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     ///   left without a result by an aborted turn (cancellation, error, exhausted passes/turns) or found at turn
     ///   start are closed with synthetic failed results (see <c>ReconcilePendingToolCalls</c>).
     /// - When <see cref="SessionOptions.ProcessTools"/> is false, tools are hidden from the provider for the run.
-    /// - Only provider turns increment the MaxTurns counter (tool passes do not consume turns).
+    /// - Provider turns and tool passes are bounded by the autonomous time and token budgets
+    ///   (<see cref="SessionOptions.MaxAutonomousTime"/> / <see cref="SessionOptions.MaxAutonomousTokens"/>).
     /// - Streaming text deltas are accumulated in memory and only the final aggregated text is persisted to history.
     /// - Non-text interactions (tool calls, tool results) are persisted immediately as they arrive.
     /// </remarks>
@@ -96,6 +97,26 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// Becomes false after a greeting is emitted to ensure one-shot behavior.
         /// </summary>
         private bool _generateGreeting;
+
+        /// <summary>
+        /// Stopwatch measuring the current or last autonomous run's wall-clock time.
+        /// </summary>
+        private readonly Stopwatch _autonomyStopwatch = new ();
+
+        /// <summary>
+        /// Provider-reported tokens already present in history when the current run started.
+        /// </summary>
+        private long _autonomyTokensAtStart;
+
+        /// <summary>
+        /// Options of the current or last run, holding the configured autonomy budgets.
+        /// </summary>
+        private SessionOptions? _autonomyOptions;
+
+        /// <summary>
+        /// Reason recorded when an autonomy budget is exhausted; sticky for the remainder of the run.
+        /// </summary>
+        private string? _autonomyExhaustionReason;
 
         /// <summary>
         /// The last complete return from the conversation.
@@ -194,6 +215,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var toolsDisabledForRun = !options.ProcessTools && !string.Equals(originalToolFilter, DisableAllToolsFilter, StringComparison.Ordinal);
             try
             {
+                this.BeginAutonomyRun(options);
                 this.NotifyStart(this.Request);
 
                 // Generate greeting if requested before starting conversation
@@ -228,12 +250,17 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     yield break;
                 }
 
-                int turns = 0;
                 AIReturn lastReturn = null;
 
-                while (turns < options.MaxTurns)
+                while (true)
                 {
                     linkedCts.Token.ThrowIfCancellationRequested();
+
+                    if (this.TryGetAutonomyExhaustion(out var budgetReason))
+                    {
+                        this.ReconcilePendingToolCalls($"Tool execution was skipped: {budgetReason}.");
+                        break;
+                    }
 
                     // Allocate a fresh TurnId for this assistant turn
                     var turnId = Guid.NewGuid().ToString("N");
@@ -360,7 +387,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         }
 
                         // Otherwise, continue to next turn
-                        turns++;
                         continue;
                     }
 
@@ -533,13 +559,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     {
                         yield break;
                     }
-
-                    turns++;
                 }
 
-                // Max turns reached without stability
-                this.ReconcilePendingToolCalls($"Tool execution was skipped: the maximum number of provider turns ({options.MaxTurns}) was reached.");
-                var final = lastReturn ?? this.CreateError("Max turns reached without a stable result");
+                // The run ended without stability — either the autonomy budget was exhausted or the
+                // conversation never converged. Close any dangling tool calls.
+                var stopReason = this._autonomyExhaustionReason ?? "the autonomous run ended";
+                this.ReconcilePendingToolCalls($"Tool execution was skipped: {stopReason}.");
+                var final = lastReturn ?? this.CreateError(stopReason);
                 this._lastReturn = final;
                 this.UpdateLastReturn();
                 this.NotifyFinal(final);
@@ -547,6 +573,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             finally
             {
+                this._autonomyStopwatch.Stop();
+
                 if (toolsDisabledForRun)
                 {
                     this.SetToolFilter(originalToolFilter);
@@ -695,6 +723,97 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
 
             return combined;
+        }
+
+        /// <summary>
+        /// Starts the autonomy budget for a new run: restarts the elapsed-time clock and snapshots the
+        /// tokens already present in history so only this run's consumption is measured.
+        /// </summary>
+        /// <param name="options">The session options holding the configured budgets.</param>
+        private void BeginAutonomyRun(SessionOptions options)
+        {
+            this._autonomyOptions = options;
+            this._autonomyTokensAtStart = this.SumHistoryTokens();
+            this._autonomyExhaustionReason = null;
+            this._autonomyStopwatch.Restart();
+        }
+
+        /// <summary>
+        /// Sums provider-reported tokens (input + output) across every interaction in history.
+        /// Interactions without metrics contribute zero.
+        /// </summary>
+        /// <returns>Total tokens recorded in the conversation history.</returns>
+        private long SumHistoryTokens()
+        {
+            long total = 0;
+            foreach (var interaction in this.GetHistoryInteractionList())
+            {
+                if (interaction?.Metrics != null)
+                {
+                    total += interaction.Metrics.TotalTokens;
+                }
+            }
+
+            return total;
+        }
+
+        /// <summary>
+        /// Checks whether either autonomy budget is exhausted. The first exhaustion reason is recorded
+        /// and reported for the remainder of the run.
+        /// </summary>
+        /// <param name="reason">A human-readable reason describing which budget was exhausted.</param>
+        /// <returns>True when the run must stop.</returns>
+        private bool TryGetAutonomyExhaustion(out string? reason)
+        {
+            reason = this._autonomyExhaustionReason;
+            if (reason != null)
+            {
+                return true;
+            }
+
+            var options = this._autonomyOptions;
+            var maxTime = options?.MaxAutonomousTime ?? TimeSpan.Zero;
+            var elapsed = this._autonomyStopwatch.Elapsed;
+            if (maxTime > TimeSpan.Zero && elapsed >= maxTime)
+            {
+                reason = $"the autonomous time budget was exhausted ({elapsed:mm\\:ss} elapsed of {maxTime:mm\\:ss} allowed)";
+            }
+            else
+            {
+                var maxTokens = options?.MaxAutonomousTokens ?? 0;
+                var consumed = this.SumHistoryTokens() - this._autonomyTokensAtStart;
+                if (maxTokens > 0 && consumed >= maxTokens)
+                {
+                    reason = $"the autonomous token budget was exhausted ({consumed:N0} tokens consumed of {maxTokens:N0} allowed)";
+                }
+            }
+
+            this._autonomyExhaustionReason = reason;
+            return reason != null;
+        }
+
+        /// <summary>
+        /// Returns a snapshot of the current or last run's autonomy budget consumption for UI reporting.
+        /// </summary>
+        /// <returns>An <see cref="AutonomyUsage"/> snapshot; zeros when no run has started.</returns>
+        public AutonomyUsage GetAutonomyUsage()
+        {
+            var options = this._autonomyOptions;
+            if (options == null)
+            {
+                return new AutonomyUsage();
+            }
+
+            var consumed = Math.Max(0, this.SumHistoryTokens() - this._autonomyTokensAtStart);
+            return new AutonomyUsage
+            {
+                ElapsedSeconds = this._autonomyStopwatch.Elapsed.TotalSeconds,
+                MaxSeconds = options.MaxAutonomousTime.TotalSeconds,
+                Tokens = consumed,
+                MaxTokens = options.MaxAutonomousTokens,
+                IsRunning = this._autonomyStopwatch.IsRunning,
+                IsExhausted = this._autonomyExhaustionReason != null,
+            };
         }
 
         /// <summary>
@@ -941,9 +1060,16 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             var preparedYields = new List<AIReturn>();
             int toolPass = 0;
-            while (toolPass < options.MaxToolPasses)
+            while (true)
             {
                 ct.ThrowIfCancellationRequested();
+
+                if (this.TryGetAutonomyExhaustion(out var budgetReason))
+                {
+                    this.ReconcilePendingToolCalls($"Tool execution was skipped: {budgetReason}.");
+                    break;
+                }
+
 #if DEBUG
                 // Debug: snapshot of tool_call ids before each tool pass
                 this.DebugLogToolCallIds($"before tool pass {toolPass} turn {turnId}");
@@ -958,6 +1084,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 foreach (var tc in pendingToolCalls)
                 {
                     ct.ThrowIfCancellationRequested();
+                    if (this.TryGetAutonomyExhaustion(out _))
+                    {
+                        break;
+                    }
+
                     var delta = await this.ExecuteSingleToolAsync(tc, turnId, ct).ConfigureAwait(false);
                     if (delta != null)
                     {
@@ -1029,9 +1160,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 }
             }
 
-            // Tool pass budget exhausted while the provider keeps requesting tools: close the remaining calls so
+            // Budget exhausted while the provider keeps requesting tools: close the remaining calls so
             // the history stays valid instead of carrying dangling tool_calls into the next provider request.
-            if (this.ReconcilePendingToolCalls($"Tool execution was skipped: the maximum number of tool passes per turn ({options.MaxToolPasses}) was reached.") > 0)
+            var exhaustion = this._autonomyExhaustionReason ?? "the autonomous run ended before all tool calls could complete";
+            if (this.ReconcilePendingToolCalls($"Tool execution was skipped: {exhaustion}.") > 0)
             {
                 this.UpdateLastReturn();
                 preparedYields.Add(this._lastReturn);

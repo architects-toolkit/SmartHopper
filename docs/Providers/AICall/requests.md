@@ -132,8 +132,8 @@ var session = new ConversationSession(req);
 var options = new SessionOptions
 {
     ProcessTools = true,
-    MaxTurns = 3,
-    MaxToolPasses = 2,
+    MaxAutonomousTime = TimeSpan.FromMinutes(3),
+    MaxAutonomousTokens = 50_000,
 };
 
 var result = await session.RunToStableResult(options);

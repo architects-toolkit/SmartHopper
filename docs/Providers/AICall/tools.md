@@ -115,7 +115,7 @@ Notes:
   - If `SessionOptions.ProcessTools` is true and the result contains pending tool calls, iterates tool passes:
     - Executes each pending tool call (delegating to the Tool Manager).
     - Appends `AIInteractionToolResult` interactions to the session `AIBody`.
-    - Performs another provider call with updated context until a stable result is reached or bounds are hit (`MaxTurns`, `MaxToolPasses`).
+    - Performs another provider call with updated context until a stable result is reached or the autonomy budgets are exhausted (`MaxAutonomousTime`, `MaxAutonomousTokens`).
   - Observability: `IConversationObserver` receives `OnToolCall` and `OnToolResult` callbacks to render progress (e.g., in UI).
 
 #### Example: orchestrating tool passes with ConversationSession
@@ -125,8 +125,8 @@ var session = new ConversationSession(request, observer);
 var options = new SessionOptions
 {
     ProcessTools = true,
-    MaxTurns = 5,
-    MaxToolPasses = 2
+    MaxAutonomousTime = TimeSpan.FromMinutes(5),
+    MaxAutonomousTokens = 100_000,
 };
 
 var result = await session.RunAsync(options, cancellationToken);

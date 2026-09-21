@@ -1148,6 +1148,14 @@ function setProcessing(on) {
     if (spinner) {
         spinner.classList.toggle('hidden', !on);
 
+        // Processing end is the authoritative run-finished signal — freeze the autonomy
+        // overlay (last push may still report running) and start its hide countdown.
+        if (!on) {
+            try { freezeAutonomyOverlay(); } catch (e) {
+                console.warn('[JS] setProcessing: freezeAutonomyOverlay threw', e);
+            }
+        }
+
         // Fail-safe: when processing stops, ensure any lingering loading bubble is removed
         if (!on && typeof removeThinkingMessage === 'function') {
             try {
@@ -1241,6 +1249,140 @@ function setAttachEnabled(enabled, tooltip) {
     if (tooltip) btn.title = tooltip;
 }
 
+// Autonomy overlay — floating card showing live autonomous-run consumption (elapsed time and
+// provider tokens versus the configured limits). Visible only while a run is in progress;
+// lingers briefly when a budget is exhausted so the limit state can be read.
+let _autonomy = null;
+let _autonomyTimer = null;
+let _autonomyHideTimer = null;
+
+const AUTONOMY_FIRST_PAINT_MS = 1200;      // don't flash the overlay for sub-second runs
+const AUTONOMY_HIDE_MS = 1200;             // normal completion: hide shortly after the run ends
+const AUTONOMY_EXHAUSTED_LINGER_MS = 6000; // keep the "limit reached" state readable
+
+function updateAutonomyUsage(usage) {
+    if (!usage) return;
+    _autonomy = {
+        elapsedSec: usage.ElapsedSeconds || 0,
+        maxSec: usage.MaxSeconds || 0,
+        tokens: usage.Tokens || 0,
+        maxTokens: usage.MaxTokens || 0,
+        running: !!usage.IsRunning,
+        exhausted: !!usage.IsExhausted,
+        receivedAt: Date.now()
+    };
+    renderAutonomyOverlay();
+    if (_autonomy.running) {
+        cancelAutonomyHide();
+        if (!_autonomyTimer) _autonomyTimer = setInterval(renderAutonomyOverlay, 1000);
+    } else {
+        stopAutonomyTick();
+        scheduleAutonomyHide();
+    }
+}
+
+function renderAutonomyOverlay() {
+    const el = document.getElementById('autonomy-overlay');
+    if (!el || !_autonomy) return;
+    const elapsed = _autonomy.elapsedSec + (_autonomy.running ? (Date.now() - _autonomy.receivedAt) / 1000 : 0);
+
+    // Delayed first paint: a run that finishes fast and consumed no tokens never shows the card.
+    const meaningful = _autonomy.exhausted || _autonomy.tokens > 0 || elapsed * 1000 >= AUTONOMY_FIRST_PAINT_MS;
+    if (!meaningful) return;
+
+    const timeRow = document.getElementById('autonomy-time-row');
+    const timeText = document.getElementById('autonomy-time-text');
+    const timeFill = document.getElementById('autonomy-time-fill');
+    if (timeText) {
+        timeText.textContent = fmtAutonomyDuration(elapsed) +
+            (_autonomy.maxSec > 0 ? ' / ' + fmtAutonomyDuration(_autonomy.maxSec) : '');
+    }
+    if (timeFill) {
+        timeFill.style.width = _autonomy.maxSec > 0 ? Math.min(100, elapsed / _autonomy.maxSec * 100) + '%' : '0%';
+    }
+    if (timeRow) {
+        timeRow.classList.toggle('autonomy-limit-hit', _autonomy.maxSec > 0 && elapsed >= _autonomy.maxSec);
+    }
+
+    const tokRow = document.getElementById('autonomy-tokens-row');
+    const tokText = document.getElementById('autonomy-tokens-text');
+    const tokFill = document.getElementById('autonomy-tokens-fill');
+    if (tokText) {
+        tokText.textContent = fmtAutonomyTokens(_autonomy.tokens) +
+            (_autonomy.maxTokens > 0 ? ' / ' + fmtAutonomyTokens(_autonomy.maxTokens) : ' tok');
+    }
+    if (tokFill) {
+        tokFill.style.width = _autonomy.maxTokens > 0 ? Math.min(100, _autonomy.tokens / _autonomy.maxTokens * 100) + '%' : '0%';
+    }
+    if (tokRow) {
+        tokRow.classList.toggle('autonomy-limit-hit', _autonomy.maxTokens > 0 && _autonomy.tokens >= _autonomy.maxTokens);
+    }
+
+    // Unbounded setup: both limits disabled — surface a warning instead of implying a bound.
+    const unlimited = _autonomy.maxSec <= 0 && _autonomy.maxTokens <= 0;
+    const warn = document.getElementById('autonomy-warning');
+    if (warn) warn.classList.toggle('hidden', !unlimited);
+    el.classList.toggle('autonomy-unlimited', unlimited);
+
+    el.classList.toggle('autonomy-exhausted', _autonomy.exhausted);
+    el.classList.remove('hidden');
+}
+
+function stopAutonomyTick() {
+    if (_autonomyTimer) {
+        clearInterval(_autonomyTimer);
+        _autonomyTimer = null;
+    }
+}
+
+function cancelAutonomyHide() {
+    if (_autonomyHideTimer) {
+        clearTimeout(_autonomyHideTimer);
+        _autonomyHideTimer = null;
+    }
+}
+
+function scheduleAutonomyHide() {
+    cancelAutonomyHide();
+    const linger = _autonomy && _autonomy.exhausted ? AUTONOMY_EXHAUSTED_LINGER_MS : AUTONOMY_HIDE_MS;
+    _autonomyHideTimer = setTimeout(hideAutonomyOverlay, linger);
+}
+
+// Called from setProcessing(false). The last usage push can arrive while the run is still
+// marked running (the session clock stops in the iterator's finally, after the final
+// notification), so processing end is the authoritative signal to freeze and schedule hide.
+function freezeAutonomyOverlay() {
+    if (!_autonomy) return;
+    _autonomy.running = false;
+    stopAutonomyTick();
+    renderAutonomyOverlay();
+    scheduleAutonomyHide();
+}
+
+function hideAutonomyOverlay() {
+    _autonomy = null;
+    stopAutonomyTick();
+    cancelAutonomyHide();
+    const el = document.getElementById('autonomy-overlay');
+    if (el) el.classList.add('hidden');
+}
+
+function fmtAutonomyDuration(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    const ss = String(s).padStart(2, '0');
+    return h > 0 ? h + ':' + String(m).padStart(2, '0') + ':' + ss : m + ':' + ss;
+}
+
+function fmtAutonomyTokens(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 10000) return Math.round(n / 1000) + 'k';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+    return String(n);
+}
+
 function resetMessages() {
     console.log('[JS] resetMessages called');
     const chatContainer = document.getElementById('chat-container');
@@ -1249,6 +1391,7 @@ function resetMessages() {
         return;
     }
     chatContainer.innerHTML = '';
+    hideAutonomyOverlay();
 
     try {
         _templateCache.clear();

@@ -181,6 +181,7 @@ JavaScript functions (in `chat-script.js`):
 - `clearMessages()` — Clear transcript area.
 - `setStatus(text)` — Update status bar text.
 - `setProcessing(isProcessing)` — Show/hide spinner and disable input.
+- `updateAutonomyUsage(usage)` — Update the floating `#autonomy-overlay` card with a serialized `AutonomyUsage` snapshot (`ElapsedSeconds`, `MaxSeconds`, `Tokens`, `MaxTokens`, `IsRunning`, `IsExhausted`). A client-side 1s ticker advances the elapsed display between pushes; a `Max*` of `0` renders as unlimited, and when both limits are `0` the overlay shows an "unbounded run" warning. The overlay appears only while a run is in progress (first paint is delayed ~1.2 s so trivial calls never flash it) and auto-hides shortly after the run ends — 6 s linger when a budget was exhausted. `freezeAutonomyOverlay()` is invoked by `setProcessing(false)` (the authoritative run-end signal, since the last push can still carry `IsRunning=true`); `hideAutonomyOverlay()` resets it (called by `resetMessages`).
 - `showToast(message)` — Temporary notification.
 
 Host functions (in `WebChatDialog.cs` / `WebChatObserver.cs`):
@@ -189,6 +190,7 @@ Host functions (in `WebChatDialog.cs` / `WebChatObserver.cs`):
 - `UpsertMessageByKey(string domKey, IAIInteraction)`
 - `UpsertMessageAfter(string followKey, string domKey, IAIInteraction, string source = null)`
 - `ExecuteScript(string)`
+- `PushAutonomyUsage()` — reads `ConversationSession.GetAutonomyUsage()` and pushes `updateAutonomyUsage(...)`; invoked by the observer on `OnStart`, `OnInteractionCompleted`, `OnToolResult`, `OnFinal`, and `OnError`.
 - Observer callbacks: `OnStart`, `OnDelta`, `OnInteractionCompleted`, `OnFinal`, `OnError`, `OnToolCall`, `OnToolResult` (drive incremental updates during streaming)
 
 ### Keyed interactions
