@@ -139,20 +139,39 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// <param name="relative">True to interpret position as a relative offset; false for absolute.</param>
         /// <param name="redraw">True to redraw canvas after moving.</param>
         /// <returns>True if the instance was found and moved; otherwise false.</returns>
+        /// <summary>
+        /// Moves below this pixel distance are treated as no-ops: sub-pixel deltas from
+        /// layout convergence produce invisible moves that still record undo events.
+        /// </summary>
+        private const float MoveEpsilon = 0.5f;
+
+        /// <summary>
+        /// Moves an existing instance by setting its Pivot position by GUID.
+        /// </summary>
+        /// <param name="guid">The GUID of the instance to move.</param>
+        /// <param name="position">The new pivot position, absolute or relative.</param>
+        /// <param name="relative">True to interpret position as a relative offset; false for absolute.</param>
+        /// <param name="redraw">True to redraw canvas after moving.</param>
+        /// <returns>True if the instance was found and moved; otherwise false.</returns>
         public static bool MoveInstance(Guid guid, PointF position, bool relative = false, bool redraw = true)
         {
             var obj = FindInstance(guid);
             if (obj == null) return false;
 
-            // Record undo event before moving the instance
-            obj.RecordUndoEvent("[SH] Move Instance");
             var current = obj.Attributes.Pivot;
             var target = relative
                 ? new PointF(current.X + position.X, current.Y + position.Y)
                 : position;
 
-            // Skip movement if initial and target positions are the same
-            if (current == target) return false;
+            // Skip movement if initial and target positions are the same (within epsilon)
+            if (Math.Abs(current.X - target.X) < MoveEpsilon &&
+                Math.Abs(current.Y - target.Y) < MoveEpsilon)
+            {
+                return false;
+            }
+
+            // Record undo event only once we know the instance will actually move
+            obj.RecordUndoEvent("[SH] Move Instance");
 
             // Animate movement concurrently over 300ms with 15 frames
             Task.Run(async () =>
@@ -209,7 +228,11 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 var targetPos = relative
                     ? new PointF(start.X + kvp.Value.X, start.Y + kvp.Value.Y)
                     : kvp.Value;
-                if (start == targetPos) continue;
+                if (Math.Abs(start.X - targetPos.X) < MoveEpsilon &&
+                    Math.Abs(start.Y - targetPos.Y) < MoveEpsilon)
+                {
+                    continue;
+                }
                 moves.Add((obj, start, targetPos));
                 moved.Add(kvp.Key);
             }
