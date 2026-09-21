@@ -203,7 +203,9 @@ namespace SmartHopper.Core.UI.Chat
                     new WebChatObserver(this),
                     generateGreeting: this._generateGreeting,
                     consentPresenter: new WebChatPlanConsentPresenter(this),
-                    taskPlanPresenter: new WebChatTaskPlanPresenter(this));
+                    taskPlanPresenter: new WebChatTaskPlanPresenter(this),
+                    canvasPointerPresenter: new WebChatCanvasPointerPresenter(this),
+                    userQuestionPresenter: new WebChatUserQuestionPresenter(this));
 
                 // If the user drags/resizes the dialog while we are rendering/upserting messages,
                 // defer DOM work to keep Rhino/Eto responsive.
@@ -1142,6 +1144,7 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         private async Task ProcessAIInteraction()
         {
+            var turnCompleted = false;
             try
             {
                 DebugLog("[WebChatDialog] Processing AI interaction with existing session reuse");
@@ -1237,6 +1240,8 @@ namespace SmartHopper.Core.UI.Chat
                     DebugLog("[WebChatDialog] Streaming validation failed. Falling back to non-streaming path");
                     await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
                 }
+
+                turnCompleted = this._currentSession.LastReturn?.Status == AICallStatus.Finished;
             }
             catch (Exception ex)
             {
@@ -1268,6 +1273,12 @@ namespace SmartHopper.Core.UI.Chat
 
                 // Leave processing state: re-enable input/send, disable cancel in the web UI
                 this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(false);"));
+
+                // Fire-and-forget: suggested prompt chips render when the special turn resolves.
+                if (turnCompleted)
+                {
+                    _ = this.GenerateSuggestedPromptsAsync();
+                }
 
                 // Keep the session alive for reuse - do not set to null
             }
@@ -1409,6 +1420,47 @@ namespace SmartHopper.Core.UI.Chat
                                 var approved = query.TryGetValue("decision", out var decision) &&
                                     string.Equals(decision, "approve", StringComparison.OrdinalIgnoreCase);
                                 Application.Instance?.AsyncInvoke(() => this.ResolvePlanConsent(requestId, approved));
+                                break;
+                            }
+
+                        case "canvas_pointer":
+                            {
+                                var pointerId = query.TryGetValue("id", out var pid) ? pid : string.Empty;
+                                Application.Instance?.AsyncInvoke(() =>
+                                {
+                                    try
+                                    {
+                                        this.ReplayCanvasPointer(pointerId);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        DebugLog($"[WebChatDialog] Deferred ReplayCanvasPointer error: {ex.Message}");
+                                    }
+                                });
+                                break;
+                            }
+
+                        case "question":
+                            {
+                                var questionId = query.TryGetValue("id", out var qid) ? qid : string.Empty;
+                                var choice = query.TryGetValue("choice", out var ch) && int.TryParse(ch, out var idx) ? idx : -1;
+                                var freeText = query.TryGetValue("text", out var qtext) ? qtext : null;
+                                if (freeText != null && freeText.Length > 4000)
+                                {
+                                    freeText = freeText.Substring(0, 4000);
+                                }
+
+                                Application.Instance?.AsyncInvoke(() =>
+                                {
+                                    try
+                                    {
+                                        this.ResolveUserQuestion(questionId, choice, freeText);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        DebugLog($"[WebChatDialog] Deferred ResolveUserQuestion error: {ex.Message}");
+                                    }
+                                });
                                 break;
                             }
 

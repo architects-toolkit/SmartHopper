@@ -45,7 +45,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 "plan_tasks",
                 "Create or update the visible task plan for multi-step work. Send the complete task list on every call and reuse the returned planId to update the same plan. Keep at most one task in_progress, mark finished work completed, and leave upcoming work pending.",
-                "Control",
+                "Planning",
                 @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -70,7 +70,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 this.ExecuteAsync,
                 mutatesCanvas: false,
-                tags: new[] { "control", "planning", "progress", "read-only" },
+                tags: new[] { "planning", "progress", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""planId"": { ""type"": ""string"" }, ""status"": { ""type"": ""string"" }, ""displayed"": { ""type"": ""boolean"" }, ""counts"": { ""type"": ""object"" }, ""tasks"": { ""type"": ""array"" } } }",
                 surfaces: AIToolSurface.Chat);
         }

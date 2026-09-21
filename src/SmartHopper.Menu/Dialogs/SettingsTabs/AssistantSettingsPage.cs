@@ -37,6 +37,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         private readonly CheckBox _enableCanvasButtonCheckBox;
 
         private readonly CheckBox _enableAIGreetingCheckBox;
+        private readonly CheckBox _enableSuggestedPromptsCheckBox;
 
         private readonly NumericStepper _maxAutonomousTimeStepper;
 
@@ -67,6 +68,11 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             this._enableAIGreetingCheckBox = new CheckBox
             {
                 Text = "Enable AI-generated greetings in chat",
+            };
+
+            this._enableSuggestedPromptsCheckBox = new CheckBox
+            {
+                Text = "Enable suggested follow-up prompts in chat",
             };
 
             this._maxAutonomousTimeStepper = new NumericStepper
@@ -189,6 +195,20 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Add spacing
             layout.Add(new Panel { Height = 10 });
 
+            // Suggested prompts section
+            layout.Add(this._enableSuggestedPromptsCheckBox);
+            layout.Add(new Label
+            {
+                Text = "When enabled, the assistant suggests up to three follow-up prompts after each completed answer. Clicking a suggestion only fills the input field. Disable it to prevent extra tokens being used.",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500,  // Max width for better text wrapping
+            });
+
+            // Add spacing
+            layout.Add(new Panel { Height = 10 });
+
             // Autonomous run limits section
             layout.Add(new Label
             {
@@ -263,6 +283,9 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Set greeting checkbox
             this._enableAIGreetingCheckBox.Checked = settings.EnableAIGreeting;
 
+            // Set suggested prompts checkbox
+            this._enableSuggestedPromptsCheckBox.Checked = settings.EnableSuggestedPrompts;
+
             // Set autonomous limits
             this._maxAutonomousTimeStepper.Value = Math.Max(0, settings.MaxAutonomousTimeMinutes);
             this._maxAutonomousTokensStepper.Value = Math.Max(0, settings.MaxAutonomousTokens);
@@ -288,6 +311,9 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             // Save greeting setting
             settings.EnableAIGreeting = this._enableAIGreetingCheckBox.Checked ?? false;
+
+            // Save suggested prompts setting
+            settings.EnableSuggestedPrompts = this._enableSuggestedPromptsCheckBox.Checked ?? false;
 
             // Save autonomous limits (clamped to non-negative)
             settings.MaxAutonomousTimeMinutes = Math.Max(0, (int)this._maxAutonomousTimeStepper.Value);

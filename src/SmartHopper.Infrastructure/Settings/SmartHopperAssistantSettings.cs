@@ -50,6 +50,12 @@ namespace SmartHopper.Infrastructure.Settings
         public bool EnableAIGreeting { get; set; } = true;
 
         /// <summary>
+        /// Gets or sets a value indicating whether AI-generated suggested follow-up prompts are shown in chat.
+        /// </summary>
+        [JsonProperty]
+        public bool EnableSuggestedPrompts { get; set; } = true;
+
+        /// <summary>
         /// Gets or sets the maximum wall-clock time, in minutes, that an autonomous assistant run may
         /// consume (provider calls and tool execution combined). Zero or less disables the limit.
         /// </summary>

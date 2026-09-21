@@ -678,7 +678,7 @@ namespace SmartHopper.Core.UI
                     model,
                     endpoint: "canvas-chat",
                     systemPrompt: DefaultSystemPrompt,
-                    toolFilter: "Canvas,Components,ComponentsRetrieval,Instructions,Knowledge,Parameters,Scripting,Vision",
+                    toolFilter: "Components,ComponentsRetrieval,Instructions,Knowledge,Parameters,Planning,Scripting,Vision,ViewControl",
                     componentId: CanvasChatDialogId,
                     progressReporter: null,
                     onUpdate: null,
