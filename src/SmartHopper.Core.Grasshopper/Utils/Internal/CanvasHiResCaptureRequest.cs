@@ -57,13 +57,10 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
         /// <summary>Padding in canvas units added around the resolved region.</summary>
         public float Padding { get; set; } = 20f;
 
-        /// <summary>Render zoom factor; 1.0 matches on-screen size.</summary>
-        public float Scale { get; set; } = 1f;
+        /// <summary>Render zoom factor; 1.0 matches on-screen size. Defaults to 2.0.</summary>
+        public float Scale { get; set; } = 2f;
 
         /// <summary>Background colour; use <see cref="Color.Transparent"/> for an alpha channel.</summary>
         public Color Background { get; set; } = Color.Transparent;
-
-        /// <summary>Maximum allowed output width or height in pixels.</summary>
-        public int MaxDimension { get; set; } = CanvasHiResCaptureService.DefaultMaxDimension;
     }
 }

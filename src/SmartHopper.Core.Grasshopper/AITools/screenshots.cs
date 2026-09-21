@@ -145,20 +145,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""type"": ""number"",
                     ""exclusiveMinimum"": 0,
                     ""maximum"": 32,
-                    ""default"": 1.0,
+                    ""default"": 2.0,
                     ""description"": ""Render zoom factor. 1.0 matches on-screen size; 2.0 doubles resolution for print.""
                 },
                 ""background"": {
                     ""type"": ""string"",
                     ""default"": ""transparent"",
                     ""description"": ""Background colour: 'transparent', 'white', 'canvas', or a '#RRGGBB'/'#AARRGGBB' hex colour.""
-                },
-                ""maxDimension"": {
-                    ""type"": ""integer"",
-                    ""minimum"": 1,
-                    ""maximum"": 30000,
-                    ""default"": 16384,
-                    ""description"": ""Maximum allowed output width or height in pixels.""
                 },
                 ""savePath"": {
                     ""type"": ""string"",
@@ -238,7 +231,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             yield return new AITool(
                 name: HiResToolName,
-                description: "Renders a region of the Grasshopper canvas to a high-resolution PNG for publishing or printing, independent of the visible viewport. Use 'scope' to capture the whole document, the current selection, specific components by GUID, or an explicit bounds rectangle; 'scale' controls resolution (1.0 matches on-screen size); 'background' supports transparency. This tool is meant for presentable output, not for AI agent vision of the canvas: it can produce very large images that would consume too many unnecessary tokens. Use canvas_screenshot for agent vision instead.",
+                description: "Renders a region of the Grasshopper canvas to a high-resolution PNG for publishing or printing, independent of the visible viewport. Use 'scope' to capture the whole document, the current selection, specific components by GUID, or an explicit bounds rectangle; 'scale' controls resolution (default 2.0; 1.0 matches on-screen size); 'background' supports transparency. This tool is meant for presentable output, not for AI agent vision of the canvas: it can produce very large images that would consume too many unnecessary tokens. Use canvas_screenshot for agent vision instead.",
                 category: "Vision",
                 parametersSchema: HiResParametersSchema,
                 execute: this.CaptureHiResCanvasAsync,
@@ -445,18 +438,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
 
             request.Padding = args["padding"]?.ToObject<float>() ?? 20f;
-            request.Scale = args["scale"]?.ToObject<float>() ?? 1f;
+            request.Scale = args["scale"]?.ToObject<float>() ?? 2f;
             request.Background = ParseBackground(args["background"]?.ToString());
-            int maxDimension = args["maxDimension"]?.ToObject<int>() ?? CanvasHiResCaptureService.DefaultMaxDimension;
-            if (maxDimension < 1 || maxDimension > CanvasHiResCaptureService.AbsoluteMaxDimension)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(maxDimension),
-                    maxDimension,
-                    $"maxDimension must be between 1 and {CanvasHiResCaptureService.AbsoluteMaxDimension} pixels.");
-            }
-
-            request.MaxDimension = maxDimension;
             return request;
         }
 

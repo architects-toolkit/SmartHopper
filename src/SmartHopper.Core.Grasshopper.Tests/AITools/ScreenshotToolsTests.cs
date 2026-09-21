@@ -168,7 +168,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
             Assert.False(hiRes.Annotations.DestructiveHint);
             Assert.Contains("vision", hiRes.Tags);
             Assert.Equal("Vision", tools["canvas_hi-res_screenshot"].Category);
-            Assert.Equal(1.0, (double?)hiRes.InputSchema["properties"]?["scale"]?["default"]);
+            Assert.Equal(2.0, (double?)hiRes.InputSchema["properties"]?["scale"]?["default"]);
         }
 
         [Fact]
@@ -202,6 +202,22 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
             Assert.Equal("image/png", (string?)result.Payload["mimeType"]);
             Assert.Equal("display", (string?)result.Payload["imageAudience"]);
             Assert.Equal(2048, (int?)result.Payload["width"]);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_CanvasHiResDefaultsScaleToTwo()
+        {
+            var hiResService = new FakeCanvasHiResCaptureService();
+            var tools = BuildTools(new FakeCanvasCaptureService(), new FakeViewportCaptureService(), hiResService);
+            var adapter = BuildAdapter(tools);
+
+            var result = await adapter.ExecuteAsync(
+                "canvas_hi-res_screenshot",
+                new JObject { ["scope"] = "document" }).ConfigureAwait(false);
+
+            Assert.False(result.IsError);
+            Assert.NotNull(hiResService.Request);
+            Assert.Equal(2f, hiResService.Request!.Scale);
         }
 
         [Fact]
