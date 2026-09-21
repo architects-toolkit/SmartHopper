@@ -42,5 +42,15 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs.Models
         /// Gets or sets whether AI-generated greetings are enabled in chat.
         /// </summary>
         public bool EnableAIGreeting { get; set; }
+
+        /// <summary>
+        /// Gets or sets the maximum autonomous run time in minutes. Zero or less disables the limit.
+        /// </summary>
+        public int MaxAutonomousTimeMinutes { get; set; } = 10;
+
+        /// <summary>
+        /// Gets or sets the maximum autonomous token budget. Zero or less disables the limit.
+        /// </summary>
+        public int MaxAutonomousTokens { get; set; } = 300_000;
     }
 }

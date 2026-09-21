@@ -31,6 +31,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Requests;
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
+    using SmartHopper.ProviderSdk.AICall.Metrics;
     using SmartHopper.ProviderSdk.Diagnostics;
     using SmartHopper.ProviderSdk.Streaming;
     using Xunit;
@@ -107,11 +108,11 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
         }
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "ConversationSession RunToStableResult respects MaxTurns limit [Windows]")]
+        [Fact(DisplayName = "ConversationSession RunToStableResult converges in a single provider call [Windows]")]
 #else
-        [Fact(DisplayName = "ConversationSession RunToStableResult respects MaxTurns limit [Core]")]
+        [Fact(DisplayName = "ConversationSession RunToStableResult converges in a single provider call [Core]")]
 #endif
-        public async Task RunToStableResult_MaxTurns_Respected()
+        public async Task RunToStableResult_Converges_SingleProviderCall()
         {
             var callCount = 0;
             var request = CreateTestableRequest(onExec: () =>
@@ -121,13 +122,12 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
             });
 
             var session = new ConversationSession(request);
-            var options = new SessionOptions { ProcessTools = false, MaxTurns = 3 };
+            var options = new SessionOptions { ProcessTools = false };
 
             var result = await session.RunToStableResult(options).ConfigureAwait(false);
 
             Assert.NotNull(result);
-            // MaxTurns limits how many times the provider is called
-            Assert.True(callCount <= 3, $"Expected at most 3 turns but got {callCount}");
+            Assert.Equal(1, callCount);
         }
 
 #if NET7_WINDOWS
@@ -285,27 +285,93 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
         }
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "ConversationSession closes pending tool calls when the tool pass budget is exhausted [Windows]")]
+        [Fact(DisplayName = "ConversationSession stops before the first provider call when the time budget is exhausted [Windows]")]
 #else
-        [Fact(DisplayName = "ConversationSession closes pending tool calls when the tool pass budget is exhausted [Core]")]
+        [Fact(DisplayName = "ConversationSession stops before the first provider call when the time budget is exhausted [Core]")]
 #endif
-        public async Task RunToStableResult_MaxToolPassesExhausted_ReconcilesPendingToolCalls()
+        public async Task RunToStableResult_TimeBudgetExhausted_StopsBeforeProviderCall()
         {
-            // Provider requests a new tool on every call, so tool passes never converge.
+            var callCount = 0;
+            var request = CreateTestableRequest(onExec: () =>
+            {
+                callCount++;
+                return Task.FromResult("unreachable");
+            });
+
+            var session = new ConversationSession(request);
+
+            // One TimeSpan tick (~100ns) is consumed before the first budget check runs.
+            var result = await session.RunToStableResult(new SessionOptions { MaxAutonomousTime = TimeSpan.FromTicks(1) }).ConfigureAwait(false);
+
+            Assert.Equal(0, callCount);
+            Assert.NotNull(result);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession closes pending tool calls when the token budget is exhausted [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession closes pending tool calls when the token budget is exhausted [Core]")]
+#endif
+        public async Task RunToStableResult_TokenBudgetExhausted_ReconcilesPendingToolCalls()
+        {
+            // Provider requests a new tool on every call (each reporting tokens), so the run never converges.
             var callCount = 0;
             var request = CreateTestableRequest();
-            request.ResponseInteractionsFactory = () => new List<IAIInteraction> { CreateToolCall($"call_{++callCount}") };
+            request.ResponseInteractionsFactory = () => new List<IAIInteraction>
+            {
+                new AIInteractionToolCall
+                {
+                    Id = $"call_{++callCount}",
+                    Name = "test_tool",
+                    Arguments = new JObject(),
+                    Metrics = new AIMetrics { InputTokensPrompt = 10, OutputTokensGeneration = 5 },
+                },
+            };
             var session = new ConversationSession(request, executor: new MockProviderExecutor());
 
-            await session.RunToStableResult(new SessionOptions { ProcessTools = true, MaxToolPasses = 2, MaxTurns = 1 }).ConfigureAwait(false);
+            await session.RunToStableResult(new SessionOptions { ProcessTools = true, MaxAutonomousTokens = 1 }).ConfigureAwait(false);
 
             Assert.Equal(0, session.Request.Body.PendingToolCallsCount());
 
             // AIInteractionToolResult derives from AIInteractionToolCall, so results must be excluded explicitly.
             var calls = session.Request.Body.Interactions.Where(i => i is AIInteractionToolCall && i is not AIInteractionToolResult).Select(i => ((AIInteractionToolCall)i).Id).ToList();
             var results = session.Request.Body.Interactions.OfType<AIInteractionToolResult>().Select(tr => tr.Id).ToList();
-            Assert.Equal(3, calls.Count); // initial call + one per tool pass
+            Assert.Single(calls); // first call exhausts the budget; later calls never happen
             Assert.Equal(calls.OrderBy(id => id, StringComparer.Ordinal), results.OrderBy(id => id, StringComparer.Ordinal));
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession GetAutonomyUsage reports consumption and configured limits [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession GetAutonomyUsage reports consumption and configured limits [Core]")]
+#endif
+        public async Task RunToStableResult_GetAutonomyUsage_ReportsConsumptionAndLimits()
+        {
+            var request = CreateTestableRequest();
+            request.ResponseInteractions = new List<IAIInteraction>
+            {
+                new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = "done",
+                    Metrics = new AIMetrics { InputTokensPrompt = 42 },
+                },
+            };
+
+            var session = new ConversationSession(request);
+            await session.RunToStableResult(new SessionOptions
+            {
+                ProcessTools = false,
+                MaxAutonomousTime = TimeSpan.FromMinutes(5),
+                MaxAutonomousTokens = 1000,
+            }).ConfigureAwait(false);
+
+            var usage = session.GetAutonomyUsage();
+            Assert.Equal(300, usage.MaxSeconds);
+            Assert.Equal(1000, usage.MaxTokens);
+            Assert.Equal(42, usage.Tokens);
+            Assert.False(usage.IsRunning);
+            Assert.False(usage.IsExhausted);
         }
 
 #if NET7_WINDOWS
@@ -379,7 +445,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
             };
 
             var session = new ConversationSession(request, executor: new MockProviderExecutor());
-            await session.RunToStableResult(new SessionOptions { ProcessTools = false, MaxTurns = 1 }).ConfigureAwait(false);
+            await session.RunToStableResult(new SessionOptions { ProcessTools = false }).ConfigureAwait(false);
 
             Assert.Equal("-*", filterSeenByProvider);
             Assert.Equal("+gh_*", session.Request.Body.ToolFilter);

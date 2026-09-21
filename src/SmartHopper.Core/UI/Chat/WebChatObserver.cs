@@ -313,6 +313,7 @@ namespace SmartHopper.Core.UI.Chat
                     this._preStreamAggregates.Clear();
                     this._turnStates.Clear();
                     this._dialog.ExecuteScript("setStatus('Thinking...'); setProcessing(true);");
+                    this._dialog.PushAutonomyUsage();
 
                     // Insert a persistent generic loading bubble that remains until stop state
                     this._dialog.ExecuteScript("addLoadingMessage('loading', 'Thinking…');");
@@ -513,6 +514,7 @@ namespace SmartHopper.Core.UI.Chat
                         try
                         {
                             // Keep the thinking bubble during processing; do not remove on partials
+                            this._dialog.PushAutonomyUsage();
 
                             // Text interactions (any agent): handle non-streaming preview or finalize existing streaming aggregate.
                             if (interaction is AIInteractionText tt)
@@ -664,6 +666,7 @@ namespace SmartHopper.Core.UI.Chat
                 // During streaming, do not append tool calls; just update status.
                 RhinoApp.InvokeOnUiThread(() =>
                 {
+                    this._dialog.PushAutonomyUsage();
                     this._dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {toolCall.Name}")});");
 
                     // Mark a boundary so the next assistant text begins a new segment.
@@ -688,6 +691,7 @@ namespace SmartHopper.Core.UI.Chat
                 var turnKey = GetTurnBaseKey(toolResult?.TurnId);
                 DebugLog($"[WebChatObserver] OnToolResult: name={toolResult?.Name}, id={toolResult?.Id}, turnKey={turnKey} -> SetBoundaryFlag");
                 this.SetBoundaryFlag(turnKey);
+                RhinoApp.InvokeOnUiThread(() => this._dialog.PushAutonomyUsage());
             }
 
             /// <summary>
@@ -700,6 +704,7 @@ namespace SmartHopper.Core.UI.Chat
                 RhinoApp.InvokeOnUiThread(() =>
                 {
                     // Delegate history to ConversationSession; UI only emits notifications.
+                    this._dialog.PushAutonomyUsage();
                     var historySnapshot = this._dialog._currentSession.GetHistoryReturn();
                     var lastReturn = this._dialog._currentSession.LastReturn;
 
@@ -832,6 +837,8 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     try
                     {
+                        this._dialog.PushAutonomyUsage();
+
                         // For all errors (including cancellations), render as an error-severity diagnostic (red-styled)
                         var isCancel = ex is OperationCanceledException;
                         var errInteraction = new AIInteractionRuntimeMessage

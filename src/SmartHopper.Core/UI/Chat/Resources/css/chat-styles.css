@@ -40,6 +40,91 @@ body {
     color: #555;
 }
 
+/* Floating autonomy overlay — live autonomous-run consumption (time and tokens versus
+   limits). Only visible while a run is in progress; floats over the chat below the
+   status bar so it never occupies permanent layout space. */
+#autonomy-overlay {
+    position: fixed;
+    top: 42px;
+    right: 10px;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 6px 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    font-size: 0.75em;
+    color: #555;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+#autonomy-overlay .autonomy-warning {
+    color: #b26a00;
+    font-weight: 600;
+}
+
+#autonomy-overlay.autonomy-unlimited {
+    border-color: #b26a00;
+}
+
+#autonomy-overlay .autonomy-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#autonomy-overlay .autonomy-icon {
+    width: 14px;
+    text-align: center;
+}
+
+#autonomy-overlay .autonomy-text {
+    min-width: 84px;
+}
+
+#autonomy-overlay .autonomy-bar {
+    flex: 1 1 auto;
+    min-width: 36px;
+    height: 3px;
+    background: #ececec;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+#autonomy-overlay .autonomy-fill {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: #0366d6;
+    transition: width 0.3s linear;
+}
+
+#autonomy-overlay .autonomy-row.autonomy-limit-hit .autonomy-text {
+    color: #b26a00;
+    font-weight: 600;
+}
+
+#autonomy-overlay .autonomy-row.autonomy-limit-hit .autonomy-fill {
+    background: #b26a00;
+}
+
+#autonomy-overlay.autonomy-exhausted {
+    border-color: #c00;
+}
+
+#autonomy-overlay.autonomy-exhausted .autonomy-text {
+    color: #c00;
+    font-weight: 600;
+}
+
+#autonomy-overlay.autonomy-exhausted .autonomy-fill {
+    background: #c00;
+}
+
 .spinner {
     width: 14px;
     height: 14px;

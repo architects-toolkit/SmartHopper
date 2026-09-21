@@ -90,7 +90,7 @@ This reduces boilerplate while keeping API-specific parsing in the provider adap
 
 ```csharp
 var session = new ConversationSession(request, observer);
-var sessionOpts = new SessionOptions { ProcessTools = true, MaxTurns = 3, MaxToolPasses = 2 };
+var sessionOpts = new SessionOptions { ProcessTools = true, MaxAutonomousTime = TimeSpan.FromMinutes(3), MaxAutonomousTokens = 50_000 };
 var streamOpts = new StreamingOptions { CoalesceTokens = true, CoalesceDelayMs = 40, PreferredChunkSize = 64 };
 
 await foreach (var delta in session.Stream(sessionOpts, streamOpts, ct))

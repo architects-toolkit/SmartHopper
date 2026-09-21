@@ -109,6 +109,8 @@ namespace SmartHopper.Menu.Dialogs
                 EnableAIGreeting = this._settings.SmartHopperAssistant.EnableAIGreeting,
                 AssistantProvider = this._settings.SmartHopperAssistant.AssistantProvider,
                 AssistantModel = this._settings.SmartHopperAssistant.AssistantModel,
+                MaxAutonomousTimeMinutes = this._settings.SmartHopperAssistant.MaxAutonomousTimeMinutes,
+                MaxAutonomousTokens = this._settings.SmartHopperAssistant.MaxAutonomousTokens,
             };
 
             // Create tab pages
@@ -236,6 +238,8 @@ namespace SmartHopper.Menu.Dialogs
                 this._settings.SmartHopperAssistant.EnableAIGreeting = this._assistantSettings.EnableAIGreeting;
                 this._settings.SmartHopperAssistant.AssistantProvider = this._assistantSettings.AssistantProvider;
                 this._settings.SmartHopperAssistant.AssistantModel = this._assistantSettings.AssistantModel;
+                this._settings.SmartHopperAssistant.MaxAutonomousTimeMinutes = this._assistantSettings.MaxAutonomousTimeMinutes;
+                this._settings.SmartHopperAssistant.MaxAutonomousTokens = this._assistantSettings.MaxAutonomousTokens;
                 this._settings.TrustedProviders = new Dictionary<string, bool>(this._trustedProvidersSettings);
                 this._settings.ProviderIntegrityCheckMode = providerIntegrityCheckMode;
 

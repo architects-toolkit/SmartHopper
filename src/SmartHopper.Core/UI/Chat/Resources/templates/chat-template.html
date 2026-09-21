@@ -15,6 +15,21 @@
         <span id="spinner" class="spinner hidden"></span>
     </div>
 
+    <!-- Floating autonomy budget overlay; visible only while an autonomous run is in progress -->
+    <div id="autonomy-overlay" class="hidden" role="status" aria-live="polite">
+        <div id="autonomy-warning" class="autonomy-warning hidden">&#9888; No autonomy limits — unbounded run</div>
+        <div id="autonomy-time-row" class="autonomy-row" title="Autonomous time used / limit">
+            <span class="autonomy-icon">&#9201;</span>
+            <span id="autonomy-time-text" class="autonomy-text"></span>
+            <span class="autonomy-bar"><span id="autonomy-time-fill" class="autonomy-fill"></span></span>
+        </div>
+        <div id="autonomy-tokens-row" class="autonomy-row" title="Autonomous tokens used / limit">
+            <span class="autonomy-icon">&#9889;</span>
+            <span id="autonomy-tokens-text" class="autonomy-text"></span>
+            <span class="autonomy-bar"><span id="autonomy-tokens-fill" class="autonomy-fill"></span></span>
+        </div>
+    </div>
+
     <div id='chat-container'></div>
 
     <!-- New messages indicator (shown when content arrives and user is not at bottom) -->

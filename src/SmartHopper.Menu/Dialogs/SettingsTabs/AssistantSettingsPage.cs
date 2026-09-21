@@ -16,6 +16,7 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.Infrastructure.AIProviders;
@@ -36,6 +37,10 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         private readonly CheckBox _enableCanvasButtonCheckBox;
 
         private readonly CheckBox _enableAIGreetingCheckBox;
+
+        private readonly NumericStepper _maxAutonomousTimeStepper;
+
+        private readonly NumericStepper _maxAutonomousTokensStepper;
 
         private readonly IAIProvider[] _providers;
 
@@ -62,6 +67,22 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             this._enableAIGreetingCheckBox = new CheckBox
             {
                 Text = "Enable AI-generated greetings in chat",
+            };
+
+            this._maxAutonomousTimeStepper = new NumericStepper
+            {
+                MinValue = 0,
+                MaxValue = 1440,
+                Value = 10,
+                Increment = 1,
+            };
+
+            this._maxAutonomousTokensStepper = new NumericStepper
+            {
+                MinValue = 0,
+                MaxValue = int.MaxValue,
+                Value = 300_000,
+                Increment = 10_000,
             };
 
             // Populate provider dropdown
@@ -168,6 +189,45 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Add spacing
             layout.Add(new Panel { Height = 10 });
 
+            // Autonomous run limits section
+            layout.Add(new Label
+            {
+                Text = "Autonomous run limits",
+                Font = new Font(SystemFont.Bold, 12),
+            });
+
+            var timeRowLayout = new TableLayout
+            {
+                Spacing = new Size(10, 0),
+            };
+
+            timeRowLayout.Rows.Add(new TableRow(
+                new TableCell(new Label { Text = "Max autonomous time (minutes):", VerticalAlignment = VerticalAlignment.Center, Width = 210 }, false),
+                new TableCell(this._maxAutonomousTimeStepper, true)));
+            layout.Add(timeRowLayout);
+
+            var tokensRowLayout = new TableLayout
+            {
+                Spacing = new Size(10, 0),
+            };
+
+            tokensRowLayout.Rows.Add(new TableRow(
+                new TableCell(new Label { Text = "Max autonomous tokens:", VerticalAlignment = VerticalAlignment.Center, Width = 210 }, false),
+                new TableCell(this._maxAutonomousTokensStepper, true)));
+            layout.Add(tokensRowLayout);
+
+            layout.Add(new Label
+            {
+                Text = "Bounds a single assistant run: the assistant stops when it has worked for the configured time or consumed the configured tokens, whichever comes first. Set to 0 to disable a limit.",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500,  // Max width for better text wrapping
+            });
+
+            // Add spacing
+            layout.Add(new Panel { Height = 10 });
+
             this.Content = new Scrollable { Content = layout };
         }
 
@@ -202,6 +262,10 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             // Set greeting checkbox
             this._enableAIGreetingCheckBox.Checked = settings.EnableAIGreeting;
+
+            // Set autonomous limits
+            this._maxAutonomousTimeStepper.Value = Math.Max(0, settings.MaxAutonomousTimeMinutes);
+            this._maxAutonomousTokensStepper.Value = Math.Max(0, settings.MaxAutonomousTokens);
         }
 
         /// <summary>
@@ -224,6 +288,10 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             // Save greeting setting
             settings.EnableAIGreeting = this._enableAIGreetingCheckBox.Checked ?? false;
+
+            // Save autonomous limits (clamped to non-negative)
+            settings.MaxAutonomousTimeMinutes = Math.Max(0, (int)this._maxAutonomousTimeStepper.Value);
+            settings.MaxAutonomousTokens = Math.Max(0, (int)this._maxAutonomousTokensStepper.Value);
         }
     }
 }
