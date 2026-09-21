@@ -107,6 +107,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 EnableCanvasButton = this._settings.SmartHopperAssistant.EnableCanvasButton,
                 EnableAIGreeting = this._settings.SmartHopperAssistant.EnableAIGreeting,
+                EnableSuggestedPrompts = this._settings.SmartHopperAssistant.EnableSuggestedPrompts,
                 AssistantProvider = this._settings.SmartHopperAssistant.AssistantProvider,
                 AssistantModel = this._settings.SmartHopperAssistant.AssistantModel,
                 MaxAutonomousTimeMinutes = this._settings.SmartHopperAssistant.MaxAutonomousTimeMinutes,
@@ -236,6 +237,7 @@ namespace SmartHopper.Menu.Dialogs
                 this._settings.BatchPollIntervalSeconds = this._generalSettings.BatchPollIntervalSeconds;
                 this._settings.SmartHopperAssistant.EnableCanvasButton = this._assistantSettings.EnableCanvasButton;
                 this._settings.SmartHopperAssistant.EnableAIGreeting = this._assistantSettings.EnableAIGreeting;
+                this._settings.SmartHopperAssistant.EnableSuggestedPrompts = this._assistantSettings.EnableSuggestedPrompts;
                 this._settings.SmartHopperAssistant.AssistantProvider = this._assistantSettings.AssistantProvider;
                 this._settings.SmartHopperAssistant.AssistantModel = this._assistantSettings.AssistantModel;
                 this._settings.SmartHopperAssistant.MaxAutonomousTimeMinutes = this._assistantSettings.MaxAutonomousTimeMinutes;

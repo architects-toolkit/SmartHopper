@@ -284,6 +284,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 builder.WithToolFilter(this.Request.Body.ToolFilter);
             }
 
+            if (config.OverrideJsonOutputSchema != null)
+            {
+                builder.WithJsonOutputSchema(config.OverrideJsonOutputSchema);
+            }
+
             // Create new isolated request (use parameterless ctor and assign Body explicitly)
             var specialRequest = new AIRequestCall();
             specialRequest.Body = builder.Build();

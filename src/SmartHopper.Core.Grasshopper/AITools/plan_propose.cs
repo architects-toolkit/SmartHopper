@@ -44,7 +44,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 "plan_propose",
                 "Propose a user-reviewable plan before a non-trivial multi-step task. Call only when planning materially improves clarity. Approval permits continuing with the approach but never pre-approves later canvas changes.",
-                "Control",
+                "Planning",
                 @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -71,7 +71,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 this.ExecuteAsync,
                 mutatesCanvas: false,
-                tags: new[] { "control", "planning", "read-only" },
+                tags: new[] { "planning", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""planId"": { ""type"": ""string"" }, ""status"": { ""type"": ""string"" }, ""steps"": { ""type"": ""array"" } } }",
                 surfaces: AIToolSurface.Chat);
         }

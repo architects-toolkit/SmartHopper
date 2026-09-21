@@ -1045,6 +1045,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 // Host will append the user message; just notify and clear input for UX
                 try { setProcessing(true); } catch {}
+                try { clearSuggestedPrompts(); } catch {}
                 const url = `sh://event?type=send&text=${encodeURIComponent(text)}`;
                 console.log('[JS] Navigating to:', url);
                 window.location.href = url;
@@ -1267,6 +1268,7 @@ function updateAutonomyUsage(usage) {
         maxSec: usage.MaxSeconds || 0,
         tokens: usage.Tokens || 0,
         maxTokens: usage.MaxTokens || 0,
+        tokensEstimated: !!usage.TokensEstimated,
         running: !!usage.IsRunning,
         exhausted: !!usage.IsExhausted,
         receivedAt: Date.now()
@@ -1308,8 +1310,11 @@ function renderAutonomyOverlay() {
     const tokText = document.getElementById('autonomy-tokens-text');
     const tokFill = document.getElementById('autonomy-tokens-fill');
     if (tokText) {
-        tokText.textContent = fmtAutonomyTokens(_autonomy.tokens) +
+        // '~' marks heuristic estimates (provider did not report usage for at least one call)
+        const tokPrefix = _autonomy.tokensEstimated ? '~' : '';
+        tokText.textContent = tokPrefix + fmtAutonomyTokens(_autonomy.tokens) +
             (_autonomy.maxTokens > 0 ? ' / ' + fmtAutonomyTokens(_autonomy.maxTokens) : ' tok');
+        tokText.title = _autonomy.tokensEstimated ? 'Estimated token usage' : '';
     }
     if (tokFill) {
         tokFill.style.width = _autonomy.maxTokens > 0 ? Math.min(100, _autonomy.tokens / _autonomy.maxTokens * 100) + '%' : '0%';
@@ -1392,6 +1397,8 @@ function resetMessages() {
     }
     chatContainer.innerHTML = '';
     hideAutonomyOverlay();
+    hideTaskPlanPanel();
+    clearSuggestedPrompts();
 
     try {
         _templateCache.clear();
@@ -1552,17 +1559,22 @@ function resolvePlanConsent(id) {
     card.querySelectorAll('button').forEach(button => { button.disabled = true; });
 }
 
+// Renders the current task plan in the HUD panel docked below the autonomy overlay.
+// The panel shows one plan at a time; a new plan id replaces the previous card and the
+// final state stays visible until another plan arrives or the chat is reset.
 function updateTaskPlan(plan) {
-    const container = document.getElementById('chat-container');
-    if (!container || !plan || !plan.id) return;
+    const panel = document.getElementById('task-plan-panel');
+    if (!panel || !plan || !plan.id) return;
 
-    let card = Array.from(container.querySelectorAll('.task-plan-card'))
+    let card = Array.from(panel.querySelectorAll('.task-plan-card'))
         .find(node => node.dataset.planId === plan.id);
-    const isNew = !card;
-    if (isNew) {
+    if (!card) {
+        panel.innerHTML = '';
         card = document.createElement('section');
         card.className = 'task-plan-card';
         card.dataset.planId = plan.id;
+        panel.appendChild(card);
+        panel.classList.remove('hidden');
     } else {
         card.innerHTML = '';
     }
@@ -1609,9 +1621,177 @@ function updateTaskPlan(plan) {
         list.appendChild(item);
     });
     card.appendChild(list);
+}
 
-    if (isNew) {
-        insertAboveThinkingIfPresent(container, card);
-        scrollToBottom();
+function hideTaskPlanPanel() {
+    const panel = document.getElementById('task-plan-panel');
+    if (!panel) return;
+    panel.innerHTML = '';
+    panel.classList.add('hidden');
+}
+
+/**
+ * Renders suggested follow-up prompt chips above the input bar.
+ * Clicking a chip fills the input field but never sends automatically.
+ * @param {string[]} suggestions - 0-3 prompt strings
+ */
+function showSuggestedPrompts(suggestions) {
+    const strip = document.getElementById('suggestions-strip');
+    if (!strip) return;
+    strip.innerHTML = '';
+
+    const items = Array.isArray(suggestions) ? suggestions.filter(s => typeof s === 'string' && s.trim()).slice(0, 3) : [];
+    if (items.length === 0) {
+        strip.classList.add('hidden');
+        return;
     }
+
+    items.forEach(text => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'suggestion-chip';
+        chip.textContent = text;
+        chip.title = text;
+        chip.setAttribute('role', 'listitem');
+        chip.addEventListener('click', () => {
+            const input = document.getElementById('user-input');
+            if (input) {
+                input.value = text;
+                input.focus();
+            }
+        });
+        strip.appendChild(chip);
+    });
+    strip.classList.remove('hidden');
+}
+
+function clearSuggestedPrompts() {
+    const strip = document.getElementById('suggestions-strip');
+    if (!strip) return;
+    strip.innerHTML = '';
+    strip.classList.add('hidden');
+}
+
+/**
+ * Renders a canvas pointer card: the tool's message plus a button that replays
+ * the pan/zoom/highlight on the Grasshopper canvas via the sh:// bridge.
+ * @param {object} ptr - { id, message }
+ */
+function showCanvasPointer(ptr) {
+    const container = document.getElementById('chat-container');
+    if (!container || !ptr || !ptr.id) return;
+
+    const card = document.createElement('section');
+    card.className = 'canvas-pointer-card';
+    card.dataset.pointerId = ptr.id;
+
+    const header = document.createElement('div');
+    header.className = 'canvas-pointer-header';
+    const glyph = document.createElement('span');
+    glyph.className = 'canvas-pointer-glyph';
+    glyph.textContent = '◎';
+    header.appendChild(glyph);
+    const message = document.createElement('div');
+    message.className = 'canvas-pointer-message';
+    message.textContent = ptr.message || 'The assistant is pointing at something on the canvas.';
+    header.appendChild(message);
+    card.appendChild(header);
+
+    const actions = document.createElement('div');
+    actions.className = 'canvas-pointer-actions';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'Show on canvas';
+    button.addEventListener('click', () => {
+        window.location.href = `sh://event?type=canvas_pointer&id=${encodeURIComponent(ptr.id)}`;
+    });
+    actions.appendChild(button);
+    card.appendChild(actions);
+
+    insertAboveThinkingIfPresent(container, card);
+    scrollToBottom();
+}
+
+/**
+ * Renders a blocking question card: question text, 2-4 option buttons and an
+ * always-present free-text field. Answers travel back via the sh:// bridge.
+ * @param {object} q - { id, question, options }
+ */
+function showUserQuestion(q) {
+    const container = document.getElementById('chat-container');
+    if (!container || !q || !q.id) return;
+
+    const card = document.createElement('section');
+    card.className = 'user-question-card';
+    card.dataset.questionId = q.id;
+
+    const title = document.createElement('h3');
+    title.textContent = 'The assistant is asking';
+    card.appendChild(title);
+
+    const question = document.createElement('p');
+    question.className = 'user-question-text';
+    question.textContent = q.question || '';
+    card.appendChild(question);
+
+    const options = document.createElement('div');
+    options.className = 'user-question-options';
+    (Array.isArray(q.options) ? q.options : []).forEach((option, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'user-question-option';
+        button.textContent = option;
+        button.addEventListener('click', () => {
+            options.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+            button.classList.add('selected');
+            window.location.href = `sh://event?type=question&id=${encodeURIComponent(q.id)}&choice=${index}`;
+        });
+        options.appendChild(button);
+    });
+    card.appendChild(options);
+
+    const divider = document.createElement('div');
+    divider.className = 'user-question-divider';
+    divider.textContent = 'or type your own answer';
+    card.appendChild(divider);
+
+    const freeRow = document.createElement('div');
+    freeRow.className = 'user-question-free';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Type an answer…';
+    input.maxLength = 4000;
+    const send = document.createElement('button');
+    send.type = 'button';
+    send.textContent = 'Send';
+    const submitFree = () => {
+        const value = input.value.trim();
+        if (!value) return;
+        window.location.href = `sh://event?type=question&id=${encodeURIComponent(q.id)}&text=${encodeURIComponent(value)}`;
+    };
+    send.addEventListener('click', submitFree);
+    input.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter') {
+            ev.preventDefault();
+            submitFree();
+        }
+    });
+    freeRow.appendChild(input);
+    freeRow.appendChild(send);
+    card.appendChild(freeRow);
+
+    insertAboveThinkingIfPresent(container, card);
+    scrollToBottom();
+}
+
+/**
+ * Freezes a question card once an answer (or cancellation) was processed.
+ * @param {string} id - question id
+ */
+function resolveUserQuestion(id) {
+    const card = Array.from(document.querySelectorAll('.user-question-card'))
+        .find(node => node.dataset.questionId === id);
+    if (!card) return;
+    card.classList.add('resolved');
+    card.querySelectorAll('button, input').forEach(el => { el.disabled = true; });
 }
