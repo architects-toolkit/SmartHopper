@@ -19,16 +19,20 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using Eto.Drawing;
 using Eto.Forms;
+using Grasshopper;
 using Rhino.UI;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
     /// <summary>
-    /// Presents a modal checklist for a staged canvas proposal while the proposal is painted over the actual canvas.
+    /// Presents a floating (non-modal) checklist for a staged canvas proposal while the
+    /// proposal is painted over the actual canvas. The canvas stays fully interactive so
+    /// the user can pan and zoom to inspect the highlighted changes.
     /// </summary>
-    public sealed class CanvasChangeReviewDialog : Dialog<bool>
+    public sealed class CanvasChangeReviewDialog : Form
     {
         private readonly Dictionary<string, CheckBox> checkBoxes = new Dictionary<string, CheckBox>(StringComparer.Ordinal);
         private readonly Label summaryLabel;
@@ -39,6 +43,10 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             this.session = session ?? throw new ArgumentNullException(nameof(session));
             this.Title = session.Title;
             this.Resizable = true;
+
+            // Modeless dialog that must stay visible while the user pans and zooms the
+            // Grasshopper canvas to inspect the staged changes.
+            this.Topmost = true;
             this.ClientSize = new Size(440, 620);
             this.MinimumSize = new Size(380, 420);
             this.Padding = new Padding(16);
@@ -47,7 +55,14 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             {
                 Text = "Review AI canvas changes",
                 Font = new Font(SystemFont.Bold, 16),
+                VerticalAlignment = VerticalAlignment.Center,
             };
+            var zoomButton = new Button
+            {
+                Text = "Zoom to changes",
+                ToolTip = "Pan and zoom the canvas so all staged changes are visible",
+            };
+            zoomButton.Click += (_, _) => CanvasChangePreviewOverlay.FrameChanges(Instances.ActiveCanvas, this.session);
             var subtitle = new Label
             {
                 Text = $"{session.Items.Count} staged change(s) from {session.Source}. The canvas is unchanged until you apply.",
@@ -81,11 +96,13 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             var rejectAllButton = new Button { Text = "Reject all" };
             rejectAllButton.Click += (_, _) => this.SetAll(false);
             var cancelButton = new Button { Text = "Cancel" };
-            cancelButton.Click += (_, _) => this.Close(false);
+            cancelButton.Click += (_, _) => this.Close();
             var applyButton = new Button { Text = "Apply selected" };
-            applyButton.Click += (_, _) => this.Close(true);
-            this.DefaultButton = applyButton;
-            this.AbortButton = cancelButton;
+            applyButton.Click += (_, _) =>
+            {
+                this.ApplyRequested = true;
+                this.Close();
+            };
 
             var selectionButtons = new StackLayout
             {
@@ -106,7 +123,16 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 Spacing = new Size(8, 10),
                 Rows =
                 {
-                    new TableRow(title),
+                    new TableRow(new TableLayout
+                    {
+                        Spacing = new Size(8, 0),
+                        Rows =
+                        {
+                            new TableRow(
+                                new TableCell(title, true),
+                                new TableCell(zoomButton, false)),
+                        },
+                    }),
                     new TableRow(subtitle),
                     new TableRow(scrollable) { ScaleHeight = true },
                     new TableRow(this.summaryLabel),
@@ -127,26 +153,61 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             this.UpdateSummary();
         }
 
+        /// <summary>Gets a value indicating whether the user chose to apply the selected changes.</summary>
+        public bool ApplyRequested { get; private set; }
+
         /// <summary>
-        /// Shows a staged review and returns whether the user chose to apply the selected changes.
+        /// Shows a staged review as a floating non-modal window so the canvas stays
+        /// interactive, and completes when the user closes it.
         /// </summary>
         /// <param name="session">Review session.</param>
+        /// <param name="cancellationToken">Cancels the review and closes the dialog.</param>
         /// <returns><c>true</c> when the selected changes should be applied.</returns>
-        public static bool ShowReview(CanvasChangeReviewSession session, CancellationToken cancellationToken = default)
+        public static Task<bool> ShowReviewAsync(CanvasChangeReviewSession session, CancellationToken cancellationToken = default)
         {
-            using var dialog = new CanvasChangeReviewDialog(session);
-            using var registration = cancellationToken.Register(() =>
-                Application.Instance?.AsyncInvoke(() => dialog.Close(false)));
+            var dialog = new CanvasChangeReviewDialog(session);
+            var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            cancellationToken.Register(() =>
+                Application.Instance?.AsyncInvoke(() =>
+                {
+                    try
+                    {
+                        dialog.Close();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // The dialog was already closed and disposed.
+                    }
+                }));
+            dialog.Closed += (_, _) =>
+            {
+                CanvasChangePreviewOverlay.End(session);
+                var result = dialog.ApplyRequested;
+                dialog.Dispose();
+                completion.TrySetResult(result);
+            };
+
             CanvasChangePreviewOverlay.Begin(session);
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                return dialog.ShowModal(RhinoEtoApp.MainWindow) == true;
+                var mainWindow = RhinoEtoApp.MainWindow;
+                if (mainWindow != null)
+                {
+                    dialog.Owner = mainWindow;
+                    dialog.ShowInTaskbar = false;
+                }
+
+                dialog.Show();
             }
-            finally
+            catch
             {
-                CanvasChangePreviewOverlay.End();
+                CanvasChangePreviewOverlay.End(session);
+                dialog.Dispose();
+                throw;
             }
+
+            return completion.Task;
         }
 
         /// <inheritdoc/>
@@ -164,6 +225,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     (int)(workArea.Right - this.Width - 24),
                     (int)(workArea.Top + Math.Max(24, (workArea.Height - this.Height) / 2)));
             }
+
+            CanvasChangePreviewOverlay.FrameChanges(Instances.ActiveCanvas, this.session, onlyWhenNotFullyVisible: true);
         }
 
         /// <inheritdoc/>
@@ -220,6 +283,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             var row = new Panel
             {
                 Padding = new Padding(7),
+                ToolTip = "Double-click to zoom to this change",
                 Content = new TableLayout
                 {
                     Spacing = new Size(8, 0),
@@ -234,6 +298,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             };
             row.MouseEnter += (_, _) => CanvasChangePreviewOverlay.Highlight(item.Key);
             row.MouseLeave += (_, _) => CanvasChangePreviewOverlay.Highlight(null);
+            row.MouseDoubleClick += (_, _) => CanvasChangePreviewOverlay.FrameItem(Instances.ActiveCanvas, this.session, item);
             return row;
         }
 
