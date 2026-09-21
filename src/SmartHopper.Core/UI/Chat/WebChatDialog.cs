@@ -1139,10 +1139,19 @@ namespace SmartHopper.Core.UI.Chat
                     DebugLog("[WebChatDialog] Reusing existing ConversationSession");
                 }
 
+                // Text and image attachments share one user turn so providers and
+                // the renderer treat them as a single user message.
+                var userTurnId = InteractionUtility.GenerateTurnId();
+
                 // Add the pending user message to the session
                 if (!string.IsNullOrWhiteSpace(this._pendingUserMessage))
                 {
-                    this._currentSession.AddInteraction(this._pendingUserMessage);
+                    this._currentSession.AddInteraction(new AIInteractionText
+                    {
+                        Agent = AIAgent.User,
+                        Content = this._pendingUserMessage,
+                        TurnId = userTurnId,
+                    });
                     this._pendingUserMessage = null; // Clear after adding
                 }
 
@@ -1158,6 +1167,7 @@ namespace SmartHopper.Core.UI.Chat
                             ImageData = image.ImageData,
                             MimeType = image.MimeType,
                             OriginalPrompt = image.FileName,
+                            TurnId = userTurnId,
                         });
                     }
 

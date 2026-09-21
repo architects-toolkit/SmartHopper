@@ -13,7 +13,7 @@ const SCROLL_BOTTOM_THRESHOLD = 30; // consider near-bottom within this distance
 const SCROLL_SHOW_BTN_THRESHOLD = 5; // show scroll-to-bottom button when farther than this
 
 // Render limits and thresholds
-const MAX_MESSAGE_HTML_LENGTH = 20000; // cap DOM insertion size to avoid huge paints
+const TEMPLATE_CACHE_MAX_HTML = 256 * 1024; // larger payloads (e.g. embedded images) render uncached
 const PERF_LOG_THRESHOLD_MS = 16; // only log perf outliers (>1 frame)
 const LRU_MAX_ENTRIES = 100; // recent DOM html cache size
 const FLUSH_INTERVAL_MS = 50; // max wait before flushing queued DOM ops
@@ -140,10 +140,12 @@ function cloneFromTemplate(html, context) {
     const originalHtml = html;
     let frag = _templateCache.get(originalHtml);
     if (!frag) {
-        // Guard against excessively large payloads
-        if (html.length > MAX_MESSAGE_HTML_LENGTH) {
-            console.warn(`[JS] ${context}: html length ${html.length} exceeds cap ${MAX_MESSAGE_HTML_LENGTH}, truncating`);
-            html = html.slice(0, MAX_MESSAGE_HTML_LENGTH) + '…';
+        // Large payloads (data-URI images in tool results, big JSON dumps) are
+        // legitimate and must render in full — truncating mid-attribute corrupts
+        // the markup. They only bypass the fragment cache to keep it lightweight.
+        if (html.length > TEMPLATE_CACHE_MAX_HTML) {
+            console.warn(`[JS] ${context}: html length ${html.length} exceeds template-cache cap; rendering uncached`);
+            return null;
         }
         const safeHtml = sanitizeHtml(html);
         if (!safeHtml) {

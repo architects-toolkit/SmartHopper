@@ -606,6 +606,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 // Append generic interaction to session history without marking it as 'new'
                 this.AppendToSessionHistory(interaction);
                 this.UpdateLastReturn();
+
+                // Notify observer so the interaction is rendered in the UI,
+                // matching the behavior of the string overload for user messages
+                this.Observer?.OnInteractionCompleted(interaction);
             }
         }
 
