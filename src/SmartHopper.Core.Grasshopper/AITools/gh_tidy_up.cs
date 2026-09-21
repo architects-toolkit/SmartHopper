@@ -181,34 +181,32 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 const float spacingY = 28f;
                 const float islandSpacingY = 100f;
 
-                var layoutResult = GhJSON.Core.GhJson.CalculateLayout(doc, new LayoutOptions
+                var selectedByGuid = selected.ToDictionary(o => o.InstanceGuid);
+
+                var positions = GhJsonGrasshopper.ComputeLayout(doc, new CanvasLayoutOptions
                 {
-                    SpacingX = spacingX,
-                    SpacingY = spacingY,
-                    IslandSpacingY = islandSpacingY,
-
-                    // Feed live component bounds so column widths and row heights match
-                    // real Grasshopper geometry instead of the library defaults.
-                    NodeSizeProvider = CanvasAccess.GetNodeSize,
-                });
-
-                var positions = LayoutRefinementEngine.ApplyRefinements(
-                    layoutResult,
-                    doc,
-                    new LayoutRefinementOptions
+                    Layout = new LayoutOptions
                     {
                         SpacingX = spacingX,
                         SpacingY = spacingY,
-                        ApplyBoundsAwareSpacing = true,
-                        AlignParamsToInputPorts = true,
-                        AlignOneToOneConnections = true,
-                        MinimizeConnectionLengths = true,
-                        AvoidCollisions = true,
+                        IslandSpacingY = islandSpacingY,
+                    },
+                    Refinements = new LayoutRefinementOptions
+                    {
+                        SpacingX = spacingX,
+                        SpacingY = spacingY,
+                    },
 
-                        // Same live-bounds source as the core layout, so per-island
-                        // re-spacing measures real component sizes.
-                        NodeSizeProvider = CanvasAccess.GetNodeSize,
-                    });
+                    // Feed live component bounds to every stage so column widths, row
+                    // heights, and per-island re-spacing measure real Grasshopper
+                    // geometry instead of the library defaults.
+                    NodeSizeProvider = CanvasAccess.GetNodeSize,
+
+                    // Port geometry resolves through the caller-owned selection map —
+                    // the same objects the layout was serialized from.
+                    ObjectProvider = guid =>
+                        selectedByGuid.TryGetValue(guid, out var o) ? o : null,
+                });
 
                 if (positions.Count == 0)
                 {
@@ -233,7 +231,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // semantics (components pivot at center, sliders/panels/floating
                 // parameters at their top-left corner) so the applied layout matches
                 // the computed bounds instead of shifting non-component objects.
-                var selectedByGuid = selected.ToDictionary(o => o.InstanceGuid);
                 var targets = positions.ToDictionary(
                     pair => pair.Key,
                     pair =>
