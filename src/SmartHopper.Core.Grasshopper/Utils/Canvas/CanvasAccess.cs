@@ -35,6 +35,51 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
     public static class CanvasAccess
     {
         /// <summary>
+        /// Runs <paramref name="func"/> on the Rhino UI thread and blocks until it
+        /// completes. If the caller is already on the UI thread, the function runs
+        /// inline. Any exception thrown by the function is re-thrown to the caller.
+        /// </summary>
+        /// <typeparam name="T">The result type.</typeparam>
+        /// <param name="func">The work to run on the UI thread.</param>
+        /// <returns>The function result.</returns>
+        public static T RunOnUiThread<T>(Func<T> func)
+        {
+            if (RhinoApp.InvokeRequired == false)
+            {
+                return func();
+            }
+
+            var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+            RhinoApp.InvokeOnUiThread(new Action(() =>
+            {
+                try
+                {
+                    tcs.SetResult(func());
+                }
+                catch (Exception ex)
+                {
+                    tcs.SetException(ex);
+                }
+            }));
+
+            return tcs.Task.GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Runs <paramref name="action"/> on the Rhino UI thread and blocks until it
+        /// completes. If the caller is already on the UI thread, the action runs inline.
+        /// </summary>
+        /// <param name="action">The work to run on the UI thread.</param>
+        public static void RunOnUiThread(Action action)
+        {
+            RunOnUiThread<object>(() =>
+            {
+                action();
+                return null;
+            });
+        }
+
+        /// <summary>
         /// Gets the current active Grasshopper document from the canvas.
         /// </summary>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Ambient UI state access; method communicates non-field-like behavior")]

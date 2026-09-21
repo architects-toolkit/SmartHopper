@@ -136,22 +136,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var canvas = Instances.ActiveCanvas;
-                var document = canvas?.Document;
-                if (canvas == null || document == null)
+                // Viewport access touches WinForms objects — marshal to the UI thread.
+                var result = CanvasAccess.RunOnUiThread(() =>
                 {
-                    output.CreateError("No active Grasshopper canvas is available.");
-                    return output;
-                }
+                    var canvas = Instances.ActiveCanvas;
+                    var document = canvas?.Document;
+                    if (canvas == null || document == null)
+                    {
+                        return new JObject { ["error"] = "No active Grasshopper canvas is available." };
+                    }
 
-                var result = ApplyViewAction(canvas, document, action, args);
+                    var actionResult = ApplyViewAction(canvas, document, action, args);
+                    if (!actionResult.ContainsKey("error"))
+                    {
+                        canvas.Refresh();
+                    }
+
+                    return actionResult;
+                });
+
                 if (result.TryGetValue("error", out var errorToken))
                 {
                     output.CreateError(errorToken?.ToString() ?? "Unknown canvas_view error.");
                     return output;
                 }
-
-                canvas.Refresh();
 
                 var builder = AIBodyBuilder.Create();
                 builder.AddToolResult(result, toolInfo.Id, toolInfo.Name);
