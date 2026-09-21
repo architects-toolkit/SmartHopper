@@ -1,6 +1,6 @@
 # Live re-assessment: gh_tidy_up after bounds-aware spacing (GhJSON 1.2.0)
 
-**Status:** assessment — no code changes
+**Status:** fixes applied (see addendum) — pending rebuild + live re-verification
 **Date:** 2026-09-21
 **Branch tested:** `feature/mcp-canvas-usability` (built + signed `2.0.0-dev.260921`)
 **Method:** re-ran the original live test — `tidyup-test.ghjson` (19 components: math island with sliders/arithmetic/compare/panels + fan-out + skip edge; geometry island with sliders/Number param/panel input/Construct→Deconstruct Point/Sphere/panels), placed via `gh_put` (auto-approved), tidied via `gh_tidy_up`, evaluated with `canvas_hi-res_screenshot` (`scope=document`).
@@ -93,3 +93,38 @@ An argument error (`gh_get_by_guid` wanted `guidFilter`, not `guids`) returned t
 | — per-column pitch | **New finding** — spacing is pivot-uniform, not gap-uniform (finding 5) |
 
 **Bottom line:** the bounds-aware spacing pass (A4+A5) visibly improved density and eliminated overlaps, and the MCP tooling layer (auto-approve, image blocks, summary reads) works. The remaining layout defects — input-order crossings, wire-through-bounds, floating leaf panels — all trace back to the same root cause identified originally: the layout model reasons about *component centers*, while Grasshopper wires are *port-to-port*. A6 remains the right fix. The newly discovered spurious-move and island-packing issues are small, independent wins worth taking first.
+
+---
+
+## Addendum — fixes applied after the second user review (2026-09-21)
+
+The second review surfaced five more issues; investigation found they shared a single root cause plus independent small bugs.
+
+### Root cause found: pivot-semantics mismatch
+
+The whole pipeline (core `CoordinateAssigner`, `BoundsAwareSpacing`, `PortAlignment`) works in **bounds-center** coordinates, but the positions were written straight to `Attributes.Pivot` — which is top-left for sliders, panels and floating params, center for components. One write-time semantic mismatch explained three observations: panels top-aligned next to center-aligned components, the 5px slider→Add gap (finding 5), and part of the island drift (finding 6).
+
+### Fixes
+
+| Finding | Fix | Location |
+| --- | --- | --- |
+| Pivot-vs-center | New `PivotSemantics.CenterToPivot`/`BoundsCenter` (per-object `Pivot − BoundsCenter` offset; no per-type switch). Applied in `CanvasPlacer` and `gh_tidy_up` (targets + origin anchor both in center space) | `GhJSON.Grasshopper/Shared/PivotSemantics.cs`, `gh_tidy_up.cs` |
+| Island packing (6) | Islands stack **vertically with a shared left edge**; normalization is by bounds top-left so edges truly align; ordering follows original canvas position (top→bottom) when pivots exist, size-desc otherwise. `IslandWrapWidth` removed | `LayoutEngine.cs` |
+| Panels too big | `PanelHandler` sizes bounds from text/font/multiline/wrap when `bounds` is absent | `PanelHandler.cs` |
+| Spurious moves (1) | `MoveInstance` no-ops sub-pixel (<0.5) deltas and records undo only when actually moving (was recording before the check) | `CanvasAccess.cs` |
+| `canvas_view` crash (7) | Viewport access marshaled via new `CanvasAccess.RunOnUiThread` | `canvas_view.cs`, `CanvasAccess.cs` |
+| Bonus: bounds math | `CanvasBoundsCalculator` now uses `Attributes.Bounds` edges directly (was `Pivot+size`, wrong for center-pivot objects) | `CanvasBoundsCalculator.cs` |
+| Obsolete resolution | Rhino 8 renamed "Deconstruct Point" → "Deconstruct"; legacy `670fcdba` is obsolete so exact-name refused and fuzzy fell back to `Construct Point`. New name aliases (`deconstructpoint`, `pointdeconstruct`, `pointcoordinates`, `pdecon`) → `Deconstruct`. Test file `tidyup-test.ghjson` updated to modern GUIDs | `ComponentNameResolver.cs` |
+
+### Verification status
+
+- `GhJSON.Core.Tests`: 572/572 pass (one origin-semantics test updated to bounds-edge contract).
+- `SmartHopper.Core.Grasshopper` builds clean.
+- **Live MCP re-verification pending**: requires rebuild + Rhino restart (running instance has old assemblies; MCP server was down at the end of the session).
+
+### Still open (require layout-model work, not boundary fixes)
+
+- Fan-in port-order crossing (finding 2) — needs target-port-index ordering.
+- Wire-through-bounds on skip edges (finding 3) — needs corridor reservation or routing awareness.
+- Leaf-panel port alignment for multi-output sources (finding 4).
+- Error responses still append the full tool catalog (finding 8).
