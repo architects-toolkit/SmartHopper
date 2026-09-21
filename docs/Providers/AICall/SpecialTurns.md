@@ -45,10 +45,11 @@ Special turns are useful when you need to perform an AI operation that should be
 
 ### Built-in Special Turns
 
-SmartHopper includes two built-in special turns:
+SmartHopper includes three built-in special turns:
 
 - **Greeting Turn**: Generates an AI greeting using the provider's default Text2Text model, with all tools disabled and a 30-second timeout. Only the final greeting is persisted to history.
 - **Summarize Turn**: Automatically triggered when context usage exceeds 80% or when a context exceeded error occurs. Replaces old conversation history with a summary while preserving the last user message and system context.
+- **Suggested Prompts Turn**: Generates 0–3 follow-up prompt suggestions after a completed turn. Runs on the session's current model (gated on `AICapability.Text2Json`), against a bounded digest of the last ~8 meaningful interactions rather than full history, and persists nothing (`Ephemeral`).
 
 ### Concurrency
 
@@ -70,6 +71,7 @@ var config = new SpecialTurnConfig
     OverrideProvider = "openai",
     OverrideModel = "gpt-4o",
     OverrideToolFilter = "-*",  // Disable all tools
+    OverrideJsonOutputSchema = schema,  // Optional structured-output schema
     
     // Execution behavior
     ProcessTools = false,
@@ -255,6 +257,26 @@ The `ConversationSession` automatically triggers summarization when:
 - **Drops all interactions after the last user message** (assistant responses, tool calls, tool results)
   - This ensures a clean conversation state and prevents token bloat from incomplete turns
   - The next provider call will be a fresh assistant response to the preserved user message
+
+### Suggested Prompts Turn
+
+Factory for follow-up prompt suggestions rendered as chips in WebChat:
+
+```csharp
+var config = SuggestedPromptsSpecialTurn.Create(session.GetHistoryInteractionList());
+var result = await session.ExecuteSpecialTurnAsync(config, preferStreaming: false);
+var suggestions = SuggestedPromptsParser.Parse(assistantText);
+
+```
+
+**Configuration:**
+
+- Uses the session's current model — callers must check `GetCapabilities(provider, model).HasCapability(AICapability.Text2Json)` first and skip generation on non-JSON models (no modality fallback for this cosmetic feature)
+- `OverrideCapability = AICapability.Text2Json` plus `OverrideJsonOutputSchema` (`{"suggestions": [...], "maxItems": 3}`) so structured-output providers actually emit the schema
+- `OverrideInteractions` flattens the last ~8 meaningful interactions into one user message (text ≤2000 chars, tool calls → name + bounded args, results → name + ≤500 chars) — full history is never sent and raw tool-call/tool-result pairing issues are avoided
+- All tools and context disabled (`-*`), forced non-streaming, 20 second timeout
+- `Ephemeral` strategy — suggestions never enter conversation history
+- `SuggestedPromptsParser` tolerantly accepts the schema object or a bare array (even fenced/prose-wrapped), dedupes, bounds to 3; unparseable output yields zero chips, never an error
 
 ### Use Cases
 

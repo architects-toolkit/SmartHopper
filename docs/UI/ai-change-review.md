@@ -34,7 +34,7 @@ AI tools can add, modify, move, connect, group, and delete Grasshopper objects. 
 
 ### What Is This?
 
-When an AI tool wants to change the canvas, SmartHopper shows a review dialog next to the Grasshopper window and paints the proposal directly on the canvas. Nothing is added to or removed from the document until the user clicks **Apply**.
+When an AI tool wants to change the canvas, SmartHopper shows a floating review dialog beside the Grasshopper window and paints the proposal directly on the canvas. The dialog does not block the canvas: you can pan and zoom freely while reviewing. Nothing is added to or removed from the document until the user clicks **Apply**.
 
 ### Overlay Color Legend
 
@@ -49,10 +49,11 @@ When an AI tool wants to change the canvas, SmartHopper shows a review dialog ne
 ### Step-by-Step
 
 1. Run an AI request that mutates the canvas (for example `gh_put`, `gh_move`, or `gh_disconnect`).
-2. Inspect the painted proposal on the canvas and the matching rows in the review dialog.
-3. Uncheck any change you do not want, or cancel to apply nothing.
-4. Click **Apply** to execute only the effectively accepted changes.
-5. The tool reports accepted and rejected counts back to the AI so it can continue without assuming rejected changes were applied.
+2. Inspect the painted proposal on the canvas and the matching rows in the review dialog. If the staged bounds are off-screen, the view automatically frames them when the dialog opens.
+3. Pan and zoom the canvas as usual — the dialog stays open on top. Click **Zoom to changes** to re-frame all staged bounds, or double-click a row to frame that single change.
+4. Uncheck any change you do not want, or cancel to apply nothing.
+5. Click **Apply** to execute only the effectively accepted changes.
+6. The tool reports accepted and rejected counts back to the AI so it can continue without assuming rejected changes were applied.
 
 ### Common Questions
 
@@ -92,8 +93,8 @@ public static class CanvasChangeReviewService
 | `CanvasChangeReviewItem` | One independently selectable structural change, with optional dependencies via `RequiredItemKeys` |
 | `CanvasChangeReviewSession` | Immutable proposal (`GhJsonDocument`) plus mutable user selections |
 | `CanvasChangeReviewService` | UI-thread review entry point and proposal factories for removals, moves, and connections |
-| `CanvasChangePreviewOverlay` | Actual-canvas renderer hooked on `CanvasPostPaintOverlay`; never mutates `GH_Document` |
-| `CanvasChangeReviewDialog` | Eto dialog with per-change accept/reject checkboxes, positioned beside the canvas |
+| `CanvasChangePreviewOverlay` | Actual-canvas renderer hooked on `CanvasPostPaintOverlay`; never mutates `GH_Document`. Also computes staged world bounds and frames the viewport (`FrameChanges`, `FrameItem`) |
+| `CanvasChangeReviewDialog` | Modeless topmost Eto `Form` with per-change accept/reject checkboxes; the canvas stays interactive while it is open |
 | `GhPutChangePlan` | Compares an incoming GhJSON fragment with serialized live components and filters rejected components, connections, and groups |
 | `CanvasChangeKind` | Visual category: `ComponentAdded`, `ComponentModified`, `ComponentRemoved`, `ConnectionAdded`, `ConnectionRemoved`, `GroupAdded`, `GroupModified`, `GroupRemoved` |
 
@@ -184,6 +185,8 @@ Runtime actions such as button clicks and script execution are not represented a
 
 ### Gotchas
 
+- The review dialog is modeless: the canvas remains fully interactive while it is open, so edits made during review are not part of the staged proposal and are not tracked by it. The dialog is topmost so it cannot be lost behind the Grasshopper window while a decision is pending.
+- Zoom-to-changes framing uses the union of world-space bounds for all staged items (accepted or not): live `Attributes.Bounds` for existing objects, proposed bounds for ghosts, endpoint anchors inflated for wire curvature for connections, and member unions for groups. `FrameChanges` clamps the zoom to 0.01–32 like `canvas_view`.
 - Proposed-component ghosts use real bounds: components without a live canvas instance are instantiated off-document at review time (`PopulateProposedBounds` in `CanvasChangeReviewService`) and their `Attributes.Bounds` are stored on the session; live components reuse their current bounds translated to the proposed pivot. A fixed-size estimate centered on the pivot remains only as a fallback when neither is available.
 - Proposals without pivots use GhJSON dependency-graph layout for preview; Grasshopper-aware final layout may differ slightly.
 - Non-edit `gh_put` can auto-offset the accepted network to avoid live objects, so its final global offset can differ from the proposal coordinates.

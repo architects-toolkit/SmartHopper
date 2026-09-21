@@ -67,8 +67,12 @@ This page references rendering at a high level and leaves type-level details to 
 - `ConversationSession` is the single source of truth for conversation history and for orchestrating provider calls and tool passes.
 - `WebChatUtils.CreateWebChatRequest` composes the system prompt before creating the dialog. It prepends the mandatory embedded `assistant-core` knowledge through `AgentKnowledgeCatalog`, then appends caller or user specialization and enables the default runtime-context providers.
 - Focused Grasshopper guidance is available to the agent through the `smarthopper_readme` and `smarthopper_workflows` instruction tools, backed by the same embedded catalog exposed through MCP.
-- For non-trivial work, the model may call the Chat-only `plan_propose` control tool. WebChat renders an approval card and keeps the tool call pending until the user approves, rejects, or cancels.
+- For non-trivial work, the model may call the Chat-only `plan_propose` tool (`Planning` category). WebChat renders an approval card and keeps the tool call pending until the user approves, rejects, or cancels.
 - Plan approval permits continuing with the approach but does not approve later canvas mutations; each mutation receives a separate graphical review.
+- `plan_tasks` (`Planning`) renders the active task plan in a persistent panel docked under the autonomy overlay (the shared `#hud` column), showing goal, progress, and per-task status until replaced or reset.
+- `ask_user` (`Planning`) renders a blocking question card with 2–4 options plus a free-text field; the tool call waits until the user answers or the run is cancelled, through the `IUserQuestionPresenter` invocation seam.
+- `canvas_point` (`ViewControl`) pans/zooms the Grasshopper viewport to components or a region and draws an 8-second border highlight via `CanvasPointerService`; the chat card's "Show on canvas" button replays it through `CanvasPointerBridge`.
+- After each completed turn, the ephemeral `SuggestedPromptsSpecialTurn` (non-streaming, tool-less, `Text2Json`-gated, bounded history digest) produces 0–3 suggestion chips above the input bar; clicking a chip fills the input without sending. Toggled by `EnableSuggestedPrompts` in Canvas Assistant settings.
 - `HtmlChatRenderer` (+ `ChatResourceManager`) converts `IAIInteraction` instances to HTML message bubbles. Markdig is used for Markdown -> HTML.
 - `WebChatDialog` is a thin host adapter:
   - Loads initial HTML (CSS/JS inline) via `HtmlChatRenderer.GetInitialHtml()`.
