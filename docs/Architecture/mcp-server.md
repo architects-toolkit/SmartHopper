@@ -10,7 +10,7 @@ Loopback-only MCP transport that exposes SmartHopper's existing `AITool` catalog
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Infrastructure/Mcp/` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-09-06 |
+| **Last Updated** | 2026-09-21 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -41,8 +41,9 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
   - `Enable` — starts or stops the shared server.
   - `Port` — TCP port to bind on loopback.
   - `BearerToken` — optional static bearer token.
-  - `ExposeMutatingTools` — whether tools marked as mutating may be exposed.
-  - `Auto-approve AI Changes` (`AA`) — when true, canvas mutations requested through this server are applied without showing the review dialog. Undo is still recorded. Defaults to false.
+  - `Allow Editing` (`AE`) — whether tools marked as mutating may be exposed.
+  - `Bypass Edition Validation` (`BV`) — when true, canvas mutations requested through this server are applied without showing the review dialog. Undo is still recorded. Defaults to false.
+  - `Allow View Control` (`AV`) — when true, tools in the `ViewControl` category (`canvas_view`) are exposed so clients can move the canvas viewport. Defaults to false.
 - Outputs:
   - `Url` — the MCP endpoint when the server is running.
   - `Status` — a short status string.
@@ -54,8 +55,9 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 | Port | `26929` | Matches Cordyceps' default for easier documentation parity. |
 | Bearer token | empty | Empty means no bearer auth; loopback-only still applies. |
 | Enabled tools | `null` | Null or empty means the full read-only surface is eligible. |
-| Expose mutating tools | `false` | Mutating tools stay hidden unless explicitly allowed. |
-| Auto-approve AI changes | `false` | Opt-in per server instance; skips the review dialog for mutations requested through that server. |
+| Allow editing (`ExposeMutatingTools`) | `false` | Mutating tools stay hidden unless explicitly allowed. |
+| Bypass edition validation (`BypassMutationsApproval`) | `false` | Opt-in per server instance; skips the review dialog for mutations requested through that server. |
+| Allow view control (`AllowViewControl`) | `false` | `ViewControl`-category tools (`canvas_view`) stay hidden unless explicitly allowed. |
 | Server name | `smarthopper` | Reported during MCP `initialize`. |
 | Server version | assembly informational version fallback | Can be overridden from options. |
 | Bind address | loopback only | `127.0.0.1` only in phase 1. IPv6 loopback is not registered. |
@@ -65,13 +67,14 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 - **Loopback only.** The server binds to `127.0.0.1` only.
 - **Loopback peer guard.** Requests from non-loopback IP addresses are rejected (defence in depth even though the listener is already bound to loopback).
 - **Bearer token optional.** If a token is configured, requests without `Authorization: Bearer ...` are rejected with HTTP 401.
-- **Read-only by default.** Tools that alter the canvas are hidden unless `ExposeMutatingTools` is enabled.
+- **Read-only by default.** Tools that alter the canvas are hidden unless `Allow Editing` (`ExposeMutatingTools`) is enabled.
+- **Viewport control is opt-in.** `ViewControl`-category tools such as `canvas_view` are hidden unless `Allow View Control` (`AllowViewControl`) is enabled, even though they do not mutate the document.
 - **Disabled tools are never exposed.** If `AITool.Enabled` is `false`, the tool is hidden from MCP regardless of the allow-list or mutating-tool policy.
 - **Tool surfaces are enforced.** Tools without `AIToolSurface.Mcp`, including WebChat control tools such as `plan_propose`, remain hidden even when named in an MCP allow-list.
-- **Allow-list overrides the mutating filter.** If `EnabledTools` is set, only those tools are exposed; this overrides `ExposeMutatingTools` but not the `Enabled` flag.
+- **Allow-list overrides the mutating and view-control filters.** If `EnabledTools` is set, only those tools are exposed; this overrides `ExposeMutatingTools` and `AllowViewControl` but not the `Enabled` flag.
 - **No file-system or shell access.** MCP only exposes existing `IAIToolProvider` tools.
 - **No payload logging.** Requests are logged without GhJSON payload contents.
-- **Review-by-default for mutations.** Even with `ExposeMutatingTools` on, every canvas mutation still goes through the consent review unless the serving component explicitly sets `Auto-approve AI Changes`.
+- **Review-by-default for mutations.** Even with `Allow Editing` on, every canvas mutation still goes through the consent review unless the serving component explicitly sets `Bypass Edition Validation`.
 
 ### What Mutating Tools Mean
 
@@ -81,7 +84,7 @@ A tool is considered mutating when its `AITool.MutatesCanvas` flag is `true`.
 - Read-only, query, validation, and transformation tools should set `mutatesCanvas: false`.
 - MCP exposure uses the flag instead of name-prefix heuristics.
 
-That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `gh_diff`, `gh_patch_validate`, `script_review`, `text2json`, `img2text`, `canvas_screenshot`, `viewport_screenshot`, `web2md`, and the Discourse readers stay visible by default, while canvas-changing tools remain hidden unless explicitly enabled.
+That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `gh_diff`, `gh_patch_validate`, `script_review`, `text2json`, `img2text`, `canvas_screenshot`, `viewport_screenshot`, `web2md`, and the Discourse readers stay visible by default, while canvas-changing tools remain hidden unless explicitly enabled. Separately, `ViewControl`-category tools (`canvas_view`) are hidden by default because they move the user's viewport — they require `AllowViewControl` even though `MutatesCanvas` is `false`.
 
 ### What Enabled Means
 
@@ -130,7 +133,7 @@ The adapter expects MCP clients to send a tool name and a JSON object of argumen
 
 1. MCP sends `{"method":"tools/call","params":{"name":"gh_get","arguments":{...}}}`.
 2. `JsonRpcDispatcher` resolves the tool by name.
-3. `AIToolMcpAdapter` checks the tool exists, then `AITool.Enabled`, then `EnabledTools`, then `ExposeMutatingTools`/`AITool.MutatesCanvas`.
+3. `AIToolMcpAdapter` checks the tool exists, then `AITool.Enabled`, then `EnabledTools`, then `ExposeMutatingTools`/`AITool.MutatesCanvas` and `AllowViewControl`/`AITool.Category`.
 4. `AIToolMcpAdapter` builds an `AIToolCall` and invokes it through the configured executor (`AIToolCall.Exec()` by default).
 5. The adapter extracts the last `AIInteractionToolResult` from `AIReturn.Body` and returns it as the MCP response payload; if no tool result is present, the adapter falls back to the first Tool/Provider/Network error or an empty object.
 
@@ -142,7 +145,7 @@ Mutating `tools/call` invocations accept an optional `requestId` argument. `McpT
 
 ### Auto-Approve Consent Policy
 
-`McpServerOptions.AutoApproveMutations` flows into `MutationInvocationContext.AutoApproveMutations` when the adapter builds the call. `ConsentGate.RequestAsync` short-circuits before presenter resolution when `Surface == AIToolSurface.Mcp` and the flag is set, returning `Approved` with every proposal item key — the review dialog is never invoked and undo recording is unaffected. Any other surface, or an MCP server with the flag off, keeps the interactive review.
+`McpServerOptions.BypassMutationsApproval` (component input `Bypass Edition Validation`) flows into `MutationInvocationContext.BypassMutationsApproval` when the adapter builds the call. `ConsentGate.RequestAsync` short-circuits before presenter resolution when `Surface == AIToolSurface.Mcp` and the flag is set, returning `Approved` with every proposal item key — the review dialog is never invoked and undo recording is unaffected. Any other surface, or an MCP server with the flag off, keeps the interactive review.
 
 ### Compact Validation Errors
 
@@ -193,6 +196,7 @@ var options = new McpServerOptions
     Port = 26929,
     BearerToken = null,
     ExposeMutatingTools = false,
+    AllowViewControl = false,
     EnabledTools = null,
     ServerName = "smarthopper",
 };
@@ -273,7 +277,7 @@ Phase 1 is implemented under `src/SmartHopper.Infrastructure/Mcp/` rather than a
 - `McpServer.cs` — loopback HTTP transport, loopback peer guard, bearer-token auth, request limits
 - `JsonRpcDispatcher.cs` — MCP method dispatch and result shaping
 - `AIToolMcpAdapter.cs` — projects `AIToolManager` into MCP descriptors and calls
-- `McpServerOptions.cs` — port, token, allow-list, mutating-tool, and auto-approve settings
+- `McpServerOptions.cs` — port, token, allow-list, mutating-tool, auto-approve, and view-control settings
 - `McpServerLifecycle.cs` — ref-counted singleton server manager
 - `McpToolCallCache.cs` — ~10-minute in-memory idempotency cache for mutating `tools/call` retries keyed by `requestId`
 - `McpToolDescriptor.cs` / `McpToolCallResult.cs` — protocol DTOs
@@ -305,6 +309,7 @@ Phases 2 and 3 are implemented as static providers sourced from existing AITools
 - **Project placement.** Phase 1 ships under Infrastructure, not as a separate `SmartHopper.Mcp` project.
 - **Default port.** `26929` is kept for parity with Cordyceps.
 - **Mutating tools off by default.** `McpServerOptions.ExposeMutatingTools = false` and `AITool.MutatesCanvas` control exposure.
+- **View-control tools off by default.** `McpServerOptions.AllowViewControl = false` and `AITool.Category == "ViewControl"` gate viewport-control tools such as `canvas_view`.
 - **Component path.** The component lives at `SmartHopper.Components/Mcp/SmartHopperMcpServerComponent.cs`.
 - **Component-name aliasing.** The orchestration layer already handles aliasing through `ComponentNameAliases` in `SmartHopper.Core.Grasshopper.Utils.Canvas`; no extra MCP-side alias layer is introduced.
 - **Shared agent knowledge.** `AgentKnowledgeCatalog` owns stable embedded guidance and workflow parsing. MCP resources, in-process instruction tools, and WebChat prompt composition consume that catalog instead of maintaining separate copies. The GhJSON spec remains linked from the existing `SmartHopper.Core.Grasshopper` snapshot. MCP prompts stay pure and refer clients to resources/tools for focused content.

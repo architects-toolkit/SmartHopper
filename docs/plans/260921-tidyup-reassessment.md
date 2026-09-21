@@ -167,3 +167,31 @@ Geometry: X(700,600) Y(780,652) Z(740,684) R(700,786) → Pt(971,629)
 2. **Fan-in port-order crossing persists** — the wires into `LT` still cross (upper slider → lower port). Needs target-port-index ordering (A6).
 3. **Skip-edge corridor still unresolved** — long wires route close to intermediate component bounds; the dedicated wire-corridor idea (finding 3) remains the proper fix.
 4. **Tool-catalog dump on argument errors** — unchanged (finding 8).
+
+---
+
+## Addendum 3 — implementation of the manual-tweak deltas (2026-09-21, in progress)
+
+The user produced a hand-tuned copy of the math island (ids 10–18) and asked to make its
+rules the default. Extracted deltas vs the algorithm output: Add/Mul shifted **down ~18px**
+(opens a corridor for the `A→Sub.A` skip wire), `Sub` shifted **up ~16px** (its input port
+meets the wire inside the corridor), connected panels grown **80×38→80×55** (streamed
+path+value rows), minor ±2–3px row polish.
+
+### Implemented
+
+| Rule | Mechanism |
+| --- | --- |
+| Wire-corridor clearance | New pure `WireCorridorPlanner` (`GhJSON.Core.DependencyGraph.Internal`): per skip edge, nudge the target part-way toward a clear corridor (≤60px) then push each violated intermediate node through the edge nearer the wire (≤150px). Default clearance 20px; deepest spans resolve first |
+| Corridor adapter | `WireClearance` refinement pass translates bounds-center positions, measured sizes, and real port geometry into the planner; runs inside the shared iteration loop before `PortAlignment`/`CollisionResolver` |
+| ±1px oscillation | Refined positions round to whole pixels each pass |
+| Port geometry on off-document objects | `LayoutRefinementOptions.ObjectProvider` resolves layout keys from caller-owned maps (`gh_put`: freshly instantiated objects; `gh_tidy_up`: `selectedByGuid`) — no new public resolver on `CanvasAccess` |
+| Shared pipeline | `GhJsonGrasshopper.ComputeLayout(document, CanvasLayoutOptions)` runs core layout + all refinements; `gh_put` (`CanvasPlacer`) and `gh_tidy_up` both consume it |
+| Connected-panel height | `PanelHandler.ReserveDataRows` grows wired panels to ≥55px after connections are created in `CanvasPlacer` (tidy-up does not resize) |
+| Shared key map | `ConnectionKeyMap` centralizes id→layout-key mapping for `PortAlignment` and `WireClearance` |
+
+### Verified
+
+- `WireCorridorPlannerTests`: 8 focused tests on the math-island fixture — pass 1 produces `Sub −22.6, Add +19.5, Mul +13.8` (matching the manual −16/+18/+18 pattern) and replan converges with zero residual.
+- `GhJSON.Core.Tests`: 580/580 pass. `GhJSON.Grasshopper`, `SmartHopper.Core.Grasshopper` build clean.
+- **Live MCP verification pending** (requires signed rebuild + Rhino restart).

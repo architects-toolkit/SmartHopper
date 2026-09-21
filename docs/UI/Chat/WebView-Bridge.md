@@ -40,6 +40,9 @@ The WebView sends actions to the host by navigating to custom URL schemes (navig
 - `sh://event?type=detach&id=...`
 - `sh://event?type=clear`
 - `sh://event?type=cancel`
+- `sh://event?type=consent&id=...&decision=approve|reject`
+- `sh://event?type=canvas_pointer&id=...`
+- `sh://event?type=question&id=...&choice=N` or `...&text=...`
 - `clipboard://copy?text=...`
 
 The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
@@ -73,6 +76,15 @@ The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
 - **clipboard**
   - JS → host: `clipboard://copy?text=...`
   - Host sets system clipboard and calls `showToast('Copied to clipboard')`.
+- **consent**
+  - JS → host: `sh://event?type=consent&id=...&decision=approve|reject`
+  - Host resolves the pending plan-consent card (`ResolvePlanConsent`); plan approval never pre-approves later canvas mutations.
+- **canvas_pointer**
+  - JS → host: `sh://event?type=canvas_pointer&id=...`
+  - Host resolves the pointer id through `CanvasPointerBridge.ReplayHandler` (assigned by `CanvasPointerService` in `SmartHopper.Core.Grasshopper`) and replays the pan/zoom/highlight on the canvas. Missing/expired targets produce a toast instead of an error.
+- **question**
+  - JS → host: `sh://event?type=question&id=...&choice=N` for a predefined option, or `...&text=...` for the free-text answer.
+  - Host completes the pending `ask_user` `TaskCompletionSource` (`ResolveUserQuestion`), which unblocks the waiting tool call. The card has no dismiss action; it resolves only on an answer or when the run is cancelled.
 
 ### Testing checklist
 
@@ -182,6 +194,10 @@ JavaScript functions (in `chat-script.js`):
 - `setStatus(text)` — Update status bar text.
 - `setProcessing(isProcessing)` — Show/hide spinner and disable input.
 - `updateAutonomyUsage(usage)` — Update the floating `#autonomy-overlay` card with a serialized `AutonomyUsage` snapshot (`ElapsedSeconds`, `MaxSeconds`, `Tokens`, `MaxTokens`, `IsRunning`, `IsExhausted`). A client-side 1s ticker advances the elapsed display between pushes; a `Max*` of `0` renders as unlimited, and when both limits are `0` the overlay shows an "unbounded run" warning. The overlay appears only while a run is in progress (first paint is delayed ~1.2 s so trivial calls never flash it) and auto-hides shortly after the run ends — 6 s linger when a budget was exhausted. `freezeAutonomyOverlay()` is invoked by `setProcessing(false)` (the authoritative run-end signal, since the last push can still carry `IsRunning=true`); `hideAutonomyOverlay()` resets it (called by `resetMessages`).
+- `updateTaskPlan(plan)` — Render the current `plan_tasks` plan into `#task-plan-panel`, docked under `#autonomy-overlay` inside the shared `#hud` fixed column. The panel shows the plan goal, completed/total count, a progress bar, and each task's pending/in-progress/completed state; a new plan id replaces the card and the final state stays visible until `resetMessages()` calls `hideTaskPlanPanel()`.
+- `showCanvasPointer({id, message})` — Append a pointer card carrying the `canvas_point` message and a "Show on canvas" button that navigates to `sh://event?type=canvas_pointer&id=...`.
+- `showUserQuestion({id, question, options})` / `resolveUserQuestion(id)` — Append a blocking question card (2–4 option buttons plus a free-text field) and freeze it once the host resolves it. Option clicks navigate to `type=question&choice=N`; the free-text field submits `type=question&text=...`.
+- `showSuggestedPrompts(suggestions)` / `clearSuggestedPrompts()` — Render up to 3 follow-up chips in `#suggestions-strip` above the input bar. Clicking a chip fills `#user-input` and focuses it — it never sends automatically. Chips are cleared on send and on `resetMessages()`.
 - `showToast(message)` — Temporary notification.
 
 Host functions (in `WebChatDialog.cs` / `WebChatObserver.cs`):

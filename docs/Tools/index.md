@@ -45,8 +45,10 @@ SmartHopper's tool system extends Grasshopper components with AI-powered capabil
 | canvas_screenshot | Captures the visible Grasshopper canvas as a bounded base64 PNG |
 | viewport_screenshot | Captures the active or named Rhino viewport as a bounded base64 PNG |
 | canvas_view | Repositions the Grasshopper canvas viewport (zoom extents, frame GUIDs, set zoom/center) without mutating the document |
+| canvas_point | Pans/zooms the viewport to components or a region and draws an 8-second border highlight; chat surfaces get a replayable "Show on canvas" card |
 | canvas_hi-res_screenshot | Renders a canvas region (document, selection, GUIDs, or explicit bounds) to a high-resolution PNG at a chosen scale with optional transparent background. For publishing/printing, not agent vision |
 | gh_select | Updates the Grasshopper canvas selection (set/add/remove/clear) through the consent review path |
+| ask_user | Chat-only blocking question to the user with 2–4 predefined options plus a free-text field; resolves on an answer or run cancellation |
 
 ### When to Use Them
 
