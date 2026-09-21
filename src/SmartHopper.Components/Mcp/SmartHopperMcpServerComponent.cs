@@ -43,6 +43,7 @@ namespace SmartHopper.Components.Mcp
         private string? lastToken;
         private bool lastExposeMutating;
         private bool lastAutoApprove;
+        private bool lastAllowViewControl;
         private string? lastStatus;
 
         /// <summary>
@@ -60,7 +61,7 @@ namespace SmartHopper.Components.Mcp
             : base(
                 "SmartHopper MCP Server",
                 "MCP",
-                "Exposes SmartHopper's AI tools to external Model Context Protocol clients (Claude Desktop, Cursor, VS Code, Claude Code) over a loopback HTTP server. Mutating tools are disabled by default; enable them explicitly via the input.",
+                "Exposes SmartHopper's AI tools to external Model Context Protocol clients (Claude Desktop, Cursor, VS Code, Claude Code) over a loopback HTTP server. Editing and view-control tools are disabled by default; enable them explicitly via the inputs.",
                 "SmartHopper",
                 "MCP")
         {
@@ -96,19 +97,26 @@ namespace SmartHopper.Components.Mcp
                 string.Empty);
             pManager[2].Optional = true;
             pManager.AddBooleanParameter(
-                "Expose Mutating Tools",
-                "M",
-                "When true, tools that mutate the canvas/scripts (gh_put, gh_move, gh_group, script_edit, ...) are exposed. Defaults to false.",
+                "Allow Editing",
+                "AE",
+                "When true, tools that edit the canvas/scripts (gh_put, gh_move, gh_group, script_edit, ...) are exposed. Defaults to false.",
                 GH_ParamAccess.item,
                 false);
             pManager[3].Optional = true;
             pManager.AddBooleanParameter(
-                "Auto-approve AI Changes",
-                "AA",
-                "When true, canvas mutations requested through this MCP server are applied without showing the review dialog. Undo is still recorded. Defaults to false.",
+                "Bypass Edition Validation",
+                "BV",
+                "When true, canvas edits requested through this MCP server are applied without showing the review dialog. Undo is still recorded. Defaults to false.",
                 GH_ParamAccess.item,
                 false);
             pManager[4].Optional = true;
+            pManager.AddBooleanParameter(
+                "Allow View Control",
+                "AV",
+                "When true, tools in the 'ViewControl' category (canvas_view) are exposed so clients can move the canvas viewport. Defaults to false.",
+                GH_ParamAccess.item,
+                false);
+            pManager[5].Optional = true;
         }
 
         /// <inheritdoc/>
@@ -126,6 +134,7 @@ namespace SmartHopper.Components.Mcp
             string token = string.Empty;
             bool exposeMutating = false;
             bool autoApprove = false;
+            bool allowViewControl = false;
 
             DA.GetData(0, ref enable);
             this.lastEnable = enable;
@@ -133,10 +142,11 @@ namespace SmartHopper.Components.Mcp
             DA.GetData(2, ref token);
             DA.GetData(3, ref exposeMutating);
             DA.GetData(4, ref autoApprove);
+            DA.GetData(5, ref allowViewControl);
 
             try
             {
-                this.ApplyToggle(enable, port, token, exposeMutating, autoApprove);
+                this.ApplyToggle(enable, port, token, exposeMutating, autoApprove, allowViewControl);
             }
             catch (Exception ex)
             {
@@ -168,7 +178,7 @@ namespace SmartHopper.Components.Mcp
             base.DocumentContextChanged(document, context);
         }
 
-        private void ApplyToggle(bool enable, int port, string token, bool exposeMutating, bool autoApprove)
+        private void ApplyToggle(bool enable, int port, string token, bool exposeMutating, bool autoApprove, bool allowViewControl)
         {
             string? normalizedToken = string.IsNullOrWhiteSpace(token) ? null : token;
 
@@ -183,7 +193,8 @@ namespace SmartHopper.Components.Mcp
                 this.currentPort == port &&
                 this.lastToken == normalizedToken &&
                 this.lastExposeMutating == exposeMutating &&
-                this.lastAutoApprove == autoApprove)
+                this.lastAutoApprove == autoApprove &&
+                this.lastAllowViewControl == allowViewControl)
             {
                 this.lastStatus = $"Running on {McpServerLifecycle.Find(port)?.Url}";
                 return;
@@ -198,7 +209,8 @@ namespace SmartHopper.Components.Mcp
                 Port = port,
                 BearerToken = normalizedToken,
                 ExposeMutatingTools = exposeMutating,
-                AutoApproveMutations = autoApprove,
+                BypassMutationsApproval = autoApprove,
+                AllowViewControl = allowViewControl,
             };
             var server = McpServerLifecycle.Acquire(this, options);
             this.acquired = true;
@@ -206,6 +218,7 @@ namespace SmartHopper.Components.Mcp
             this.lastToken = normalizedToken;
             this.lastExposeMutating = exposeMutating;
             this.lastAutoApprove = autoApprove;
+            this.lastAllowViewControl = allowViewControl;
             this.lastStatus = $"Running on {server.Url}";
         }
 

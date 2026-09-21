@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.Interaction;
 using SmartHopper.Infrastructure.Planning;
 using SmartHopper.ProviderSdk.Hosting;
 
@@ -131,13 +132,19 @@ namespace SmartHopper.Infrastructure.Consent
         /// auto-approves mutation proposals without invoking a consent presenter. Set by the
         /// MCP adapter from the owning server's options; undo recording is unaffected.
         /// </summary>
-        public bool AutoApproveMutations { get; set; }
+        public bool BypassMutationsApproval { get; set; }
 
         /// <summary>Gets or sets an invocation-specific presenter.</summary>
         public IConsentPresenter? Presenter { get; set; }
 
         /// <summary>Gets or sets an invocation-specific task plan presenter.</summary>
         public ITaskPlanPresenter? TaskPlanPresenter { get; set; }
+
+        /// <summary>Gets or sets an invocation-specific canvas pointer presenter.</summary>
+        public ICanvasPointerPresenter? CanvasPointerPresenter { get; set; }
+
+        /// <summary>Gets or sets an invocation-specific user question presenter.</summary>
+        public IUserQuestionPresenter? UserQuestionPresenter { get; set; }
 
         /// <summary>Creates a defensive copy for one tool call.</summary>
         public MutationInvocationContext ForTool(string? toolCallId, string? toolName)
@@ -150,9 +157,11 @@ namespace SmartHopper.Infrastructure.Consent
                 ToolCallId = toolCallId,
                 ToolName = toolName,
                 Surface = this.Surface,
-                AutoApproveMutations = this.AutoApproveMutations,
+                BypassMutationsApproval = this.BypassMutationsApproval,
                 Presenter = this.Presenter,
                 TaskPlanPresenter = this.TaskPlanPresenter,
+                CanvasPointerPresenter = this.CanvasPointerPresenter,
+                UserQuestionPresenter = this.UserQuestionPresenter,
             };
         }
     }

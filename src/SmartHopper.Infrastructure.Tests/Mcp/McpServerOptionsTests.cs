@@ -39,6 +39,8 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
                 BearerToken = "abc",
                 EnabledTools = new[] { "gh_get" },
                 ExposeMutatingTools = true,
+                BypassMutationsApproval = true,
+                AllowViewControl = true,
                 ServerName = "custom",
                 ServerVersion = "1.2.3",
             };
@@ -50,6 +52,8 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             Assert.Equal(original.EnabledTools, copy.EnabledTools);
             Assert.NotSame(original.EnabledTools, copy.EnabledTools);
             Assert.Equal(original.ExposeMutatingTools, copy.ExposeMutatingTools);
+            Assert.Equal(original.BypassMutationsApproval, copy.BypassMutationsApproval);
+            Assert.Equal(original.AllowViewControl, copy.AllowViewControl);
             Assert.Equal(original.ServerName, copy.ServerName);
             Assert.Equal(original.ServerVersion, copy.ServerVersion);
         }
