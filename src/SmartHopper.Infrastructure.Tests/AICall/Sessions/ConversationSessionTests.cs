@@ -351,7 +351,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
 
             var result = session.Request.Body.Interactions.OfType<AIInteractionToolResult>().Single();
             Assert.Null(result.Result["imageBase64"]);
-            Assert.Null(result.Result["imageAudience"]);
+            Assert.Equal("model", result.Result["imageAudience"]?.ToString());
             Assert.True(result.Result["imageAttached"]?.Value<bool>());
             Assert.Equal("image/png", result.Result["mimeType"]?.ToString());
 

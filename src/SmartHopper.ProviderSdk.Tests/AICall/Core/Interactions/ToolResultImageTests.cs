@@ -56,7 +56,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
 
             Assert.NotNull(compact);
             Assert.Null(compact["imageBase64"]);
-            Assert.Null(compact["imageAudience"]);
+            Assert.Equal("model", compact["imageAudience"]?.ToString());
             Assert.True(compact["imageAttached"]?.Value<bool>());
             Assert.Equal("image/png", compact["mimeType"]?.ToString());
             Assert.Equal(800, compact["width"]?.Value<int>());

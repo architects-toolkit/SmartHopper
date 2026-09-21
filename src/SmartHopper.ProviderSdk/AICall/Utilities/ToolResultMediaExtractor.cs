@@ -28,7 +28,8 @@ namespace SmartHopper.ProviderSdk.AICall.Utilities
     /// Convention: a tool result may carry "imageBase64" + "mimeType" ("image/*") + optional
     /// "imageAudience" ("model" | "display", default "display"). The extractor removes the
     /// base64 payload from the persisted JSON so it is never serialized to providers as text,
-    /// while keeping "mimeType", "width", "height" and "savedTo" as metadata plus an
+    /// while keeping "mimeType", "width", "height", "savedTo" and "imageAudience" as metadata
+    /// (the audience tells the model whether the image was actually sent to it) plus an
     /// "imageAttached" marker.
     /// </summary>
     public static class ToolResultMediaExtractor
@@ -77,7 +78,6 @@ namespace SmartHopper.ProviderSdk.AICall.Utilities
 
             compact = (JObject)result.DeepClone();
             compact.Remove("imageBase64");
-            compact.Remove("imageAudience");
             compact["imageAttached"] = true;
 
             return true;
