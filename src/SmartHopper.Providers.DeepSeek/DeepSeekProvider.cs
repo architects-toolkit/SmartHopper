@@ -1306,6 +1306,10 @@ namespace SmartHopper.Providers.DeepSeek
                 }
 
                 final.SetBody(finalBuilder.Build());
+
+                // Ensure the call's usage is represented on an interaction even when the turn
+                // produced only tool calls (usage already on the text interaction is kept).
+                final.AttachUsageMetrics(finalMetrics);
                 yield return final;
             }
         }

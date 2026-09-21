@@ -436,6 +436,40 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
         }
 
         /// <summary>
+        /// Attaches provider-reported usage metrics to the last interaction of the current body.
+        /// Streaming adapters must call this on their final delta so the call's usage is exposed
+        /// through <see cref="Metrics"/> even when the turn produced only tool calls and no
+        /// assistant text interaction exists to carry it. When the body already reports usage
+        /// (e.g., accumulated on an assistant text interaction), the call is a no-op so usage
+        /// is never double-counted.
+        /// </summary>
+        /// <param name="usage">The provider-reported usage for this call.</param>
+        public void AttachUsageMetrics(AIMetrics? usage)
+        {
+            if (usage == null || this.Body?.Interactions == null || this.Body.Interactions.Count == 0)
+            {
+                return;
+            }
+
+            // Usage is call telemetry: if the body already reports usage, do not add it twice.
+            if (this.Body.Metrics.TotalTokens > 0)
+            {
+                return;
+            }
+
+            var last = this.Body.Interactions[this.Body.Interactions.Count - 1];
+            if (last == null)
+            {
+                return;
+            }
+
+            var updated = last.WithMetrics((last.Metrics ?? new AIMetrics()).WithCombined(usage));
+            this.SetBody(AIBodyBuilder.FromImmutable(this.Body)
+                .ReplaceLast(updated, markAsNew: false)
+                .Build());
+        }
+
+        /// <summary>
         /// Sets the result from a raw response.
         /// </summary>
         /// <param name="raw">The raw response from the provider.</param>
