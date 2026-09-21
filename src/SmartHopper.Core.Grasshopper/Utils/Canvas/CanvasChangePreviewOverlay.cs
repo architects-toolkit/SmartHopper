@@ -208,7 +208,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 return;
             }
 
-            var bounds = ProjectProposedBounds(canvas.Viewport, component);
+            var bounds = ProjectProposedBounds(canvas, session, component);
             using var fill = new SolidBrush(Color.FromArgb(Math.Min((int)color.A, 45), color));
             using var pen = CreatePen(color, width);
             graphics.FillRoundedRectangle(fill, bounds, 6f);
@@ -245,7 +245,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             var proposed = FindComponent(session, item.ComponentId);
             if (item.Kind == CanvasChangeKind.ComponentModified && proposed?.Pivot != null)
             {
-                var targetBounds = ProjectProposedBounds(canvas.Viewport, proposed);
+                var targetBounds = ProjectProposedBounds(canvas, session, proposed);
                 var currentCenter = new PointF(bounds.Left + (bounds.Width / 2f), bounds.Top + (bounds.Height / 2f));
                 var targetCenter = new PointF(targetBounds.Left + (targetBounds.Width / 2f), targetBounds.Top + (targetBounds.Height / 2f));
                 if (Math.Abs(currentCenter.X - targetCenter.X) > 4f || Math.Abs(currentCenter.Y - targetCenter.Y) > 4f)
@@ -329,14 +329,14 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 }
 
                 RectangleF bounds;
-                if (component.InstanceGuid.HasValue &&
+                if (component.Pivot != null)
+                {
+                    bounds = ProjectProposedBounds(canvas, session, component);
+                }
+                else if (component.InstanceGuid.HasValue &&
                     canvas.Document.FindObject(component.InstanceGuid.Value, false)?.Attributes is IGH_Attributes attributes)
                 {
                     bounds = ProjectBounds(canvas.Viewport, attributes.Bounds);
-                }
-                else if (component.Pivot != null)
-                {
-                    bounds = ProjectProposedBounds(canvas.Viewport, component);
                 }
                 else
                 {
@@ -366,17 +366,17 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             out PointF anchor)
         {
             var component = session.ProposedDocument.Components.FirstOrDefault(candidate => candidate.Id == componentId);
-            if (component?.InstanceGuid.HasValue == true &&
-                canvas.Document.FindObject(component.InstanceGuid.Value, false)?.Attributes is IGH_Attributes attributes)
+            if (component?.Pivot != null)
             {
-                var bounds = ProjectBounds(canvas.Viewport, attributes.Bounds);
+                var bounds = ProjectProposedBounds(canvas, session, component);
                 anchor = new PointF(output ? bounds.Right : bounds.Left, bounds.Top + (bounds.Height / 2f));
                 return true;
             }
 
-            if (component?.Pivot != null)
+            if (component?.InstanceGuid.HasValue == true &&
+                canvas.Document.FindObject(component.InstanceGuid.Value, false)?.Attributes is IGH_Attributes attributes)
             {
-                var bounds = ProjectProposedBounds(canvas.Viewport, component);
+                var bounds = ProjectBounds(canvas.Viewport, attributes.Bounds);
                 anchor = new PointF(output ? bounds.Right : bounds.Left, bounds.Top + (bounds.Height / 2f));
                 return true;
             }
@@ -392,14 +392,45 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 : null;
         }
 
-        private static RectangleF ProjectProposedBounds(GH_Viewport viewport, GhJsonComponent component)
+        /// <summary>
+        /// Projects a proposed component's bounds to screen space. Resolution order:
+        /// bounds measured at review time (already world-space), then the live object's
+        /// bounds translated so its pivot-relative offset lands on the proposed pivot,
+        /// then a fixed-size estimate centered on the pivot. Grasshopper pivots are
+        /// bounds centers, not top-left corners.
+        /// </summary>
+        private static RectangleF ProjectProposedBounds(
+            GH_Canvas canvas,
+            CanvasChangeReviewSession session,
+            GhJsonComponent component)
         {
-            var worldBounds = new RectangleF(
-                (float)component.Pivot!.X,
-                (float)component.Pivot.Y,
-                140f,
-                52f);
-            return ProjectBounds(viewport, worldBounds);
+            if (component.Id.HasValue &&
+                session.TryGetProposedComponentBounds(component.Id.Value, out var measuredBounds))
+            {
+                return ProjectBounds(canvas.Viewport, measuredBounds);
+            }
+
+            var pivot = new PointF((float)component.Pivot!.X, (float)component.Pivot.Y);
+            RectangleF worldBounds;
+
+            var liveAttributes = component.InstanceGuid.HasValue
+                ? canvas.Document.FindObject(component.InstanceGuid.Value, false)?.Attributes
+                : null;
+            if (liveAttributes?.Bounds is RectangleF liveBounds && liveBounds.Width > 0f && liveBounds.Height > 0f)
+            {
+                var livePivot = liveAttributes.Pivot;
+                worldBounds = new RectangleF(
+                    pivot.X + (liveBounds.Left - livePivot.X),
+                    pivot.Y + (liveBounds.Top - livePivot.Y),
+                    liveBounds.Width,
+                    liveBounds.Height);
+            }
+            else
+            {
+                worldBounds = new RectangleF(pivot.X - 70f, pivot.Y - 26f, 140f, 52f);
+            }
+
+            return ProjectBounds(canvas.Viewport, worldBounds);
         }
 
         private static RectangleF ProjectBounds(GH_Viewport viewport, RectangleF bounds)

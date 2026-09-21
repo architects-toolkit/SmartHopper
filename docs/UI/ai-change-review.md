@@ -10,7 +10,7 @@ Structural AI canvas changes are staged as a visual proposal on the actual Grass
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Core.Grasshopper/Utils/Canvas/` |
 | **Since Version** | 2.1.0 |
-| **Last Updated** | 2026-09-07 |
+| **Last Updated** | 2026-09-21 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -148,7 +148,7 @@ wire.RequiredItemKeys.Add("component:42");
 
 **Trade-offs**:
 
-- True staging (safe, honest preview) vs approximated ghost bounds for not-yet-instantiated components
+- True staging (safe, honest preview) vs the extra off-canvas instantiation needed to measure real bounds for not-yet-placed components
 - Shared review contracts (consistent UX across tools) vs a small per-tool adapter to describe proposals
 
 ### Ownership
@@ -184,7 +184,7 @@ Runtime actions such as button clicks and script execution are not represented a
 
 ### Gotchas
 
-- Added-component ghosts approximate component bounds because exact attributes are only available after Grasshopper instantiation.
+- Proposed-component ghosts use real bounds: components without a live canvas instance are instantiated off-document at review time (`PopulateProposedBounds` in `CanvasChangeReviewService`) and their `Attributes.Bounds` are stored on the session; live components reuse their current bounds translated to the proposed pivot. A fixed-size estimate centered on the pivot remains only as a fallback when neither is available.
 - Proposals without pivots use GhJSON dependency-graph layout for preview; Grasshopper-aware final layout may differ slightly.
 - Non-edit `gh_put` can auto-offset the accepted network to avoid live objects, so its final global offset can differ from the proposal coordinates.
 - Specialized structural tools (`gh_tidy_up`, `gh_smart_connect`, preview/lock changes, parameter modifiers) still use their existing execution paths and can adopt the same contracts later.
