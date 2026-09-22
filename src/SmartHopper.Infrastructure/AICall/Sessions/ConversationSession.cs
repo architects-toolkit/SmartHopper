@@ -122,6 +122,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         private bool _runUsageEstimated;
 
         /// <summary>
+        /// History interaction count snapshotted at run start, so <see cref="GetAutonomyUsage"/>
+        /// can report how many interactions the run itself produced.
+        /// </summary>
+        private int _runBaselineInteractions;
+
+        /// <summary>
         /// Options of the current or last run, holding the configured autonomy budgets.
         /// </summary>
         private SessionOptions? _autonomyOptions;
@@ -234,7 +240,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var toolsDisabledForRun = !options.ProcessTools && !string.Equals(originalToolFilter, DisableAllToolsFilter, StringComparison.Ordinal);
             try
             {
-                this.BeginAutonomyRun(options);
                 this.NotifyStart(this.Request);
 
                 // Generate greeting if requested before starting conversation
@@ -268,6 +273,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                     yield break;
                 }
+
+                // Start the autonomy run only for real provider turns: greeting and validation
+                // early-returns above must not stamp a run that never happened.
+                this.BeginAutonomyRun(options);
 
                 AIReturn lastReturn = null;
 
@@ -327,7 +336,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             else if (this.Request.Body.PendingToolCallsCount() == 0)
                             {
                                 var finalStable = lastReturn ?? new AIReturn();
-                                this._lastReturn = finalStable;
                                 this.UpdateLastReturn();
                                 this.NotifyFinal(finalStable);
                                 nsPrepared = finalStable;
@@ -361,7 +369,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                         else if (this.Request.Body.PendingToolCallsCount() == 0)
                                         {
                                             var finalStable = lastReturn ?? new AIReturn();
-                                            this._lastReturn = finalStable;
                                             this.UpdateLastReturn();
                                             this.NotifyFinal(finalStable);
                                             nsPrepared = finalStable;
@@ -583,7 +590,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 var stopReason = this._autonomyExhaustionReason ?? "the autonomous run ended";
                 this.ReconcilePendingToolCalls($"Tool execution was skipped: {stopReason}.");
                 var final = lastReturn ?? this.CreateError(stopReason);
-                this._lastReturn = final;
                 this.UpdateLastReturn();
                 this.NotifyFinal(final);
                 yield return final;
@@ -764,6 +770,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             this._runTokensEffective = 0;
             this._runUsageEstimated = false;
             this._autonomyExhaustionReason = null;
+            this._runBaselineInteractions = this.Request.Body?.Interactions?.Count ?? 0;
             this._autonomyStopwatch.Restart();
         }
 
@@ -850,6 +857,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 Tokens = Math.Max(0, this._runTokensEffective),
                 MaxTokens = options.MaxAutonomousTokens,
                 TokensEstimated = this._runUsageEstimated,
+                Interactions = Math.Max(0, (this.Request.Body?.Interactions?.Count ?? 0) - this._runBaselineInteractions),
                 IsRunning = this._autonomyStopwatch.IsRunning,
                 IsExhausted = this._autonomyExhaustionReason != null,
             };
@@ -984,6 +992,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var stopwatch = Stopwatch.StartNew();
             AIBody? sentBody = null;
 
+            // Everything this provider call produced: coalesced text plus persisted non-text
+            // interactions. Used to estimate usage when the provider does not report it.
+            var producedInteractions = new List<IAIInteraction>();
+
             try
             {
                 // Ensure request policies are applied for streaming calls as well.
@@ -1061,6 +1073,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         // Emit partial notification only for persisted non-text interactions
                         if (nonTextInteractions.Count > 0)
                         {
+                            producedInteractions.AddRange(nonTextInteractions);
                             try
                             {
                                 var persistedDelta = this.BuildDeltaReturn(turnId, nonTextInteractions);
@@ -1094,7 +1107,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             // Meter the call into the run ledger. Usage is cumulative per call, so take the
             // last delta carrying metrics (covers providers reporting usage on a non-final chunk).
             var usageDelta = result.Deltas.LastOrDefault(d => d?.Metrics?.TotalTokens > 0) ?? result.LastDelta;
-            this.AccumulateCallUsage(usageDelta, sentBody, usageDelta?.Body?.Interactions);
+            if (result.AccumulatedText != null)
+            {
+                producedInteractions.Insert(0, result.AccumulatedText);
+            }
+
+            this.AccumulateCallUsage(usageDelta, sentBody, producedInteractions);
 
             return result;
         }

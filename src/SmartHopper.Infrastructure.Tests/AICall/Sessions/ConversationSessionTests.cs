@@ -552,6 +552,62 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
             Assert.False(usage.TokensEstimated);
         }
 
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession reports run-produced interaction count [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession reports run-produced interaction count [Core]")]
+#endif
+        public async Task RunToStableResult_ReportsRunProducedInteractions()
+        {
+            // Baseline history contains only the user prompt; the run appends the tool call,
+            // its result, and the final assistant text — three interactions in total.
+            var callCount = 0;
+            var request = CreateTestableRequest();
+            request.ResponseInteractionsFactory = () =>
+                ++callCount == 1
+                    ? new List<IAIInteraction> { CreateToolCall("call_1") }
+                    : new List<IAIInteraction>
+                    {
+                        new AIInteractionText { Agent = AIAgent.Assistant, Content = "done" },
+                    };
+
+            var session = new ConversationSession(request, executor: new MockProviderExecutor());
+            await session.RunToStableResult(new SessionOptions { ProcessTools = true }).ConfigureAwait(false);
+
+            Assert.Equal(3, session.GetAutonomyUsage().Interactions);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession reports a single run-produced interaction [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession reports a single run-produced interaction [Core]")]
+#endif
+        public async Task RunToStableResult_SingleCall_ReportsOneInteraction()
+        {
+            var request = CreateTestableRequest("done");
+            var session = new ConversationSession(request);
+            await session.RunToStableResult(new SessionOptions { ProcessTools = false }).ConfigureAwait(false);
+
+            Assert.Equal(1, session.GetAutonomyUsage().Interactions);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession LastReturn snapshot carries no phantom validation errors [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession LastReturn snapshot carries no phantom validation errors [Core]")]
+#endif
+        public async Task RunToStableResult_LastReturn_HasNoValidationErrors()
+        {
+            // LastReturn is a history snapshot, not a call result: request/metrics validation
+            // must not inject spurious errors (e.g. "Request must not be null") into Messages.
+            var request = CreateTestableRequest("done");
+            var session = new ConversationSession(request);
+            await session.RunToStableResult(new SessionOptions { ProcessTools = false }).ConfigureAwait(false);
+
+            Assert.DoesNotContain(session.LastReturn.Messages, m => m?.Severity == SHRuntimeMessageSeverity.Error);
+            Assert.True(session.LastReturn.Success);
+        }
+
         #endregion
 
         #region Autonomy usage accounting (streaming)
