@@ -1238,10 +1238,15 @@ namespace SmartHopper.Core.UI.Chat
                 if (hasValidationError && !hasContent)
                 {
                     DebugLog("[WebChatDialog] Streaming validation failed. Falling back to non-streaming path");
-                    await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
+                    lastStreamReturn = await this._currentSession.RunToStableResult(options).ConfigureAwait(false) ?? lastStreamReturn;
                 }
 
-                turnCompleted = this._currentSession.LastReturn?.Status == AICallStatus.Finished;
+                // A completed streaming turn yields the session's history snapshot, which carries
+                // no Request or Status by design. Real provider/error returns do carry a Request;
+                // those are judged by their error-severity messages.
+                turnCompleted = lastStreamReturn != null
+                    && (lastStreamReturn.Request == null
+                        || !lastStreamReturn.Messages.Any(m => m?.Severity == SHRuntimeMessageSeverity.Error));
             }
             catch (Exception ex)
             {
