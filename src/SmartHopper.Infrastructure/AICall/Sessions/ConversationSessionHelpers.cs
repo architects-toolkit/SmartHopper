@@ -486,7 +486,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
         private void UpdateLastReturnCore(AIBody body)
         {
-            var snapshot = new AIReturn();
+            // The snapshot mirrors session history, not a provider call result: request/metrics
+            // validation does not apply and would otherwise inject phantom errors into Messages.
+            var snapshot = new AIReturn
+            {
+                SkipRequestValidation = true,
+                SkipMetricsValidation = true,
+            };
             snapshot.SetBody(body);
 
             // Get context usage from aggregated metrics for logging
