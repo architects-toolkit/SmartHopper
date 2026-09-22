@@ -124,7 +124,7 @@ var greeting = await session.ExecuteSpecialTurnAsync(
   - `CancellationToken`
 - `ConversationSession`
   - Orchestrates provider calls via `AIRequestCall.Exec()` for non-streaming and via provider streaming adapters for streaming, runs turns/tool passes bounded by the autonomy budgets, and forwards lifecycle events to `IConversationObserver`.
-  - `GetAutonomyUsage()` returns an `AutonomyUsage` snapshot (`ElapsedSeconds`/`MaxSeconds`, `Tokens`/`MaxTokens`, `IsRunning`, `IsExhausted`) for live UI reporting.
+  - `GetAutonomyUsage()` returns an `AutonomyUsage` snapshot (`ElapsedSeconds`/`MaxSeconds`, `Tokens`/`MaxTokens`, `Interactions`, `IsRunning`, `IsExhausted`) for live UI reporting. `Interactions` counts the history entries the run itself produced (history count delta since `BeginAutonomyRun`), and WebChat only paints the autonomy overlay once a run reaches 10 interactions or 15 s elapsed — unless a budget was exhausted — so short-lived runs never flash metrics.
   - Tool execution
     - Pending tool calls (`AIInteractionToolCall`) are executed via the Tool Manager during tool passes.
     - For executing exactly one pending tool call directly, see `AIToolCall` in `src/SmartHopper.Infrastructure/AICall/Tools/AIToolCall.cs` and the Tools docs.
