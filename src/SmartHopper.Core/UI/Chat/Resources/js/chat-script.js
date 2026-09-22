@@ -1157,6 +1157,18 @@ function setProcessing(on) {
             }
         }
 
+        // Processing start is the authoritative new-run signal — reset the autonomy overlay
+        // so leftover state (and any stale last-run snapshot pushed before the session's run
+        // state resets) can never paint previous-run values during the new run.
+        if (on) {
+            try {
+                _autonomyAwaitingRun = true;
+                hideAutonomyOverlay();
+            } catch (e) {
+                console.warn('[JS] setProcessing: hideAutonomyOverlay threw', e);
+            }
+        }
+
         // Fail-safe: when processing stops, ensure any lingering loading bubble is removed
         if (!on && typeof removeThinkingMessage === 'function') {
             try {
@@ -1256,6 +1268,10 @@ function setAttachEnabled(enabled, tooltip) {
 let _autonomy = null;
 let _autonomyTimer = null;
 let _autonomyHideTimer = null;
+// True from run start until the first running snapshot arrives. While set, a not-running
+// usage push is a stale snapshot of the previous run (the run-start push reads session
+// autonomy state before BeginAutonomyRun resets it) and must never paint.
+let _autonomyAwaitingRun = false;
 
 const AUTONOMY_FIRST_PAINT_MS = 15000;     // long-running turns still surface the overlay even with few interactions
 const AUTONOMY_MIN_INTERACTIONS = 10;      // don't flash the overlay for runs that produce little
@@ -1264,6 +1280,12 @@ const AUTONOMY_EXHAUSTED_LINGER_MS = 6000; // keep the "limit reached" state rea
 
 function updateAutonomyUsage(usage) {
     if (!usage) return;
+    // Drop snapshots that cannot belong to a live run: a not-running state arriving before the
+    // run's first live snapshot (stale last-run push at run start — the session's autonomy
+    // state is only reset once the turn loop begins) or with no run state at all. Painting it
+    // would show last run's values until the first meaningful render (~15 s in).
+    if (!usage.IsRunning && (_autonomyAwaitingRun || !_autonomy)) return;
+    if (usage.IsRunning) _autonomyAwaitingRun = false;
     _autonomy = {
         elapsedSec: usage.ElapsedSeconds || 0,
         maxSec: usage.MaxSeconds || 0,
