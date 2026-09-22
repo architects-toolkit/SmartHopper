@@ -1257,7 +1257,8 @@ let _autonomy = null;
 let _autonomyTimer = null;
 let _autonomyHideTimer = null;
 
-const AUTONOMY_FIRST_PAINT_MS = 1200;      // don't flash the overlay for sub-second runs
+const AUTONOMY_FIRST_PAINT_MS = 15000;     // long-running turns still surface the overlay even with few interactions
+const AUTONOMY_MIN_INTERACTIONS = 10;      // don't flash the overlay for runs that produce little
 const AUTONOMY_HIDE_MS = 1200;             // normal completion: hide shortly after the run ends
 const AUTONOMY_EXHAUSTED_LINGER_MS = 6000; // keep the "limit reached" state readable
 
@@ -1269,6 +1270,7 @@ function updateAutonomyUsage(usage) {
         tokens: usage.Tokens || 0,
         maxTokens: usage.MaxTokens || 0,
         tokensEstimated: !!usage.TokensEstimated,
+        interactions: usage.Interactions || 0,
         running: !!usage.IsRunning,
         exhausted: !!usage.IsExhausted,
         receivedAt: Date.now()
@@ -1288,8 +1290,11 @@ function renderAutonomyOverlay() {
     if (!el || !_autonomy) return;
     const elapsed = _autonomy.elapsedSec + (_autonomy.running ? (Date.now() - _autonomy.receivedAt) / 1000 : 0);
 
-    // Delayed first paint: a run that finishes fast and consumed no tokens never shows the card.
-    const meaningful = _autonomy.exhausted || _autonomy.tokens > 0 || elapsed * 1000 >= AUTONOMY_FIRST_PAINT_MS;
+    // Delayed first paint: the overlay appears once the run has produced enough interactions
+    // or run long enough to be meaningful, so short-lived runs do not flash metrics.
+    // Exhaustion is always surfaced.
+    const meaningful = _autonomy.exhausted || _autonomy.interactions >= AUTONOMY_MIN_INTERACTIONS ||
+        elapsed * 1000 >= AUTONOMY_FIRST_PAINT_MS;
     if (!meaningful) return;
 
     const timeRow = document.getElementById('autonomy-time-row');
