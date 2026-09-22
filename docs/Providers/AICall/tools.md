@@ -106,6 +106,7 @@ Notes:
 
 - Prefer `ConversationSession` for multi-turn flows where the provider may produce tool calls across turns.
 - `AIToolCall` is a focused API for executing a single pending tool call when you already have one.
+- `AIToolCall` sets `SkipMetricsValidation` by default: tool executions are local-only and their results carry no provider completion metadata, so `AIReturn.Success` reflects the tool's own messages instead of metrics checks. Tools that internally issue provider calls (e.g. `gh_generate`, `script_generate`) should propagate the inner request's `AIMetrics` into the returned tool result so usage is still metered.
 
 ### ConversationSession tool loop (recommended)
 

@@ -35,6 +35,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 
@@ -131,7 +132,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var (success, ghJsonString, componentCount, message) = await this.GenerateGhJsonAsync(
+                var (success, ghJsonString, componentCount, message, metrics) = await this.GenerateGhJsonAsync(
                     providerName,
                     modelName,
                     instructions,
@@ -140,7 +141,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!success)
                 {
-                    output.CreateError(message);
+                    output.CreateError(message, metrics: metrics);
                     return output;
                 }
 
@@ -153,7 +154,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 };
 
                 var outBuilder = AIBodyBuilder.Create();
-                outBuilder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name ?? this.toolName);
+                outBuilder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name ?? this.toolName, metrics);
                 output.CreateSuccess(outBuilder.Build(), toolCall);
                 return output;
             }
@@ -207,6 +208,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     Provider = toolCall.Provider,
                     Model = toolCall.Model,
                     Endpoint = this.toolName,
+                    SkipMetricsValidation = true,
                 };
                 generateToolCall.Body = AIBodyBuilder.Create()
                     .Add(generateInteraction)
@@ -320,7 +322,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
         }
 
-        private async Task<(bool Success, string GhJson, int ComponentCount, string Message)> GenerateGhJsonAsync(
+        private async Task<(bool Success, string GhJson, int ComponentCount, string Message, AIMetrics Metrics)> GenerateGhJsonAsync(
             string provider,
             string model,
             string instructions,
@@ -367,6 +369,7 @@ The ""ghjson"" field must contain the complete GhJSON document as a compact JSON
 
             string lastValidationError = null;
             string lastResponse = null;
+            AIMetrics combinedMetrics = null;
 
             for (var attempt = 0; attempt <= MaxValidationRetries; attempt++)
             {
@@ -383,11 +386,12 @@ The ""ghjson"" field must contain the complete GhJSON document as a compact JSON
                 }
 
                 var result = await request.Exec(cancellationToken).ConfigureAwait(false);
+                combinedMetrics = combinedMetrics?.WithCombined(result?.Metrics) ?? result?.Metrics;
 
                 if (!result.Success)
                 {
                     var requestError = result.Messages?.FirstOrDefault(m => m?.Severity == SHRuntimeMessageSeverity.Error)?.Message ?? "Unknown error";
-                    return (false, null, 0, $"AI request failed: {requestError}");
+                    return (false, null, 0, $"AI request failed: {requestError}", combinedMetrics);
                 }
 
                 lastResponse = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
@@ -422,10 +426,10 @@ The ""ghjson"" field must contain the complete GhJSON document as a compact JSON
                 var componentCount = document.Components?.Count ?? 0;
                 var compactJson = GhJson.ToJson(document, new WriteOptions { Indented = false });
 
-                return (true, compactJson, componentCount, $"Generated valid GhJSON with {componentCount} component(s).");
+                return (true, compactJson, componentCount, $"Generated valid GhJSON with {componentCount} component(s).", combinedMetrics);
             }
 
-            return (false, null, 0, $"Failed to generate valid GhJSON after {MaxValidationRetries} retries. Last error: {lastValidationError}");
+            return (false, null, 0, $"Failed to generate valid GhJSON after {MaxValidationRetries} retries. Last error: {lastValidationError}", combinedMetrics);
         }
 
         private static string GetJsonOutputSchema()

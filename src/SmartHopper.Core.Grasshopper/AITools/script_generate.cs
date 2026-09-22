@@ -534,6 +534,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     Provider = toolCall.Provider,
                     Model = toolCall.Model,
                     Endpoint = this.toolName,
+                    SkipMetricsValidation = true,
                 };
 
                 scriptGenerateToolCall.Body = AIBodyBuilder.Create()
