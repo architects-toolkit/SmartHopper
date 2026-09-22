@@ -1096,6 +1096,14 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error('[JS] Input element not found!');
         }
 
+        // Autonomy overlay: extend the run's time/token budgets by 50% per click
+        const extendBtn = document.getElementById('autonomy-extend-btn');
+        if (extendBtn) {
+            extendBtn.addEventListener('click', () => {
+                window.location.href = 'sh://event?type=extend_autonomy';
+            });
+        }
+
         // Scroll controls: click to jump to bottom from indicator or button
         if (newIndicator) {
             newIndicator.addEventListener('click', () => {
@@ -1355,6 +1363,13 @@ function renderAutonomyOverlay() {
     const warn = document.getElementById('autonomy-warning');
     if (warn) warn.classList.toggle('hidden', !unlimited);
     el.classList.toggle('autonomy-unlimited', unlimited);
+
+    // Extend row: meaningless when unbounded; disabled once the run ended or a budget is
+    // already exhausted (extending a finished run cannot resume it).
+    const extendRow = document.getElementById('autonomy-extend-row');
+    const extendBtn = document.getElementById('autonomy-extend-btn');
+    if (extendRow) extendRow.classList.toggle('hidden', unlimited);
+    if (extendBtn) extendBtn.disabled = !_autonomy.running || _autonomy.exhausted;
 
     el.classList.toggle('autonomy-exhausted', _autonomy.exhausted);
     el.classList.remove('hidden');

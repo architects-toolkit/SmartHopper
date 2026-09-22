@@ -138,6 +138,18 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         private string? _autonomyExhaustionReason;
 
         /// <summary>
+        /// Live extensions to the configured autonomy budgets (extra seconds as ticks, extra tokens),
+        /// accumulated by <see cref="ExtendAutonomyLimits"/> and applied on top of
+        /// <see cref="SessionOptions.MaxAutonomousTime"/>/<see cref="SessionOptions.MaxAutonomousTokens"/>.
+        /// Written from the UI thread and read from the turn-loop thread; accessed via
+        /// <see cref="Interlocked"/>.
+        /// </summary>
+        private long _autonomyExtraSecondsTicks;
+
+        /// <summary>Extra token budget accumulated by <see cref="ExtendAutonomyLimits"/>.</summary>
+        private long _autonomyExtraTokens;
+
+        /// <summary>
         /// The last complete return from the conversation.
         /// </summary>
         private AIReturn _lastReturn = new AIReturn();
@@ -770,6 +782,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             this._runTokensEffective = 0;
             this._runUsageEstimated = false;
             this._autonomyExhaustionReason = null;
+            Interlocked.Exchange(ref this._autonomyExtraSecondsTicks, 0);
+            Interlocked.Exchange(ref this._autonomyExtraTokens, 0);
             this._runBaselineInteractions = this.Request.Body?.Interactions?.Count ?? 0;
             this._autonomyStopwatch.Restart();
         }
@@ -818,7 +832,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
 
             var options = this._autonomyOptions;
-            var maxTime = options?.MaxAutonomousTime ?? TimeSpan.Zero;
+            var maxTime = (options?.MaxAutonomousTime ?? TimeSpan.Zero)
+                + TimeSpan.FromTicks(Interlocked.Read(ref this._autonomyExtraSecondsTicks));
             var elapsed = this._autonomyStopwatch.Elapsed;
             if (maxTime > TimeSpan.Zero && elapsed >= maxTime)
             {
@@ -826,7 +841,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             else
             {
-                var maxTokens = options?.MaxAutonomousTokens ?? 0;
+                var maxTokens = (options?.MaxAutonomousTokens ?? 0)
+                    + Interlocked.Read(ref this._autonomyExtraTokens);
                 var consumed = this._runTokensEffective;
                 if (maxTokens > 0 && consumed >= maxTokens)
                 {
@@ -853,14 +869,53 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             return new AutonomyUsage
             {
                 ElapsedSeconds = this._autonomyStopwatch.Elapsed.TotalSeconds,
-                MaxSeconds = options.MaxAutonomousTime.TotalSeconds,
+                MaxSeconds = options.MaxAutonomousTime.TotalSeconds
+                    + TimeSpan.FromTicks(Interlocked.Read(ref this._autonomyExtraSecondsTicks)).TotalSeconds,
                 Tokens = Math.Max(0, this._runTokensEffective),
-                MaxTokens = options.MaxAutonomousTokens,
+                MaxTokens = options.MaxAutonomousTokens + Interlocked.Read(ref this._autonomyExtraTokens),
                 TokensEstimated = this._runUsageEstimated,
                 Interactions = Math.Max(0, (this.Request.Body?.Interactions?.Count ?? 0) - this._runBaselineInteractions),
                 IsRunning = this._autonomyStopwatch.IsRunning,
                 IsExhausted = this._autonomyExhaustionReason != null,
             };
+        }
+
+        /// <summary>
+        /// Extends the current run's autonomy budgets live: adds half of the configured time and
+        /// token limits on top of the effective limits, once per call. Unlimited budgets are left
+        /// unchanged. Has no effect when no run is in progress, or once a budget has been
+        /// exhausted (the run has already committed to ending).
+        /// </summary>
+        /// <returns>True when at least one bounded budget was extended; false when no run is in progress, the run is already exhausted, or both budgets are unlimited.</returns>
+        public bool ExtendAutonomyLimits()
+        {
+            var options = this._autonomyOptions;
+            if (options == null || !this._autonomyStopwatch.IsRunning || this._autonomyExhaustionReason != null)
+            {
+                return false;
+            }
+
+            var extended = false;
+            if (options.MaxAutonomousTime > TimeSpan.Zero)
+            {
+                Interlocked.Add(
+                    ref this._autonomyExtraSecondsTicks,
+                    (long)(options.MaxAutonomousTime.TotalSeconds * 0.5 * TimeSpan.TicksPerSecond));
+                extended = true;
+            }
+
+            if (options.MaxAutonomousTokens > 0)
+            {
+                Interlocked.Add(ref this._autonomyExtraTokens, options.MaxAutonomousTokens / 2);
+                extended = true;
+            }
+
+            if (extended)
+            {
+                Debug.WriteLine($"[ConversationSession.ExtendAutonomyLimits] extended by +50%: +{options.MaxAutonomousTime.TotalSeconds * 0.5:0.#}s, +{options.MaxAutonomousTokens / 2} tokens");
+            }
+
+            return extended;
         }
 
         /// <summary>
