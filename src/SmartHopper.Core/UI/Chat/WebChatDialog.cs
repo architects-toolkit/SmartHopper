@@ -1469,6 +1469,26 @@ namespace SmartHopper.Core.UI.Chat
                                 break;
                             }
 
+                        case "extend_autonomy":
+                            {
+                                DebugLog("[WebChatDialog] Handling extend_autonomy event");
+                                Application.Instance?.AsyncInvoke(() =>
+                                {
+                                    try
+                                    {
+                                        if (this._currentSession?.ExtendAutonomyLimits() == true)
+                                        {
+                                            this.PushAutonomyUsage();
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        DebugLog($"[WebChatDialog] Deferred ExtendAutonomyLimits error: {ex.Message}");
+                                    }
+                                });
+                                break;
+                            }
+
                         case "cancel":
                             DebugLog($"[WebChatDialog] Handling cancel event");
 

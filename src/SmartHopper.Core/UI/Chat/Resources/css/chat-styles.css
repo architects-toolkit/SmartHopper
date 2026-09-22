@@ -133,6 +133,30 @@ body {
     background: #c00;
 }
 
+/* Extend-limits row — third row of the autonomy overlay; lets the user top up the
+   configured budgets mid-run (each click adds half of the configured limits). */
+#autonomy-overlay .autonomy-extend-btn {
+    flex: 1 1 auto;
+    padding: 1px 8px;
+    font-size: inherit;
+    color: #0366d6;
+    background: transparent;
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#autonomy-overlay .autonomy-extend-btn:hover:not(:disabled) {
+    background: #f0f6fc;
+    border-color: #0366d6;
+}
+
+#autonomy-overlay .autonomy-extend-btn:disabled {
+    color: #999;
+    cursor: default;
+    opacity: 0.6;
+}
+
 /* Task-plan panel — docked under the autonomy overlay in the HUD. Shows the current
    plan's goal, progress and per-task status; keeps the final state until replaced. */
 #task-plan-panel {

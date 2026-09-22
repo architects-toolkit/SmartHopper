@@ -43,6 +43,7 @@ The WebView sends actions to the host by navigating to custom URL schemes (navig
 - `sh://event?type=consent&id=...&decision=approve|reject`
 - `sh://event?type=canvas_pointer&id=...`
 - `sh://event?type=question&id=...&choice=N` or `...&text=...`
+- `sh://event?type=extend_autonomy`
 - `clipboard://copy?text=...`
 
 The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
@@ -85,6 +86,9 @@ The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
 - **question**
   - JS → host: `sh://event?type=question&id=...&choice=N` for a predefined option, or `...&text=...` for the free-text answer.
   - Host completes the pending `ask_user` `TaskCompletionSource` (`ResolveUserQuestion`), which unblocks the waiting tool call. The card has no dismiss action; it resolves only on an answer or when the run is cancelled.
+- **extend_autonomy**
+  - JS → host: `sh://event?type=extend_autonomy` (from the `#autonomy-extend-btn` button in the autonomy overlay).
+  - Host calls `ConversationSession.ExtendAutonomyLimits()`, which adds half of the configured `MaxAutonomousTime`/`MaxAutonomousTokens` on top of the effective budgets and pushes a fresh usage snapshot. The row is hidden when the run is unbounded and the button is disabled once the run ends or a budget is already exhausted.
 
 ### Testing checklist
 
@@ -193,7 +197,7 @@ JavaScript functions (in `chat-script.js`):
 - `clearMessages()` — Clear transcript area.
 - `setStatus(text)` — Update status bar text.
 - `setProcessing(isProcessing)` — Show/hide spinner and disable input.
-- `updateAutonomyUsage(usage)` — Update the floating `#autonomy-overlay` card with a serialized `AutonomyUsage` snapshot (`ElapsedSeconds`, `MaxSeconds`, `Tokens`, `MaxTokens`, `IsRunning`, `IsExhausted`). A client-side 1s ticker advances the elapsed display between pushes; a `Max*` of `0` renders as unlimited, and when both limits are `0` the overlay shows an "unbounded run" warning. The overlay appears only while a run is in progress (first paint is delayed ~1.2 s so trivial calls never flash it) and auto-hides shortly after the run ends — 6 s linger when a budget was exhausted. `freezeAutonomyOverlay()` is invoked by `setProcessing(false)` (the authoritative run-end signal, since the last push can still carry `IsRunning=true`); `hideAutonomyOverlay()` resets it (called by `resetMessages`).
+- `updateAutonomyUsage(usage)` — Update the floating `#autonomy-overlay` card with a serialized `AutonomyUsage` snapshot (`ElapsedSeconds`, `MaxSeconds`, `Tokens`, `MaxTokens`, `IsRunning`, `IsExhausted`). A client-side 1s ticker advances the elapsed display between pushes; a `Max*` of `0` renders as unlimited, and when both limits are `0` the overlay shows an "unbounded run" warning. The overlay appears only while a run is in progress (first paint is delayed until ~15 s elapsed or 10 produced interactions so trivial calls never flash it) and auto-hides shortly after the run ends — 6 s linger when a budget was exhausted. `setProcessing(true)` is the authoritative run-start signal: it resets the overlay and arms `_autonomyAwaitingRun`, so a not-running snapshot pushed before `BeginAutonomyRun` resets the session (a stale previous-run snapshot) is dropped instead of painting last run's values; `freezeAutonomyOverlay()` is invoked by `setProcessing(false)` (the authoritative run-end signal, since the last push can still carry `IsRunning=true`); `hideAutonomyOverlay()` resets it (called by `resetMessages` and `setProcessing(true)`).
 - `updateTaskPlan(plan)` — Render the current `plan_tasks` plan into `#task-plan-panel`, docked under `#autonomy-overlay` inside the shared `#hud` fixed column. The panel shows the plan goal, completed/total count, a progress bar, and each task's pending/in-progress/completed state; a new plan id replaces the card and the final state stays visible until `resetMessages()` calls `hideTaskPlanPanel()`.
 - `showCanvasPointer({id, message})` — Append a pointer card carrying the `canvas_point` message and a "Show on canvas" button that navigates to `sh://event?type=canvas_pointer&id=...`.
 - `showUserQuestion({id, question, options})` / `resolveUserQuestion(id)` — Append a blocking question card (2–4 option buttons plus a free-text field) and freeze it once the host resolves it. Option clicks navigate to `type=question&choice=N`; the free-text field submits `type=question&text=...`.
