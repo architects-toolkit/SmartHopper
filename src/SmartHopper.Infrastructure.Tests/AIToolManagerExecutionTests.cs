@@ -117,6 +117,73 @@ namespace SmartHopper.Infrastructure.Tests
             Assert.Equal("echo-result", result.Body?.GetLastText());
         }
 
+#if NET7_WINDOWS
+        [Fact(DisplayName = "AIToolCall skips metrics validation by default [Windows]")]
+#else
+        [Fact(DisplayName = "AIToolCall skips metrics validation by default [Core]")]
+#endif
+        public void AIToolCall_SkipMetricsValidation_DefaultsToTrue()
+        {
+            // Tool calls are local-only: provider/model/finish_reason metrics are not
+            // meaningful on tool results, so the flag must default to true.
+            var toolCall = new AIToolCall();
+
+            Assert.True(toolCall.SkipMetricsValidation);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "AIToolManager ExecuteTool metricless tool result reports success [Windows]")]
+#else
+        [Fact(DisplayName = "AIToolManager ExecuteTool metricless tool result reports success [Core]")]
+#endif
+        public async Task ExecuteTool_MetriclessToolResult_ReportsSuccess()
+        {
+            // Regression test: a tool result without provider-level metrics must not be
+            // reported as failed ("Finish reason must be set", "Provider and model fields
+            // are required") even when the tool does not set SkipMetricsValidation itself.
+            this.ResetTools();
+
+            var tool = new AITool("test_metricless", "Metricless tool", "test", "{}", request =>
+            {
+                var ret = new AIReturn
+                {
+                    Request = request,
+                };
+                var body = AIBodyBuilder.Create()
+                    .WithTurnId(System.Guid.NewGuid().ToString("N"))
+                    .AddText(AIAgent.ToolResult, "ok")
+                    .Build();
+                ret.SetBody(body);
+                return Task.FromResult(ret);
+            });
+
+            AIToolManager.RegisterTool(tool);
+
+            var toolCall = new AIToolCall
+            {
+                Provider = "test",
+                Model = "test-model",
+                Body = AIBodyBuilder.Create()
+                    .WithTurnId(System.Guid.NewGuid().ToString("N"))
+                    .Add(new AIInteractionToolCall
+                    {
+                        Id = "call-1",
+                        Name = "test_metricless",
+                        Arguments = new JObject(),
+                    })
+                    .Build(),
+            };
+
+            var result = await AIToolManager.ExecuteTool(toolCall).ConfigureAwait(false);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success);
+            Assert.Equal("ok", result.Body?.GetLastText());
+            Assert.False(result.Messages.Exists(m => m.Severity == SHRuntimeMessageSeverity.Error));
+            Assert.DoesNotContain(result.Messages, m => m.Message?.Contains("Finish reason") == true);
+            Assert.DoesNotContain(result.Messages, m => m.Message?.Contains("Provider and model") == true);
+        }
+
         #endregion
 
         #region ExecuteTool Null Arguments Normalization

@@ -45,6 +45,16 @@ namespace SmartHopper.Infrastructure.AICall.Tools
         private const int MAX_TIMEOUT_SECONDS = TimeoutDefaults.MaxTimeoutSeconds;
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="AIToolCall"/> class.
+        /// </summary>
+        public AIToolCall()
+        {
+            // Tool calls are local-only: provider/model/finish_reason metrics are not
+            // meaningful on tool results, so produced AIReturns skip metrics validation.
+            this.SkipMetricsValidation = true;
+        }
+
+        /// <summary>
         /// Gets or sets the cancellation token for this tool execution.
         /// </summary>
         public CancellationToken CancellationToken { get; set; }

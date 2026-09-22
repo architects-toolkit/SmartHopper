@@ -265,6 +265,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var toolRq = new AIToolCall
             {
                 CancellationToken = ct,
+                SkipMetricsValidation = true,
                 ToolSurface = this.Request.ToolSurface,
                 InvocationContext = new MutationInvocationContext
                 {
