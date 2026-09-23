@@ -21,6 +21,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SmartHopper.Core.Types
 {
@@ -48,6 +50,8 @@ namespace SmartHopper.Core.Types
     /// </summary>
     public sealed class VersatileAudio
     {
+        private static readonly HttpClient DownloadClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+
         private static readonly HashSet<string> SupportedAudioExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             ".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".wma", ".opus",
@@ -198,12 +202,9 @@ namespace SmartHopper.Core.Types
 
             if (this.Kind == VersatileAudioKind.Url)
             {
-                using (var client = new HttpClient())
-                {
-                    var response = client.GetAsync(this.RawValue).Result;
-                    response.EnsureSuccessStatusCode();
-                    return response.Content.ReadAsByteArrayAsync().Result;
-                }
+                // Run the download on a thread-pool thread so callers holding a
+                // synchronization context (e.g. the Grasshopper UI thread) cannot deadlock.
+                return Task.Run(() => this.ToByteArrayAsync()).GetAwaiter().GetResult();
             }
 
             if (this.Kind == VersatileAudioKind.Base64)
@@ -218,6 +219,27 @@ namespace SmartHopper.Core.Types
             }
 
             throw new InvalidOperationException($"Cannot convert {this.Kind} to byte array.");
+        }
+
+        /// <summary>
+        /// Asynchronously converts this audio source to a byte array.
+        /// For URLs, downloads with a timeout and honors <paramref name="cancellationToken"/>.
+        /// For other kinds, behaves exactly like <see cref="ToByteArray"/>.
+        /// </summary>
+        /// <param name="cancellationToken">Token to cancel the download.</param>
+        /// <returns>A task resolving to a byte array containing the audio data.</returns>
+        public async Task<byte[]> ToByteArrayAsync(CancellationToken cancellationToken = default)
+        {
+            if (this.Kind == VersatileAudioKind.Url)
+            {
+                using (var response = await DownloadClient.GetAsync(this.RawValue, cancellationToken).ConfigureAwait(false))
+                {
+                    response.EnsureSuccessStatusCode();
+                    return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+                }
+            }
+
+            return this.ToByteArray();
         }
 
         /// <summary>

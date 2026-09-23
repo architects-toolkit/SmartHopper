@@ -22,6 +22,7 @@ using System.Drawing;
 using System.IO;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
+using Rhino;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.Types;
 
@@ -36,6 +37,7 @@ namespace SmartHopper.Components.Audio
         private readonly object _audioLock = new object();
         private string _currentAudioPath = string.Empty;
         private VersatileAudio _currentAudio;
+        private int _audioLoadGeneration;
 
         // Execution throttling fields
         private DateTime _lastSaveTime = DateTime.MinValue;
@@ -254,7 +256,7 @@ namespace SmartHopper.Components.Audio
         /// </summary>
         /// <param name="audio">The audio to save.</param>
         /// <param name="filePath">The target file path.</param>
-        private void SaveAudio(VersatileAudio audio, string filePath)
+        private async void SaveAudio(VersatileAudio audio, string filePath)
         {
             if (audio == null)
             {
@@ -297,7 +299,7 @@ namespace SmartHopper.Components.Audio
                 byte[] audioBytes;
                 try
                 {
-                    audioBytes = audio.ToByteArray();
+                    audioBytes = await audio.ToByteArrayAsync();
                 }
                 catch (Exception ex)
                 {
@@ -449,31 +451,88 @@ namespace SmartHopper.Components.Audio
         /// <param name="audio">The audio to display.</param>
         internal void SetAudioData(VersatileAudio audio)
         {
+            int generation;
             lock (this._audioLock)
             {
                 this._currentAudio = audio;
-                if (audio != null)
+                this._currentAudioPath = audio?.RawValue ?? string.Empty;
+                this._audioData = null;
+                generation = ++this._audioLoadGeneration;
+            }
+
+            if (audio == null)
+            {
+                this.OnDisplayExpired(false);
+                return;
+            }
+
+            if (audio.Kind == VersatileAudioKind.Url)
+            {
+                this.LoadAudioBytesAsync(audio, generation);
+                return;
+            }
+
+            try
+            {
+                var audioData = audio.ToByteArray();
+                lock (this._audioLock)
                 {
-                    try
+                    if (generation == this._audioLoadGeneration)
                     {
-                        this._audioData = audio.ToByteArray();
-                        this._currentAudioPath = audio.RawValue;
-                    }
-                    catch
-                    {
-                        this._audioData = null;
-                        this._currentAudioPath = string.Empty;
+                        this._audioData = audioData;
                     }
                 }
-                else
+            }
+            catch
+            {
+                lock (this._audioLock)
                 {
-                    this._audioData = null;
-                    this._currentAudioPath = string.Empty;
+                    if (generation == this._audioLoadGeneration)
+                    {
+                        this._currentAudioPath = string.Empty;
+                    }
                 }
             }
 
             // Update the display
             this.OnDisplayExpired(false);
+        }
+
+        /// <summary>
+        /// Downloads URL-backed audio off the UI thread and updates the display when done.
+        /// Results are discarded if a newer audio source was set meanwhile.
+        /// </summary>
+        /// <param name="audio">The URL-backed audio to download.</param>
+        /// <param name="generation">The load generation this download belongs to.</param>
+        private async void LoadAudioBytesAsync(VersatileAudio audio, int generation)
+        {
+            try
+            {
+                var audioData = await audio.ToByteArrayAsync().ConfigureAwait(false);
+                lock (this._audioLock)
+                {
+                    if (generation != this._audioLoadGeneration)
+                    {
+                        return;
+                    }
+
+                    this._audioData = audioData;
+                }
+            }
+            catch
+            {
+                lock (this._audioLock)
+                {
+                    if (generation != this._audioLoadGeneration)
+                    {
+                        return;
+                    }
+
+                    this._currentAudioPath = string.Empty;
+                }
+            }
+
+            RhinoApp.InvokeOnUiThread(() => this.OnDisplayExpired(false));
         }
 
         /// <summary>
