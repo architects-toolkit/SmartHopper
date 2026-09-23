@@ -506,7 +506,7 @@ try {
         exit 2
     }
 
-    $before = $devLines[0..$tableStart]
+    $before = if ($tableStart -gt 0) { $devLines[0..($tableStart - 1)] } else { @() }
 
     # Find the first non-table line after the table
     $notesStart = $tableEnd + 1
@@ -521,7 +521,7 @@ try {
     # Build new rows: existing dev rows + missing code tools
     $newRows = [System.Collections.Generic.List[string]]::new()
     $newRows.Add('| Tool Name | Category | Description | Planned | In Progress | Testing | Released |')
-    $newRows.Add('|-----------|----------|-------------|:-------:|:-----------:|:-------:|:--------:|')
+    $newRows.Add('| --------- | -------- | ----------- | :-----: | :---------: | :-----: | :------: |')
 
     # Build rows: preserve DEV.md values, or override from code when -Update is passed
     foreach ($row in $devRows | Where-Object { -not $_.Malformed }) {
