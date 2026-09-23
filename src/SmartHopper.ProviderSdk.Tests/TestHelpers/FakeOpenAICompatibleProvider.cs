@@ -22,34 +22,60 @@ namespace SmartHopper.ProviderSdk.Tests.TestHelpers
     using System.Collections.Generic;
     using System.Drawing;
     using System.Linq;
-    using System.Threading.Tasks;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Requests;
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
+    using SmartHopper.ProviderSdk.AICall.JsonSchemas;
     using SmartHopper.ProviderSdk.AICall.Metrics;
     using SmartHopper.ProviderSdk.AIModels;
     using SmartHopper.ProviderSdk.AIProviders;
 
     /// <summary>
-    /// Minimal in-memory AI provider used by SDK contract tests.
-    /// Produces deterministic request bodies and decodes deterministic responses.
+    /// Minimal in-memory OpenAI-compatible provider used by SDK contract tests.
     /// </summary>
-    public sealed class FakeAIProvider : AIProvider
+    public sealed class FakeOpenAICompatibleProvider : OpenAICompatibleProvider<FakeOpenAICompatibleProvider>
     {
         /// <summary>
         /// The canonical provider name used in tests.
         /// </summary>
-        public const string ProviderName = "FakeProvider";
+        public const string ProviderName = "FakeOpenAICompatibleProvider";
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="FakeAIProvider"/> class.
+        /// Initializes a new instance of the <see cref="FakeOpenAICompatibleProvider"/> class.
         /// </summary>
-        public FakeAIProvider()
+        public FakeOpenAICompatibleProvider()
         {
             this.Models = new FakeProviderModels();
+        }
+
+        /// <summary>
+        /// Exposes the shared OpenAI-compatible metrics decoder for SDK contract tests.
+        /// </summary>
+        public AIMetrics DecodeCompatibleMetrics(JObject response)
+        {
+            return this.DecodeOpenAICompatibleMetrics(response);
+        }
+
+        /// <summary>
+        /// Exposes the shared OpenAI-compatible tool-choice formatter for SDK contract tests.
+        /// </summary>
+        public void ApplyCompatibleToolChoice(JObject requestBody, AIRequestCall request, JArray tools)
+        {
+            this.ApplyOpenAICompatibleToolChoice(requestBody, request, tools, ProviderName);
+        }
+
+        /// <summary>
+        /// Exposes the shared OpenAI-compatible JSON schema wrapper for SDK contract tests.
+        /// </summary>
+        public bool TryWrapCompatibleJsonSchema(
+            string jsonSchema,
+            out JToken wrappedSchema,
+            out SchemaWrapperInfo wrapperInfo)
+        {
+            return this.TryWrapJsonSchema(jsonSchema, out wrappedSchema, out wrapperInfo);
         }
 
         /// <inheritdoc />

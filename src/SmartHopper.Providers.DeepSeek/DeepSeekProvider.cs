@@ -46,7 +46,7 @@ namespace SmartHopper.Providers.DeepSeek
     /// <summary>
     /// DeepSeek AI provider implementation.
     /// </summary>
-    public sealed partial class DeepSeekProvider : AIProvider<DeepSeekProvider>
+    public sealed partial class DeepSeekProvider : OpenAICompatibleProvider<DeepSeekProvider>
     {
         #region Compiled Regex Patterns
 
@@ -798,9 +798,12 @@ namespace SmartHopper.Providers.DeepSeek
         /// </summary>
         private sealed class DeepSeekStreamingAdapter : AIProviderStreamingAdapter, IStreamingAdapter
         {
+            private readonly DeepSeekProvider provider;
+
             public DeepSeekStreamingAdapter(DeepSeekProvider provider)
                 : base(provider)
             {
+                this.provider = provider;
             }
 
             public async IAsyncEnumerable<AIReturn> StreamAsync(
@@ -1023,7 +1026,7 @@ namespace SmartHopper.Providers.DeepSeek
                     }
 
                     // Usage metrics (may be present in final chunk)
-                    var usageMetrics = this.DecodeOpenAICompatibleMetrics(parsed);
+                    var usageMetrics = this.provider.DecodeOpenAICompatibleMetrics(parsed);
                     if (usageMetrics.InputTokensPrompt > 0
                         || usageMetrics.InputTokensCached > 0
                         || usageMetrics.OutputTokensGeneration > 0

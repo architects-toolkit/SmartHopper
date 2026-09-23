@@ -47,7 +47,7 @@ namespace SmartHopper.Providers.OpenAI
     /// <summary>
     /// OpenAI provider implementation for SmartHopper.
     /// </summary>
-    public partial class OpenAIProvider : AIProvider<OpenAIProvider>, IAIBatchProvider
+    public partial class OpenAIProvider : OpenAICompatibleProvider<OpenAIProvider>, IAIBatchProvider
     {
         #region Compiled Regex Patterns
 
@@ -1520,9 +1520,12 @@ namespace SmartHopper.Providers.OpenAI
         /// </summary>
         private sealed class OpenAIStreamingAdapter : AIProviderStreamingAdapter, IStreamingAdapter
         {
+            private readonly OpenAIProvider provider;
+
             public OpenAIStreamingAdapter(OpenAIProvider provider)
                 : base(provider)
             {
+                this.provider = provider;
             }
 
             public async IAsyncEnumerable<AIReturn> StreamAsync(
@@ -2074,7 +2077,7 @@ namespace SmartHopper.Providers.OpenAI
                     var usage = parsed["usage"] as JObject;
                     if (usage != null)
                     {
-                        var usageMetrics = this.Provider.DecodeOpenAICompatibleMetrics(parsed);
+                        var usageMetrics = this.provider.DecodeOpenAICompatibleMetrics(parsed);
                         promptTokens = usageMetrics.InputTokensPrompt + usageMetrics.InputTokensCached;
                         completionTokens = usageMetrics.OutputTokensGeneration;
 

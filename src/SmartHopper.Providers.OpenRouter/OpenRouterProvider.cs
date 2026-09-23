@@ -49,7 +49,7 @@ namespace SmartHopper.Providers.OpenRouter
     /// Provides access to multiple AI models through a unified interface.
     /// Supports text and vision input; image generation is handled via the img_generate tool.
     /// </summary>
-    public sealed partial class OpenRouterProvider : AIProvider<OpenRouterProvider>, IAIBatchProvider
+    public sealed partial class OpenRouterProvider : OpenAICompatibleProvider<OpenRouterProvider>, IAIBatchProvider
     {
         private OpenRouterProvider()
         {
@@ -686,9 +686,12 @@ namespace SmartHopper.Providers.OpenRouter
         /// </summary>
         private sealed class OpenRouterStreamingAdapter : AIProviderStreamingAdapter, IStreamingAdapter
         {
+            private readonly OpenRouterProvider provider;
+
             public OpenRouterStreamingAdapter(OpenRouterProvider provider)
                 : base(provider)
             {
+                this.provider = provider;
             }
 
             public async IAsyncEnumerable<AIReturn> StreamAsync(
@@ -886,7 +889,7 @@ namespace SmartHopper.Providers.OpenRouter
                     if (hasFinish) finalFinishReason = finishReason;
 
                     // Usage metrics (may be present in final chunk)
-                    var usageMetrics = this.DecodeOpenAICompatibleMetrics(parsed);
+                    var usageMetrics = this.provider.DecodeOpenAICompatibleMetrics(parsed);
                     if (usageMetrics.InputTokensPrompt > 0
                         || usageMetrics.InputTokensCached > 0
                         || usageMetrics.OutputTokensGeneration > 0

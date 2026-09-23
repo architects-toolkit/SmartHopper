@@ -36,7 +36,7 @@ namespace SmartHopper.ProviderSdk.Tests.AIProviders
         [Fact]
         public void DecodeCompatibleMetrics_ReadsCachedAndReasoningTokens()
         {
-            var provider = new FakeAIProvider();
+            var provider = new FakeOpenAICompatibleProvider();
             var response = new JObject
             {
                 ["choices"] = new JArray(new JObject { ["finish_reason"] = "stop" }),
@@ -61,7 +61,7 @@ namespace SmartHopper.ProviderSdk.Tests.AIProviders
         [Fact]
         public void ApplyCompatibleToolChoice_FormatsForcedToolCall()
         {
-            var provider = new FakeAIProvider();
+            var provider = new FakeOpenAICompatibleProvider();
             var request = new AIRequestCall
             {
                 ForceToolCall = true,

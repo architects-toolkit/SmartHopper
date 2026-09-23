@@ -43,7 +43,7 @@ using SmartHopper.ProviderSdk.Utilities;
 
 namespace SmartHopper.Providers.MistralAI
 {
-    public sealed class MistralAIProvider : AIProvider<MistralAIProvider>, IAIBatchProvider
+    public sealed class MistralAIProvider : OpenAICompatibleProvider<MistralAIProvider>, IAIBatchProvider
     {
         private MistralAIProvider()
         {
@@ -764,7 +764,7 @@ namespace SmartHopper.Providers.MistralAI
                     }
 
                     // Capture usage metrics if present (Mistral returns usage in the last chunk)
-                    var usageMetrics = this.DecodeOpenAICompatibleMetrics(parsed);
+                    var usageMetrics = this.provider.DecodeOpenAICompatibleMetrics(parsed);
                     if (usageMetrics.InputTokensPrompt > 0
                         || usageMetrics.InputTokensCached > 0
                         || usageMetrics.OutputTokensGeneration > 0

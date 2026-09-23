@@ -53,9 +53,12 @@ namespace SmartHopper.Providers.LocalAI
         /// </summary>
         private sealed class LocalAIStreamingAdapter : AIProviderStreamingAdapter, IStreamingAdapter
         {
+            private readonly LocalAIProvider provider;
+
             public LocalAIStreamingAdapter(LocalAIProvider provider)
                 : base(provider)
             {
+                this.provider = provider;
             }
 
             public async IAsyncEnumerable<AIReturn> StreamAsync(
@@ -234,7 +237,7 @@ namespace SmartHopper.Providers.LocalAI
                     bool hasFinish = !string.IsNullOrEmpty(finishReason);
                     if (hasFinish) finalFinishReason = finishReason;
 
-                    var usageMetrics = this.DecodeOpenAICompatibleMetrics(parsed);
+                    var usageMetrics = this.provider.DecodeOpenAICompatibleMetrics(parsed);
                     if (usageMetrics.InputTokensPrompt > 0
                         || usageMetrics.InputTokensCached > 0
                         || usageMetrics.OutputTokensGeneration > 0

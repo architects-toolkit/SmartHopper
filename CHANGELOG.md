@@ -35,7 +35,7 @@ Many thanks to the following contributors to this release:
 
 ### Changed
 
-- OpenAI-compatible providers now share request tool-choice formatting, JSON-schema wrapping, and token-usage decoding in `AIProvider`, keeping cached and reasoning-token accounting consistent across streaming and non-streaming responses.
+- OpenAI-compatible providers now share request tool-choice formatting, JSON-schema wrapping, and token-usage decoding in `OpenAICompatibleProvider<T>` in `SmartHopper.ProviderSdk.AIProviders`, keeping cached and reasoning-token accounting consistent across streaming and non-streaming responses.
 - WebChat requests now prepend mandatory shared Grasshopper operating knowledge before component or user instructions. MCP resources and the in-process `smarthopper_readme` and `smarthopper_workflows` tools consume the same embedded source of truth.
 - `FileContextProvider` no longer reports selected object metadata. Use the new `SelectionContextProvider` for `selected-count`, `selected-objects`, `selected-topology`, and `selected-runtime-values`.
 - Removed redundant `new` modifiers on `provider` fields in first-party `*ProviderSettings` classes; the base `AIProviderSettings` does not expose a conflicting accessible member, so the modifier only produced compiler warnings.
