@@ -41,7 +41,7 @@ namespace SmartHopper.Providers.Ollama
     /// Targets local Ollama instances (https://ollama.com/) through the
     /// OpenAI-compatible <c>/v1/chat/completions</c> endpoint.
     /// </summary>
-    public sealed partial class OllamaProvider : AIProvider<OllamaProvider>
+    public sealed partial class OllamaProvider : OpenAICompatibleProvider<OllamaProvider>
     {
         /// <summary>
         /// The name of the provider. Used by the UI for provider selection.
