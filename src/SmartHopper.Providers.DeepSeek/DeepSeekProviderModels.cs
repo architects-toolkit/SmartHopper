@@ -76,10 +76,12 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     Provider = provider,
                     Model = "deepseek-flash",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9995,
+                    ContextLimit = 1048576,
                 },
 
 
