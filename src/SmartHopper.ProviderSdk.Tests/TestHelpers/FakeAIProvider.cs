@@ -52,6 +52,22 @@ namespace SmartHopper.ProviderSdk.Tests.TestHelpers
             this.Models = new FakeProviderModels();
         }
 
+        /// <summary>
+        /// Exposes the shared OpenAI-compatible metrics decoder for SDK contract tests.
+        /// </summary>
+        public AIMetrics DecodeCompatibleMetrics(JObject response)
+        {
+            return this.DecodeOpenAICompatibleMetrics(response);
+        }
+
+        /// <summary>
+        /// Exposes the shared OpenAI-compatible tool-choice formatter for SDK contract tests.
+        /// </summary>
+        public void ApplyCompatibleToolChoice(JObject requestBody, AIRequestCall request, JArray tools)
+        {
+            this.ApplyOpenAICompatibleToolChoice(requestBody, request, tools, ProviderName);
+        }
+
         /// <inheritdoc />
         public override string Name => ProviderName;
 

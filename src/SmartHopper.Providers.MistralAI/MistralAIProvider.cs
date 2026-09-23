@@ -379,14 +379,8 @@ namespace SmartHopper.Providers.MistralAI
             // Add JSON schema if provided (centralized wrapping)
             if (!string.IsNullOrWhiteSpace(jsonSchema))
             {
-                try
+                if (this.TryWrapJsonSchema(jsonSchema, out var wrappedSchema, out var wrapperInfo))
                 {
-                    var schemaObj = JObject.Parse(jsonSchema);
-                    var svc = JsonSchemaService.Instance;
-                    var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
-
-                    // Store wrapper info for response unwrapping centrally
-                    svc.SetCurrentWrapperInfo(wrapperInfo);
                     Debug.WriteLine($"[MistralAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
 
                     // Mistral supports json_object response_format; we guide with a system message including wrapped schema
@@ -399,13 +393,6 @@ namespace SmartHopper.Providers.MistralAI
                     };
                     convertedMessages.Insert(0, systemMessage);
                 }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[MistralAI] Failed to parse JSON schema: {ex.Message}");
-
-                    // Continue without schema if parsing fails
-                    JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
-                }
             }
             else
             {
@@ -417,25 +404,7 @@ namespace SmartHopper.Providers.MistralAI
             if (!string.IsNullOrWhiteSpace(toolFilter))
             {
                 var tools = this.GetFormattedTools(toolFilter);
-                if (tools != null && tools.Count > 0)
-                {
-                    requestBody["tools"] = tools;
-
-                    // Handle forced tool call: MistralAI uses tool_choice as "any" or "required" or specific function
-                    if (request.ForceToolCall && !string.IsNullOrWhiteSpace(request.ForceToolName))
-                    {
-                        requestBody["tool_choice"] = new JObject
-                        {
-                            ["type"] = "function",
-                            ["function"] = new JObject { ["name"] = request.ForceToolName, },
-                        };
-                        Debug.WriteLine($"[MistralAI] Forcing tool call: {request.ForceToolName}");
-                    }
-                    else
-                    {
-                        requestBody["tool_choice"] = "auto";
-                    }
-                }
+                this.ApplyOpenAICompatibleToolChoice(requestBody, request, tools, "MistralAI");
             }
 
             // Debug.WriteLine($"[MistralAI] Request: {requestBody}");
@@ -611,30 +580,7 @@ namespace SmartHopper.Providers.MistralAI
         /// <inheritdoc/>
         private AIMetrics DecodeMetrics(JObject response)
         {
-            if (response == null)
-            {
-                return new AIMetrics();
-            }
-
-            try
-            {
-                var choices = response["choices"] as JArray;
-                var firstChoice = choices?.FirstOrDefault() as JObject;
-                var usage = response["usage"] as JObject;
-
-                return new AIMetrics
-                {
-                    FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
-                    InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? 0,
-                    OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? 0,
-                };
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[MistralAI] DecodeMetrics error: {ex.Message}");
-            }
-
-            return new AIMetrics();
+            return this.DecodeOpenAICompatibleMetrics(response);
         }
 
         /// <summary>
@@ -818,21 +764,25 @@ namespace SmartHopper.Providers.MistralAI
                     }
 
                     // Capture usage metrics if present (Mistral returns usage in the last chunk)
-                    if (parsed["usage"] is JObject usageObj)
+                    var usageMetrics = this.DecodeOpenAICompatibleMetrics(parsed);
+                    if (usageMetrics.InputTokensPrompt > 0
+                        || usageMetrics.InputTokensCached > 0
+                        || usageMetrics.OutputTokensGeneration > 0
+                        || usageMetrics.OutputTokensReasoning > 0)
                     {
                         streamMetrics = streamMetrics with
                         {
-                            InputTokensPrompt = usageObj["prompt_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt,
-                            OutputTokensGeneration = usageObj["completion_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration,
+                            InputTokensPrompt = usageMetrics.InputTokensPrompt,
+                            InputTokensCached = usageMetrics.InputTokensCached,
+                            OutputTokensGeneration = usageMetrics.OutputTokensGeneration,
+                            OutputTokensReasoning = usageMetrics.OutputTokensReasoning,
                         };
 
                         // Update aggregate metrics as they become available
-                        assistantBuilder.CombineMetrics(new AIMetrics
+                        assistantBuilder.CombineMetrics(usageMetrics with
                         {
                             Provider = this.provider.Name,
                             Model = streamMetrics.Model,
-                            InputTokensPrompt = usageObj["prompt_tokens"]?.Value<int>() ?? 0,
-                            OutputTokensGeneration = usageObj["completion_tokens"]?.Value<int>() ?? 0,
                         });
                     }
 
