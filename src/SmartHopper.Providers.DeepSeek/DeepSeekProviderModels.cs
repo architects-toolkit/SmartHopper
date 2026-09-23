@@ -82,6 +82,14 @@ namespace SmartHopper.Providers.DeepSeek
                     Verified = false,
                     Rank = 9995,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2026, 4, 24),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000008134m,
+                        Completion = 0.00000016268m,
+                        InputCacheRead = 0.000000016268m,
+                    },
+                    Aliases = new List<string> { "deepseek-v4-flash" },
                 },
 
 
@@ -113,26 +121,6 @@ namespace SmartHopper.Providers.DeepSeek
                         InputCacheRead = 0.0000000035m,
                     },
                     Aliases = new List<string> { "deepseek-v4-flash-vision-exp:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek-v4-flash",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -5,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 4, 24),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000008134m,
-                        Completion = 0.00000016268m,
-                        InputCacheRead = 0.000000016268m,
-                    },
                 },
 
                 new AIModelCapabilities
