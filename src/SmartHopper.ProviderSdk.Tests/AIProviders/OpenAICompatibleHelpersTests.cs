@@ -78,4 +78,3 @@ namespace SmartHopper.ProviderSdk.Tests.AIProviders
         }
     }
 }
-}
