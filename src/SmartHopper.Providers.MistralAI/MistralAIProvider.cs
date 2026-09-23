@@ -89,6 +89,10 @@ namespace SmartHopper.Providers.MistralAI
         /// <inheritdoc/>
         public override AIRequestCall PreCall(AIRequestCall request)
         {
+            // Normalize the :batch alias to the canonical model id so the same
+            // model works for both chat and batch endpoints.
+            request.Model = StripBatchSuffix(request.Model);
+
             // First do the base PreCall
             request = base.PreCall(request);
 
@@ -124,6 +128,27 @@ namespace SmartHopper.Providers.MistralAI
             request.Authentication = "bearer";
 
             return request;
+        }
+
+        /// <summary>
+        /// Strips a trailing <c>:batch</c> suffix from a model slug so the
+        /// <c>:batch</c> alias resolves to the canonical model id.
+        /// </summary>
+        /// <param name="model">The model slug, possibly ending with <c>:batch</c>.</param>
+        /// <returns>The base model slug without a <c>:batch</c> suffix.</returns>
+        private static string StripBatchSuffix(string model)
+        {
+            if (string.IsNullOrWhiteSpace(model))
+            {
+                return model;
+            }
+
+            if (model.EndsWith(":batch", StringComparison.OrdinalIgnoreCase))
+            {
+                return model.Substring(0, model.Length - 6);
+            }
+
+            return model;
         }
 
         /// <inheritdoc/>

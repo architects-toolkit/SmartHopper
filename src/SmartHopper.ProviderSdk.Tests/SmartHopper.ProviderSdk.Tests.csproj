@@ -43,6 +43,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SmartHopper.ProviderSdk\SmartHopper.ProviderSdk.csproj" />
     <ProjectReference Include="..\SmartHopper.Providers.DeepSeek\SmartHopper.Providers.DeepSeek.csproj" />
+    <ProjectReference Include="..\SmartHopper.Providers.MistralAI\SmartHopper.Providers.MistralAI.csproj" />
     <ProjectReference Include="..\SmartHopper.Providers.OpenRouter\SmartHopper.Providers.OpenRouter.csproj" />
   </ItemGroup>
 
