@@ -426,12 +426,8 @@ namespace SmartHopper.Providers.DeepSeek
             // Add JSON response format if schema is provided (centralized wrapping)
             if (!string.IsNullOrWhiteSpace(request.Body.JsonOutputSchema))
             {
-                try
+                if (this.TryWrapJsonSchema(request.Body.JsonOutputSchema, out var wrappedSchema, out var wrapperInfo))
                 {
-                    var svc = JsonSchemaService.Instance;
-                    var schemaObj = JObject.Parse(request.Body.JsonOutputSchema);
-                    var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
-                    svc.SetCurrentWrapperInfo(wrapperInfo);
                     Debug.WriteLine($"[DeepSeek] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
 
                     // Enforce structured output
@@ -445,11 +441,8 @@ namespace SmartHopper.Providers.DeepSeek
                     };
                     convertedMessages.Insert(0, systemMessage);
                 }
-                catch (Exception ex)
+                else
                 {
-                    Debug.WriteLine($"[DeepSeek] Failed to parse/handle JSON schema: {ex.Message}");
-                    JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
-
                     // Fallback to text response
                     requestBody["response_format"] = new JObject { ["type"] = "text" };
                 }
@@ -464,25 +457,7 @@ namespace SmartHopper.Providers.DeepSeek
             if (!string.IsNullOrWhiteSpace(toolFilter))
             {
                 var tools = this.GetFormattedTools(toolFilter);
-                if (tools != null && tools.Count > 0)
-                {
-                    requestBody["tools"] = tools;
-
-                    // Handle forced tool call: DeepSeek uses tool_choice with type and function name (OpenAI-compatible)
-                    if (request.ForceToolCall && !string.IsNullOrWhiteSpace(request.ForceToolName))
-                    {
-                        requestBody["tool_choice"] = new JObject
-                        {
-                            ["type"] = "function",
-                            ["function"] = new JObject { ["name"] = request.ForceToolName, },
-                        };
-                        Debug.WriteLine($"[DeepSeek] Forcing tool call: {request.ForceToolName}");
-                    }
-                    else
-                    {
-                        requestBody["tool_choice"] = "auto";
-                    }
-                }
+                this.ApplyOpenAICompatibleToolChoice(requestBody, request, tools, "DeepSeek");
             }
 
             return requestBody.ToString();
@@ -728,32 +703,7 @@ namespace SmartHopper.Providers.DeepSeek
         private AIMetrics DecodeMetrics(JObject response)
         {
             Debug.WriteLine("[DeepSeek] PostCall: parsed response for metrics");
-
-            var choices = response["choices"] as JArray;
-            var firstChoice = choices?.FirstOrDefault() as JObject;
-            var usage = response["usage"] as JObject;
-
-            // Extract reasoning tokens from nested completion_tokens_details object
-            var completionDetails = usage?["completion_tokens_details"] as JObject;
-            var reasoningTokens = completionDetails?["reasoning_tokens"]?.Value<int>() ?? 0;
-
-            var totalPromptTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0;
-
-            // Extract KV cache hit tokens from nested prompt_tokens_details object
-            var promptTokensDetails = usage?["prompt_tokens_details"] as JObject;
-            var inputTokensCached = promptTokensDetails?["cached_tokens"]?.Value<int>() ?? 0;
-
-            // Create a new metrics instance
-            var metrics = new AIMetrics
-            {
-                FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
-                InputTokensCached = inputTokensCached,
-                InputTokensPrompt = totalPromptTokens - inputTokensCached,
-                OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? 0,
-                OutputTokensReasoning = reasoningTokens,
-            };
-
-            return metrics;
+            return this.DecodeOpenAICompatibleMetrics(response);
         }
 
         /// <summary>
@@ -1073,33 +1023,20 @@ namespace SmartHopper.Providers.DeepSeek
                     }
 
                     // Usage metrics (may be present in final chunk)
-                    var usage = parsed["usage"] as JObject;
-                    if (usage != null)
+                    var usageMetrics = this.DecodeOpenAICompatibleMetrics(parsed);
+                    if (usageMetrics.InputTokensPrompt > 0
+                        || usageMetrics.InputTokensCached > 0
+                        || usageMetrics.OutputTokensGeneration > 0
+                        || usageMetrics.OutputTokensReasoning > 0)
                     {
-                        var pt = usage["prompt_tokens"]?.Value<int?>();
-                        var ct = usage["completion_tokens"]?.Value<int?>();
-                        if (pt.HasValue)
-                        {
-                            promptTokens = pt.Value;
-                        }
-
-                        if (ct.HasValue)
-                        {
-                            completionTokens = ct.Value;
-                        }
-
-                        // Extract reasoning tokens from nested completion_tokens_details object
-                        var completionDetails = usage["completion_tokens_details"] as JObject;
-                        var rt = completionDetails?["reasoning_tokens"]?.Value<int?>() ?? 0;
+                        promptTokens = usageMetrics.InputTokensPrompt + usageMetrics.InputTokensCached;
+                        completionTokens = usageMetrics.OutputTokensGeneration;
 
                         // Update aggregate metrics
-                        assistantBuilder.CombineMetrics(new AIMetrics
+                        assistantBuilder.CombineMetrics(usageMetrics with
                         {
                             Provider = this.Provider.Name,
                             Model = request.Model,
-                            InputTokensPrompt = pt ?? 0,
-                            OutputTokensGeneration = ct ?? 0,
-                            OutputTokensReasoning = rt,
                         });
                     }
 

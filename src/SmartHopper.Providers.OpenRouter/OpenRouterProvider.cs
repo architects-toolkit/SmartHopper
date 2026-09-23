@@ -264,40 +264,15 @@ namespace SmartHopper.Providers.OpenRouter
             if (!string.IsNullOrWhiteSpace(request.Body.ToolFilter))
             {
                 var tools = this.GetFormattedTools(request.Body.ToolFilter);
-                if (tools != null && tools.Count > 0)
-                {
-                    body["tools"] = tools;
-
-                    // Handle forced tool call: OpenRouter uses tool_choice with type and function name (OpenAI-compatible)
-                    if (request.ForceToolCall && !string.IsNullOrWhiteSpace(request.ForceToolName))
-                    {
-                        body["tool_choice"] = new JObject
-                        {
-                            ["type"] = "function",
-                            ["function"] = new JObject { ["name"] = request.ForceToolName, },
-                        };
-                        Debug.WriteLine($"[OpenRouter] Forcing tool call: {request.ForceToolName}");
-                    }
-                    else
-                    {
-                        body["tool_choice"] = "auto";
-                    }
-                }
+                this.ApplyOpenAICompatibleToolChoice(body, request, tools, "OpenRouter");
             }
 
             // Attach structured output schema when JSON output is requested
             var jsonSchema = request.Body?.JsonOutputSchema;
             if (!string.IsNullOrWhiteSpace(jsonSchema))
             {
-                try
+                if (this.TryWrapJsonSchema(jsonSchema, out var wrappedSchema, out _))
                 {
-                    var schemaObj = JObject.Parse(jsonSchema);
-                    var svc = JsonSchemaService.Instance;
-                    var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
-
-                    // Store wrapper info so response validators can unwrap consistently
-                    svc.SetCurrentWrapperInfo(wrapperInfo);
-
                     body["response_format"] = new JObject
                     {
                         ["type"] = "json_schema",
@@ -312,10 +287,8 @@ namespace SmartHopper.Providers.OpenRouter
                     // Hint to OpenRouter that structured outputs are required
                     body["structured_outputs"] = true;
                 }
-                catch (Exception ex)
+                else
                 {
-                    Debug.WriteLine($"[OpenRouter] Failed to attach JSON schema: {ex.Message}");
-
                     // Fall back to unstructured output; clear wrapper info to avoid inconsistent unwrapping
                     JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo
                     {
@@ -624,23 +597,8 @@ namespace SmartHopper.Providers.OpenRouter
                     }
                 }
 
-                var inputTokensCached = 0;
-                var inputTokensPrompt = 0;
-                var outputTokensGeneration = 0;
-
                 // Extract metrics (tokens, model, finish reason) if present
-                var usage = response["usage"] as JObject;
-                if (usage != null)
-                {
-                    var totalPromptTokens = usage["prompt_tokens"]?.Value<int>() ?? 0;
-
-                    // Extract cached tokens from nested prompt_tokens_details object
-                    var promptDetails = usage["prompt_tokens_details"] as JObject;
-                    inputTokensCached = promptDetails?["cached_tokens"]?.Value<int>() ?? 0;
-                    inputTokensPrompt = totalPromptTokens - inputTokensCached;
-
-                    outputTokensGeneration = usage["completion_tokens"]?.Value<int>() ?? 0;
-                }
+                var metrics = this.DecodeOpenAICompatibleMetrics(response);
 
                 var finishReason = firstChoice?["finish_reason"]?.ToString();
 
@@ -653,9 +611,10 @@ namespace SmartHopper.Providers.OpenRouter
                     {
                         Provider = this.Name,
                         Model = response["model"]?.ToString(),
-                        InputTokensCached = inputTokensCached,
-                        InputTokensPrompt = inputTokensPrompt,
-                        OutputTokensGeneration = outputTokensGeneration,
+                        InputTokensCached = metrics.InputTokensCached,
+                        InputTokensPrompt = metrics.InputTokensPrompt,
+                        OutputTokensGeneration = metrics.OutputTokensGeneration,
+                        OutputTokensReasoning = metrics.OutputTokensReasoning,
                         FinishReason = finishReason,
                     },
                 };
@@ -927,21 +886,19 @@ namespace SmartHopper.Providers.OpenRouter
                     if (hasFinish) finalFinishReason = finishReason;
 
                     // Usage metrics (may be present in final chunk)
-                    var usage = parsed["usage"] as JObject;
-                    if (usage != null)
+                    var usageMetrics = this.DecodeOpenAICompatibleMetrics(parsed);
+                    if (usageMetrics.InputTokensPrompt > 0
+                        || usageMetrics.InputTokensCached > 0
+                        || usageMetrics.OutputTokensGeneration > 0
+                        || usageMetrics.OutputTokensReasoning > 0)
                     {
-                        var pt = usage["prompt_tokens"]?.Value<int?>();
-                        var ct = usage["completion_tokens"]?.Value<int?>();
-                        if (pt.HasValue) promptTokens = pt.Value;
-                        if (ct.HasValue) completionTokens = ct.Value;
+                        promptTokens = usageMetrics.InputTokensPrompt + usageMetrics.InputTokensCached;
+                        completionTokens = usageMetrics.OutputTokensGeneration;
 
-                        // Update aggregate metrics
-                        assistantAggregate.CombineMetrics(new AIMetrics
+                        assistantAggregate.CombineMetrics(usageMetrics with
                         {
                             Provider = this.Provider.Name,
                             Model = request.Model,
-                            InputTokensPrompt = pt ?? 0,
-                            OutputTokensGeneration = ct ?? 0,
                         });
                     }
 

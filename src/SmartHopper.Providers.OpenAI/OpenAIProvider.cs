@@ -730,30 +730,24 @@ namespace SmartHopper.Providers.OpenAI
             // Add response format if JSON schema is provided
             if (!string.IsNullOrEmpty(jsonSchema))
             {
-                try
-                {
-                    var schemaObj = JObject.Parse(jsonSchema);
-
-                    // OpenAI requires additionalProperties=false on all object schemas in strict mode
-                    InjectAdditionalPropertiesFalse(schemaObj);
-
-                    // OpenAI strict mode requires every property key to appear in required.
-                    // Auto-inject missing keys and record a warning so it surfaces in the component.
-                    if (InjectRequiredForAllProperties(schemaObj))
+                if (this.TryWrapJsonSchema(
+                    jsonSchema,
+                    out var wrappedSchema,
+                    out var wrapperInfo,
+                    schemaObj =>
                     {
-                        request.Messages.Add(new SHRuntimeMessage(
-                            SHRuntimeMessageSeverity.Warning,
-                            SHRuntimeMessageOrigin.Provider,
-                            SHMessageCode.SchemaRequiredAutoAdded,
-                            "Schema automatically updated: 'required' was extended to include all properties to comply with OpenAI strict mode."));
-                        Debug.WriteLine("[OpenAI] InjectRequiredForAllProperties: auto-added missing keys to required arrays");
-                    }
-
-                    var svc = JsonSchemaService.Instance;
-                    var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
-
-                    // Store wrapper info for response unwrapping centrally
-                    svc.SetCurrentWrapperInfo(wrapperInfo);
+                        InjectAdditionalPropertiesFalse(schemaObj);
+                        if (InjectRequiredForAllProperties(schemaObj))
+                        {
+                            request.Messages.Add(new SHRuntimeMessage(
+                                SHRuntimeMessageSeverity.Warning,
+                                SHRuntimeMessageOrigin.Provider,
+                                SHMessageCode.SchemaRequiredAutoAdded,
+                                "Schema automatically updated: 'required' was extended to include all properties to comply with OpenAI strict mode."));
+                            Debug.WriteLine("[OpenAI] InjectRequiredForAllProperties: auto-added missing keys to required arrays");
+                        }
+                    }))
+                {
                     Debug.WriteLine($"[OpenAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
 
                     requestBody["response_format"] = new JObject
@@ -767,13 +761,6 @@ namespace SmartHopper.Providers.OpenAI
                         },
                     };
                 }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[OpenAI] Failed to parse JSON schema: {ex.Message}");
-
-                    // Continue without schema if parsing fails
-                    JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
-                }
             }
             else
             {
@@ -785,25 +772,7 @@ namespace SmartHopper.Providers.OpenAI
             if (hasTools)
             {
                 var tools = this.GetFormattedTools(toolFilter);
-                if (tools != null && tools.Count > 0)
-                {
-                    requestBody["tools"] = tools;
-
-                    // Handle forced tool call: OpenAI uses tool_choice with type and function name
-                    if (request.ForceToolCall && !string.IsNullOrWhiteSpace(request.ForceToolName))
-                    {
-                        requestBody["tool_choice"] = new JObject
-                        {
-                            ["type"] = "function",
-                            ["function"] = new JObject { ["name"] = request.ForceToolName, },
-                        };
-                        Debug.WriteLine($"[OpenAI] Forcing tool call: {request.ForceToolName}");
-                    }
-                    else
-                    {
-                        requestBody["tool_choice"] = "auto";
-                    }
-                }
+                this.ApplyOpenAICompatibleToolChoice(requestBody, request, tools, "OpenAI");
             }
 
             // Debug.WriteLine($"[OpenAI] ChatCompletions Request: {requestBody}");
@@ -883,24 +852,23 @@ namespace SmartHopper.Providers.OpenAI
             // Add response format if JSON schema is provided
             if (!string.IsNullOrEmpty(jsonSchema))
             {
-                try
-                {
-                    var schemaObj = JObject.Parse(jsonSchema);
-                    InjectAdditionalPropertiesFalse(schemaObj);
-
-                    if (InjectRequiredForAllProperties(schemaObj))
+                if (this.TryWrapJsonSchema(
+                    jsonSchema,
+                    out var wrappedSchema,
+                    out _,
+                    schemaObj =>
                     {
-                        request.Messages.Add(new SHRuntimeMessage(
-                            SHRuntimeMessageSeverity.Warning,
-                            SHRuntimeMessageOrigin.Provider,
-                            SHMessageCode.SchemaRequiredAutoAdded,
-                            "Schema automatically updated: 'required' was extended to include all properties to comply with OpenAI strict mode."));
-                    }
-
-                    var svc = JsonSchemaService.Instance;
-                    var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
-                    svc.SetCurrentWrapperInfo(wrapperInfo);
-
+                        InjectAdditionalPropertiesFalse(schemaObj);
+                        if (InjectRequiredForAllProperties(schemaObj))
+                        {
+                            request.Messages.Add(new SHRuntimeMessage(
+                                SHRuntimeMessageSeverity.Warning,
+                                SHRuntimeMessageOrigin.Provider,
+                                SHMessageCode.SchemaRequiredAutoAdded,
+                                "Schema automatically updated: 'required' was extended to include all properties to comply with OpenAI strict mode."));
+                        }
+                    }))
+                {
                     requestBody["text"] = new JObject
                     {
                         ["format"] = new JObject
@@ -911,11 +879,6 @@ namespace SmartHopper.Providers.OpenAI
                             ["strict"] = true,
                         },
                     };
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[OpenAI] Failed to parse JSON schema for Responses API: {ex.Message}");
-                    JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
                 }
             }
             else
@@ -930,20 +893,11 @@ namespace SmartHopper.Providers.OpenAI
                 if (tools != null && tools.Count > 0)
                 {
                     requestBody["tools"] = this.ConvertToolsToResponsesFormat(tools);
-
-                    if (request.ForceToolCall && !string.IsNullOrWhiteSpace(request.ForceToolName))
-                    {
-                        requestBody["tool_choice"] = new JObject
-                        {
-                            ["type"] = "function",
-                            ["function"] = new JObject { ["name"] = request.ForceToolName, },
-                        };
-                        Debug.WriteLine($"[OpenAI] Forcing tool call via Responses API: {request.ForceToolName}");
-                    }
-                    else
-                    {
-                        requestBody["tool_choice"] = "auto";
-                    }
+                    this.ApplyOpenAICompatibleToolChoice(
+                        requestBody,
+                        request,
+                        requestBody["tools"] as JArray,
+                        "OpenAI");
                 }
             }
 
@@ -1164,67 +1118,7 @@ namespace SmartHopper.Providers.OpenAI
         /// </summary>
         private AIMetrics DecodeMetrics(JObject response)
         {
-            if (response == null)
-            {
-                return new AIMetrics();
-            }
-
-            try
-            {
-                var usage = response["usage"] as JObject;
-
-                int inputTokensCached = 0;
-                int inputTokensPrompt = 0;
-                int outputTokensGeneration = 0;
-                int outputTokensReasoning = 0;
-
-                if (usage != null)
-                {
-                    // Support both Chat Completions API and Responses API token field names
-                    var totalPromptTokens = usage["prompt_tokens"]?.Value<int>()
-                        ?? usage["input_tokens"]?.Value<int>()
-                        ?? 0;
-
-                    // Extract cached tokens from nested details object
-                    var promptDetails = usage["prompt_tokens_details"] as JObject;
-                    var inputDetails = usage["input_tokens_details"] as JObject;
-                    inputTokensCached = promptDetails?["cached_tokens"]?.Value<int>()
-                        ?? inputDetails?["cached_tokens"]?.Value<int>()
-                        ?? 0;
-                    inputTokensPrompt = totalPromptTokens - inputTokensCached;
-
-                    outputTokensGeneration = usage["completion_tokens"]?.Value<int>()
-                        ?? usage["output_tokens"]?.Value<int>()
-                        ?? 0;
-
-                    // Extract reasoning tokens from nested completion/output token details (o1/o3/GPT-5 models)
-                    var completionDetails = usage["completion_tokens_details"] as JObject;
-                    var outputDetails = usage["output_tokens_details"] as JObject;
-                    outputTokensReasoning = completionDetails?["reasoning_tokens"]?.Value<int>()
-                        ?? outputDetails?["reasoning_tokens"]?.Value<int>()
-                        ?? 0;
-                }
-
-                // Handle finish reason for chat completions
-                var choices = response["choices"] as JArray;
-                var firstChoice = choices?.FirstOrDefault() as JObject;
-                var finishReason = firstChoice?["finish_reason"]?.ToString();
-
-                return new AIMetrics
-                {
-                    InputTokensCached = inputTokensCached,
-                    InputTokensPrompt = inputTokensPrompt,
-                    OutputTokensGeneration = outputTokensGeneration,
-                    OutputTokensReasoning = outputTokensReasoning,
-                    FinishReason = finishReason,
-                };
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[OpenAI] DecodeMetrics error: {ex.Message}");
-            }
-
-            return new AIMetrics();
+            return this.DecodeOpenAICompatibleMetrics(response);
         }
 
         /// <summary>
@@ -2180,28 +2074,15 @@ namespace SmartHopper.Providers.OpenAI
                     var usage = parsed["usage"] as JObject;
                     if (usage != null)
                     {
-                        var pt = usage["prompt_tokens"]?.Value<int?>();
-                        var ct = usage["completion_tokens"]?.Value<int?>();
-                        if (pt.HasValue) promptTokens = pt.Value;
-                        if (ct.HasValue) completionTokens = ct.Value;
-
-                        // Extract cached tokens from nested prompt_tokens_details object
-                        var promptDetails = usage["prompt_tokens_details"] as JObject;
-                        var cachedTokens = promptDetails?["cached_tokens"]?.Value<int>() ?? 0;
-
-                        // Extract reasoning tokens from nested completion_tokens_details object (o1/o3/GPT-5 models)
-                        var completionDetails = usage["completion_tokens_details"] as JObject;
-                        var rt = completionDetails?["reasoning_tokens"]?.Value<int?>() ?? 0;
+                        var usageMetrics = this.Provider.DecodeOpenAICompatibleMetrics(parsed);
+                        promptTokens = usageMetrics.InputTokensPrompt + usageMetrics.InputTokensCached;
+                        completionTokens = usageMetrics.OutputTokensGeneration;
 
                         // Update aggregate metrics
-                        assistantAggregate.CombineMetrics( new AIMetrics
+                        assistantAggregate.CombineMetrics(usageMetrics with
                         {
                             Provider = this.Provider.Name,
                             Model = request.Model,
-                            InputTokensCached = cachedTokens,
-                            InputTokensPrompt = (pt ?? 0) - cachedTokens,
-                            OutputTokensGeneration = ct ?? 0,
-                            OutputTokensReasoning = rt,
                         });
                     }
 

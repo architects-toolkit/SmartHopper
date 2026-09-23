@@ -220,12 +220,8 @@ namespace SmartHopper.Providers.Ollama
             // Add JSON response format if schema is provided (centralized wrapping)
             if (!string.IsNullOrWhiteSpace(request.Body.JsonOutputSchema))
             {
-                try
+                if (this.TryWrapJsonSchema(request.Body.JsonOutputSchema, out var wrappedSchema, out var wrapperInfo))
                 {
-                    var svc = JsonSchemaService.Instance;
-                    var schemaObj = JObject.Parse(request.Body.JsonOutputSchema);
-                    var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
-                    svc.SetCurrentWrapperInfo(wrapperInfo);
                     Debug.WriteLine($"[Ollama] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
 
                     // Ollama supports json_object response_format on its OpenAI-compatible endpoint
@@ -239,10 +235,8 @@ namespace SmartHopper.Providers.Ollama
                     };
                     convertedMessages.Insert(0, systemMessage);
                 }
-                catch (Exception ex)
+                else
                 {
-                    Debug.WriteLine($"[Ollama] Failed to parse/handle JSON schema: {ex.Message}");
-                    JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
                     requestBody["response_format"] = new JObject { ["type"] = "text" };
                 }
             }
@@ -256,25 +250,7 @@ namespace SmartHopper.Providers.Ollama
             if (!string.IsNullOrWhiteSpace(toolFilter))
             {
                 var tools = this.GetFormattedTools(toolFilter);
-                if (tools != null && tools.Count > 0)
-                {
-                    requestBody["tools"] = tools;
-
-                    // Forced tool call uses OpenAI-compatible tool_choice with function name
-                    if (request.ForceToolCall && !string.IsNullOrWhiteSpace(request.ForceToolName))
-                    {
-                        requestBody["tool_choice"] = new JObject
-                        {
-                            ["type"] = "function",
-                            ["function"] = new JObject { ["name"] = request.ForceToolName, },
-                        };
-                        Debug.WriteLine($"[Ollama] Forcing tool call: {request.ForceToolName}");
-                    }
-                    else
-                    {
-                        requestBody["tool_choice"] = "auto";
-                    }
-                }
+                this.ApplyOpenAICompatibleToolChoice(requestBody, request, tools, "Ollama");
             }
 
             return requestBody.ToString();
@@ -497,19 +473,7 @@ namespace SmartHopper.Providers.Ollama
         /// </summary>
         private AIMetrics DecodeMetrics(JObject response)
         {
-            var choices = response["choices"] as JArray;
-            var firstChoice = choices?.FirstOrDefault() as JObject;
-            var usage = response["usage"] as JObject;
-
-            var metrics = new AIMetrics
-            {
-                Provider = this.Name,
-                FinishReason = firstChoice?["finish_reason"]?.ToString() ?? string.Empty,
-                InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? 0,
-                OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? 0,
-            };
-
-            return metrics;
+            return this.DecodeOpenAICompatibleMetrics(response) with { Provider = this.Name };
         }
 
         /// <inheritdoc/>

@@ -234,20 +234,19 @@ namespace SmartHopper.Providers.LocalAI
                     bool hasFinish = !string.IsNullOrEmpty(finishReason);
                     if (hasFinish) finalFinishReason = finishReason;
 
-                    var usage = parsed["usage"] as JObject;
-                    if (usage != null)
+                    var usageMetrics = this.DecodeOpenAICompatibleMetrics(parsed);
+                    if (usageMetrics.InputTokensPrompt > 0
+                        || usageMetrics.InputTokensCached > 0
+                        || usageMetrics.OutputTokensGeneration > 0
+                        || usageMetrics.OutputTokensReasoning > 0)
                     {
-                        var pt = usage["prompt_tokens"]?.Value<int?>();
-                        var ct = usage["completion_tokens"]?.Value<int?>();
-                        if (pt.HasValue) promptTokens = pt.Value;
-                        if (ct.HasValue) completionTokens = ct.Value;
+                        promptTokens = usageMetrics.InputTokensPrompt + usageMetrics.InputTokensCached;
+                        completionTokens = usageMetrics.OutputTokensGeneration;
 
-                        assistantAggregate.CombineMetrics(new AIMetrics
+                        assistantAggregate.CombineMetrics(usageMetrics with
                         {
                             Provider = this.Provider.Name,
                             Model = request.Model,
-                            InputTokensPrompt = pt ?? 0,
-                            OutputTokensGeneration = ct ?? 0,
                         });
                     }
 
