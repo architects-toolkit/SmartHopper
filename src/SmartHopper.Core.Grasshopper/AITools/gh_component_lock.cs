@@ -32,7 +32,7 @@ using SmartHopper.ProviderSdk.Diagnostics;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
-    /// Tool provider for toggling Grasshopper component preview by GUID.
+    /// Tool provider for locking (disabling) and unlocking (enabling) Grasshopper components by GUID.
     /// </summary>
     public class gh_component_toggle_lock : IAIToolProvider
     {
@@ -42,7 +42,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private readonly string toolName = "gh_component_toggle_lock";
 
         /// <summary>
-        /// Returns AI tools for component visibility control.
+        /// Returns AI tools for component lock-state control.
         /// </summary>
         /// <returns></returns>
         public IEnumerable<AITool> GetTools()
