@@ -1177,7 +1177,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-image-2.5-flare-2026-09-08",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9700,
@@ -1188,7 +1188,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-image-2.5-sunburst-2026-09-08",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9695,
@@ -1199,7 +1199,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-live-1",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9690,
