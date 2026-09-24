@@ -764,12 +764,9 @@ namespace SmartHopper.Providers.MistralAI
                     }
 
                     // Capture usage metrics if present (Mistral returns usage in the last chunk)
-                    var usageMetrics = this.provider.DecodeOpenAICompatibleMetrics(parsed);
-                    if (usageMetrics.InputTokensPrompt > 0
-                        || usageMetrics.InputTokensCached > 0
-                        || usageMetrics.OutputTokensGeneration > 0
-                        || usageMetrics.OutputTokensReasoning > 0)
+                    if (parsed["usage"] is JObject)
                     {
+                        var usageMetrics = this.provider.DecodeOpenAICompatibleMetrics(parsed);
                         streamMetrics = streamMetrics with
                         {
                             InputTokensPrompt = usageMetrics.InputTokensPrompt,

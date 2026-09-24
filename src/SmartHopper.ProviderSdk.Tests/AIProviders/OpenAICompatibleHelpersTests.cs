@@ -20,6 +20,7 @@ namespace SmartHopper.ProviderSdk.Tests.AIProviders
 {
     using Newtonsoft.Json.Linq;
     using SmartHopper.ProviderSdk.AICall.Core.Requests;
+    using SmartHopper.ProviderSdk.AICall.JsonSchemas;
     using SmartHopper.ProviderSdk.AICall.Metrics;
     using SmartHopper.ProviderSdk.Tests.TestHelpers;
     using Xunit;
@@ -75,6 +76,46 @@ namespace SmartHopper.ProviderSdk.Tests.AIProviders
             Assert.Same(tools, requestBody["tools"]);
             Assert.Equal("function", requestBody["tool_choice"]?["type"]?.ToString());
             Assert.Equal("lookup", requestBody["tool_choice"]?["function"]?["name"]?.ToString());
+        }
+
+        /// <summary>
+        /// The shared schema wrapper returns the transformed schema and stores matching wrapper metadata.
+        /// </summary>
+        [Fact]
+        public void TryWrapJsonSchema_ValidSchema_ReturnsWrappedSchemaAndStoresWrapperInfo()
+        {
+            var provider = new FakeOpenAICompatibleProvider();
+            var schema = "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}}}";
+
+            var result = provider.TryWrapCompatibleJsonSchema(schema, out var wrappedSchema, out var wrapperInfo);
+
+            Assert.True(result);
+            Assert.NotNull(wrappedSchema);
+            Assert.Equal(FakeOpenAICompatibleProvider.ProviderName, wrapperInfo.ProviderName);
+
+            var currentWrapperInfo = JsonSchemaService.Instance.GetCurrentWrapperInfo();
+            Assert.NotNull(currentWrapperInfo);
+            Assert.Equal(wrapperInfo.IsWrapped, currentWrapperInfo.IsWrapped);
+            Assert.Equal(wrapperInfo.ProviderName, currentWrapperInfo.ProviderName);
+        }
+
+        /// <summary>
+        /// The shared schema wrapper rejects invalid JSON and resets wrapper metadata.
+        /// </summary>
+        [Fact]
+        public void TryWrapJsonSchema_InvalidJson_ReturnsFalseAndResetsWrapperInfo()
+        {
+            var provider = new FakeOpenAICompatibleProvider();
+
+            var result = provider.TryWrapCompatibleJsonSchema("{not json", out var wrappedSchema, out var wrapperInfo);
+
+            Assert.False(result);
+            Assert.Null(wrappedSchema);
+            Assert.False(wrapperInfo.IsWrapped);
+
+            var currentWrapperInfo = JsonSchemaService.Instance.GetCurrentWrapperInfo();
+            Assert.NotNull(currentWrapperInfo);
+            Assert.False(currentWrapperInfo.IsWrapped);
         }
     }
 }
