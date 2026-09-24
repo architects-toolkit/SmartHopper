@@ -522,7 +522,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
 
             var withData = new AIInteractionImage().WithVisionInputFromBase64("data");
 
-            Assert.Equal("![generated image](data:image/png;base64,data)", withData.GetRawContentForRender());
+            Assert.Equal("![image](data:image/png;base64,data)", withData.GetRawContentForRender());
 
             var neither = new AIInteractionImage().WithRequest("a cat");
 
