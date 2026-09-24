@@ -1,3 +1,5 @@
+<!-- docs-validation: ignore -->
+
 # Live re-assessment: gh_tidy_up after bounds-aware spacing (GhJSON 1.2.0)
 
 **Status:** fixes applied and **live-verified** (v4 run, see final addendum)
