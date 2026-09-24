@@ -104,6 +104,7 @@ namespace SmartHopper.Components.Grasshopper
             // Output data
             private bool success;
             private string conflictsSummary = string.Empty;
+            private GH_Document removalUndoDocument;
             private int? removalUndoBaseline;
             private bool placementCommitted;
             private int componentsAdded;
@@ -255,8 +256,10 @@ namespace SmartHopper.Components.Grasshopper
                     }
 
                     // 3. Delete removed components from canvas.
-                    // Removals and placement are reviewed separately, so capture an undo baseline
-                    // before removals and roll back unless placement fully commits (see finally).
+                    // Removals and placement are reviewed separately, so capture the document and
+                    // undo baseline before removals and roll back only the removal record unless
+                    // placement fully commits (see finally).
+                    this.removalUndoDocument = null;
                     this.removalUndoBaseline = null;
                     this.placementCommitted = false;
                     if (this.componentsRemoved > 0)
@@ -273,11 +276,12 @@ namespace SmartHopper.Components.Grasshopper
                                 },
                                 Agent = AIAgent.Assistant,
                             };
-                            this.removalUndoBaseline = await GetUndoCountAsync().ConfigureAwait(false);
+                            (this.removalUndoDocument, this.removalUndoBaseline) = await GetUndoBaselineAsync().ConfigureAwait(false);
                             var removeCall = this.CreateComponentMutationCall(removeInteraction);
                             var removeResult = await removeCall.Exec(token).ConfigureAwait(false);
                             if (!removeResult.Success)
                             {
+                                this.success = false;
                                 this.CollectMessage(SHRuntimeMessageSeverity.Warning, "Reviewed component removals did not complete successfully.");
                                 return;
                             }
@@ -286,14 +290,31 @@ namespace SmartHopper.Components.Grasshopper
                             var removedCount = removalPayload?["removedGuids"]?.Count() ?? 0;
                             if (removedCount != removedGuids.Count)
                             {
+                                this.success = false;
                                 this.CollectMessage(SHRuntimeMessageSeverity.Info, "Patch application stopped because not all removals were accepted.");
                                 return;
                             }
                         }
                     }
 
-                    // 4. Call gh_put to place modified/added components
+                    // 4. Call gh_put to place modified/added components.
+                    // A removal-only patch leaves nothing to place; gh_put reports zero accepted
+                    // changes for an empty document, which would wrongly roll back approved removals.
+                    var hasPlacementChanges = false;
                     if (!string.IsNullOrEmpty(resultJson))
+                    {
+                        try
+                        {
+                            hasPlacementChanges = (GhJson.FromJson(resultJson)?.Components?.Count ?? 0) > 0;
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[GhPatchApplyToCanvas] Failed to inspect patched document: {ex.Message}");
+                            hasPlacementChanges = true;
+                        }
+                    }
+
+                    if (hasPlacementChanges)
                     {
                         this.progressReporter?.Invoke("Updating canvas...");
 
@@ -315,6 +336,7 @@ namespace SmartHopper.Components.Grasshopper
 
                         if (!putAiResult.Success)
                         {
+                            this.success = false;
                             this.CollectMessage(SHRuntimeMessageSeverity.Warning, "gh_put did not complete successfully after patch apply");
                             return;
                         }
@@ -324,6 +346,7 @@ namespace SmartHopper.Components.Grasshopper
                         var rejectedChanges = putPayload?["rejectedChanges"]?.ToObject<int>() ?? 0;
                         if (rejectedChanges > 0 || acceptedChanges == 0)
                         {
+                            this.success = false;
                             this.CollectMessage(SHRuntimeMessageSeverity.Info, "Patch application stopped because not all placement changes were accepted.");
                             return;
                         }
@@ -344,7 +367,9 @@ namespace SmartHopper.Components.Grasshopper
                 {
                     if (this.removalUndoBaseline.HasValue && !this.placementCommitted)
                     {
-                        var rolledBack = await RollbackToUndoCountAsync(this.removalUndoBaseline.Value).ConfigureAwait(false);
+                        var rolledBack = await RollbackRemovalAsync(
+                            this.removalUndoDocument,
+                            this.removalUndoBaseline.Value).ConfigureAwait(false);
                         this.CollectMessage(
                             rolledBack ? SHRuntimeMessageSeverity.Info : SHRuntimeMessageSeverity.Warning,
                             rolledBack
@@ -354,14 +379,15 @@ namespace SmartHopper.Components.Grasshopper
                 }
             }
 
-            private static Task<int> GetUndoCountAsync()
+            private static Task<(GH_Document Document, int UndoCount)> GetUndoBaselineAsync()
             {
-                var completion = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var completion = new TaskCompletionSource<(GH_Document, int)>(TaskCreationOptions.RunContinuationsAsynchronously);
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
                     try
                     {
-                        completion.TrySetResult(GhJsonGrasshopper.GetActiveDocument()?.UndoServer.UndoCount ?? 0);
+                        var doc = GhJsonGrasshopper.GetActiveDocument();
+                        completion.TrySetResult((doc, doc?.UndoServer.UndoCount ?? 0));
                     }
                     catch (Exception ex)
                     {
@@ -371,33 +397,33 @@ namespace SmartHopper.Components.Grasshopper
                 return completion.Task;
             }
 
-            private static Task<bool> RollbackToUndoCountAsync(int baseline)
+            // The mutation coordinator merges each tool call into a single undo record, so an
+            // accepted removal leaves exactly one record after the baseline. Roll back only when
+            // that is still the only new record on the captured document; unrelated records mean
+            // the canvas changed in between and automatic rollback would erase other edits.
+            private static Task<bool> RollbackRemovalAsync(GH_Document document, int baseline)
             {
                 var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
                     try
                     {
-                        var doc = GhJsonGrasshopper.GetActiveDocument();
-                        if (doc == null)
+                        if (document == null)
                         {
                             completion.TrySetResult(false);
                             return;
                         }
 
-                        while (doc.UndoServer.UndoCount > baseline)
+                        if (document.UndoServer.UndoCount != baseline + 1)
                         {
-                            var before = doc.UndoServer.UndoCount;
-                            doc.UndoServer.PerformUndo();
-                            if (doc.UndoServer.UndoCount >= before)
-                            {
-                                completion.TrySetResult(false);
-                                return;
-                            }
+                            Debug.WriteLine("[GhPatchApplyToCanvas] Rollback skipped: canvas changed after the reviewed removal.");
+                            completion.TrySetResult(false);
+                            return;
                         }
 
-                        doc.NewSolution(false);
-                        completion.TrySetResult(true);
+                        document.UndoServer.PerformUndo();
+                        document.NewSolution(false);
+                        completion.TrySetResult(document.UndoServer.UndoCount == baseline);
                     }
                     catch (Exception ex)
                     {

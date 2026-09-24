@@ -941,6 +941,8 @@ namespace SmartHopper.Core.UI.Chat
 
                         prevKey = key;
                     }
+
+                    this.ReplayTaskPlans();
                 });
             }
             catch (Exception ex)

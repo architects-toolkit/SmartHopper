@@ -379,7 +379,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var review = CanvasChangeReviewService.CreateComponentStateSession(
                     toolName,
                     new[] { scriptGuid },
-                    $"Apply script parameter operation: {toolName}");
+                    $"Apply script parameter operation: {toolName}",
+                    guid => CanvasChangeReviewService.DescribeParameterChange(guid, args, toolName));
                 var approved = await CanvasChangeReviewService.ReviewAsync(
                     review,
                     toolCall.InvocationContext,
@@ -402,6 +403,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     try
                     {
+                        toolCall.CancellationToken.ThrowIfCancellationRequested();
                         string message = operation(args);
                         Debug.WriteLine($"[{toolName}] {message}");
                         var body = AIBodyBuilder.Create()
@@ -419,7 +421,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         tcs.SetException(ex);
                     }
                 });
-                return await tcs.Task;
+                return await tcs.Task
+                    .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

@@ -24,6 +24,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using GhJSON.Core.SchemaModels;
 using GhJSON.Grasshopper;
+using Grasshopper.Kernel;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Consent;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
@@ -317,7 +319,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         public static CanvasChangeReviewSession CreateComponentStateSession(
             string source,
             IEnumerable<Guid> instanceGuids,
-            string detail)
+            string detail,
+            Func<Guid, string>? describeChange = null)
         {
             var document = GhJsonGrasshopper.GetByGuids(instanceGuids);
             var items = document.Components
@@ -326,7 +329,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     $"state:{component.InstanceGuid}",
                     CanvasChangeKind.ComponentModified,
                     component.NickName ?? component.Name ?? "Component",
-                    detail)
+                    describeChange?.Invoke(component.InstanceGuid!.Value) ?? detail)
                 {
                     ComponentId = component.Id,
                     ExistingInstanceGuid = component.InstanceGuid,
@@ -337,6 +340,61 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 source,
                 document,
                 items);
+        }
+
+        /// <summary>
+        /// Describes a requested parameter change as "current -> requested" for review items.
+        /// Resolves the live component so the target parameter's current name/value is shown
+        /// instead of only the unchanged component preview.
+        /// </summary>
+        /// <param name="instanceGuid">Live component instance GUID.</param>
+        /// <param name="args">Tool arguments (component/script GUID keys are omitted).</param>
+        /// <param name="operation">Tool operation name.</param>
+        /// <returns>Human-readable before/after description.</returns>
+        public static string DescribeParameterChange(Guid instanceGuid, JObject args, string operation)
+        {
+            var requested = string.Join(
+                ", ",
+                (args ?? new JObject()).Properties()
+                    .Where(p => p.Name != "componentGuid" && p.Name != "scriptGuid")
+                    .Select(p => $"{p.Name}={p.Value}"));
+
+            string? current = null;
+            try
+            {
+                if (CanvasAccess.FindInstance(instanceGuid) is IGH_Component component)
+                {
+                    if (args?["parameterIndex"]?.ToObject<int?>() is int parameterIndex)
+                    {
+                        var isInput = args["isInput"]?.ToObject<bool?>() ?? true;
+                        var parameters = isInput ? component.Params.Input : component.Params.Output;
+                        current = parameterIndex >= 0 && parameterIndex < parameters.Count
+                            ? $"{(isInput ? "input" : "output")} '{parameters[parameterIndex].Name}'"
+                            : $"{(isInput ? "input" : "output")} index {parameterIndex} (out of range)";
+                    }
+                    else if (args?["index"]?.ToObject<int?>() is int index)
+                    {
+                        var input = component.Params.Input.ElementAtOrDefault(index);
+                        var output = component.Params.Output.ElementAtOrDefault(index);
+                        var param = input ?? output;
+                        current = param != null
+                            ? $"parameter '{param.Name}'"
+                            : $"parameter index {index} (out of range)";
+                    }
+                    else
+                    {
+                        current = $"'{component.NickName}'";
+                    }
+                }
+            }
+            catch
+            {
+                current = null;
+            }
+
+            return string.IsNullOrEmpty(requested)
+                ? (current == null ? operation : $"{operation}: {current}")
+                : (current == null ? $"{operation} -> {requested}" : $"{operation}: {current} -> {requested}");
         }
 
         private static GhJsonComponent CopyWithPivot(GhJsonComponent component, GhJsonPivot pivot)

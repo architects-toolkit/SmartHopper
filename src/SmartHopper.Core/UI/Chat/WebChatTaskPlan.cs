@@ -16,6 +16,7 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,10 @@ namespace SmartHopper.Core.UI.Chat
 {
     internal partial class WebChatDialog
     {
+        // Latest snapshot per plan id. plan_tasks snapshots are full-state, so the stored
+        // payload can be re-rendered after a WebView reset without replaying old updates.
+        private readonly Dictionary<string, object> _latestTaskPlans = new Dictionary<string, object>();
+
         private static string ToJsStatus(TaskPlanStatus status)
         {
             return status switch
@@ -57,6 +62,8 @@ namespace SmartHopper.Core.UI.Chat
                 }),
             };
 
+            this._latestTaskPlans[plan.Id] = payload;
+
             this.RunWhenWebViewReady(() =>
             {
                 if (!cancellationToken.IsCancellationRequested)
@@ -66,6 +73,18 @@ namespace SmartHopper.Core.UI.Chat
             });
 
             return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Re-renders the latest snapshot of every known task plan. Called after a full
+        /// history replay because <c>resetMessages()</c> removes previously rendered cards.
+        /// </summary>
+        private void ReplayTaskPlans()
+        {
+            foreach (var payload in this._latestTaskPlans.Values)
+            {
+                this.ExecuteScript($"updateTaskPlan({JsonConvert.SerializeObject(payload)});");
+            }
         }
 
         private sealed class WebChatTaskPlanPresenter : ITaskPlanPresenter
