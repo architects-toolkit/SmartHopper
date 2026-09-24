@@ -238,6 +238,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         try
                         {
+                            toolCall.CancellationToken.ThrowIfCancellationRequested();
                             doc.NewSolution(false);
                             Instances.RedrawCanvas();
                             solutionTcs.SetResult(true);
@@ -248,7 +249,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     });
 
-                    await solutionTcs.Task.ConfigureAwait(false);
+                    await solutionTcs.Task
+                        .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
                 }
 
                 var toolResult = new JObject

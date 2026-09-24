@@ -94,19 +94,25 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var registeredTools = AIToolManager.GetTools();
                 var steps = new List<PlanConsentStep>();
                 var ids = new HashSet<string>(StringComparer.Ordinal);
-                foreach (var token in stepsToken.OfType<JObject>())
+                foreach (var token in stepsToken)
                 {
-                    var id = ReadBounded(token, "id", required: true);
+                    if (token is not JObject step)
+                    {
+                        throw new ArgumentException("Every plan step must be a JSON object.");
+                    }
+
+                    var id = ReadBounded(step, "id", required: true);
                     if (!ids.Add(id))
                     {
                         throw new ArgumentException($"Duplicate plan step id '{id}'.");
                     }
 
-                    var toolName = ReadBounded(token, "tool", required: false);
+                    var toolName = ReadBounded(step, "tool", required: false);
                     AITool? registeredTool = null;
                     if (!string.IsNullOrWhiteSpace(toolName))
                     {
                         if (!registeredTools.TryGetValue(toolName, out registeredTool) ||
+                            !registeredTool.Enabled ||
                             (registeredTool.Surfaces & AIToolSurface.Chat) == 0)
                         {
                             throw new ArgumentException($"Plan step '{id}' references unavailable Chat tool '{toolName}'.");
@@ -116,7 +122,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     steps.Add(new PlanConsentStep
                     {
                         Id = id,
-                        Description = ReadBounded(token, "description", required: true),
+                        Description = ReadBounded(step, "description", required: true),
                         Tool = string.IsNullOrWhiteSpace(toolName) ? null : toolName,
                         MutatesCanvas = registeredTool?.MutatesCanvas == true,
                     });

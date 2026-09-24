@@ -222,6 +222,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     try
                     {
+                        toolCall.CancellationToken.ThrowIfCancellationRequested();
                         var ghDoc = GhJsonGrasshopper.GetActiveDocument();
 
                         // Remove existing components that will be replaced
@@ -351,7 +352,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         placeTcs.SetException(ex);
                     }
                 });
-                await placeTcs.Task.ConfigureAwait(false);
+                await placeTcs.Task
+                    .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
 
                 Debug.WriteLine("[gh_put] Placement complete");
 

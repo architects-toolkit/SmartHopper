@@ -159,6 +159,26 @@ namespace SmartHopper.Infrastructure.AICall.Tools
                 var execTask = AIToolManager.ExecuteTool(this);
                 try
                 {
+                    // Bound the wait as well as cancelling the tool: tools that ignore
+                    // CancellationToken must not keep the caller pending past the deadline.
+                    var completed = await Task.WhenAny(
+                        execTask,
+                        Task.Delay(Timeout.InfiniteTimeSpan, linkedCts.Token)).ConfigureAwait(false);
+                    if (completed != execTask)
+                    {
+                        var failed = new AIReturn();
+                        if (timeoutCts.IsCancellationRequested)
+                        {
+                            failed.CreateToolError($"Tool execution exceeded {clampedTimeout} seconds", this);
+                        }
+                        else
+                        {
+                            failed.CreateToolError("Tool execution cancelled or timed out", this);
+                        }
+
+                        return failed;
+                    }
+
                     var result = await execTask.ConfigureAwait(false);
                     if (result == null)
                     {

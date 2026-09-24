@@ -193,6 +193,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     try
                     {
+                        toolCall.CancellationToken.ThrowIfCancellationRequested();
+
                         // Parse color if provided
                         var groupColor = System.Drawing.Color.Empty;
                         if (!string.IsNullOrEmpty(colorStr))
@@ -263,7 +265,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 });
 
-                return await tcs.Task.ConfigureAwait(false);
+                return await tcs.Task
+                    .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

@@ -176,6 +176,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     try
                     {
+                        toolCall.CancellationToken.ThrowIfCancellationRequested();
                         var successfulConnections = new List<JObject>();
                         for (var index = 0; index < proposals.Count; index++)
                         {
@@ -229,7 +230,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 });
 
-                var successfulConnections = await connectTcs.Task.ConfigureAwait(false);
+                var successfulConnections = await connectTcs.Task
+                    .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
 
                 var toolResult = new JObject
                 {
