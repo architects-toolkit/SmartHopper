@@ -1026,12 +1026,9 @@ namespace SmartHopper.Providers.DeepSeek
                     }
 
                     // Usage metrics (may be present in final chunk)
-                    var usageMetrics = this.provider.DecodeOpenAICompatibleMetrics(parsed);
-                    if (usageMetrics.InputTokensPrompt > 0
-                        || usageMetrics.InputTokensCached > 0
-                        || usageMetrics.OutputTokensGeneration > 0
-                        || usageMetrics.OutputTokensReasoning > 0)
+                    if (parsed["usage"] is JObject)
                     {
+                        var usageMetrics = this.provider.DecodeOpenAICompatibleMetrics(parsed);
                         promptTokens = usageMetrics.InputTokensPrompt + usageMetrics.InputTokensCached;
                         completionTokens = usageMetrics.OutputTokensGeneration;
 
