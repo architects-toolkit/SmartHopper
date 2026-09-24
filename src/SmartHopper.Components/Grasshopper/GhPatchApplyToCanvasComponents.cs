@@ -104,6 +104,8 @@ namespace SmartHopper.Components.Grasshopper
             // Output data
             private bool success;
             private string conflictsSummary = string.Empty;
+            private int? removalUndoBaseline;
+            private bool placementCommitted;
             private int componentsAdded;
             private int componentsRemoved;
             private int componentsModified;
@@ -252,7 +254,11 @@ namespace SmartHopper.Components.Grasshopper
                         this.CollectMessage(SHRuntimeMessageSeverity.Info, $"{conflictsArray.Count} non-fatal conflict(s)");
                     }
 
-                    // 3. Delete removed components from canvas
+                    // 3. Delete removed components from canvas.
+                    // Removals and placement are reviewed separately, so capture an undo baseline
+                    // before removals and roll back unless placement fully commits (see finally).
+                    this.removalUndoBaseline = null;
+                    this.placementCommitted = false;
                     if (this.componentsRemoved > 0)
                     {
                         var removedGuids = ExtractRemovedGuids(baseDoc, resultJson);
@@ -267,6 +273,7 @@ namespace SmartHopper.Components.Grasshopper
                                 },
                                 Agent = AIAgent.Assistant,
                             };
+                            this.removalUndoBaseline = await GetUndoCountAsync().ConfigureAwait(false);
                             var removeCall = this.CreateComponentMutationCall(removeInteraction);
                             var removeResult = await removeCall.Exec(token).ConfigureAwait(false);
                             if (!removeResult.Success)
@@ -309,8 +316,20 @@ namespace SmartHopper.Components.Grasshopper
                         if (!putAiResult.Success)
                         {
                             this.CollectMessage(SHRuntimeMessageSeverity.Warning, "gh_put did not complete successfully after patch apply");
+                            return;
+                        }
+
+                        var putPayload = ToolCallResult.FromAIReturn(putAiResult);
+                        var acceptedChanges = putPayload?["acceptedChanges"]?.ToObject<int>() ?? 0;
+                        var rejectedChanges = putPayload?["rejectedChanges"]?.ToObject<int>() ?? 0;
+                        if (rejectedChanges > 0 || acceptedChanges == 0)
+                        {
+                            this.CollectMessage(SHRuntimeMessageSeverity.Info, "Patch application stopped because not all placement changes were accepted.");
+                            return;
                         }
                     }
+
+                    this.placementCommitted = true;
                 }
                 catch (OperationCanceledException)
                 {
@@ -321,6 +340,72 @@ namespace SmartHopper.Components.Grasshopper
                     Debug.WriteLine($"[GhPatchApplyToCanvas] Error: {ex.Message}");
                     this.error = ex.Message;
                 }
+                finally
+                {
+                    if (this.removalUndoBaseline.HasValue && !this.placementCommitted)
+                    {
+                        var rolledBack = await RollbackToUndoCountAsync(this.removalUndoBaseline.Value).ConfigureAwait(false);
+                        this.CollectMessage(
+                            rolledBack ? SHRuntimeMessageSeverity.Info : SHRuntimeMessageSeverity.Warning,
+                            rolledBack
+                                ? "Reviewed removals were rolled back because the patch was not fully applied."
+                                : "Reviewed removals could not be rolled back automatically; use Undo to restore them.");
+                    }
+                }
+            }
+
+            private static Task<int> GetUndoCountAsync()
+            {
+                var completion = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                {
+                    try
+                    {
+                        completion.TrySetResult(GhJsonGrasshopper.GetActiveDocument()?.UndoServer.UndoCount ?? 0);
+                    }
+                    catch (Exception ex)
+                    {
+                        completion.TrySetException(ex);
+                    }
+                });
+                return completion.Task;
+            }
+
+            private static Task<bool> RollbackToUndoCountAsync(int baseline)
+            {
+                var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                {
+                    try
+                    {
+                        var doc = GhJsonGrasshopper.GetActiveDocument();
+                        if (doc == null)
+                        {
+                            completion.TrySetResult(false);
+                            return;
+                        }
+
+                        while (doc.UndoServer.UndoCount > baseline)
+                        {
+                            var before = doc.UndoServer.UndoCount;
+                            doc.UndoServer.PerformUndo();
+                            if (doc.UndoServer.UndoCount >= before)
+                            {
+                                completion.TrySetResult(false);
+                                return;
+                            }
+                        }
+
+                        doc.NewSolution(false);
+                        completion.TrySetResult(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[GhPatchApplyToCanvas] Rollback failed: {ex.Message}");
+                        completion.TrySetResult(false);
+                    }
+                });
+                return completion.Task;
             }
 
             private AIToolCall CreateComponentMutationCall(AIInteractionToolCall interaction)
