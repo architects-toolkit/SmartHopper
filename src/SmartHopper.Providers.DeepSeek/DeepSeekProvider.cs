@@ -1030,7 +1030,7 @@ namespace SmartHopper.Providers.DeepSeek
                     {
                         var usageMetrics = this.provider.DecodeOpenAICompatibleMetrics(parsed);
                         promptTokens = usageMetrics.InputTokensPrompt + usageMetrics.InputTokensCached;
-                        completionTokens = usageMetrics.OutputTokensGeneration;
+                        completionTokens = usageMetrics.OutputTokens;
 
                         // Update aggregate metrics
                         assistantBuilder.CombineMetrics(usageMetrics with

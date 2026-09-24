@@ -67,9 +67,11 @@ namespace SmartHopper.ProviderSdk.AIProviders
 
         /// <summary>
         /// Decodes token usage fields shared by OpenAI-compatible APIs.
+        /// OpenAI-compatible APIs report reasoning tokens as a breakdown of completion/output
+        /// tokens, so generation tokens are returned net of reasoning tokens.
         /// </summary>
         /// <param name="response">The provider response.</param>
-        /// <returns>Normalized token usage and finish reason metrics.</returns>
+        /// <returns>Normalized token usage and finish reason metrics, with generation tokens net of reasoning tokens.</returns>
         protected internal AIMetrics DecodeOpenAICompatibleMetrics(JObject response)
         {
             if (response == null)
@@ -88,7 +90,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 var inputTokensCached = promptDetails?["cached_tokens"]?.Value<int>()
                     ?? inputDetails?["cached_tokens"]?.Value<int>()
                     ?? 0;
-                var outputTokensGeneration = usage?["completion_tokens"]?.Value<int>()
+                var totalOutputTokens = usage?["completion_tokens"]?.Value<int>()
                     ?? usage?["output_tokens"]?.Value<int>()
                     ?? 0;
                 var completionDetails = usage?["completion_tokens_details"] as JObject;
@@ -103,7 +105,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 {
                     InputTokensCached = inputTokensCached,
                     InputTokensPrompt = totalPromptTokens - inputTokensCached,
-                    OutputTokensGeneration = outputTokensGeneration,
+                    OutputTokensGeneration = Math.Max(0, totalOutputTokens - outputTokensReasoning),
                     OutputTokensReasoning = outputTokensReasoning,
                     FinishReason = firstChoice?["finish_reason"]?.ToString(),
                 };

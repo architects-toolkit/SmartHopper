@@ -66,6 +66,7 @@ Offer a template-method style pipeline for providers: register models, load sett
   - Provides `Instance` for providers that prefer a static singleton access pattern.
 - OpenAI-compatible generic variant `OpenAICompatibleProvider<T>`
   - Extends `AIProvider<T>` with shared tool-choice, token metrics, and JSON-schema wrapping helpers.
+  - `DecodeOpenAICompatibleMetrics` returns `OutputTokensGeneration` net of `OutputTokensReasoning`, because OpenAI-compatible APIs report `reasoning_tokens` as a subset of `completion_tokens`/`output_tokens`; `AIMetrics.OutputTokens` sums both.
 
 ### Extending
 

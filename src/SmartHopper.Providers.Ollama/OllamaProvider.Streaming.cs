@@ -241,7 +241,7 @@ namespace SmartHopper.Providers.Ollama
                     {
                         var usageMetrics = this.provider.DecodeOpenAICompatibleMetrics(parsed);
                         promptTokens = usageMetrics.InputTokensPrompt + usageMetrics.InputTokensCached;
-                        completionTokens = usageMetrics.OutputTokensGeneration;
+                        completionTokens = usageMetrics.OutputTokens;
 
                         assistantAggregate.CombineMetrics(usageMetrics with
                         {
