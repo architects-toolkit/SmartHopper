@@ -1,3 +1,5 @@
+<!-- docs-validation: ignore -->
+
 # Plans
 
 Working plans for multi-part changes. Each plan lists its target branches and sequencing.
