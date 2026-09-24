@@ -40,8 +40,8 @@ var session = new ConversationSession(req);
 var options = new SessionOptions
 {
     ProcessTools = true,
-    MaxTurns = 3,
-    MaxToolPasses = 2,
+    MaxAutonomousTime = TimeSpan.FromMinutes(3),
+    MaxAutonomousTokens = 50_000,
 };
 var result = await session.RunToStableResult(options);
 
@@ -118,10 +118,14 @@ var greeting = await session.ExecuteSpecialTurnAsync(
   - `OnError(Exception error)`
 - `SessionOptions`
   - `ProcessTools` (bool): process pending tool calls in the result. When `false`, tools are also hidden from the provider for the whole run (tool filter `-*`, original filter restored afterwards) so the model cannot emit tool calls that would never receive a result.
-  - `MaxTurns`, `MaxToolPasses`, `AllowParallelTools` (reserved for future phases)
+  - `MaxAutonomousTime` (`TimeSpan`, default 10 min): wall-clock budget for a whole run, measured from run start across provider turns and tool passes. `<= 0` disables it.
+  - `MaxAutonomousTokens` (`long`, default 300 000): total provider-reported tokens (input + output) a run may consume. `<= 0` disables it.
+  - `AllowParallelTools` (reserved for future phases)
   - `CancellationToken`
 - `ConversationSession`
-  - Orchestrates provider calls via `AIRequestCall.Exec()` for non-streaming and via provider streaming adapters for streaming, runs bounded turns/tool passes, and forwards lifecycle events to `IConversationObserver`.
+  - Orchestrates provider calls via `AIRequestCall.Exec()` for non-streaming and via provider streaming adapters for streaming, runs turns/tool passes bounded by the autonomy budgets, and forwards lifecycle events to `IConversationObserver`.
+  - `GetAutonomyUsage()` returns an `AutonomyUsage` snapshot (`ElapsedSeconds`/`MaxSeconds`, `Tokens`/`MaxTokens`, `Interactions`, `IsRunning`, `IsExhausted`) for live UI reporting. `Interactions` counts the history entries the run itself produced (history count delta since `BeginAutonomyRun`), and WebChat only paints the autonomy overlay once a run reaches 10 interactions or 15 s elapsed — unless a budget was exhausted — so short-lived runs never flash metrics.
+  - `ExtendAutonomyLimits()` tops up a running session's budgets live: each call adds half of the configured `MaxAutonomousTime`/`MaxAutonomousTokens` into `Interlocked`-backed extension counters that `TryGetAutonomyExhaustion` and `GetAutonomyUsage` apply on top of the configured maxima. It returns `false` when no run is active or a budget is already exhausted, and leaves unlimited budgets unchanged.
   - Tool execution
     - Pending tool calls (`AIInteractionToolCall`) are executed via the Tool Manager during tool passes.
     - For executing exactly one pending tool call directly, see `AIToolCall` in `src/SmartHopper.Infrastructure/AICall/Tools/AIToolCall.cs` and the Tools docs.
@@ -141,7 +145,7 @@ START["Start (RunToStableResult | Stream)"] --> G{"Pending greeting?<br/>generat
 G -->|"yes & EnableAIGreeting"| GE["GenerateGreetingAsync → GreetingSpecialTurn<br/>(tools disabled via filter \"-*\"; yields greeting and ends the run)"]
 G -->|"no / greeting disabled"| VAL{"Validate (wantsStreaming?)"}
 VAL -->|invalid| ERR["Emit/Return error"]
-VAL -->|valid| T{"turns < MaxTurns"}
+VAL -->|valid| T{"autonomy budget remaining?<br/>(MaxAutonomousTime / MaxAutonomousTokens)"}
 
 %% Per-turn processing
 T --> PEND{"ProcessTools && PendingToolCalls > 0"}
@@ -156,9 +160,9 @@ SINGLE --> PERSIST["Persist provider result"]
 
 PERSIST --> STABLE{"Stable (no pending tool calls)?"}
 STABLE -->|yes| FINAL["NotifyFinal; yield/return final"]
-STABLE -->|no| INC["turn++"] --> T
+STABLE -->|no| INC["next turn"] --> T
 
-T -->|exceeded| MAX["Max turns reached → error final"]
+T -->|exhausted| MAX["Budget exhausted → reconcile pending calls; final/error"]
 
 ```
 
@@ -170,4 +174,5 @@ Notes:
 - Persistence semantics: streaming deltas are persisted into history as they arrive, strictly preserving provider order. At stream end, only the "last return" snapshot is updated (no grouping or reordering).
 - **Duplicate prevention**: Tool calls are checked for existence by ID before persisting during streaming to prevent duplicate tool call interactions that would cause API validation errors.
 - **TurnId ownership**: the session, not the provider, owns turn identifiers. Every provider turn allocates one `turnId`, and all interactions produced during that turn (text, tool calls, tool results, streaming deltas) are stamped with it via `InteractionUtility.EnsureTurnId`, which **overwrites** any value already present. This is required because provider results are built through `AIReturn.SetBody(...)` → `AIBodyBuilder.Build()`, which assigns a random `TurnId` to every interaction lacking one; treating that value as authoritative would put each delta in its own turn (observers key UI messages by `TurnId`, so this manifests as one bubble per streaming chunk). Special-turn persistence applies the same rule to greeting/summary results. Pre-existing history is never re-stamped.
-- **Tool-call history integrity**: OpenAI-compatible chat APIs reject an assistant `tool_calls` message that is not immediately followed by one `tool` message per call id, so the session — not the providers — guarantees that history never carries a pending tool call into a provider request. `ReconcilePendingToolCalls` appends a synthetic failed `AIInteractionToolResult` (`{ success: false, cancelled: true, messages: [reason] }`, same shape as a failed tool execution) for every pending call: (1) in `HandleAndNotifyError` when a turn is aborted by cancellation, timeout or exception; (2) when `ProcessPendingToolsAsync` exhausts `MaxToolPasses`; (3) when the turn loop exits on `MaxTurns`; and (4) as a safety net at the start of every turn, which also covers externally supplied history. Stale calls found at turn start are closed, not executed — the user has moved on since the run that produced them. Providers therefore must not sanitize tool sequences themselves; a provider-side 400 in this area indicates a session bug.
+- **Autonomy budgets**: token usage is telemetry of a *provider call*, not of a persisted message. Each run maintains a usage ledger (`_runTokensEffective`) that meters every completed provider call exactly once at two choke points — `ExecProviderAsync` (non-streaming) and `ProcessStreamingDeltasAsync` (streaming, taking the last delta that carries metrics). Special turns (greeting, context summarization) run on isolated requests and never touch the ledger. When a call reports no `AIMetrics`, the session falls back to the heuristic estimate (`AIBodyExtensions.EstimateTokensFromInteractions`: sent body → input, produced interactions → output) so unreported spend still counts; `AutonomyUsage.TokensEstimated` flags the fallback and WebChat renders the counter with a `~` prefix. Consumption uses effective tokens (`max(actual, estimated)` via `AIMetrics.EffectiveTotalTokens`). The exhaustion check runs before each provider turn, before each tool pass, and before each tool execution; on exhaustion, pending tool calls are reconciled and the first reason (`time` or `tokens`) sticks for the remainder of the run. Setting both budgets to `0` disables all limits — the run is then unbounded by design (user choice; WebChat shows an "unbounded run" warning and Cancel remains available).
+- **Tool-call history integrity**: OpenAI-compatible chat APIs reject an assistant `tool_calls` message that is not immediately followed by one `tool` message per call id, so the session — not the providers — guarantees that history never carries a pending tool call into a provider request. `ReconcilePendingToolCalls` appends a synthetic failed `AIInteractionToolResult` (`{ success: false, cancelled: true, messages: [reason] }`, same shape as a failed tool execution) for every pending call: (1) in `HandleAndNotifyError` when a turn is aborted by cancellation, timeout or exception; (2) inside `ProcessPendingToolsAsync` when the autonomy budget is exhausted; (3) when the turn loop exits on budget exhaustion; and (4) as a safety net at the start of every turn, which also covers externally supplied history. Stale calls found at turn start are closed, not executed — the user has moved on since the run that produced them. Providers therefore must not sanitize tool sequences themselves; a provider-side 400 in this area indicates a session bug.

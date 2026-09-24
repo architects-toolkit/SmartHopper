@@ -71,6 +71,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns
         public string? OverrideToolFilter { get; set; }
 
         /// <summary>
+        /// Gets or sets the JSON output schema for this special turn.
+        /// When set, providers that support structured output are asked to conform to it.
+        /// When null, the isolated request carries no output schema.
+        /// </summary>
+        public string? OverrideJsonOutputSchema { get; set; }
+
+        /// <summary>
         /// Gets or sets a value indicating whether tool calls should be processed during this special turn.
         /// </summary>
         public bool ProcessTools { get; set; } = false;

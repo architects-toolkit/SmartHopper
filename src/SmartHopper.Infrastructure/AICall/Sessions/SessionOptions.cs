@@ -16,6 +16,7 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using System.Threading;
 namespace SmartHopper.Infrastructure.AICall.Sessions
 {
@@ -26,22 +27,25 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     {
         /// <summary>
         /// When true, the session will execute pending tool calls and allow providers to call tools.
-        /// Tool passes are bounded by <see cref="MaxToolPasses"/> and do not consume <see cref="MaxTurns"/>.
+        /// Tool passes and provider turns are bounded by <see cref="MaxAutonomousTime"/> and
+        /// <see cref="MaxAutonomousTokens"/>.
         /// When false, the session also hides every tool from the provider for the duration of the run
         /// (tool filter <c>-*</c>), so no tool call can be emitted that would then be left without a result.
         /// </summary>
         public bool ProcessTools { get; set; } = true;
 
         /// <summary>
-        /// Maximum number of provider turns. Only provider calls increment this counter; tool passes do not.
+        /// Maximum wall-clock time an autonomous run may consume, measured from run start across all
+        /// provider turns and tool passes. A value less than or equal to <see cref="TimeSpan.Zero"/>
+        /// disables the time budget.
         /// </summary>
-        public int MaxTurns { get; set; } = 8;
+        public TimeSpan MaxAutonomousTime { get; set; } = TimeSpan.FromMinutes(10);
 
         /// <summary>
-        /// Maximum number of tool-processing passes per turn. Tool passes are consumed by tool execution
-        /// (e.g., <c>ProcessPendingToolsAsync</c>) and do not affect <see cref="MaxTurns"/>.
+        /// Maximum total tokens (provider-reported input + output) an autonomous run may consume across
+        /// all provider calls. A value less than or equal to zero disables the token budget.
         /// </summary>
-        public int MaxToolPasses { get; set; } = 4;
+        public long MaxAutonomousTokens { get; set; } = 300_000;
 
         public bool AllowParallelTools { get; set; }
 

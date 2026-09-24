@@ -90,7 +90,7 @@ This reduces boilerplate while keeping API-specific parsing in the provider adap
 
 ```csharp
 var session = new ConversationSession(request, observer);
-var sessionOpts = new SessionOptions { ProcessTools = true, MaxTurns = 3, MaxToolPasses = 2 };
+var sessionOpts = new SessionOptions { ProcessTools = true, MaxAutonomousTime = TimeSpan.FromMinutes(3), MaxAutonomousTokens = 50_000 };
 var streamOpts = new StreamingOptions { CoalesceTokens = true, CoalesceDelayMs = 40, PreferredChunkSize = 64 };
 
 await foreach (var delta in session.Stream(sessionOpts, streamOpts, ct))
@@ -117,6 +117,7 @@ Use an `IConversationObserver` implementation to update UI consistently:
   - MistralAI: chunked JSON with `chunk` entries.
   - DeepSeek: chunked JSON with `choices[].delta`.
 - Produce `AIReturn` deltas with `AIInteractionText` (assistant) and optional tool call interactions. Tool call deltas may be surfaced during stream for UI awareness; the session persists the latest tool_calls snapshot once after streaming ends.
+- **Usage reporting**: the session meters each streamed call once via the usage carried on the deltas' bodies (`AIReturn.Metrics`, taking the last delta that reports usage). On the final delta, call `final.AttachUsageMetrics(usage)` — it attaches the call's `AIMetrics` to the last interaction, so usage survives turns that produce only tool calls (no assistant text to carry it), and it is a no-op when the body already reports usage (no double counting). Anthropic additionally reads `message_start` for input/cache tokens since `message_delta` usage carries mostly output tokens. Providers that never report usage are still budgeted: the session estimates effective tokens from the sent body and produced interactions.
 
 Tip: see `OpenAIProvider.OpenAIStreamingAdapter` for a complete example.
 

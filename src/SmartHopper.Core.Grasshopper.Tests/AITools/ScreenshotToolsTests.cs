@@ -103,6 +103,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
             Assert.Equal(600, canvasService.MaxHeight);
             Assert.Equal("canvas-png", (string?)result.Payload["imageBase64"]);
             Assert.Equal("image/png", (string?)result.Payload["mimeType"]);
+            Assert.Equal("model", (string?)result.Payload["imageAudience"]);
             Assert.Equal(640, (int?)result.Payload["width"]);
             Assert.Equal(360, (int?)result.Payload["height"]);
         }
@@ -154,11 +155,91 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
             Assert.Contains("between 1 and 4096", result.ErrorMessage, StringComparison.Ordinal);
         }
 
+        [Fact]
+        public void BuildDescriptors_ExposesHiResToolAsReadOnlyThroughMcp()
+        {
+            var tools = BuildTools(new FakeCanvasCaptureService(), new FakeViewportCaptureService(), new FakeCanvasHiResCaptureService());
+            var adapter = BuildAdapter(tools);
+
+            var descriptors = adapter.BuildDescriptors();
+            var hiRes = descriptors.Single(tool => tool.Name == "canvas_hi-res_screenshot");
+
+            Assert.True(hiRes.Annotations.ReadOnlyHint);
+            Assert.False(hiRes.Annotations.DestructiveHint);
+            Assert.Contains("vision", hiRes.Tags);
+            Assert.Equal("Vision", tools["canvas_hi-res_screenshot"].Category);
+            Assert.Equal(2.0, (double?)hiRes.InputSchema["properties"]?["scale"]?["default"]);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_CanvasHiResMapsRequestAndReturnsPngThroughMcp()
+        {
+            var hiResService = new FakeCanvasHiResCaptureService();
+            var tools = BuildTools(new FakeCanvasCaptureService(), new FakeViewportCaptureService(), hiResService);
+            var adapter = BuildAdapter(tools);
+            var guid = Guid.NewGuid();
+
+            var result = await adapter.ExecuteAsync(
+                "canvas_hi-res_screenshot",
+                new JObject
+                {
+                    ["scope"] = "guids",
+                    ["guids"] = new JArray(guid.ToString()),
+                    ["padding"] = 30,
+                    ["scale"] = 2.0,
+                    ["background"] = "white",
+                }).ConfigureAwait(false);
+
+            Assert.False(result.IsError);
+            var request = hiResService.Request;
+            Assert.NotNull(request);
+            Assert.Equal(CanvasHiResScope.Guids, request!.Scope);
+            Assert.Equal(guid, Assert.Single(request.Guids));
+            Assert.Equal(30f, request.Padding);
+            Assert.Equal(2f, request.Scale);
+            Assert.Equal(Color.White.ToArgb(), request.Background.ToArgb());
+            Assert.Equal("hires-png", (string?)result.Payload["imageBase64"]);
+            Assert.Equal("image/png", (string?)result.Payload["mimeType"]);
+            Assert.Equal("display", (string?)result.Payload["imageAudience"]);
+            Assert.Equal(2048, (int?)result.Payload["width"]);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_CanvasHiResDefaultsScaleToTwo()
+        {
+            var hiResService = new FakeCanvasHiResCaptureService();
+            var tools = BuildTools(new FakeCanvasCaptureService(), new FakeViewportCaptureService(), hiResService);
+            var adapter = BuildAdapter(tools);
+
+            var result = await adapter.ExecuteAsync(
+                "canvas_hi-res_screenshot",
+                new JObject { ["scope"] = "document" }).ConfigureAwait(false);
+
+            Assert.False(result.IsError);
+            Assert.NotNull(hiResService.Request);
+            Assert.Equal(2f, hiResService.Request!.Scale);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_CanvasHiResRejectsInvalidScope()
+        {
+            var tools = BuildTools(new FakeCanvasCaptureService(), new FakeViewportCaptureService(), new FakeCanvasHiResCaptureService());
+            var adapter = BuildAdapter(tools);
+
+            var result = await adapter.ExecuteAsync(
+                "canvas_hi-res_screenshot",
+                new JObject { ["scope"] = "bogus" }).ConfigureAwait(false);
+
+            Assert.True(result.IsError);
+            Assert.Contains("Unknown scope", result.ErrorMessage, StringComparison.Ordinal);
+        }
+
         private static IReadOnlyDictionary<string, AITool> BuildTools(
             ICanvasCaptureService canvasService,
-            IViewportCaptureService viewportService)
+            IViewportCaptureService viewportService,
+            ICanvasHiResCaptureService? hiResService = null)
         {
-            return new Screenshots(canvasService, viewportService)
+            return new Screenshots(canvasService, viewportService, hiResService)
                 .GetTools()
                 .ToDictionary(tool => tool.Name, StringComparer.Ordinal);
         }
@@ -201,6 +282,17 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
                 this.Width = width;
                 this.Height = height;
                 return Task.FromResult(new ImageCaptureResult("viewport-png", 900, 600, viewName ?? "Perspective"));
+            }
+        }
+
+        private sealed class FakeCanvasHiResCaptureService : ICanvasHiResCaptureService
+        {
+            public CanvasHiResCaptureRequest? Request { get; private set; }
+
+            public Task<ImageCaptureResult> CaptureHiResAsync(CanvasHiResCaptureRequest request)
+            {
+                this.Request = request;
+                return Task.FromResult(new ImageCaptureResult("hires-png", 2048, 1024));
             }
         }
 

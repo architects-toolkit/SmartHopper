@@ -80,6 +80,22 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
         }
 
         /// <summary>
+        /// Encodes a bitmap as PNG at its native size without resizing or dimension limits.
+        /// Used by hi-res exports where the caller has already validated the output size.
+        /// </summary>
+        public static ImageCaptureResult EncodeExactToBase64Png(Bitmap bitmap)
+        {
+            ArgumentNullException.ThrowIfNull(bitmap);
+
+            using var stream = new MemoryStream();
+            bitmap.Save(stream, ImageFormat.Png);
+            return new ImageCaptureResult(
+                Convert.ToBase64String(stream.ToArray()),
+                bitmap.Width,
+                bitmap.Height);
+        }
+
+        /// <summary>
         /// Validates an externally supplied screenshot dimension.
         /// </summary>
         public static int ValidateDimension(int value, string parameterName)

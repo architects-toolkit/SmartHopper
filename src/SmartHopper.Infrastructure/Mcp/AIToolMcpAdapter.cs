@@ -110,7 +110,8 @@ namespace SmartHopper.Infrastructure.Mcp
         }
 
         /// <summary>
-        /// Returns whether the named tool is currently exposed (allow-list + per-tool mutability).
+        /// Returns whether the named tool is currently exposed (allow-list, per-tool
+        /// mutability, and view-control category gating).
         /// </summary>
         public bool IsExposed(string toolName)
         {
@@ -141,6 +142,12 @@ namespace SmartHopper.Infrastructure.Mcp
                 return false;
             }
 
+            if (!this.options.AllowViewControl
+                && string.Equals(tool.Category, "ViewControl", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
             return true;
         }
 
@@ -163,9 +170,21 @@ namespace SmartHopper.Infrastructure.Mcp
             }
 
             var tools = this.toolSource();
-            if (!tools.ContainsKey(toolName))
+            if (!tools.TryGetValue(toolName, out var tool))
             {
                 return McpToolCallResult.Error($"Tool '{toolName}' is not registered");
+            }
+
+            // Idempotent replay: mutating tools accept an optional 'requestId'. A call whose
+            // requestId was already served returns the cached result without re-executing,
+            // so retries caused by dropped connections never apply the mutation twice.
+            var requestId = arguments?.Value<string>("requestId");
+            if (tool.MutatesCanvas
+                && !string.IsNullOrWhiteSpace(requestId)
+                && McpToolCallCache.TryGet(toolName, requestId!, out var cached)
+                && cached != null)
+            {
+                return cached;
             }
 
             var interaction = new AIInteractionToolCall
@@ -183,6 +202,7 @@ namespace SmartHopper.Infrastructure.Mcp
                 {
                     Source = MutationInvocationSource.Mcp,
                     Surface = SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp,
+                    BypassMutationsApproval = this.options.BypassMutationsApproval,
                     ToolCallId = interaction.Id,
                     ToolName = toolName,
                 },
@@ -199,7 +219,13 @@ namespace SmartHopper.Infrastructure.Mcp
                 return McpToolCallResult.Error($"Tool '{toolName}' threw an exception: {ex.Message}");
             }
 
-            return BuildResult(toolName, result);
+            var callResult = this.BuildResult(toolName, result, tool);
+            if (tool.MutatesCanvas && !string.IsNullOrWhiteSpace(requestId))
+            {
+                McpToolCallCache.Store(toolName, requestId!, callResult);
+            }
+
+            return callResult;
         }
 
         private static JObject ParseSchema(string parametersSchema)
@@ -226,7 +252,13 @@ namespace SmartHopper.Infrastructure.Mcp
             return new JObject { ["type"] = "object" };
         }
 
-        private static McpToolCallResult BuildResult(string toolName, AIReturn? result)
+        /// <summary>
+        /// Converts an <see cref="AIReturn"/> into an <see cref="McpToolCallResult"/>. On
+        /// argument-validation failures the error payload carries the called tool's input
+        /// schema under <c>expectedSchema</c> so MCP clients can retry without refetching
+        /// <c>tools/list</c>; the tool catalog is never echoed back inside an error.
+        /// </summary>
+        private McpToolCallResult BuildResult(string toolName, AIReturn? result, AITool tool)
         {
             if (result == null)
             {
@@ -250,7 +282,13 @@ namespace SmartHopper.Infrastructure.Mcp
                 .FirstOrDefault(m => m?.Severity == SHRuntimeMessageSeverity.Error);
             if (firstError != null)
             {
-                return McpToolCallResult.Error(firstError.Message ?? $"Tool '{toolName}' failed");
+                var isValidationError = result.Messages!.Any(m =>
+                    m?.Severity == SHRuntimeMessageSeverity.Error
+                    && m.Origin == SHRuntimeMessageOrigin.Validation);
+                var details = isValidationError
+                    ? new JObject { ["expectedSchema"] = ParseSchema(tool.ParametersSchema) }
+                    : null;
+                return McpToolCallResult.Error(firstError.Message ?? $"Tool '{toolName}' failed", details);
             }
 
             return McpToolCallResult.Ok(new JObject());

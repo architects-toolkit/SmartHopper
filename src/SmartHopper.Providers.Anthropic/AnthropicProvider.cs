@@ -282,11 +282,45 @@ namespace SmartHopper.Providers.Anthropic
             else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
                 var resultText = toolResultInteraction.Result?.ToString(Formatting.None) ?? string.Empty;
+                var images = toolResultInteraction.GetModelImages();
+                if (images.Count == 0)
+                {
+                    return new JObject
+                    {
+                        ["type"] = "tool_result",
+                        ["tool_use_id"] = toolResultInteraction.Id ?? string.Empty,
+                        ["content"] = resultText,
+                    };
+                }
+
+                // Anthropic tool_result content accepts image blocks natively
+                var contentBlocks = new JArray
+                {
+                    new JObject
+                    {
+                        ["type"] = "text",
+                        ["text"] = resultText,
+                    },
+                };
+                foreach (var img in images)
+                {
+                    contentBlocks.Add(new JObject
+                    {
+                        ["type"] = "image",
+                        ["source"] = new JObject
+                        {
+                            ["type"] = "base64",
+                            ["media_type"] = img.MimeType ?? "image/png",
+                            ["data"] = img.ImageData,
+                        },
+                    });
+                }
+
                 return new JObject
                 {
                     ["type"] = "tool_result",
                     ["tool_use_id"] = toolResultInteraction.Id ?? string.Empty,
-                    ["content"] = resultText,
+                    ["content"] = contentBlocks,
                 };
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
@@ -1217,6 +1251,25 @@ namespace SmartHopper.Providers.Anthropic
                             Debug.WriteLine($"[Anthropic] content_block_stop but no currentToolCall (likely text block)");
                         }
                     }
+                    else if (string.Equals(type, "message_start", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // message_start carries the initial usage (input + cache tokens)
+                        if (parsed["message"]?["usage"] is JObject startUsage)
+                        {
+                            var inputTokensPrompt = startUsage["input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt;
+                            var outputTokensGeneration = startUsage["output_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration;
+                            var inputTokensCached = startUsage["cache_read_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCached;
+                            var inputTokensCacheWrite = startUsage["cache_creation_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCacheWrite;
+
+                            streamMetrics = streamMetrics with
+                            {
+                                InputTokensPrompt = inputTokensPrompt,
+                                OutputTokensGeneration = outputTokensGeneration,
+                                InputTokensCached = inputTokensCached,
+                                InputTokensCacheWrite = inputTokensCacheWrite,
+                            };
+                        }
+                    }
                     else if (string.Equals(type, "message_delta", StringComparison.OrdinalIgnoreCase))
                     {
                         Debug.WriteLine($"[Anthropic] message_delta full event: {parsed}");
@@ -1291,6 +1344,10 @@ namespace SmartHopper.Providers.Anthropic
                 }
 
                 final.SetBody(finalBuilder.Build());
+
+                // Ensure the call's usage is represented on an interaction even when the turn
+                // produced only tool calls (no text interaction to carry the metrics).
+                final.AttachUsageMetrics(streamMetrics);
                 yield return final;
             }
         }

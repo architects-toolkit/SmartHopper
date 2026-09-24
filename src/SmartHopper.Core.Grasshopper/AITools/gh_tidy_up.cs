@@ -26,6 +26,7 @@ using GhJSON.Core.DependencyGraph;
 using GhJSON.Grasshopper;
 using GhJSON.Grasshopper.LayoutRefinements;
 using GhJSON.Grasshopper.Serialization;
+using GhJSON.Grasshopper.Shared;
 using Grasshopper;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
@@ -176,30 +177,36 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // refinements that use real component bounds and input-port positions for
                 // alignment and collision avoidance. This is the same pipeline used by gh_put,
                 // so placement and tidy-up stay consistent.
-                const float spacingX = 200f;
-                const float spacingY = 100f;
-                const float islandSpacingY = 150f;
+                const float spacingX = 80f;
+                const float spacingY = 28f;
+                const float islandSpacingY = 100f;
 
-                var layoutResult = GhJSON.Core.GhJson.CalculateLayout(doc, new LayoutOptions
+                var selectedByGuid = selected.ToDictionary(o => o.InstanceGuid);
+
+                var positions = GhJsonGrasshopper.ComputeLayout(doc, new CanvasLayoutOptions
                 {
-                    SpacingX = spacingX,
-                    SpacingY = spacingY,
-                    IslandSpacingY = islandSpacingY,
-                });
-
-                var positions = LayoutRefinementEngine.ApplyRefinements(
-                    layoutResult,
-                    doc,
-                    new LayoutRefinementOptions
+                    Layout = new LayoutOptions
                     {
                         SpacingX = spacingX,
                         SpacingY = spacingY,
-                        ApplyBoundsAwareSpacing = true,
-                        AlignParamsToInputPorts = true,
-                        AlignOneToOneConnections = true,
-                        MinimizeConnectionLengths = true,
-                        AvoidCollisions = true,
-                    });
+                        IslandSpacingY = islandSpacingY,
+                    },
+                    Refinements = new LayoutRefinementOptions
+                    {
+                        SpacingX = spacingX,
+                        SpacingY = spacingY,
+                    },
+
+                    // Feed live component bounds to every stage so column widths, row
+                    // heights, and per-island re-spacing measure real Grasshopper
+                    // geometry instead of the library defaults.
+                    NodeSizeProvider = CanvasAccess.GetNodeSize,
+
+                    // Port geometry resolves through the caller-owned selection map —
+                    // the same objects the layout was serialized from.
+                    ObjectProvider = guid =>
+                        selectedByGuid.TryGetValue(guid, out var o) ? o : null,
+                });
 
                 if (positions.Count == 0)
                 {
@@ -210,17 +217,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!hasStart)
                 {
-                    // Anchor the laid-out cluster at the original pivot of the top-left component
-                    // so the tidied result stays roughly where the user had it.
+                    // Anchor in the layout's canonical space (bounds centers): the
+                    // top-left entry keeps its current bounds center, so the tidied
+                    // cluster stays roughly where the user had it regardless of each
+                    // object's pivot semantics.
                     var firstKvp = positions.OrderBy(p => p.Value.X).ThenBy(p => p.Value.Y).First();
                     var origObj = selected.First(o => o.InstanceGuid == firstKvp.Key);
-                    var origPivot = origObj.Attributes.Pivot;
-                    origin = new PointF(origPivot.X - firstKvp.Value.X, origPivot.Y - firstKvp.Value.Y);
+                    var origCenter = PivotSemantics.BoundsCenter(origObj);
+                    origin = new PointF(origCenter.X - firstKvp.Value.X, origCenter.Y - firstKvp.Value.Y);
                 }
 
+                // Positions are bounds centers; convert to each object's own pivot
+                // semantics (components pivot at center, sliders/panels/floating
+                // parameters at their top-left corner) so the applied layout matches
+                // the computed bounds instead of shifting non-component objects.
                 var targets = positions.ToDictionary(
                     pair => pair.Key,
-                    pair => new PointF(origin.X + pair.Value.X, origin.Y + pair.Value.Y));
+                    pair =>
+                    {
+                        var center = new PointF(origin.X + pair.Value.X, origin.Y + pair.Value.Y);
+                        return selectedByGuid.TryGetValue(pair.Key, out var o)
+                            ? PivotSemantics.CenterToPivot(o, center)
+                            : center;
+                    });
                 var reviewSession = CanvasChangeReviewService.CreateMoveSession(this.toolName, targets, relative: false);
                 var reviewed = await CanvasChangeReviewService.ReviewAsync(
                     reviewSession,

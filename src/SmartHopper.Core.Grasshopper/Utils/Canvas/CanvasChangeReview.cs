@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using GhJSON.Core.SchemaModels;
 
@@ -110,6 +111,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
     public sealed class CanvasChangeReviewSession
     {
         private readonly IReadOnlyDictionary<string, CanvasChangeReviewItem> itemsByKey;
+        private readonly Dictionary<int, RectangleF> proposedComponentBounds = new Dictionary<int, RectangleF>();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CanvasChangeReviewSession"/> class.
@@ -198,6 +200,28 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             {
                 this.SelectionChanged?.Invoke(this, EventArgs.Empty);
             }
+        }
+
+        /// <summary>
+        /// Stores measured world-space bounds for a proposed component. The preview overlay
+        /// prefers these over estimates so ghosts match the component's real footprint.
+        /// </summary>
+        /// <param name="componentId">Proposed component ID.</param>
+        /// <param name="bounds">World-space bounds already positioned at the proposed pivot.</param>
+        public void SetProposedComponentBounds(int componentId, RectangleF bounds)
+        {
+            this.proposedComponentBounds[componentId] = bounds;
+        }
+
+        /// <summary>
+        /// Gets measured world-space bounds for a proposed component.
+        /// </summary>
+        /// <param name="componentId">Proposed component ID.</param>
+        /// <param name="bounds">The measured bounds when available.</param>
+        /// <returns><c>true</c> when measured bounds were stored for the component.</returns>
+        public bool TryGetProposedComponentBounds(int componentId, out RectangleF bounds)
+        {
+            return this.proposedComponentBounds.TryGetValue(componentId, out bounds);
         }
     }
 }

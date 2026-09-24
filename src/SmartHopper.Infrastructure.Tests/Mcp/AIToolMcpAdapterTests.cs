@@ -18,12 +18,14 @@
 
 namespace SmartHopper.Infrastructure.Tests.Mcp
 {
+    using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
     using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.AICall.Tools;
     using SmartHopper.Infrastructure.AITools;
+    using SmartHopper.Infrastructure.Consent;
     using SmartHopper.Infrastructure.Mcp;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
@@ -99,6 +101,53 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
 
             Assert.Single(descriptors);
             Assert.Equal("gh_put", descriptors[0].Name);
+        }
+
+        [Fact]
+        public void BuildDescriptors_OmitsViewControlToolsByDefault()
+        {
+            var tools = BuildCatalogWithCategory(
+                ("gh_get", "Test", ReadOnlySchema, false),
+                ("canvas_view", "ViewControl", ReadOnlySchema, false));
+            var adapter = new AIToolMcpAdapter(new McpServerOptions(), () => tools, _ => Task.FromResult(new AIReturn()));
+
+            var descriptors = adapter.BuildDescriptors();
+
+            Assert.Single(descriptors);
+            Assert.Equal("gh_get", descriptors[0].Name);
+            Assert.False(adapter.IsExposed("canvas_view"));
+        }
+
+        [Fact]
+        public void BuildDescriptors_IncludesViewControlToolsWhenOptedIn()
+        {
+            var tools = BuildCatalogWithCategory(
+                ("gh_get", "Test", ReadOnlySchema, false),
+                ("canvas_view", "ViewControl", ReadOnlySchema, false));
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { AllowViewControl = true },
+                () => tools,
+                _ => Task.FromResult(new AIReturn()));
+
+            var descriptors = adapter.BuildDescriptors();
+
+            Assert.Equal(2, descriptors.Count);
+            Assert.Contains(descriptors, d => d.Name == "canvas_view");
+        }
+
+        [Fact]
+        public void BuildDescriptors_AllowListOverridesViewControlFilter()
+        {
+            var tools = BuildCatalogWithCategory(("canvas_view", "ViewControl", ReadOnlySchema, false));
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { EnabledTools = new[] { "canvas_view" } },
+                () => tools,
+                _ => Task.FromResult(new AIReturn()));
+
+            var descriptors = adapter.BuildDescriptors();
+
+            Assert.Single(descriptors);
+            Assert.Equal("canvas_view", descriptors[0].Name);
         }
 
         [Fact]
@@ -240,7 +289,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             var control = new AITool(
                 "plan_propose",
                 "Plan",
-                "Control",
+                "Planning",
                 ReadOnlySchema,
                 _ => Task.FromResult(new AIReturn()),
                 mutatesCanvas: false,
@@ -318,6 +367,174 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             Assert.True((bool?)json["annotations"]?["readOnlyHint"]);
         }
 
+        [Fact]
+        public async Task ExecuteAsync_StampsAutoApproveOptionIntoInvocationContext()
+        {
+            var tools = BuildCatalog(("gh_put", ReadOnlySchema, true));
+            MutationInvocationContext? observed = null;
+            Task<AIReturn> Executor(AIToolCall call)
+            {
+                observed = call.InvocationContext;
+                var ret = new AIReturn
+                {
+                    Request = call,
+                    SkipRequestValidation = true,
+                    SkipMetricsValidation = true,
+                };
+                ret.SetBody(AIBody.Empty.WithAppended(new AIInteractionToolResult
+                {
+                    Name = call.GetToolCall().Name,
+                    Result = new JObject { ["ok"] = true },
+                }));
+                return Task.FromResult(ret);
+            }
+
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { ExposeMutatingTools = true, BypassMutationsApproval = true },
+                () => tools,
+                Executor);
+
+            var result = await adapter.ExecuteAsync("gh_put", new JObject());
+
+            Assert.False(result.IsError);
+            Assert.NotNull(observed);
+            Assert.True(observed!.BypassMutationsApproval);
+            Assert.Equal(SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp, observed.Surface);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_DuplicateRequestId_ReplaysResultWithoutReexecuting()
+        {
+            var tools = BuildCatalog(("gh_put", ReadOnlySchema, true));
+            var calls = 0;
+            Task<AIReturn> Executor(AIToolCall call)
+            {
+                calls++;
+                var ret = new AIReturn
+                {
+                    Request = call,
+                    SkipRequestValidation = true,
+                    SkipMetricsValidation = true,
+                };
+                ret.SetBody(AIBody.Empty.WithAppended(new AIInteractionToolResult
+                {
+                    Name = call.GetToolCall().Name,
+                    Result = new JObject { ["call"] = calls },
+                }));
+                return Task.FromResult(ret);
+            }
+
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { ExposeMutatingTools = true },
+                () => tools,
+                Executor);
+            var args = new JObject { ["requestId"] = $"req-{Guid.NewGuid():N}" };
+
+            var first = await adapter.ExecuteAsync("gh_put", args);
+            var second = await adapter.ExecuteAsync("gh_put", args);
+
+            Assert.Equal(1, calls);
+            Assert.False(first.IsError);
+            Assert.False(second.IsError);
+            Assert.Equal(1, (int?)second.Payload["call"]);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_DifferentRequestIds_ExecuteSeparately()
+        {
+            var tools = BuildCatalog(("gh_put", ReadOnlySchema, true));
+            var calls = 0;
+            Task<AIReturn> Executor(AIToolCall call)
+            {
+                calls++;
+                var ret = new AIReturn
+                {
+                    Request = call,
+                    SkipRequestValidation = true,
+                    SkipMetricsValidation = true,
+                };
+                ret.SetBody(AIBody.Empty.WithAppended(new AIInteractionToolResult
+                {
+                    Name = call.GetToolCall().Name,
+                    Result = new JObject { ["call"] = calls },
+                }));
+                return Task.FromResult(ret);
+            }
+
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { ExposeMutatingTools = true },
+                () => tools,
+                Executor);
+
+            await adapter.ExecuteAsync("gh_put", new JObject { ["requestId"] = $"req-{Guid.NewGuid():N}" });
+            await adapter.ExecuteAsync("gh_put", new JObject { ["requestId"] = $"req-{Guid.NewGuid():N}" });
+
+            Assert.Equal(2, calls);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_RequestIdIsIgnoredForReadOnlyTools()
+        {
+            var tools = BuildCatalog(("gh_get", ReadOnlySchema, false));
+            var calls = 0;
+            Task<AIReturn> Executor(AIToolCall call)
+            {
+                calls++;
+                var ret = new AIReturn
+                {
+                    Request = call,
+                    SkipRequestValidation = true,
+                    SkipMetricsValidation = true,
+                };
+                ret.SetBody(AIBody.Empty.WithAppended(new AIInteractionToolResult
+                {
+                    Name = call.GetToolCall().Name,
+                    Result = new JObject { ["call"] = calls },
+                }));
+                return Task.FromResult(ret);
+            }
+
+            var adapter = new AIToolMcpAdapter(new McpServerOptions(), () => tools, Executor);
+            var args = new JObject { ["requestId"] = $"req-{Guid.NewGuid():N}" };
+
+            await adapter.ExecuteAsync("gh_get", args);
+            await adapter.ExecuteAsync("gh_get", args);
+
+            Assert.Equal(2, calls);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_ValidationError_IncludesCalledToolSchemaOnly()
+        {
+            var tools = BuildCatalog(("gh_put", ReadOnlySchema, true));
+            Task<AIReturn> Executor(AIToolCall call)
+            {
+                var ret = new AIReturn
+                {
+                    Request = call,
+                    SkipRequestValidation = true,
+                    SkipMetricsValidation = true,
+                };
+                ret.AddRuntimeMessage(
+                    SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageSeverity.Error,
+                    SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageOrigin.Validation,
+                    "Arguments for tool 'gh_put' are missing required properties: q");
+                return Task.FromResult(ret);
+            }
+
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { ExposeMutatingTools = true },
+                () => tools,
+                Executor);
+
+            var result = await adapter.ExecuteAsync("gh_put", new JObject());
+
+            Assert.True(result.IsError);
+            Assert.Equal("object", (string?)result.Payload["expectedSchema"]?["type"]);
+            Assert.Equal("string", (string?)result.Payload["expectedSchema"]?["properties"]?["q"]?["type"]);
+            Assert.Null(result.Payload["tools"]);
+        }
+
         private static IReadOnlyDictionary<string, AITool> BuildCatalog(params (string name, string schema, bool mutatesCanvas)[] entries)
         {
             var enabledEntries = entries.Select(e => (e.name, e.schema, e.mutatesCanvas, true)).ToArray();
@@ -337,6 +554,24 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
                     execute: _ => Task.FromResult(new AIReturn()),
                     mutatesCanvas: mutatesCanvas,
                     enabled: enabled);
+            }
+
+            return dict;
+        }
+
+        private static IReadOnlyDictionary<string, AITool> BuildCatalogWithCategory(params (string name, string category, string schema, bool mutatesCanvas)[] entries)
+        {
+            var dict = new Dictionary<string, AITool>();
+            foreach (var (name, category, schema, mutatesCanvas) in entries)
+            {
+                dict[name] = new AITool(
+                    name: name,
+                    description: $"Test tool {name}",
+                    category: category,
+                    parametersSchema: schema,
+                    execute: _ => Task.FromResult(new AIReturn()),
+                    mutatesCanvas: mutatesCanvas,
+                    enabled: true);
             }
 
             return dict;

@@ -24,6 +24,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -35,12 +36,14 @@ using Rhino;
 using Rhino.UI;
 using SmartHopper.Infrastructure.AICall.Sessions;
 using SmartHopper.Infrastructure.AICall.Utilities;
+using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AICall.Utilities;
+using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Streaming;
 
@@ -64,6 +67,33 @@ namespace SmartHopper.Core.UI.Chat
         private ConversationSession _currentSession = null!;
         private System.Threading.CancellationTokenSource? _currentCts;
         private string? _pendingUserMessage;
+
+        // Image attachments selected via the attach button. Held C#-side (the sh:// URL
+        // scheme cannot carry base64 payloads); the WebView only renders thumbnail chips.
+        private readonly List<PendingImage> _pendingAttachments = new List<PendingImage>();
+        private List<PendingImage>? _attachmentsForNextSend;
+        private bool _supportsImageInput = true;
+
+        private const int MaxAttachmentBytes = 15 * 1024 * 1024;
+        private const int MaxAttachments = 4;
+
+        /// <summary>
+        /// A user-selected image waiting to be sent with the next message.
+        /// </summary>
+        private sealed class PendingImage
+        {
+            /// <summary>Gets a stable identifier shared with the WebView chip element.</summary>
+            public string Id { get; } = Guid.NewGuid().ToString("N");
+
+            /// <summary>Gets or sets the original file name.</summary>
+            public string FileName { get; set; } = string.Empty;
+
+            /// <summary>Gets or sets the sniffed MIME type (e.g. "image/png").</summary>
+            public string MimeType { get; set; } = "image/png";
+
+            /// <summary>Gets or sets the base64-encoded image data.</summary>
+            public string ImageData { get; set; } = string.Empty;
+        }
 
         // Keeps last-rendered HTML per DOM key to make upserts idempotent and avoid redundant DOM work
         // Uses LRU eviction to prevent unbounded growth in long conversations
@@ -137,6 +167,18 @@ namespace SmartHopper.Core.UI.Chat
             {
                 this._generateGreeting = generateGreeting;
 
+                // Vision capability: unknown models stay enabled (provider validates);
+                // models known to lack image input get the attach button disabled.
+                try
+                {
+                    var caps = AIModelCapabilityRegistry.Instance.GetCapabilities(request?.Provider, request?.Model);
+                    this._supportsImageInput = caps == null || caps.HasCapability(AICapability.ImageInput);
+                }
+                catch
+                {
+                    this._supportsImageInput = true;
+                }
+
                 var mainWindow = RhinoEtoApp.MainWindow;
                 if (mainWindow != null)
                 {
@@ -161,7 +203,9 @@ namespace SmartHopper.Core.UI.Chat
                     new WebChatObserver(this),
                     generateGreeting: this._generateGreeting,
                     consentPresenter: new WebChatPlanConsentPresenter(this),
-                    taskPlanPresenter: new WebChatTaskPlanPresenter(this));
+                    taskPlanPresenter: new WebChatTaskPlanPresenter(this),
+                    canvasPointerPresenter: new WebChatCanvasPointerPresenter(this),
+                    userQuestionPresenter: new WebChatUserQuestionPresenter(this));
 
                 // If the user drags/resizes the dialog while we are rendering/upserting messages,
                 // defer DOM work to keep Rhino/Eto responsive.
@@ -521,6 +565,28 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
+        /// Pushes the current session's autonomy budget consumption (elapsed time and tokens versus
+        /// their configured limits) to the WebView meter.
+        /// </summary>
+        internal void PushAutonomyUsage()
+        {
+            try
+            {
+                var usage = this._currentSession?.GetAutonomyUsage();
+                if (usage == null)
+                {
+                    return;
+                }
+
+                this.ExecuteScript($"updateAutonomyUsage({JsonConvert.SerializeObject(usage)});");
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] PushAutonomyUsage error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Executes JavaScript in the WebView on Rhino's UI thread.
         /// </summary>
         /// <param name="script">The JavaScript code to execute.</param>
@@ -813,6 +879,18 @@ namespace SmartHopper.Core.UI.Chat
                     catch
                     {
                     }
+
+                    // Reflect image-input capability on the attach button
+                    try
+                    {
+                        var tooltip = this._supportsImageInput
+                            ? "Attach image"
+                            : "The selected model does not support image input";
+                        this.ExecuteScript($"setAttachEnabled({(this._supportsImageInput ? "true" : "false")}, {JsonConvert.SerializeObject(tooltip)});");
+                    }
+                    catch
+                    {
+                    }
                 });
             }
             catch (Exception ex)
@@ -1066,6 +1144,7 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         private async Task ProcessAIInteraction()
         {
+            var turnCompleted = false;
             try
             {
                 DebugLog("[WebChatDialog] Processing AI interaction with existing session reuse");
@@ -1086,14 +1165,49 @@ namespace SmartHopper.Core.UI.Chat
                     DebugLog("[WebChatDialog] Reusing existing ConversationSession");
                 }
 
+                // Text and image attachments share one user turn so providers and
+                // the renderer treat them as a single user message.
+                var userTurnId = InteractionUtility.GenerateTurnId();
+
                 // Add the pending user message to the session
                 if (!string.IsNullOrWhiteSpace(this._pendingUserMessage))
                 {
-                    this._currentSession.AddInteraction(this._pendingUserMessage);
+                    this._currentSession.AddInteraction(new AIInteractionText
+                    {
+                        Agent = AIAgent.User,
+                        Content = this._pendingUserMessage,
+                        TurnId = userTurnId,
+                    });
                     this._pendingUserMessage = null; // Clear after adding
                 }
 
+                // Append staged image attachments as user-role image interactions so
+                // vision-capable models receive them as real image input
+                if (this._attachmentsForNextSend != null)
+                {
+                    foreach (var image in this._attachmentsForNextSend)
+                    {
+                        this._currentSession.AddInteraction(new AIInteractionImage
+                        {
+                            Agent = AIAgent.User,
+                            ImageData = image.ImageData,
+                            MimeType = image.MimeType,
+                            OriginalPrompt = image.FileName,
+                            TurnId = userTurnId,
+                        });
+                    }
+
+                    this._attachmentsForNextSend = null;
+                }
+
                 var options = new SessionOptions { ProcessTools = true, CancellationToken = this._currentCts.Token };
+
+                var assistant = SmartHopperSettings.Instance?.SmartHopperAssistant;
+                if (assistant != null)
+                {
+                    options.MaxAutonomousTime = TimeSpan.FromMinutes(Math.Max(0, assistant.MaxAutonomousTimeMinutes));
+                    options.MaxAutonomousTokens = Math.Max(0, assistant.MaxAutonomousTokens);
+                }
 
                 // Always attempt streaming first - ConversationSession handles validation internally
                 // and falls back to non-streaming if streaming is not supported
@@ -1124,8 +1238,15 @@ namespace SmartHopper.Core.UI.Chat
                 if (hasValidationError && !hasContent)
                 {
                     DebugLog("[WebChatDialog] Streaming validation failed. Falling back to non-streaming path");
-                    await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
+                    lastStreamReturn = await this._currentSession.RunToStableResult(options).ConfigureAwait(false) ?? lastStreamReturn;
                 }
+
+                // A completed streaming turn yields the session's history snapshot, which carries
+                // no Request or Status by design. Real provider/error returns do carry a Request;
+                // those are judged by their error-severity messages.
+                turnCompleted = lastStreamReturn != null
+                    && (lastStreamReturn.Request == null
+                        || !lastStreamReturn.Messages.Any(m => m?.Severity == SHRuntimeMessageSeverity.Error));
             }
             catch (Exception ex)
             {
@@ -1157,6 +1278,12 @@ namespace SmartHopper.Core.UI.Chat
 
                 // Leave processing state: re-enable input/send, disable cancel in the web UI
                 this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(false);"));
+
+                // Fire-and-forget: suggested prompt chips render when the special turn resolves.
+                if (turnCompleted)
+                {
+                    _ = this.GenerateSuggestedPromptsAsync();
+                }
 
                 // Keep the session alive for reuse - do not set to null
             }
@@ -1194,7 +1321,7 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     try
                     {
-                        var options = new SessionOptions { ProcessTools = false, MaxTurns = 1 };
+                        var options = new SessionOptions { ProcessTools = false };
                         await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
                     }
                     catch (Exception grex)
@@ -1257,12 +1384,108 @@ namespace SmartHopper.Core.UI.Chat
                                 break;
                             }
 
+                        case "attach":
+                            {
+                                DebugLog("[WebChatDialog] Handling attach event");
+                                Application.Instance?.AsyncInvoke(() =>
+                                {
+                                    try
+                                    {
+                                        this.ShowAttachDialog();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        DebugLog($"[WebChatDialog] Deferred ShowAttachDialog error: {ex.Message}");
+                                    }
+                                });
+                                break;
+                            }
+
+                        case "detach":
+                            {
+                                var attachId = query.TryGetValue("id", out var aid) ? aid : string.Empty;
+                                DebugLog($"[WebChatDialog] Handling detach event, id: {attachId}");
+                                Application.Instance?.AsyncInvoke(() =>
+                                {
+                                    try
+                                    {
+                                        this.RemoveAttachment(attachId);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        DebugLog($"[WebChatDialog] Deferred RemoveAttachment error: {ex.Message}");
+                                    }
+                                });
+                                break;
+                            }
+
                         case "consent":
                             {
                                 var requestId = query.TryGetValue("id", out var id) ? id : string.Empty;
                                 var approved = query.TryGetValue("decision", out var decision) &&
                                     string.Equals(decision, "approve", StringComparison.OrdinalIgnoreCase);
                                 Application.Instance?.AsyncInvoke(() => this.ResolvePlanConsent(requestId, approved));
+                                break;
+                            }
+
+                        case "canvas_pointer":
+                            {
+                                var pointerId = query.TryGetValue("id", out var pid) ? pid : string.Empty;
+                                Application.Instance?.AsyncInvoke(() =>
+                                {
+                                    try
+                                    {
+                                        this.ReplayCanvasPointer(pointerId);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        DebugLog($"[WebChatDialog] Deferred ReplayCanvasPointer error: {ex.Message}");
+                                    }
+                                });
+                                break;
+                            }
+
+                        case "question":
+                            {
+                                var questionId = query.TryGetValue("id", out var qid) ? qid : string.Empty;
+                                var choice = query.TryGetValue("choice", out var ch) && int.TryParse(ch, out var idx) ? idx : -1;
+                                var freeText = query.TryGetValue("text", out var qtext) ? qtext : null;
+                                if (freeText != null && freeText.Length > 4000)
+                                {
+                                    freeText = freeText.Substring(0, 4000);
+                                }
+
+                                Application.Instance?.AsyncInvoke(() =>
+                                {
+                                    try
+                                    {
+                                        this.ResolveUserQuestion(questionId, choice, freeText);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        DebugLog($"[WebChatDialog] Deferred ResolveUserQuestion error: {ex.Message}");
+                                    }
+                                });
+                                break;
+                            }
+
+                        case "extend_autonomy":
+                            {
+                                DebugLog("[WebChatDialog] Handling extend_autonomy event");
+                                Application.Instance?.AsyncInvoke(() =>
+                                {
+                                    try
+                                    {
+                                        if (this._currentSession?.ExtendAutonomyLimits() == true)
+                                        {
+                                            this.PushAutonomyUsage();
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        DebugLog($"[WebChatDialog] Deferred ExtendAutonomyLimits error: {ex.Message}");
+                                    }
+                                });
                                 break;
                             }
 
@@ -1603,6 +1826,147 @@ namespace SmartHopper.Core.UI.Chat
 #endif
 
         /// <summary>
+        /// Opens a native file picker and stages selected images as pending attachments.
+        /// Image bytes stay C#-side; the WebView only receives thumbnail chips via script.
+        /// </summary>
+        private void ShowAttachDialog()
+        {
+            if (!this._supportsImageInput)
+            {
+                this.AddSystemMessage("The selected model does not support image input.", "warning");
+                return;
+            }
+
+            using var dialog = new System.Windows.Forms.OpenFileDialog
+            {
+                Filter = "Image files (*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp)|*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp",
+                Title = "Attach image",
+                Multiselect = true,
+                CheckFileExists = true,
+            };
+
+            if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+            {
+                return;
+            }
+
+            foreach (var path in dialog.FileNames ?? Enumerable.Empty<string>())
+            {
+                if (this._pendingAttachments.Count >= MaxAttachments)
+                {
+                    this.AddSystemMessage($"At most {MaxAttachments} images can be attached per message.", "warning");
+                    break;
+                }
+
+                try
+                {
+                    var fileInfo = new FileInfo(path);
+                    if (fileInfo.Length > MaxAttachmentBytes)
+                    {
+                        this.AddSystemMessage($"Skipped '{Path.GetFileName(path)}': larger than {MaxAttachmentBytes / (1024 * 1024)} MB.", "warning");
+                        continue;
+                    }
+
+                    var bytes = File.ReadAllBytes(path);
+                    if (!TrySniffImageMime(bytes, out var mimeType))
+                    {
+                        this.AddSystemMessage($"Skipped '{Path.GetFileName(path)}': not a supported image format.", "warning");
+                        continue;
+                    }
+
+                    var pending = new PendingImage
+                    {
+                        FileName = Path.GetFileName(path),
+                        MimeType = mimeType,
+                        ImageData = Convert.ToBase64String(bytes),
+                    };
+                    this._pendingAttachments.Add(pending);
+
+                    var dataUri = $"data:{pending.MimeType};base64,{pending.ImageData}";
+                    this.ExecuteScript(
+                        $"addAttachmentChip({JsonConvert.SerializeObject(pending.Id)}, {JsonConvert.SerializeObject(pending.FileName)}, {JsonConvert.SerializeObject(dataUri)});");
+                }
+                catch (Exception ex)
+                {
+                    DebugLog($"[WebChatDialog] Attach '{path}' failed: {ex.Message}");
+                    this.AddSystemMessage($"Could not attach '{Path.GetFileName(path)}'.", "warning");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Removes a pending attachment and its thumbnail chip.
+        /// </summary>
+        /// <param name="id">The stable attachment id generated when the file was staged.</param>
+        private void RemoveAttachment(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return;
+            }
+
+            var removed = this._pendingAttachments.RemoveAll(a => string.Equals(a.Id, id, StringComparison.Ordinal));
+            if (removed > 0)
+            {
+                this.ExecuteScript($"removeAttachmentChip({JsonConvert.SerializeObject(id)});");
+            }
+        }
+
+        /// <summary>
+        /// Identifies the image MIME type from magic bytes. Only formats renderable by the
+        /// WebView and common provider vision APIs are accepted.
+        /// </summary>
+        /// <param name="bytes">File bytes to inspect.</param>
+        /// <param name="mimeType">The detected MIME type when successful.</param>
+        private static bool TrySniffImageMime(byte[] bytes, out string mimeType)
+        {
+            mimeType = string.Empty;
+            if (bytes == null || bytes.Length < 4)
+            {
+                return false;
+            }
+
+            // PNG
+            if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47)
+            {
+                mimeType = "image/png";
+                return true;
+            }
+
+            // JPEG
+            if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF)
+            {
+                mimeType = "image/jpeg";
+                return true;
+            }
+
+            // GIF (GIF8)
+            if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x38)
+            {
+                mimeType = "image/gif";
+                return true;
+            }
+
+            // BMP
+            if (bytes[0] == 0x42 && bytes[1] == 0x4D)
+            {
+                mimeType = "image/bmp";
+                return true;
+            }
+
+            // WEBP: RIFF....WEBP
+            if (bytes.Length >= 12 &&
+                bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46 &&
+                bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50)
+            {
+                mimeType = "image/webp";
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Handles a user message submitted from the WebView.
         /// </summary>
         private void SendMessage(string text)
@@ -1610,18 +1974,21 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 DebugLog($"[WebChatDialog] SendMessage called with text length: {text?.Length ?? 0}");
-                if (string.IsNullOrWhiteSpace(text))
+                var trimmed = text?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(trimmed) && this._pendingAttachments.Count == 0)
                 {
-                    DebugLog($"[WebChatDialog] SendMessage: text is null or whitespace, returning");
+                    DebugLog($"[WebChatDialog] SendMessage: no text and no attachments, returning");
                     return;
                 }
-
-                var trimmed = text.Trim();
-                if (string.IsNullOrWhiteSpace(trimmed)) return;
 
                 // Store the user message before processing
                 // The observer will render it when AddInteraction() is called on the session
                 this._pendingUserMessage = trimmed;
+                this._attachmentsForNextSend = this._pendingAttachments.Count > 0
+                    ? new List<PendingImage>(this._pendingAttachments)
+                    : null;
+                this._pendingAttachments.Clear();
+                this.ExecuteScript("clearAttachments();");
 
                 // Immediately reflect processing state in UI to disable input/send and enable cancel
                 this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(true);"));

@@ -48,5 +48,25 @@ namespace SmartHopper.Infrastructure.Settings
         /// </summary>
         [JsonProperty]
         public bool EnableAIGreeting { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether AI-generated suggested follow-up prompts are shown in chat.
+        /// </summary>
+        [JsonProperty]
+        public bool EnableSuggestedPrompts { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the maximum wall-clock time, in minutes, that an autonomous assistant run may
+        /// consume (provider calls and tool execution combined). Zero or less disables the limit.
+        /// </summary>
+        [JsonProperty]
+        public int MaxAutonomousTimeMinutes { get; set; } = 10;
+
+        /// <summary>
+        /// Gets or sets the maximum total tokens (provider-reported input + output) an autonomous
+        /// assistant run may consume. Zero or less disables the limit.
+        /// </summary>
+        [JsonProperty]
+        public int MaxAutonomousTokens { get; set; } = 300_000;
     }
 }

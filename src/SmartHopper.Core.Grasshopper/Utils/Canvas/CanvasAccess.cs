@@ -35,6 +35,51 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
     public static class CanvasAccess
     {
         /// <summary>
+        /// Runs <paramref name="func"/> on the Rhino UI thread and blocks until it
+        /// completes. If the caller is already on the UI thread, the function runs
+        /// inline. Any exception thrown by the function is re-thrown to the caller.
+        /// </summary>
+        /// <typeparam name="T">The result type.</typeparam>
+        /// <param name="func">The work to run on the UI thread.</param>
+        /// <returns>The function result.</returns>
+        public static T RunOnUiThread<T>(Func<T> func)
+        {
+            if (RhinoApp.InvokeRequired == false)
+            {
+                return func();
+            }
+
+            var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+            RhinoApp.InvokeOnUiThread(new Action(() =>
+            {
+                try
+                {
+                    tcs.SetResult(func());
+                }
+                catch (Exception ex)
+                {
+                    tcs.SetException(ex);
+                }
+            }));
+
+            return tcs.Task.GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Runs <paramref name="action"/> on the Rhino UI thread and blocks until it
+        /// completes. If the caller is already on the UI thread, the action runs inline.
+        /// </summary>
+        /// <param name="action">The work to run on the UI thread.</param>
+        public static void RunOnUiThread(Action action)
+        {
+            RunOnUiThread<object>(() =>
+            {
+                action();
+                return null;
+            });
+        }
+
+        /// <summary>
         /// Gets the current active Grasshopper document from the canvas.
         /// </summary>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Ambient UI state access; method communicates non-field-like behavior")]
@@ -115,6 +160,37 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         }
 
         /// <summary>
+        /// Returns the live bounds size of the document object with the given instance GUID,
+        /// or null when the object is missing or has no measurable bounds. Suitable for
+        /// <c>GhJSON.Core.DependencyGraph.LayoutOptions.NodeSizeProvider</c>, whose node keys
+        /// are component instance GUIDs (synthesized keys for id-only nodes simply miss here
+        /// and keep the default size).
+        /// </summary>
+        /// <param name="instanceGuid">The instance GUID of the document object.</param>
+        /// <returns>The live bounds size, or null when unknown.</returns>
+        public static SizeF? GetNodeSize(Guid instanceGuid)
+        {
+            var bounds = FindInstance(instanceGuid)?.Attributes?.Bounds;
+            return bounds.HasValue && bounds.Value.Width > 0 && bounds.Value.Height > 0
+                ? bounds.Value.Size
+                : null;
+        }
+
+        /// <summary>
+        /// Moves an existing instance by setting its Pivot position by GUID.
+        /// </summary>
+        /// <param name="guid">The GUID of the instance to move.</param>
+        /// <param name="position">The new pivot position, absolute or relative.</param>
+        /// <param name="relative">True to interpret position as a relative offset; false for absolute.</param>
+        /// <param name="redraw">True to redraw canvas after moving.</param>
+        /// <returns>True if the instance was found and moved; otherwise false.</returns>
+        /// <summary>
+        /// Moves below this pixel distance are treated as no-ops: sub-pixel deltas from
+        /// layout convergence produce invisible moves that still record undo events.
+        /// </summary>
+        private const float MoveEpsilon = 0.5f;
+
+        /// <summary>
         /// Moves an existing instance by setting its Pivot position by GUID.
         /// </summary>
         /// <param name="guid">The GUID of the instance to move.</param>
@@ -127,15 +203,20 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             var obj = FindInstance(guid);
             if (obj == null) return false;
 
-            // Record undo event before moving the instance
-            obj.RecordUndoEvent("[SH] Move Instance");
             var current = obj.Attributes.Pivot;
             var target = relative
                 ? new PointF(current.X + position.X, current.Y + position.Y)
                 : position;
 
-            // Skip movement if initial and target positions are the same
-            if (current == target) return false;
+            // Skip movement if initial and target positions are the same (within epsilon)
+            if (Math.Abs(current.X - target.X) < MoveEpsilon &&
+                Math.Abs(current.Y - target.Y) < MoveEpsilon)
+            {
+                return false;
+            }
+
+            // Record undo event only once we know the instance will actually move
+            obj.RecordUndoEvent("[SH] Move Instance");
 
             // Animate movement concurrently over 300ms with 15 frames
             Task.Run(async () =>
@@ -192,7 +273,11 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 var targetPos = relative
                     ? new PointF(start.X + kvp.Value.X, start.Y + kvp.Value.Y)
                     : kvp.Value;
-                if (start == targetPos) continue;
+                if (Math.Abs(start.X - targetPos.X) < MoveEpsilon &&
+                    Math.Abs(start.Y - targetPos.Y) < MoveEpsilon)
+                {
+                    continue;
+                }
                 moves.Add((obj, start, targetPos));
                 moved.Add(kvp.Key);
             }

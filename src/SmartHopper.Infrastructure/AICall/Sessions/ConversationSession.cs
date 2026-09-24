@@ -29,6 +29,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.Infrastructure.AICall.Policies;
     using SmartHopper.Infrastructure.AICall.Utilities;
     using SmartHopper.Infrastructure.Consent;
+    using SmartHopper.Infrastructure.Interaction;
     using SmartHopper.Infrastructure.Planning;
     using SmartHopper.Infrastructure.Settings;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -50,7 +51,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     ///   left without a result by an aborted turn (cancellation, error, exhausted passes/turns) or found at turn
     ///   start are closed with synthetic failed results (see <c>ReconcilePendingToolCalls</c>).
     /// - When <see cref="SessionOptions.ProcessTools"/> is false, tools are hidden from the provider for the run.
-    /// - Only provider turns increment the MaxTurns counter (tool passes do not consume turns).
+    /// - Provider turns and tool passes are bounded by the autonomous time and token budgets
+    ///   (<see cref="SessionOptions.MaxAutonomousTime"/> / <see cref="SessionOptions.MaxAutonomousTokens"/>).
     /// - Streaming text deltas are accumulated in memory and only the final aggregated text is persisted to history.
     /// - Non-text interactions (tool calls, tool results) are persisted immediately as they arrive.
     /// </remarks>
@@ -64,8 +66,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             public AIInteractionText? AccumulatedText { get; set; }
 
             public AIReturn? LastDelta { get; set; }
-
-            public AIReturn? LastToolCallsDelta { get; set; }
 
             public List<AIReturn> Deltas { get; } = new List<AIReturn>();
 
@@ -98,6 +98,58 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         private bool _generateGreeting;
 
         /// <summary>
+        /// Stopwatch measuring the current or last autonomous run's wall-clock time.
+        /// </summary>
+        private readonly Stopwatch _autonomyStopwatch = new ();
+
+        /// <summary>
+        /// Aggregated usage reported (or estimated) by provider calls of the current run.
+        /// The run ledger meters each completed provider call once, independent of which
+        /// interactions end up persisted in session history.
+        /// </summary>
+        private AIMetrics _runUsageMetrics = new ();
+
+        /// <summary>
+        /// Effective tokens (provider-reported, or estimated when unreported) consumed by the
+        /// current or last run. Read by <see cref="GetAutonomyUsage"/> and the token budget check.
+        /// </summary>
+        private long _runTokensEffective;
+
+        /// <summary>
+        /// Whether any accumulated call fell back to the heuristic token estimate because the
+        /// provider did not report usage.
+        /// </summary>
+        private bool _runUsageEstimated;
+
+        /// <summary>
+        /// History interaction count snapshotted at run start, so <see cref="GetAutonomyUsage"/>
+        /// can report how many interactions the run itself produced.
+        /// </summary>
+        private int _runBaselineInteractions;
+
+        /// <summary>
+        /// Options of the current or last run, holding the configured autonomy budgets.
+        /// </summary>
+        private SessionOptions? _autonomyOptions;
+
+        /// <summary>
+        /// Reason recorded when an autonomy budget is exhausted; sticky for the remainder of the run.
+        /// </summary>
+        private string? _autonomyExhaustionReason;
+
+        /// <summary>
+        /// Live extensions to the configured autonomy budgets (extra seconds as ticks, extra tokens),
+        /// accumulated by <see cref="ExtendAutonomyLimits"/> and applied on top of
+        /// <see cref="SessionOptions.MaxAutonomousTime"/>/<see cref="SessionOptions.MaxAutonomousTokens"/>.
+        /// Written from the UI thread and read from the turn-loop thread; accessed via
+        /// <see cref="Interlocked"/>.
+        /// </summary>
+        private long _autonomyExtraSecondsTicks;
+
+        /// <summary>Extra token budget accumulated by <see cref="ExtendAutonomyLimits"/>.</summary>
+        private long _autonomyExtraTokens;
+
+        /// <summary>
         /// The last complete return from the conversation.
         /// </summary>
         private AIReturn _lastReturn = new AIReturn();
@@ -117,6 +169,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <param name="generateGreeting">Whether to generate an AI greeting when the conversation is initialized.</param>
         /// <param name="consentPresenter">Optional presenter for invocation-specific consent requests.</param>
         /// <param name="taskPlanPresenter">Optional presenter for invocation-specific task plan updates.</param>
+        /// <param name="canvasPointerPresenter">Optional presenter for invocation-specific canvas pointer cards.</param>
+        /// <param name="userQuestionPresenter">Optional presenter for invocation-specific user questions.</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="request"/> is null.</exception>
         public ConversationSession(
             AIRequestCall request,
@@ -124,7 +178,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             IProviderExecutor? executor = null,
             bool generateGreeting = false,
             IConsentPresenter? consentPresenter = null,
-            ITaskPlanPresenter? taskPlanPresenter = null)
+            ITaskPlanPresenter? taskPlanPresenter = null,
+            ICanvasPointerPresenter? canvasPointerPresenter = null,
+            IUserQuestionPresenter? userQuestionPresenter = null)
         {
             this.Request = request ?? throw new ArgumentNullException(nameof(request));
             this._initialRequest = request;
@@ -133,6 +189,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             this._generateGreeting = generateGreeting;
             this.ConsentPresenter = consentPresenter;
             this.TaskPlanPresenter = taskPlanPresenter;
+            this.CanvasPointerPresenter = canvasPointerPresenter;
+            this.UserQuestionPresenter = userQuestionPresenter;
 
             // Initialize _lastReturn with initial request body
             this._lastReturn.SetBody(request.Body);
@@ -228,12 +286,21 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     yield break;
                 }
 
-                int turns = 0;
+                // Start the autonomy run only for real provider turns: greeting and validation
+                // early-returns above must not stamp a run that never happened.
+                this.BeginAutonomyRun(options);
+
                 AIReturn lastReturn = null;
 
-                while (turns < options.MaxTurns)
+                while (true)
                 {
                     linkedCts.Token.ThrowIfCancellationRequested();
+
+                    if (this.TryGetAutonomyExhaustion(out var budgetReason))
+                    {
+                        this.ReconcilePendingToolCalls($"Tool execution was skipped: {budgetReason}.");
+                        break;
+                    }
 
                     // Allocate a fresh TurnId for this assistant turn
                     var turnId = Guid.NewGuid().ToString("N");
@@ -281,7 +348,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             else if (this.Request.Body.PendingToolCallsCount() == 0)
                             {
                                 var finalStable = lastReturn ?? new AIReturn();
-                                this._lastReturn = finalStable;
                                 this.UpdateLastReturn();
                                 this.NotifyFinal(finalStable);
                                 nsPrepared = finalStable;
@@ -315,7 +381,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                         else if (this.Request.Body.PendingToolCallsCount() == 0)
                                         {
                                             var finalStable = lastReturn ?? new AIReturn();
-                                            this._lastReturn = finalStable;
                                             this.UpdateLastReturn();
                                             this.NotifyFinal(finalStable);
                                             nsPrepared = finalStable;
@@ -360,7 +425,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         }
 
                         // Otherwise, continue to next turn
-                        turns++;
                         continue;
                     }
 
@@ -375,7 +439,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         ErrorYield = null,
                         ShouldBreak = false,
                         LastDelta = null,
-                        LastToolCallsDelta = null,
                         AccumulatedText = null,
                     };
 
@@ -413,7 +476,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             // Transfer results to turn state
                             state.AccumulatedText = streamResult.AccumulatedText;
                             state.LastDelta = streamResult.LastDelta;
-                            state.LastToolCallsDelta = streamResult.LastToolCallsDelta;
                             state.DeltaYields.AddRange(streamResult.Deltas);
                             if (streamResult.LastDelta != null)
                             {
@@ -430,7 +492,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             else
                             {
                                 // Persist final aggregated text and update last-return snapshot with measured time
-                                this.PersistStreamingSnapshot(state.LastToolCallsDelta, state.LastDelta, state.TurnId, state.AccumulatedText, streamResult.ElapsedSeconds);
+                                this.PersistStreamingSnapshot(state.LastDelta, state.TurnId, state.AccumulatedText, streamResult.ElapsedSeconds);
 
                                 if (!options.ProcessTools)
                                 {
@@ -533,20 +595,21 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     {
                         yield break;
                     }
-
-                    turns++;
                 }
 
-                // Max turns reached without stability
-                this.ReconcilePendingToolCalls($"Tool execution was skipped: the maximum number of provider turns ({options.MaxTurns}) was reached.");
-                var final = lastReturn ?? this.CreateError("Max turns reached without a stable result");
-                this._lastReturn = final;
+                // The run ended without stability — either the autonomy budget was exhausted or the
+                // conversation never converged. Close any dangling tool calls.
+                var stopReason = this._autonomyExhaustionReason ?? "the autonomous run ended";
+                this.ReconcilePendingToolCalls($"Tool execution was skipped: {stopReason}.");
+                var final = lastReturn ?? this.CreateError(stopReason);
                 this.UpdateLastReturn();
                 this.NotifyFinal(final);
                 yield return final;
             }
             finally
             {
+                this._autonomyStopwatch.Stop();
+
                 if (toolsDisabledForRun)
                 {
                     this.SetToolFilter(originalToolFilter);
@@ -573,6 +636,16 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// Gets the invocation-specific task plan presenter.
         /// </summary>
         public ITaskPlanPresenter? TaskPlanPresenter { get; }
+
+        /// <summary>
+        /// Gets the invocation-specific canvas pointer presenter.
+        /// </summary>
+        public ICanvasPointerPresenter? CanvasPointerPresenter { get; }
+
+        /// <summary>
+        /// Gets the invocation-specific user question presenter.
+        /// </summary>
+        public IUserQuestionPresenter? UserQuestionPresenter { get; }
 
         /// <summary>
         /// Adds a new user interaction to the conversation.
@@ -606,6 +679,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 // Append generic interaction to session history without marking it as 'new'
                 this.AppendToSessionHistory(interaction);
                 this.UpdateLastReturn();
+
+                // Notify observer so the interaction is rendered in the UI,
+                // matching the behavior of the string overload for user messages
+                this.Observer?.OnInteractionCompleted(interaction);
             }
         }
 
@@ -694,6 +771,154 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
 
         /// <summary>
+        /// Starts the autonomy budget for a new run: restarts the elapsed-time clock and resets the
+        /// per-call usage ledger so only this run's consumption is measured.
+        /// </summary>
+        /// <param name="options">The session options holding the configured budgets.</param>
+        private void BeginAutonomyRun(SessionOptions options)
+        {
+            this._autonomyOptions = options;
+            this._runUsageMetrics = new AIMetrics();
+            this._runTokensEffective = 0;
+            this._runUsageEstimated = false;
+            this._autonomyExhaustionReason = null;
+            Interlocked.Exchange(ref this._autonomyExtraSecondsTicks, 0);
+            Interlocked.Exchange(ref this._autonomyExtraTokens, 0);
+            this._runBaselineInteractions = this.Request.Body?.Interactions?.Count ?? 0;
+            this._autonomyStopwatch.Restart();
+        }
+
+        /// <summary>
+        /// Meters one completed provider call into the run usage ledger. Usage is read from the
+        /// call's aggregated metrics (<see cref="AIReturn.Metrics"/>); when the provider reported
+        /// no usage, a heuristic estimate over the sent body (input) and produced interactions
+        /// (output) is used instead so unreported spend still counts.
+        /// </summary>
+        /// <param name="callResult">The completed call's return; its body aggregate is the usage source.</param>
+        /// <param name="sentBody">The request body actually sent to the provider (input estimate source).</param>
+        /// <param name="produced">Interactions produced by the call (output estimate source).</param>
+        private void AccumulateCallUsage(AIReturn? callResult, AIBody? sentBody, IReadOnlyList<IAIInteraction>? produced)
+        {
+            var usage = callResult?.Metrics;
+            if (usage == null || usage.TotalTokens <= 0)
+            {
+                var (sentIn, sentOut) = AIBodyExtensions.EstimateTokensFromInteractions(sentBody?.Interactions);
+                var (prodIn, prodOut) = AIBodyExtensions.EstimateTokensFromInteractions(produced);
+                usage = (usage ?? new AIMetrics()) with
+                {
+                    EstimatedInputTokens = sentIn + sentOut,
+                    EstimatedOutputTokens = prodIn + prodOut,
+                };
+                this._runUsageEstimated = true;
+            }
+
+            this._runUsageMetrics = this._runUsageMetrics.WithCombined(usage);
+            this._runTokensEffective += Math.Max(0, usage.EffectiveTotalTokens);
+            Debug.WriteLine($"[ConversationSession.AccumulateCallUsage] callTokens={usage.EffectiveTotalTokens} (actual={usage.TotalTokens}, estimated={usage.TotalEstimatedTokens}), runTotal={this._runTokensEffective}");
+        }
+
+        /// <summary>
+        /// Checks whether either autonomy budget is exhausted. The first exhaustion reason is recorded
+        /// and reported for the remainder of the run.
+        /// </summary>
+        /// <param name="reason">A human-readable reason describing which budget was exhausted.</param>
+        /// <returns>True when the run must stop.</returns>
+        private bool TryGetAutonomyExhaustion(out string? reason)
+        {
+            reason = this._autonomyExhaustionReason;
+            if (reason != null)
+            {
+                return true;
+            }
+
+            var options = this._autonomyOptions;
+            var maxTime = (options?.MaxAutonomousTime ?? TimeSpan.Zero)
+                + TimeSpan.FromTicks(Interlocked.Read(ref this._autonomyExtraSecondsTicks));
+            var elapsed = this._autonomyStopwatch.Elapsed;
+            if (maxTime > TimeSpan.Zero && elapsed >= maxTime)
+            {
+                reason = $"the autonomous time budget was exhausted ({elapsed:mm\\:ss} elapsed of {maxTime:mm\\:ss} allowed)";
+            }
+            else
+            {
+                var maxTokens = (options?.MaxAutonomousTokens ?? 0)
+                    + Interlocked.Read(ref this._autonomyExtraTokens);
+                var consumed = this._runTokensEffective;
+                if (maxTokens > 0 && consumed >= maxTokens)
+                {
+                    reason = $"the autonomous token budget was exhausted ({consumed:N0} tokens consumed of {maxTokens:N0} allowed)";
+                }
+            }
+
+            this._autonomyExhaustionReason = reason;
+            return reason != null;
+        }
+
+        /// <summary>
+        /// Returns a snapshot of the current or last run's autonomy budget consumption for UI reporting.
+        /// </summary>
+        /// <returns>An <see cref="AutonomyUsage"/> snapshot; zeros when no run has started.</returns>
+        public AutonomyUsage GetAutonomyUsage()
+        {
+            var options = this._autonomyOptions;
+            if (options == null)
+            {
+                return new AutonomyUsage();
+            }
+
+            return new AutonomyUsage
+            {
+                ElapsedSeconds = this._autonomyStopwatch.Elapsed.TotalSeconds,
+                MaxSeconds = options.MaxAutonomousTime.TotalSeconds
+                    + TimeSpan.FromTicks(Interlocked.Read(ref this._autonomyExtraSecondsTicks)).TotalSeconds,
+                Tokens = Math.Max(0, this._runTokensEffective),
+                MaxTokens = options.MaxAutonomousTokens + Interlocked.Read(ref this._autonomyExtraTokens),
+                TokensEstimated = this._runUsageEstimated,
+                Interactions = Math.Max(0, (this.Request.Body?.Interactions?.Count ?? 0) - this._runBaselineInteractions),
+                IsRunning = this._autonomyStopwatch.IsRunning,
+                IsExhausted = this._autonomyExhaustionReason != null,
+            };
+        }
+
+        /// <summary>
+        /// Extends the current run's autonomy budgets live: adds half of the configured time and
+        /// token limits on top of the effective limits, once per call. Unlimited budgets are left
+        /// unchanged. Has no effect when no run is in progress, or once a budget has been
+        /// exhausted (the run has already committed to ending).
+        /// </summary>
+        /// <returns>True when at least one bounded budget was extended; false when no run is in progress, the run is already exhausted, or both budgets are unlimited.</returns>
+        public bool ExtendAutonomyLimits()
+        {
+            var options = this._autonomyOptions;
+            if (options == null || !this._autonomyStopwatch.IsRunning || this._autonomyExhaustionReason != null)
+            {
+                return false;
+            }
+
+            var extended = false;
+            if (options.MaxAutonomousTime > TimeSpan.Zero)
+            {
+                Interlocked.Add(
+                    ref this._autonomyExtraSecondsTicks,
+                    (long)(options.MaxAutonomousTime.TotalSeconds * 0.5 * TimeSpan.TicksPerSecond));
+                extended = true;
+            }
+
+            if (options.MaxAutonomousTokens > 0)
+            {
+                Interlocked.Add(ref this._autonomyExtraTokens, options.MaxAutonomousTokens / 2);
+                extended = true;
+            }
+
+            if (extended)
+            {
+                Debug.WriteLine($"[ConversationSession.ExtendAutonomyLimits] extended by +50%: +{options.MaxAutonomousTime.TotalSeconds * 0.5:0.#}s, +{options.MaxAutonomousTokens / 2} tokens");
+            }
+
+            return extended;
+        }
+
+        /// <summary>
         /// Generates an AI greeting using the special turn system.
         /// </summary>
         /// <param name="streamChunks">When true, uses streaming mode for greeting generation.</param>
@@ -754,11 +979,16 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var res = await this.Request.Exec(stream: false).ConfigureAwait(false);
             stopwatch.Stop();
 
+            // Post-exec body reflects request policies applied inside Exec — this is the prompt actually sent
+            var sentBody = this.Request.Body;
+
             // Attach completion time to the last interaction in the result
             if (res?.Body != null)
             {
                 res.SetCompletionTime(stopwatch.Elapsed.TotalSeconds);
             }
+
+            this.AccumulateCallUsage(res, sentBody, res?.Body?.Interactions);
 
             return res;
         }
@@ -815,6 +1045,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             var result = new StreamProcessingResult();
             var stopwatch = Stopwatch.StartNew();
+            AIBody? sentBody = null;
+
+            // Everything this provider call produced: coalesced text plus persisted non-text
+            // interactions. Used to estimate usage when the provider does not report it.
+            var producedInteractions = new List<IAIInteraction>();
 
             try
             {
@@ -822,6 +1057,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 // Streaming adapters can bypass AIRequestCall.Exec(), so policies like ContextInjectionRequestPolicy
                 // must be applied explicitly to keep context up-to-date on every provider call.
                 await PolicyPipeline.Default.ApplyRequestPoliciesAsync(this.Request).ConfigureAwait(false);
+
+                // Snapshot the post-policy body: this is the prompt actually sent, used to
+                // estimate usage when the provider does not report it.
+                sentBody = this.Request.Body;
 
                 await foreach (var rawDelta in adapter.StreamAsync(this.Request, streamingOptions, ct).ConfigureAwait(false))
                 {
@@ -889,6 +1128,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         // Emit partial notification only for persisted non-text interactions
                         if (nonTextInteractions.Count > 0)
                         {
+                            producedInteractions.AddRange(nonTextInteractions);
                             try
                             {
                                 var persistedDelta = this.BuildDeltaReturn(turnId, nonTextInteractions);
@@ -900,8 +1140,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             }
                         }
 
-                        // Keep a reference to last tool_calls delta if needed by diagnostics
-                        result.LastToolCallsDelta = delta;
                     }
 
                     result.Deltas.Add(delta);
@@ -921,6 +1159,16 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 result.ErrorMessage = "Provider returned no response";
             }
 
+            // Meter the call into the run ledger. Usage is cumulative per call, so take the
+            // last delta carrying metrics (covers providers reporting usage on a non-final chunk).
+            var usageDelta = result.Deltas.LastOrDefault(d => d?.Metrics?.TotalTokens > 0) ?? result.LastDelta;
+            if (result.AccumulatedText != null)
+            {
+                producedInteractions.Insert(0, result.AccumulatedText);
+            }
+
+            this.AccumulateCallUsage(usageDelta, sentBody, producedInteractions);
+
             return result;
         }
 
@@ -937,9 +1185,16 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             var preparedYields = new List<AIReturn>();
             int toolPass = 0;
-            while (toolPass < options.MaxToolPasses)
+            while (true)
             {
                 ct.ThrowIfCancellationRequested();
+
+                if (this.TryGetAutonomyExhaustion(out var budgetReason))
+                {
+                    this.ReconcilePendingToolCalls($"Tool execution was skipped: {budgetReason}.");
+                    break;
+                }
+
 #if DEBUG
                 // Debug: snapshot of tool_call ids before each tool pass
                 this.DebugLogToolCallIds($"before tool pass {toolPass} turn {turnId}");
@@ -954,6 +1209,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 foreach (var tc in pendingToolCalls)
                 {
                     ct.ThrowIfCancellationRequested();
+                    if (this.TryGetAutonomyExhaustion(out _))
+                    {
+                        break;
+                    }
+
                     var delta = await this.ExecuteSingleToolAsync(tc, turnId, ct).ConfigureAwait(false);
                     if (delta != null)
                     {
@@ -993,7 +1253,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         }
 
                         // Persist final aggregated text and update last return snapshot
-                        this.PersistStreamingSnapshot(streamResult.LastDelta, streamResult.LastDelta, turnId, streamResult.AccumulatedText, streamResult.ElapsedSeconds);
+                        this.PersistStreamingSnapshot(streamResult.LastDelta, turnId, streamResult.AccumulatedText, streamResult.ElapsedSeconds);
                         this.NotifyInteractionCompleted(this._lastReturn);
                         preparedYields.Add(this._lastReturn);
                     }
@@ -1025,9 +1285,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 }
             }
 
-            // Tool pass budget exhausted while the provider keeps requesting tools: close the remaining calls so
+            // Budget exhausted while the provider keeps requesting tools: close the remaining calls so
             // the history stays valid instead of carrying dangling tool_calls into the next provider request.
-            if (this.ReconcilePendingToolCalls($"Tool execution was skipped: the maximum number of tool passes per turn ({options.MaxToolPasses}) was reached.") > 0)
+            var exhaustion = this._autonomyExhaustionReason ?? "the autonomous run ended before all tool calls could complete";
+            if (this.ReconcilePendingToolCalls($"Tool execution was skipped: {exhaustion}.") > 0)
             {
                 this.UpdateLastReturn();
                 preparedYields.Add(this._lastReturn);

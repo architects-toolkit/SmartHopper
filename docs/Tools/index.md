@@ -44,13 +44,18 @@ SmartHopper's tool system extends Grasshopper components with AI-powered capabil
 | textlist2boolean | Evaluates list items against criteria and returns boolean results |
 | canvas_screenshot | Captures the visible Grasshopper canvas as a bounded base64 PNG |
 | viewport_screenshot | Captures the active or named Rhino viewport as a bounded base64 PNG |
+| canvas_view | Repositions the Grasshopper canvas viewport (zoom extents, frame GUIDs, set zoom/center) without mutating the document |
+| canvas_point | Pans/zooms the viewport to components or a region and draws an 8-second border highlight; chat surfaces get a replayable "Show on canvas" card |
+| canvas_hi-res_screenshot | Renders a canvas region (document, selection, GUIDs, or explicit bounds) to a high-resolution PNG at a chosen scale with optional transparent background. For publishing/printing, not agent vision |
+| gh_select | Updates the Grasshopper canvas selection (set/add/remove/clear) through the consent review path |
+| ask_user | Chat-only blocking question to the user with 2–4 predefined options plus a free-text field; resolves on an answer or run cancellation |
 
 ### When to Use Them
 
 - **Text tasks**: Use `text2text`, `text2boolean`, `text2textlist`, `text2json`
 - **Image tasks**: Use `img2text` (vision), `text2img` (generation), or `canvas_screenshot` / `viewport_screenshot` (capture)
 - **Document tasks**: Use `file2md` or `web2md` to convert documents and web pages to Markdown
-- **Canvas tasks**: Use `gh_get`, `gh_put`, `gh_move`, `gh_group`, `gh_tidy_up`, `gh_connect`, `gh_disconnect`, `set_ai_provider_and_model` for Grasshopper automation
+- **Canvas tasks**: Use `gh_get`, `gh_put`, `gh_move`, `gh_group`, `gh_tidy_up`, `gh_connect`, `gh_disconnect`, `gh_select`, `canvas_view`, `set_ai_provider_and_model` for Grasshopper automation
 - **Provider/model tasks**: Use `get_available_providers` (includes a `configured` flag per provider), `get_available_models` to inspect registered AI providers and their supported models, and `set_ai_provider_and_model` to override provider/model on a component
 - **Knowledge tasks**: Use `smarthopper_readme`, `smarthopper_tool_help`, `mcneel_forum_search` for contextual guidance
 
@@ -210,7 +215,7 @@ Component → AIToolRequest → ToolManager → Provider formatting → AI Model
 | Instruction & Knowledge | `smarthopper_readme`, `smarthopper_workflows`, `smarthopper_tool_help`, `smarthopper_ghjson_reference`, `file2md`, `web2md`, `mcneel_forum_search`, `mcneel_forum_topic`, `mcneel_forum_post` |
 | Text Generation | `text2text`, `text2boolean`, `text2textlist`, `text2json`, `list_filter`, `textlist2boolean` |
 | Image Processing | `img2text`, `text2img`, `canvas_screenshot`, `viewport_screenshot` |
-| Grasshopper Canvas | `gh_get`, `gh_put`, `gh_move`, `gh_merge`, `gh_group`, `gh_tidy_up`, `gh_list_categories`, `gh_list_components`, `gh_component_preview`, `gh_component_lock`, `gh_connect`, `gh_disconnect` |
+| Grasshopper Canvas | `gh_get`, `gh_put`, `gh_move`, `gh_merge`, `gh_group`, `gh_tidy_up`, `gh_list_categories`, `gh_list_components`, `gh_component_preview`, `gh_component_lock`, `gh_connect`, `gh_disconnect`, `gh_select`, `canvas_view` |
 | Scripting | `script_generate`, `script_edit`, `script_review` |
 
 ### Related Documentation

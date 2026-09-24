@@ -401,7 +401,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// </summary>
         /// <param name="interactions">The interactions to estimate tokens for.</param>
         /// <returns>Tuple of (estimatedInputTokens, estimatedOutputTokens) based on content length.</returns>
-        private static (int estimatedInput, int estimatedOutput) EstimateTokensFromInteractions(IReadOnlyList<IAIInteraction> interactions)
+        public static (int estimatedInput, int estimatedOutput) EstimateTokensFromInteractions(IReadOnlyList<IAIInteraction>? interactions)
         {
             if (interactions == null || interactions.Count == 0)
             {

@@ -15,6 +15,29 @@
         <span id="spinner" class="spinner hidden"></span>
     </div>
 
+    <!-- Floating HUD: autonomy budget overlay (only while a run is in progress)
+         with the active task-plan panel docked below it -->
+    <div id="hud">
+        <div id="autonomy-overlay" class="hidden" role="status" aria-live="polite">
+            <div id="autonomy-warning" class="autonomy-warning hidden">&#9888; No autonomy limits — unbounded run</div>
+            <div id="autonomy-time-row" class="autonomy-row" title="Autonomous time used / limit">
+                <span class="autonomy-icon">&#9201;</span>
+                <span id="autonomy-time-text" class="autonomy-text"></span>
+                <span class="autonomy-bar"><span id="autonomy-time-fill" class="autonomy-fill"></span></span>
+            </div>
+            <div id="autonomy-tokens-row" class="autonomy-row" title="Autonomous tokens used / limit">
+                <span class="autonomy-icon">&#9889;</span>
+                <span id="autonomy-tokens-text" class="autonomy-text"></span>
+                <span class="autonomy-bar"><span id="autonomy-tokens-fill" class="autonomy-fill"></span></span>
+            </div>
+            <div id="autonomy-extend-row" class="autonomy-row hidden" title="Extend the autonomous time and token budgets by 50% each">
+                <span class="autonomy-icon">+</span>
+                <button id="autonomy-extend-btn" class="autonomy-extend-btn" type="button">Extend limits</button>
+            </div>
+        </div>
+        <div id="task-plan-panel" class="hidden" role="status" aria-live="polite"></div>
+    </div>
+
     <div id='chat-container'></div>
 
     <!-- New messages indicator (shown when content arrives and user is not at bottom) -->
@@ -26,9 +49,12 @@
     <button id="scroll-bottom-btn" class="hidden" type="button" title="Scroll to bottom" aria-label="Scroll to bottom">↓</button>
 
     <div id="input-bar">
+        <div id="suggestions-strip" class="hidden" role="list"></div>
+        <div id="attachment-strip" class="hidden"></div>
         <textarea id="user-input" placeholder="Type a message..." rows="3"></textarea>
         <div class="actions">
             <div class="actions-left">
+                <button id="attach-button" type="button" title="Attach image" aria-label="Attach image">&#128206;</button>
                 {{debugActionsLeft}}
             </div>
             <div class="actions-right">

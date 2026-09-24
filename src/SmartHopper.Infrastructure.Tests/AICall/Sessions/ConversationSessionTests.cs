@@ -21,6 +21,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Runtime.CompilerServices;
     using System.Threading;
     using System.Threading.Tasks;
     using Newtonsoft.Json.Linq;
@@ -31,7 +32,11 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Requests;
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
+    using SmartHopper.ProviderSdk.AICall.Metrics;
+    using SmartHopper.ProviderSdk.AIModels;
+    using SmartHopper.ProviderSdk.AIProviders;
     using SmartHopper.ProviderSdk.Diagnostics;
+    using SmartHopper.ProviderSdk.Settings;
     using SmartHopper.ProviderSdk.Streaming;
     using Xunit;
 
@@ -107,11 +112,11 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
         }
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "ConversationSession RunToStableResult respects MaxTurns limit [Windows]")]
+        [Fact(DisplayName = "ConversationSession RunToStableResult converges in a single provider call [Windows]")]
 #else
-        [Fact(DisplayName = "ConversationSession RunToStableResult respects MaxTurns limit [Core]")]
+        [Fact(DisplayName = "ConversationSession RunToStableResult converges in a single provider call [Core]")]
 #endif
-        public async Task RunToStableResult_MaxTurns_Respected()
+        public async Task RunToStableResult_Converges_SingleProviderCall()
         {
             var callCount = 0;
             var request = CreateTestableRequest(onExec: () =>
@@ -121,13 +126,12 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
             });
 
             var session = new ConversationSession(request);
-            var options = new SessionOptions { ProcessTools = false, MaxTurns = 3 };
+            var options = new SessionOptions { ProcessTools = false };
 
             var result = await session.RunToStableResult(options).ConfigureAwait(false);
 
             Assert.NotNull(result);
-            // MaxTurns limits how many times the provider is called
-            Assert.True(callCount <= 3, $"Expected at most 3 turns but got {callCount}");
+            Assert.Equal(1, callCount);
         }
 
 #if NET7_WINDOWS
@@ -285,27 +289,147 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
         }
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "ConversationSession closes pending tool calls when the tool pass budget is exhausted [Windows]")]
+        [Fact(DisplayName = "ConversationSession stops before the first provider call when the time budget is exhausted [Windows]")]
 #else
-        [Fact(DisplayName = "ConversationSession closes pending tool calls when the tool pass budget is exhausted [Core]")]
+        [Fact(DisplayName = "ConversationSession stops before the first provider call when the time budget is exhausted [Core]")]
 #endif
-        public async Task RunToStableResult_MaxToolPassesExhausted_ReconcilesPendingToolCalls()
+        public async Task RunToStableResult_TimeBudgetExhausted_StopsBeforeProviderCall()
         {
-            // Provider requests a new tool on every call, so tool passes never converge.
+            var callCount = 0;
+            var request = CreateTestableRequest(onExec: () =>
+            {
+                callCount++;
+                return Task.FromResult("unreachable");
+            });
+
+            var session = new ConversationSession(request);
+
+            // One TimeSpan tick (~100ns) is consumed before the first budget check runs.
+            var result = await session.RunToStableResult(new SessionOptions { MaxAutonomousTime = TimeSpan.FromTicks(1) }).ConfigureAwait(false);
+
+            Assert.Equal(0, callCount);
+            Assert.NotNull(result);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession closes pending tool calls when the token budget is exhausted [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession closes pending tool calls when the token budget is exhausted [Core]")]
+#endif
+        public async Task RunToStableResult_TokenBudgetExhausted_ReconcilesPendingToolCalls()
+        {
+            // Provider requests a new tool on every call (each reporting tokens), so the run never converges.
             var callCount = 0;
             var request = CreateTestableRequest();
-            request.ResponseInteractionsFactory = () => new List<IAIInteraction> { CreateToolCall($"call_{++callCount}") };
+            request.ResponseInteractionsFactory = () => new List<IAIInteraction>
+            {
+                new AIInteractionToolCall
+                {
+                    Id = $"call_{++callCount}",
+                    Name = "test_tool",
+                    Arguments = new JObject(),
+                    Metrics = new AIMetrics { InputTokensPrompt = 10, OutputTokensGeneration = 5 },
+                },
+            };
             var session = new ConversationSession(request, executor: new MockProviderExecutor());
 
-            await session.RunToStableResult(new SessionOptions { ProcessTools = true, MaxToolPasses = 2, MaxTurns = 1 }).ConfigureAwait(false);
+            await session.RunToStableResult(new SessionOptions { ProcessTools = true, MaxAutonomousTokens = 1 }).ConfigureAwait(false);
 
             Assert.Equal(0, session.Request.Body.PendingToolCallsCount());
 
             // AIInteractionToolResult derives from AIInteractionToolCall, so results must be excluded explicitly.
             var calls = session.Request.Body.Interactions.Where(i => i is AIInteractionToolCall && i is not AIInteractionToolResult).Select(i => ((AIInteractionToolCall)i).Id).ToList();
             var results = session.Request.Body.Interactions.OfType<AIInteractionToolResult>().Select(tr => tr.Id).ToList();
-            Assert.Equal(3, calls.Count); // initial call + one per tool pass
+            Assert.Single(calls); // first call exhausts the budget; later calls never happen
             Assert.Equal(calls.OrderBy(id => id, StringComparer.Ordinal), results.OrderBy(id => id, StringComparer.Ordinal));
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession GetAutonomyUsage reports consumption and configured limits [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession GetAutonomyUsage reports consumption and configured limits [Core]")]
+#endif
+        public async Task RunToStableResult_GetAutonomyUsage_ReportsConsumptionAndLimits()
+        {
+            var request = CreateTestableRequest();
+            request.ResponseInteractions = new List<IAIInteraction>
+            {
+                new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = "done",
+                    Metrics = new AIMetrics { InputTokensPrompt = 42 },
+                },
+            };
+
+            var session = new ConversationSession(request);
+            await session.RunToStableResult(new SessionOptions
+            {
+                ProcessTools = false,
+                MaxAutonomousTime = TimeSpan.FromMinutes(5),
+                MaxAutonomousTokens = 1000,
+            }).ConfigureAwait(false);
+
+            var usage = session.GetAutonomyUsage();
+            Assert.Equal(300, usage.MaxSeconds);
+            Assert.Equal(1000, usage.MaxTokens);
+            Assert.Equal(42, usage.Tokens);
+            Assert.False(usage.IsRunning);
+            Assert.False(usage.IsExhausted);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession extracts tool-result images into interaction Images and compacts the result JSON [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession extracts tool-result images into interaction Images and compacts the result JSON [Core]")]
+#endif
+        public async Task RunToStableResult_ToolResultImage_IsExtractedFromResultJson()
+        {
+            // The provider requests a tool once, then answers with text.
+            var callCount = 0;
+            var request = CreateTestableRequest();
+            request.ResponseInteractionsFactory = () =>
+                ++callCount == 1
+                    ? new List<IAIInteraction> { CreateToolCall("call_img") }
+                    : new List<IAIInteraction> { new AIInteractionText { Agent = AIAgent.Assistant, Content = "done" } };
+
+            var executor = new MockProviderExecutor
+            {
+                OnExecTool = tc =>
+                {
+                    var ret = new AIReturn();
+                    ret.SetBody(AIBodyBuilder.Create()
+                        .Add(new AIInteractionToolResult
+                        {
+                            Id = tc.GetToolCall().Id,
+                            Name = "canvas_screenshot",
+                            Result = new JObject
+                            {
+                                ["imageBase64"] = "QUJD",
+                                ["mimeType"] = "image/png",
+                                ["imageAudience"] = "model",
+                                ["width"] = 10,
+                            },
+                        })
+                        .Build());
+                    return ret;
+                },
+            };
+            var session = new ConversationSession(request, executor: executor);
+
+            await session.RunToStableResult(new SessionOptions { ProcessTools = true }).ConfigureAwait(false);
+
+            var result = session.Request.Body.Interactions.OfType<AIInteractionToolResult>().Single();
+            Assert.Null(result.Result["imageBase64"]);
+            Assert.Equal("model", result.Result["imageAudience"]?.ToString());
+            Assert.True(result.Result["imageAttached"]?.Value<bool>());
+            Assert.Equal("image/png", result.Result["mimeType"]?.ToString());
+
+            var image = Assert.Single(result.Images);
+            Assert.Equal("QUJD", image.ImageData);
+            Assert.Equal("image/png", image.MimeType);
+            Assert.True(image.SendToModel);
+            Assert.Equal(10, image.Width);
         }
 
 #if NET7_WINDOWS
@@ -325,11 +449,273 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
             };
 
             var session = new ConversationSession(request, executor: new MockProviderExecutor());
-            await session.RunToStableResult(new SessionOptions { ProcessTools = false, MaxTurns = 1 }).ConfigureAwait(false);
+            await session.RunToStableResult(new SessionOptions { ProcessTools = false }).ConfigureAwait(false);
 
             Assert.Equal("-*", filterSeenByProvider);
             Assert.Equal("+gh_*", session.Request.Body.ToolFilter);
         }
+
+        #endregion
+
+        #region Autonomy usage accounting (non-streaming)
+
+        // The session meters each completed provider call once into a per-run ledger.
+        // Provider-reported metrics are preferred; when absent, a heuristic estimate
+        // over the sent body (input) and produced interactions (output) is used and
+        // surfaced through AutonomyUsage.TokensEstimated.
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession GetAutonomyUsage reports actual metrics without estimate flag [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession GetAutonomyUsage reports actual metrics without estimate flag [Core]")]
+#endif
+        public async Task RunToStableResult_ReportedUsage_IsNotEstimated()
+        {
+            var request = CreateTestableRequest();
+            request.ResponseInteractions = new List<IAIInteraction>
+            {
+                new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = "done",
+                    Metrics = new AIMetrics { InputTokensPrompt = 42 },
+                },
+            };
+
+            var session = new ConversationSession(request);
+            await session.RunToStableResult(new SessionOptions { ProcessTools = false }).ConfigureAwait(false);
+
+            var usage = session.GetAutonomyUsage();
+            Assert.Equal(42, usage.Tokens);
+            Assert.False(usage.TokensEstimated);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession GetAutonomyUsage estimates tokens when the provider reports none [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession GetAutonomyUsage estimates tokens when the provider reports none [Core]")]
+#endif
+        public async Task RunToStableResult_NoReportedUsage_EstimatesTokens()
+        {
+            var request = CreateTestableRequest();
+            request.ResponseInteractions = new List<IAIInteraction>
+            {
+                new AIInteractionText { Agent = AIAgent.Assistant, Content = "done" },
+            };
+
+            var session = new ConversationSession(request);
+            await session.RunToStableResult(new SessionOptions { ProcessTools = false }).ConfigureAwait(false);
+
+            var usage = session.GetAutonomyUsage();
+            Assert.True(usage.Tokens > 0);
+            Assert.True(usage.TokensEstimated);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession meters each provider call exactly once across tool passes [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession meters each provider call exactly once across tool passes [Core]")]
+#endif
+        public async Task RunToStableResult_AccumulatesUsageOncePerProviderCall()
+        {
+            // First call returns a tool call carrying usage; after the tool executes, the
+            // follow-up call returns text carrying usage. Both calls must be metered once.
+            var callCount = 0;
+            var request = CreateTestableRequest();
+            request.ResponseInteractionsFactory = () =>
+                ++callCount == 1
+                    ? new List<IAIInteraction>
+                    {
+                        new AIInteractionToolCall
+                        {
+                            Id = "call_1",
+                            Name = "test_tool",
+                            Arguments = new JObject(),
+                            Metrics = new AIMetrics { InputTokensPrompt = 10, OutputTokensGeneration = 5 },
+                        },
+                    }
+                    : new List<IAIInteraction>
+                    {
+                        new AIInteractionText
+                        {
+                            Agent = AIAgent.Assistant,
+                            Content = "done",
+                            Metrics = new AIMetrics { InputTokensPrompt = 20, OutputTokensGeneration = 10 },
+                        },
+                    };
+
+            var session = new ConversationSession(request, executor: new MockProviderExecutor());
+            await session.RunToStableResult(new SessionOptions { ProcessTools = true }).ConfigureAwait(false);
+
+            var usage = session.GetAutonomyUsage();
+            Assert.Equal(45, usage.Tokens);
+            Assert.False(usage.TokensEstimated);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession reports run-produced interaction count [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession reports run-produced interaction count [Core]")]
+#endif
+        public async Task RunToStableResult_ReportsRunProducedInteractions()
+        {
+            // Baseline history contains only the user prompt; the run appends the tool call,
+            // its result, and the final assistant text — three interactions in total.
+            var callCount = 0;
+            var request = CreateTestableRequest();
+            request.ResponseInteractionsFactory = () =>
+                ++callCount == 1
+                    ? new List<IAIInteraction> { CreateToolCall("call_1") }
+                    : new List<IAIInteraction>
+                    {
+                        new AIInteractionText { Agent = AIAgent.Assistant, Content = "done" },
+                    };
+
+            var session = new ConversationSession(request, executor: new MockProviderExecutor());
+            await session.RunToStableResult(new SessionOptions { ProcessTools = true }).ConfigureAwait(false);
+
+            Assert.Equal(3, session.GetAutonomyUsage().Interactions);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession reports a single run-produced interaction [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession reports a single run-produced interaction [Core]")]
+#endif
+        public async Task RunToStableResult_SingleCall_ReportsOneInteraction()
+        {
+            var request = CreateTestableRequest("done");
+            var session = new ConversationSession(request);
+            await session.RunToStableResult(new SessionOptions { ProcessTools = false }).ConfigureAwait(false);
+
+            Assert.Equal(1, session.GetAutonomyUsage().Interactions);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession LastReturn snapshot carries no phantom validation errors [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession LastReturn snapshot carries no phantom validation errors [Core]")]
+#endif
+        public async Task RunToStableResult_LastReturn_HasNoValidationErrors()
+        {
+            // LastReturn is a history snapshot, not a call result: request/metrics validation
+            // must not inject spurious errors (e.g. "Request must not be null") into Messages.
+            var request = CreateTestableRequest("done");
+            var session = new ConversationSession(request);
+            await session.RunToStableResult(new SessionOptions { ProcessTools = false }).ConfigureAwait(false);
+
+            Assert.DoesNotContain(session.LastReturn.Messages, m => m?.Severity == SHRuntimeMessageSeverity.Error);
+            Assert.True(session.LastReturn.Success);
+        }
+
+        #endregion
+
+        #region Autonomy usage accounting (streaming)
+
+#if NET7_WINDOWS
+        // Streaming-adapter resolution goes through AIRequestCall.ProviderInstance, so these tests
+        // implement IAIProvider — whose Icon member pulls in System.Drawing.Common. That package is
+        // intentionally unavailable in the net7.0 (non-Windows) TFM, hence Windows-only coverage.
+
+        [Fact(DisplayName = "ConversationSession counts usage from the final streaming delta [Windows]")]
+        public async Task Stream_FinalDeltaUsage_IsCounted()
+        {
+            var adapter = new MockStreamingAdapter();
+            adapter.Deltas.Add(MakeDelta(AICallStatus.Streaming, new AIInteractionText { Agent = AIAgent.Assistant, Content = "Hello" }));
+            adapter.Deltas.Add(MakeDelta(
+                AICallStatus.Finished,
+                new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = "Hello world",
+                    Metrics = new AIMetrics { InputTokensPrompt = 30, OutputTokensGeneration = 12 },
+                }));
+
+            var request = CreateStreamingRequest(adapter);
+            var session = new ConversationSession(request, executor: new MockProviderExecutor());
+            await foreach (var _ in session.Stream(new SessionOptions { ProcessTools = false }, new StreamingOptions(), CancellationToken.None).ConfigureAwait(false))
+            {
+            }
+
+            var usage = session.GetAutonomyUsage();
+            Assert.Equal(42, usage.Tokens);
+            Assert.False(usage.TokensEstimated);
+        }
+
+        [Fact(DisplayName = "ConversationSession counts usage attached to a tool-call-only streamed turn [Windows]")]
+        public async Task Stream_ToolCallOnlyTurn_UsageIsCounted()
+        {
+            // Providers attach the call's usage to the last interaction of the final delta via
+            // AIReturn.AttachUsageMetrics; a tool-call-only turn must still be metered.
+            var adapter = new MockStreamingAdapter();
+            adapter.Deltas.Add(MakeDelta(
+                AICallStatus.CallingTools,
+                new AIInteractionToolCall { Id = "call_1", Name = "test_tool", Arguments = new JObject() }));
+            adapter.Deltas.Add(MakeDelta(
+                AICallStatus.Finished,
+                new AIInteractionToolCall
+                {
+                    Id = "call_1",
+                    Name = "test_tool",
+                    Arguments = new JObject(),
+                    Metrics = new AIMetrics { InputTokensPrompt = 25, OutputTokensGeneration = 8 },
+                }));
+
+            var request = CreateStreamingRequest(adapter);
+            var session = new ConversationSession(request, executor: new MockProviderExecutor());
+            await foreach (var _ in session.Stream(new SessionOptions { ProcessTools = false }, new StreamingOptions(), CancellationToken.None).ConfigureAwait(false))
+            {
+            }
+
+            var usage = session.GetAutonomyUsage();
+            Assert.Equal(33, usage.Tokens);
+            Assert.False(usage.TokensEstimated);
+        }
+
+        [Fact(DisplayName = "ConversationSession takes usage from a non-final streamed delta when the last carries none [Windows]")]
+        public async Task Stream_UsageOnNonFinalDelta_IsCounted()
+        {
+            var adapter = new MockStreamingAdapter();
+            adapter.Deltas.Add(MakeDelta(AICallStatus.Streaming, new AIInteractionText { Agent = AIAgent.Assistant, Content = "Hello" }));
+            adapter.Deltas.Add(MakeDelta(
+                AICallStatus.Streaming,
+                new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = "Hello world",
+                    Metrics = new AIMetrics { InputTokensPrompt = 18, OutputTokensGeneration = 9 },
+                }));
+            adapter.Deltas.Add(MakeDelta(AICallStatus.Finished, new AIInteractionText { Agent = AIAgent.Assistant, Content = "Hello world" }));
+
+            var request = CreateStreamingRequest(adapter);
+            var session = new ConversationSession(request, executor: new MockProviderExecutor());
+            await foreach (var _ in session.Stream(new SessionOptions { ProcessTools = false }, new StreamingOptions(), CancellationToken.None).ConfigureAwait(false))
+            {
+            }
+
+            var usage = session.GetAutonomyUsage();
+            Assert.Equal(27, usage.Tokens);
+            Assert.False(usage.TokensEstimated);
+        }
+
+        [Fact(DisplayName = "ConversationSession estimates streamed usage when the provider reports none [Windows]")]
+        public async Task Stream_NoReportedUsage_EstimatesTokens()
+        {
+            var adapter = new MockStreamingAdapter();
+            adapter.Deltas.Add(MakeDelta(AICallStatus.Streaming, new AIInteractionText { Agent = AIAgent.Assistant, Content = "Hello" }));
+            adapter.Deltas.Add(MakeDelta(AICallStatus.Finished, new AIInteractionText { Agent = AIAgent.Assistant, Content = "Hello world" }));
+
+            var request = CreateStreamingRequest(adapter);
+            var session = new ConversationSession(request, executor: new MockProviderExecutor());
+            await foreach (var _ in session.Stream(new SessionOptions { ProcessTools = false }, new StreamingOptions(), CancellationToken.None).ConfigureAwait(false))
+            {
+            }
+
+            var usage = session.GetAutonomyUsage();
+            Assert.True(usage.Tokens > 0);
+            Assert.True(usage.TokensEstimated);
+        }
+#endif
 
         #endregion
 
@@ -363,6 +749,22 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
             };
         }
 
+#if NET7_WINDOWS
+        private static TestableAIRequestCall CreateStreamingRequest(MockStreamingAdapter adapter)
+        {
+            var request = CreateTestableRequest();
+            request.ProviderInstanceOverride = new StubAIProvider(adapter);
+            return request;
+        }
+
+        private static AIReturn MakeDelta(AICallStatus status, params IAIInteraction[] interactions)
+        {
+            var delta = new AIReturn { Status = status };
+            delta.SetBody(interactions.ToList());
+            return delta;
+        }
+#endif
+
         /// <summary>
         /// Testable request that bypasses real provider validation and returns a controlled result.
         /// </summary>
@@ -381,6 +783,13 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
             /// When set, invoked on every provider call to produce the result interactions (takes precedence over <see cref="ResponseInteractions"/>).
             /// </summary>
             public Func<List<IAIInteraction>> ResponseInteractionsFactory { get; set; }
+
+            /// <summary>
+            /// When set, returned as the provider instance so streaming tests can supply a stub adapter.
+            /// </summary>
+            public IAIProvider ProviderInstanceOverride { get; set; }
+
+            public override IAIProvider ProviderInstance => this.ProviderInstanceOverride ?? base.ProviderInstance;
 
             public override (bool IsValid, List<SHRuntimeMessage> Errors) IsValid()
             {
@@ -445,6 +854,83 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
                 return null;
             }
         }
+
+#if NET7_WINDOWS
+        /// <summary>
+        /// Streaming adapter that replays a fixed sequence of deltas.
+        /// </summary>
+        private sealed class MockStreamingAdapter : IStreamingAdapter
+        {
+            public List<AIReturn> Deltas { get; } = new List<AIReturn>();
+
+            public async IAsyncEnumerable<AIReturn> StreamAsync(
+                AIRequestCall request,
+                StreamingOptions options,
+                [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            {
+                foreach (var delta in this.Deltas)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    yield return delta;
+                }
+
+                await Task.CompletedTask.ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// Minimal provider stub whose only live member is the streaming adapter.
+        /// </summary>
+        private sealed class StubAIProvider : IAIProvider
+        {
+            private readonly IStreamingAdapter adapter;
+
+            public StubAIProvider(IStreamingAdapter adapter)
+            {
+                this.adapter = adapter;
+            }
+
+            public string Name => "test-provider";
+
+            public System.Drawing.Image Icon => null!;
+
+            public bool IsEnabled => true;
+
+            public bool IsConfigured => true;
+
+            public IAIProviderModels Models => null!;
+
+            public Task InitializeProviderAsync() => Task.CompletedTask;
+
+            public string Encode(AIRequestCall request) => string.Empty;
+
+            public string Encode(IAIInteraction interaction) => string.Empty;
+
+            public string Encode(List<IAIInteraction> interactions) => string.Empty;
+
+            public List<IAIInteraction> Decode(JObject response) => new List<IAIInteraction>();
+
+            public AIRequestCall PreCall(AIRequestCall request) => request;
+
+            public Task<IAIReturn> Call(AIRequestCall request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+            public IAIReturn PostCall(IAIReturn response) => response;
+
+            public string GetDefaultModel(AICapability requiredCapability = AICapability.Text2Text, bool useSettings = true) => "test-model";
+
+            public string SelectModel(AICapability requiredCapability, string requestedModel) => requestedModel ?? "test-model";
+
+            public void RefreshCachedSettings(Dictionary<string, object> settings)
+            {
+            }
+
+            public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
+
+            public IStreamingAdapter GetStreamingAdapter() => this.adapter;
+
+            public IEnumerable<AIExtraDescriptor> GetExtraDescriptors() => Enumerable.Empty<AIExtraDescriptor>();
+        }
+#endif
 
         #endregion
     }

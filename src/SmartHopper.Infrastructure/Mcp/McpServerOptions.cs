@@ -57,6 +57,22 @@ namespace SmartHopper.Infrastructure.Mcp
         public bool ExposeMutatingTools { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether mutation proposals raised by tool calls
+        /// served through this server are approved without invoking a consent presenter.
+        /// Undo recording is unaffected. Defaults to <c>false</c>.
+        /// </summary>
+        public bool BypassMutationsApproval { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether tools in the <c>ViewControl</c>
+        /// category (canvas viewport control, e.g. <c>canvas_view</c>) are exposed.
+        /// Defaults to <c>false</c> so external clients cannot move the user's viewport
+        /// unless explicitly allowed. An explicit <see cref="EnabledTools"/> allow-list
+        /// overrides this filter.
+        /// </summary>
+        public bool AllowViewControl { get; set; }
+
+        /// <summary>
         /// Gets or sets the server identifier reported during MCP <c>initialize</c>.
         /// </summary>
         public string ServerName { get; set; } = "smarthopper";
@@ -78,6 +94,8 @@ namespace SmartHopper.Infrastructure.Mcp
                 BearerToken = this.BearerToken,
                 EnabledTools = this.EnabledTools == null ? null : new List<string>(this.EnabledTools),
                 ExposeMutatingTools = this.ExposeMutatingTools,
+                BypassMutationsApproval = this.BypassMutationsApproval,
+                AllowViewControl = this.AllowViewControl,
                 ServerName = this.ServerName,
                 ServerVersion = this.ServerVersion,
             };

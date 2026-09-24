@@ -18,12 +18,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using GhJSON.Core.SchemaModels;
 using GhJSON.Grasshopper;
+using GhJSON.Grasshopper.Deserialization;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Consent;
@@ -96,7 +98,28 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             {
                 try
                 {
-                    completion.TrySetResult(CanvasChangeReviewDialog.ShowReview(session, cancellationToken));
+                    PopulateProposedBounds(session);
+                    CanvasChangeReviewDialog.ShowReviewAsync(session, cancellationToken).ContinueWith(
+                        task =>
+                        {
+                            if (task.IsCanceled)
+                            {
+                                completion.TrySetCanceled(cancellationToken);
+                            }
+                            else if (task.IsFaulted)
+                            {
+                                completion.TrySetException(
+                                    (Exception?)task.Exception ??
+                                    new InvalidOperationException("The canvas change review dialog failed."));
+                            }
+                            else
+                            {
+                                completion.TrySetResult(task.Result);
+                            }
+                        },
+                        CancellationToken.None,
+                        TaskContinuationOptions.ExecuteSynchronously,
+                        TaskScheduler.Default);
                 }
                 catch (Exception ex)
                 {
@@ -395,6 +418,75 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             return string.IsNullOrEmpty(requested)
                 ? (current == null ? operation : $"{operation}: {current}")
                 : (current == null ? $"{operation} -> {requested}" : $"{operation}: {current} -> {requested}");
+        }
+
+        /// <summary>
+        /// Measures real Grasshopper bounds for proposed components that have no live canvas
+        /// instance, so the preview overlay draws ghosts at their true footprint instead of a
+        /// fixed estimate. Components are instantiated off-document through
+        /// <see cref="GhJsonGrasshopper.Deserialize"/>; pivot handling leaves
+        /// <c>Attributes.Bounds</c> already positioned at the proposed pivot in world space.
+        /// Live components are skipped: the overlay derives their proposed bounds from the
+        /// live object's bounds translated to the proposed pivot. Best-effort only — failures
+        /// leave the overlay on its fallback bounds.
+        /// </summary>
+        /// <param name="session">Review session receiving the measured bounds.</param>
+        private static void PopulateProposedBounds(CanvasChangeReviewSession session)
+        {
+            try
+            {
+                var document = GhJsonGrasshopper.GetActiveDocument();
+                if (document == null)
+                {
+                    return;
+                }
+
+                var reviewedIds = session.Items
+                    .Where(item =>
+                        item.ComponentId.HasValue &&
+                        (item.Kind == CanvasChangeKind.ComponentAdded ||
+                         item.Kind == CanvasChangeKind.ComponentModified))
+                    .Select(item => item.ComponentId!.Value)
+                    .ToHashSet();
+                var measurable = session.ProposedDocument.Components
+                    .Where(component =>
+                        component.Id.HasValue &&
+                        component.Pivot != null &&
+                        reviewedIds.Contains(component.Id.Value) &&
+                        !(component.InstanceGuid.HasValue &&
+                          document.FindObject(component.InstanceGuid.Value, false) != null))
+                    .ToList();
+                if (measurable.Count == 0)
+                {
+                    return;
+                }
+
+                var result = GhJsonGrasshopper.Deserialize(
+                    new GhJsonDocument(
+                        session.ProposedDocument.Schema,
+                        session.ProposedDocument.Metadata,
+                        measurable,
+                        connections: null,
+                        groups: null),
+                    new DeserializationOptions
+                    {
+                        // Regenerate GUIDs so the throwaway objects never collide with live ones.
+                        RegenerateInstanceGuids = true,
+                        SkipInvalidComponents = true,
+                    });
+                foreach (var pair in result.IdToObjectMapping)
+                {
+                    var bounds = pair.Value?.Attributes?.Bounds;
+                    if (bounds.HasValue && bounds.Value.Width > 0f && bounds.Value.Height > 0f)
+                    {
+                        session.SetProposedComponentBounds(pair.Key, bounds.Value);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[CanvasChangeReviewService] Proposed bounds measurement skipped: {ex.Message}");
+            }
         }
 
         private static GhJsonComponent CopyWithPivot(GhJsonComponent component, GhJsonPivot pivot)

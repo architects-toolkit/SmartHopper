@@ -106,6 +106,7 @@ Notes:
 
 - Prefer `ConversationSession` for multi-turn flows where the provider may produce tool calls across turns.
 - `AIToolCall` is a focused API for executing a single pending tool call when you already have one.
+- `AIToolCall` sets `SkipMetricsValidation` by default: tool executions are local-only and their results carry no provider completion metadata, so `AIReturn.Success` reflects the tool's own messages instead of metrics checks. Tools that internally issue provider calls (e.g. `gh_generate`, `script_generate`) should propagate the inner request's `AIMetrics` into the returned tool result so usage is still metered.
 
 ### ConversationSession tool loop (recommended)
 
@@ -115,7 +116,7 @@ Notes:
   - If `SessionOptions.ProcessTools` is true and the result contains pending tool calls, iterates tool passes:
     - Executes each pending tool call (delegating to the Tool Manager).
     - Appends `AIInteractionToolResult` interactions to the session `AIBody`.
-    - Performs another provider call with updated context until a stable result is reached or bounds are hit (`MaxTurns`, `MaxToolPasses`).
+    - Performs another provider call with updated context until a stable result is reached or the autonomy budgets are exhausted (`MaxAutonomousTime`, `MaxAutonomousTokens`).
   - Observability: `IConversationObserver` receives `OnToolCall` and `OnToolResult` callbacks to render progress (e.g., in UI).
 
 #### Example: orchestrating tool passes with ConversationSession
@@ -125,8 +126,8 @@ var session = new ConversationSession(request, observer);
 var options = new SessionOptions
 {
     ProcessTools = true,
-    MaxTurns = 5,
-    MaxToolPasses = 2
+    MaxAutonomousTime = TimeSpan.FromMinutes(5),
+    MaxAutonomousTokens = 100_000,
 };
 
 var result = await session.RunAsync(options, cancellationToken);

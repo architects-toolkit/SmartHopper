@@ -119,7 +119,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             public AIReturn ErrorYield;
             public bool ShouldBreak;
             public AIReturn LastDelta;
-            public AIReturn LastToolCallsDelta;
 
             /// <summary>
             /// Accumulated text interaction deltas during streaming. Only the final aggregated text is persisted to history.
@@ -266,6 +265,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var toolRq = new AIToolCall
             {
                 CancellationToken = ct,
+                SkipMetricsValidation = true,
                 ToolSurface = this.Request.ToolSurface,
                 InvocationContext = new MutationInvocationContext
                 {
@@ -278,6 +278,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     Surface = this.Request.ToolSurface,
                     Presenter = this.ConsentPresenter,
                     TaskPlanPresenter = this.TaskPlanPresenter,
+                    CanvasPointerPresenter = this.CanvasPointerPresenter,
+                    UserQuestionPresenter = this.UserQuestionPresenter,
                 },
             };
             toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);
@@ -317,6 +319,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 Agent = AIAgent.ToolResult,
                 TurnId = tc.TurnId,
             };
+
+            // Extract image payloads out of the result JSON so providers never receive
+            // base64 as text and WebChat renders them as images on the tool-result bubble.
+            if (ToolResultMediaExtractor.TrySplit(toolInteraction.Result, out var compactResult, out var resultImages))
+            {
+                toolInteraction = toolInteraction with { Result = compactResult, Images = resultImages };
+            }
 
             this.PersistToolResult(toolInteraction, turnId);
 
@@ -373,8 +382,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// Persists final streaming snapshot (tool_calls and assistant text), updates last return,
         /// and logs unresolved pending tool-calls if any.
         /// </summary>
+        /// <param name="lastDelta">Final delta carrying the call's usage metrics and finish reason.</param>
+        /// <param name="turnId">Unified TurnId applied to the persisted text.</param>
+        /// <param name="accumulatedText">The assistant text interaction accumulated during streaming.</param>
         /// <param name="completionTime">Total time taken for the streaming operation in seconds.</param>
-        private void PersistStreamingSnapshot(AIReturn lastToolCallsDelta, AIReturn lastDelta, string turnId, AIInteractionText accumulatedText, double completionTime = 0)
+        private void PersistStreamingSnapshot(AIReturn lastDelta, string turnId, AIInteractionText accumulatedText, double completionTime = 0)
         {
             // Persist the final aggregated text interaction (accumulated during streaming)
             if (accumulatedText != null && !string.IsNullOrWhiteSpace(accumulatedText.Content))
@@ -385,17 +397,17 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     accumulatedText = accumulatedText with { TurnId = turnId };
                 }
 
-                // Transfer final metrics from the provider's last delta to the accumulated text
+                // Transfer call-level metrics from the provider's final delta to the accumulated text.
+                // The delta aggregate also includes usage attached to tool-call interactions.
+                var callMetrics = lastDelta?.Metrics;
+                if (callMetrics != null && (callMetrics.TotalTokens > 0 || callMetrics.TotalEstimatedTokens > 0))
+                {
+                    accumulatedText = accumulatedText with { Metrics = callMetrics with { CompletionTime = completionTime } };
+                }
+
                 var finalAssistant = lastDelta?.Body?.GetLastInteraction(AIAgent.Assistant) as AIInteractionText;
                 if (finalAssistant != null)
                 {
-                    // Copy complete metrics from the final provider delta
-                    if (finalAssistant.Metrics != null)
-                    {
-                        var metrics = finalAssistant.Metrics with { CompletionTime = completionTime };
-                        accumulatedText = accumulatedText with { Metrics = metrics };
-                    }
-
                     // Update time if available
                     if (finalAssistant.Time != default)
                     {
@@ -475,7 +487,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
         private void UpdateLastReturnCore(AIBody body)
         {
-            var snapshot = new AIReturn();
+            // The snapshot mirrors session history, not a provider call result: request/metrics
+            // validation does not apply and would otherwise inject phantom errors into Messages.
+            var snapshot = new AIReturn
+            {
+                SkipRequestValidation = true,
+                SkipMetricsValidation = true,
+            };
             snapshot.SetBody(body);
 
             // Get context usage from aggregated metrics for logging

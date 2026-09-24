@@ -36,8 +36,14 @@ The WebView ↔ Host Bridge is the communication backbone of SmartHopper's Chat 
 The WebView sends actions to the host by navigating to custom URL schemes (navigation is intercepted and canceled by the host):
 
 - `sh://event?type=send&text=...`
+- `sh://event?type=attach`
+- `sh://event?type=detach&id=...`
 - `sh://event?type=clear`
 - `sh://event?type=cancel`
+- `sh://event?type=consent&id=...&decision=approve|reject`
+- `sh://event?type=canvas_pointer&id=...`
+- `sh://event?type=question&id=...&choice=N` or `...&text=...`
+- `sh://event?type=extend_autonomy`
 - `clipboard://copy?text=...`
 
 The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
@@ -60,9 +66,29 @@ The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
 - **cancel**
   - JS → host: `sh://event?type=cancel`
   - Host cancels current CTS.
+- **attach**
+  - JS → host: `sh://event?type=attach`
+  - Host opens a native file picker, validates each file (image magic bytes, ≤15 MB, ≤4 pending), and stages bytes C#-side. Base64 never travels over the URL scheme.
+  - Host → JS: `addAttachmentChip(id, name, dataUri)` renders a removable thumbnail chip.
+- **detach**
+  - JS → host: `sh://event?type=detach&id=...`
+  - Host removes the pending attachment and calls `removeAttachmentChip(id)`.
+  - On send, staged attachments become user-role `AIInteractionImage` interactions and the host clears the strip via `clearAttachments()`.
 - **clipboard**
   - JS → host: `clipboard://copy?text=...`
   - Host sets system clipboard and calls `showToast('Copied to clipboard')`.
+- **consent**
+  - JS → host: `sh://event?type=consent&id=...&decision=approve|reject`
+  - Host resolves the pending plan-consent card (`ResolvePlanConsent`); plan approval never pre-approves later canvas mutations.
+- **canvas_pointer**
+  - JS → host: `sh://event?type=canvas_pointer&id=...`
+  - Host resolves the pointer id through `CanvasPointerBridge.ReplayHandler` (assigned by `CanvasPointerService` in `SmartHopper.Core.Grasshopper`) and replays the pan/zoom/highlight on the canvas. Missing/expired targets produce a toast instead of an error.
+- **question**
+  - JS → host: `sh://event?type=question&id=...&choice=N` for a predefined option, or `...&text=...` for the free-text answer.
+  - Host completes the pending `ask_user` `TaskCompletionSource` (`ResolveUserQuestion`), which unblocks the waiting tool call. The card has no dismiss action; it resolves only on an answer or when the run is cancelled.
+- **extend_autonomy**
+  - JS → host: `sh://event?type=extend_autonomy` (from the `#autonomy-extend-btn` button in the autonomy overlay).
+  - Host calls `ConversationSession.ExtendAutonomyLimits()`, which adds half of the configured `MaxAutonomousTime`/`MaxAutonomousTokens` on top of the effective budgets and pushes a fresh usage snapshot. The row is hidden when the run is unbounded and the button is disabled once the run ends or a budget is already exhausted.
 
 ### Testing checklist
 
@@ -171,6 +197,11 @@ JavaScript functions (in `chat-script.js`):
 - `clearMessages()` — Clear transcript area.
 - `setStatus(text)` — Update status bar text.
 - `setProcessing(isProcessing)` — Show/hide spinner and disable input.
+- `updateAutonomyUsage(usage)` — Update the floating `#autonomy-overlay` card with a serialized `AutonomyUsage` snapshot (`ElapsedSeconds`, `MaxSeconds`, `Tokens`, `MaxTokens`, `IsRunning`, `IsExhausted`). A client-side 1s ticker advances the elapsed display between pushes; a `Max*` of `0` renders as unlimited, and when both limits are `0` the overlay shows an "unbounded run" warning. The overlay appears only while a run is in progress (first paint is delayed until ~15 s elapsed or 10 produced interactions so trivial calls never flash it) and auto-hides shortly after the run ends — 6 s linger when a budget was exhausted. `setProcessing(true)` is the authoritative run-start signal: it resets the overlay and arms `_autonomyAwaitingRun`, so a not-running snapshot pushed before `BeginAutonomyRun` resets the session (a stale previous-run snapshot) is dropped instead of painting last run's values; `freezeAutonomyOverlay()` is invoked by `setProcessing(false)` (the authoritative run-end signal, since the last push can still carry `IsRunning=true`); `hideAutonomyOverlay()` resets it (called by `resetMessages` and `setProcessing(true)`).
+- `updateTaskPlan(plan)` — Render the current `plan_tasks` plan into `#task-plan-panel`, docked under `#autonomy-overlay` inside the shared `#hud` fixed column. The panel shows the plan goal, completed/total count, a progress bar, and each task's pending/in-progress/completed state; a new plan id replaces the card and the final state stays visible until `resetMessages()` calls `hideTaskPlanPanel()`.
+- `showCanvasPointer({id, message})` — Append a pointer card carrying the `canvas_point` message and a "Show on canvas" button that navigates to `sh://event?type=canvas_pointer&id=...`.
+- `showUserQuestion({id, question, options})` / `resolveUserQuestion(id)` — Append a blocking question card (2–4 option buttons plus a free-text field) and freeze it once the host resolves it. Option clicks navigate to `type=question&choice=N`; the free-text field submits `type=question&text=...`.
+- `showSuggestedPrompts(suggestions)` / `clearSuggestedPrompts()` — Render up to 3 follow-up chips in `#suggestions-strip` above the input bar. Clicking a chip fills `#user-input` and focuses it — it never sends automatically. Chips are cleared on send and on `resetMessages()`.
 - `showToast(message)` — Temporary notification.
 
 Host functions (in `WebChatDialog.cs` / `WebChatObserver.cs`):
@@ -179,6 +210,7 @@ Host functions (in `WebChatDialog.cs` / `WebChatObserver.cs`):
 - `UpsertMessageByKey(string domKey, IAIInteraction)`
 - `UpsertMessageAfter(string followKey, string domKey, IAIInteraction, string source = null)`
 - `ExecuteScript(string)`
+- `PushAutonomyUsage()` — reads `ConversationSession.GetAutonomyUsage()` and pushes `updateAutonomyUsage(...)`; invoked by the observer on `OnStart`, `OnInteractionCompleted`, `OnToolResult`, `OnFinal`, and `OnError`.
 - Observer callbacks: `OnStart`, `OnDelta`, `OnInteractionCompleted`, `OnFinal`, `OnError`, `OnToolCall`, `OnToolResult` (drive incremental updates during streaming)
 
 ### Keyed interactions

@@ -171,7 +171,15 @@ namespace SmartHopper.Providers.OpenRouter
                 try
                 {
                     var token = this.EncodeToJToken(interaction);
-                    if (token != null)
+                    if (token is JArray tokenArray)
+                    {
+                        // One interaction may expand to multiple messages (e.g. tool result images).
+                        foreach (var item in tokenArray)
+                        {
+                            messages.Add(item);
+                        }
+                    }
+                    else if (token != null)
                     {
                         messages.Add(token);
                     }
@@ -407,6 +415,13 @@ namespace SmartHopper.Providers.OpenRouter
                 // Format for tool results (OpenRouter docs only document role, tool_call_id and content).
                 obj["tool_call_id"] = toolResultInteraction.Id;
                 obj["content"] = toolResultInteraction.Result?.ToString() ?? string.Empty;
+
+                // Tool messages are text-only; model-bound images go in a trailing user message.
+                var imageMessage = OpenAICompatibleImageCodec.ToUserImageMessage(toolResultInteraction.GetModelImages());
+                if (imageMessage != null)
+                {
+                    return new JArray { obj, imageMessage };
+                }
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
             {
@@ -1049,6 +1064,10 @@ namespace SmartHopper.Providers.OpenRouter
                 }
 
                 final.SetBody(finalBuilder.Build());
+
+                // Ensure the call's usage is represented on an interaction even when the turn
+                // produced only tool calls (usage already on the text interaction is kept).
+                final.AttachUsageMetrics(finalMetrics);
                 yield return final;
             }
         }

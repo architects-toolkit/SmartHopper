@@ -21,6 +21,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Returns
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using Newtonsoft.Json.Linq;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Requests;
@@ -396,6 +397,90 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Returns
             Assert.Equal(AICallStatus.Finished, ret.Status);
             Assert.False(ret.Success);
             Assert.Contains(ret.Messages, m => m.Severity == SHRuntimeMessageSeverity.Error && m.Message.Contains("something went wrong", StringComparison.Ordinal));
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "AttachUsageMetrics_AttachesUsageToLastInteraction [Windows]")]
+#else
+        [Fact(DisplayName = "AttachUsageMetrics_AttachesUsageToLastInteraction [Core]")]
+#endif
+        public void AttachUsageMetrics_AttachesUsageToLastInteraction()
+        {
+            var ret = new AIReturn();
+            ret.SetBody(new List<IAIInteraction>
+            {
+                new AIInteractionText { Agent = AIAgent.Assistant, Content = "hello" },
+            });
+
+            ret.AttachUsageMetrics(new AIMetrics { InputTokensPrompt = 30, OutputTokensGeneration = 12 });
+
+            Assert.Equal(42, ret.Metrics.TotalTokens);
+            Assert.Equal(42, ret.Body.Interactions.Last().Metrics?.TotalTokens ?? 0);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "AttachUsageMetrics_ToolCallOnlyTurn_AttachesToToolCall [Windows]")]
+#else
+        [Fact(DisplayName = "AttachUsageMetrics_ToolCallOnlyTurn_AttachesToToolCall [Core]")]
+#endif
+        public void AttachUsageMetrics_ToolCallOnlyTurn_AttachesToToolCall()
+        {
+            var ret = new AIReturn();
+            ret.SetBody(new List<IAIInteraction>
+            {
+                new AIInteractionToolCall { Id = "call_1", Name = "test_tool", Arguments = new JObject() },
+            });
+
+            ret.AttachUsageMetrics(new AIMetrics { InputTokensPrompt = 25, OutputTokensGeneration = 8 });
+
+            Assert.Equal(33, ret.Metrics.TotalTokens);
+            var toolCall = Assert.IsType<AIInteractionToolCall>(ret.Body.Interactions.Last());
+            Assert.Equal(33, toolCall.Metrics?.TotalTokens ?? 0);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "AttachUsageMetrics_ExistingUsage_DoesNotDoubleCount [Windows]")]
+#else
+        [Fact(DisplayName = "AttachUsageMetrics_ExistingUsage_DoesNotDoubleCount [Core]")]
+#endif
+        public void AttachUsageMetrics_ExistingUsage_DoesNotDoubleCount()
+        {
+            var ret = new AIReturn();
+            ret.SetBody(new List<IAIInteraction>
+            {
+                new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = "hello",
+                    Metrics = new AIMetrics { InputTokensPrompt = 30, OutputTokensGeneration = 12 },
+                },
+                new AIInteractionToolCall { Id = "call_1", Name = "test_tool", Arguments = new JObject() },
+            });
+
+            ret.AttachUsageMetrics(new AIMetrics { InputTokensPrompt = 30, OutputTokensGeneration = 12 });
+
+            // The body already reports the call's usage; attaching again must be a no-op.
+            Assert.Equal(42, ret.Metrics.TotalTokens);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "AttachUsageMetrics_EmptyBodyOrNullUsage_NoOp [Windows]")]
+#else
+        [Fact(DisplayName = "AttachUsageMetrics_EmptyBodyOrNullUsage_NoOp [Core]")]
+#endif
+        public void AttachUsageMetrics_EmptyBodyOrNullUsage_NoOp()
+        {
+            var empty = new AIReturn();
+            empty.AttachUsageMetrics(new AIMetrics { InputTokensPrompt = 10 });
+            Assert.Equal(0, empty.Metrics.TotalTokens);
+
+            var ret = new AIReturn();
+            ret.SetBody(new List<IAIInteraction>
+            {
+                new AIInteractionText { Agent = AIAgent.Assistant, Content = "hello" },
+            });
+            ret.AttachUsageMetrics(null);
+            Assert.Equal(0, ret.Metrics.TotalTokens);
         }
 
         private static AIRequestBase CreateFakeRequest()

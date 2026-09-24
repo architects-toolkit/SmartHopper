@@ -227,6 +227,21 @@ namespace SmartHopper.Providers.Gemini
                         }
                     },
                 });
+
+                // Model-bound images ride as inline_data parts in the same user-role message
+                foreach (var img in toolResultInteraction.GetModelImages())
+                {
+                    parts.Add(new JObject
+                    {
+                        {
+                            "inline_data", new JObject
+                            {
+                                { "mime_type", img.MimeType ?? "image/png" },
+                                { "data", img.ImageData },
+                            }
+                        },
+                    });
+                }
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
             {

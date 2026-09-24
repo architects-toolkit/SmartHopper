@@ -34,6 +34,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
     /// </summary>
     public static class CanvasChangePreviewOverlay
     {
+        private const float FrameMargin = 60f;
+        private const float MinFrameZoom = 0.01f;
+        private const float MaxFrameZoom = 32f;
         private static readonly Color AddedColor = Color.FromArgb(230, 45, 164, 78);
         private static readonly Color ModifiedColor = Color.FromArgb(230, 191, 135, 0);
         private static readonly Color RemovedColor = Color.FromArgb(230, 207, 34, 46);
@@ -87,6 +90,18 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         }
 
         /// <summary>
+        /// Stops displaying a staged review session only when it is the one currently shown.
+        /// </summary>
+        /// <param name="session">Session that is ending.</param>
+        public static void End(CanvasChangeReviewSession session)
+        {
+            if (ReferenceEquals(activeSession, session))
+            {
+                End();
+            }
+        }
+
+        /// <summary>
         /// Highlights one review item on the canvas.
         /// </summary>
         /// <param name="key">Item key, or <c>null</c> to clear the highlight.</param>
@@ -94,6 +109,33 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         {
             highlightedKey = key;
             RefreshCanvas();
+        }
+
+        /// <summary>
+        /// Pans and zooms the canvas viewport so the union of every staged change
+        /// bounds is visible.
+        /// </summary>
+        /// <param name="canvas">Canvas whose viewport should be adjusted.</param>
+        /// <param name="session">Review session whose items are measured.</param>
+        /// <param name="onlyWhenNotFullyVisible">
+        /// When <c>true</c>, the view is left untouched if all staged bounds already fit.
+        /// </param>
+        /// <returns><c>true</c> when the viewport was adjusted.</returns>
+        public static bool FrameChanges(GH_Canvas? canvas, CanvasChangeReviewSession session, bool onlyWhenNotFullyVisible = false)
+        {
+            return FrameBounds(canvas, GetReviewWorldBounds(canvas, session), onlyWhenNotFullyVisible);
+        }
+
+        /// <summary>
+        /// Pans and zooms the canvas viewport so the bounds of one staged change are visible.
+        /// </summary>
+        /// <param name="canvas">Canvas whose viewport should be adjusted.</param>
+        /// <param name="session">Review session that owns the item.</param>
+        /// <param name="item">Change to frame.</param>
+        /// <returns><c>true</c> when the viewport was adjusted.</returns>
+        public static bool FrameItem(GH_Canvas? canvas, CanvasChangeReviewSession session, CanvasChangeReviewItem item)
+        {
+            return item != null && FrameBounds(canvas, GetItemWorldBounds(canvas, session, item), false);
         }
 
         private static void AttachToCanvas(GH_Canvas? canvas)
@@ -208,7 +250,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 return;
             }
 
-            var bounds = ProjectProposedBounds(canvas.Viewport, component);
+            var bounds = ProjectProposedBounds(canvas, session, component);
             using var fill = new SolidBrush(Color.FromArgb(Math.Min((int)color.A, 45), color));
             using var pen = CreatePen(color, width);
             graphics.FillRoundedRectangle(fill, bounds, 6f);
@@ -245,7 +287,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             var proposed = FindComponent(session, item.ComponentId);
             if (item.Kind == CanvasChangeKind.ComponentModified && proposed?.Pivot != null)
             {
-                var targetBounds = ProjectProposedBounds(canvas.Viewport, proposed);
+                var targetBounds = ProjectProposedBounds(canvas, session, proposed);
                 var currentCenter = new PointF(bounds.Left + (bounds.Width / 2f), bounds.Top + (bounds.Height / 2f));
                 var targetCenter = new PointF(targetBounds.Left + (targetBounds.Width / 2f), targetBounds.Top + (targetBounds.Height / 2f));
                 if (Math.Abs(currentCenter.X - targetCenter.X) > 4f || Math.Abs(currentCenter.Y - targetCenter.Y) > 4f)
@@ -328,21 +370,13 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     continue;
                 }
 
-                RectangleF bounds;
-                if (component.InstanceGuid.HasValue &&
-                    canvas.Document.FindObject(component.InstanceGuid.Value, false)?.Attributes is IGH_Attributes attributes)
-                {
-                    bounds = ProjectBounds(canvas.Viewport, attributes.Bounds);
-                }
-                else if (component.Pivot != null)
-                {
-                    bounds = ProjectProposedBounds(canvas.Viewport, component);
-                }
-                else
+                var memberWorldBounds = GetComponentWorldBounds(canvas, session, component);
+                if (!memberWorldBounds.HasValue)
                 {
                     continue;
                 }
 
+                var bounds = ProjectBounds(canvas.Viewport, memberWorldBounds.Value);
                 groupBounds = groupBounds.HasValue ? RectangleF.Union(groupBounds.Value, bounds) : bounds;
             }
 
@@ -365,24 +399,39 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             bool output,
             out PointF anchor)
         {
-            var component = session.ProposedDocument.Components.FirstOrDefault(candidate => candidate.Id == componentId);
-            if (component?.InstanceGuid.HasValue == true &&
-                canvas.Document.FindObject(component.InstanceGuid.Value, false)?.Attributes is IGH_Attributes attributes)
+            if (!TryGetWorldAnchor(canvas, session, componentId, output, out anchor))
             {
-                var bounds = ProjectBounds(canvas.Viewport, attributes.Bounds);
-                anchor = new PointF(output ? bounds.Right : bounds.Left, bounds.Top + (bounds.Height / 2f));
-                return true;
+                return false;
             }
 
-            if (component?.Pivot != null)
-            {
-                var bounds = ProjectProposedBounds(canvas.Viewport, component);
-                anchor = new PointF(output ? bounds.Right : bounds.Left, bounds.Top + (bounds.Height / 2f));
-                return true;
-            }
+            canvas.Viewport.Project(ref anchor);
+            return true;
+        }
 
+        private static bool TryGetWorldAnchor(
+            GH_Canvas canvas,
+            CanvasChangeReviewSession session,
+            int componentId,
+            bool output,
+            out PointF anchor)
+        {
             anchor = PointF.Empty;
-            return false;
+            var component = session.ProposedDocument.Components.FirstOrDefault(candidate => candidate.Id == componentId);
+            if (component == null)
+            {
+                return false;
+            }
+
+            var bounds = GetComponentWorldBounds(canvas, session, component);
+            if (!bounds.HasValue)
+            {
+                return false;
+            }
+
+            anchor = new PointF(
+                output ? bounds.Value.Right : bounds.Value.Left,
+                bounds.Value.Top + (bounds.Value.Height / 2f));
+            return true;
         }
 
         private static GhJsonComponent? FindComponent(CanvasChangeReviewSession session, int? componentId)
@@ -392,14 +441,247 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 : null;
         }
 
-        private static RectangleF ProjectProposedBounds(GH_Viewport viewport, GhJsonComponent component)
+        /// <summary>
+        /// Computes the union of world-space bounds for every item in the session,
+        /// regardless of acceptance state.
+        /// </summary>
+        private static RectangleF? GetReviewWorldBounds(GH_Canvas? canvas, CanvasChangeReviewSession session)
         {
-            var worldBounds = new RectangleF(
-                (float)component.Pivot!.X,
-                (float)component.Pivot.Y,
-                140f,
-                52f);
-            return ProjectBounds(viewport, worldBounds);
+            if (canvas?.Document == null || session == null)
+            {
+                return null;
+            }
+
+            RectangleF? union = null;
+            foreach (var item in session.Items)
+            {
+                var itemBounds = GetItemWorldBounds(canvas, session, item);
+                if (itemBounds.HasValue)
+                {
+                    union = union.HasValue ? RectangleF.Union(union.Value, itemBounds.Value) : itemBounds.Value;
+                }
+            }
+
+            return union;
+        }
+
+        private static RectangleF? GetItemWorldBounds(
+            GH_Canvas? canvas,
+            CanvasChangeReviewSession? session,
+            CanvasChangeReviewItem? item)
+        {
+            if (canvas?.Document == null || session == null || item == null)
+            {
+                return null;
+            }
+
+            switch (item.Kind)
+            {
+                case CanvasChangeKind.ComponentAdded:
+                {
+                    var component = FindComponent(session, item.ComponentId);
+                    return component == null ? null : GetComponentWorldBounds(canvas, session, component);
+                }
+
+                case CanvasChangeKind.ComponentModified:
+                case CanvasChangeKind.ComponentRemoved:
+                {
+                    RectangleF? result = null;
+                    if (item.ExistingInstanceGuid.HasValue &&
+                        canvas.Document.FindObject(item.ExistingInstanceGuid.Value, false)?.Attributes is IGH_Attributes attributes)
+                    {
+                        result = attributes.Bounds;
+                    }
+
+                    if (item.Kind == CanvasChangeKind.ComponentModified &&
+                        FindComponent(session, item.ComponentId) is GhJsonComponent proposed &&
+                        GetComponentWorldBounds(canvas, session, proposed) is RectangleF proposedBounds)
+                    {
+                        result = result.HasValue ? RectangleF.Union(result.Value, proposedBounds) : proposedBounds;
+                    }
+
+                    return result;
+                }
+
+                case CanvasChangeKind.ConnectionAdded:
+                case CanvasChangeKind.ConnectionRemoved:
+                {
+                    if (!item.ConnectionIndex.HasValue || session.ProposedDocument.Connections == null ||
+                        item.ConnectionIndex.Value >= session.ProposedDocument.Connections.Count)
+                    {
+                        return null;
+                    }
+
+                    var connection = session.ProposedDocument.Connections[item.ConnectionIndex.Value];
+                    if (!TryGetWorldAnchor(canvas, session, connection.From.Id, true, out var from) ||
+                        !TryGetWorldAnchor(canvas, session, connection.To.Id, false, out var to))
+                    {
+                        return null;
+                    }
+
+                    var result = RectangleF.FromLTRB(
+                        Math.Min(from.X, to.X),
+                        Math.Min(from.Y, to.Y),
+                        Math.Max(from.X, to.X),
+                        Math.Max(from.Y, to.Y));
+                    result.Inflate(Math.Max(60f, result.Width * 0.5f), 30f);
+                    return result;
+                }
+
+                case CanvasChangeKind.GroupAdded:
+                case CanvasChangeKind.GroupModified:
+                case CanvasChangeKind.GroupRemoved:
+                {
+                    if (item.ExistingInstanceGuid.HasValue &&
+                        canvas.Document.FindObject(item.ExistingInstanceGuid.Value, false)?.Attributes is IGH_Attributes existing)
+                    {
+                        return existing.Bounds;
+                    }
+
+                    if (!item.GroupIndex.HasValue || session.ProposedDocument.Groups == null ||
+                        item.GroupIndex.Value >= session.ProposedDocument.Groups.Count)
+                    {
+                        return null;
+                    }
+
+                    var group = session.ProposedDocument.Groups[item.GroupIndex.Value];
+                    RectangleF? result = null;
+                    foreach (var memberId in group.Members)
+                    {
+                        var component = session.ProposedDocument.Components.FirstOrDefault(candidate => candidate.Id == memberId);
+                        if (component == null)
+                        {
+                            continue;
+                        }
+
+                        var memberBounds = GetComponentWorldBounds(canvas, session, component);
+                        if (memberBounds.HasValue)
+                        {
+                            result = result.HasValue ? RectangleF.Union(result.Value, memberBounds.Value) : memberBounds.Value;
+                        }
+                    }
+
+                    if (result.HasValue)
+                    {
+                        var padded = result.Value;
+                        padded.Inflate(16f, 18f);
+                        result = padded;
+                    }
+
+                    return result;
+                }
+
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>
+        /// Resolves a proposed component's world-space bounds: its proposed bounds when a
+        /// pivot is available, otherwise the live object's current bounds.
+        /// </summary>
+        private static RectangleF? GetComponentWorldBounds(
+            GH_Canvas canvas,
+            CanvasChangeReviewSession session,
+            GhJsonComponent component)
+        {
+            if (component.Pivot != null)
+            {
+                return GetProposedWorldBounds(canvas, session, component);
+            }
+
+            if (component.InstanceGuid.HasValue &&
+                canvas.Document.FindObject(component.InstanceGuid.Value, false)?.Attributes is IGH_Attributes attributes)
+            {
+                return attributes.Bounds;
+            }
+
+            return null;
+        }
+
+        private static bool FrameBounds(GH_Canvas? canvas, RectangleF? bounds, bool onlyWhenNotFullyVisible)
+        {
+            var viewport = canvas?.Viewport;
+            if (viewport == null || !bounds.HasValue)
+            {
+                return false;
+            }
+
+            var padded = bounds.Value;
+            padded.Inflate(FrameMargin, FrameMargin);
+            if (padded.Width <= 0f || padded.Height <= 0f)
+            {
+                return false;
+            }
+
+            if (onlyWhenNotFullyVisible && IsFullyVisible(viewport, padded))
+            {
+                return false;
+            }
+
+            var zoom = Math.Min(viewport.Width / padded.Width, viewport.Height / padded.Height);
+            if (float.IsNaN(zoom) || float.IsInfinity(zoom) || zoom <= 0f)
+            {
+                return false;
+            }
+
+            viewport.Zoom = Math.Max(MinFrameZoom, Math.Min(MaxFrameZoom, zoom));
+            viewport.MidPoint = new PointF(
+                padded.Left + (padded.Width / 2f),
+                padded.Top + (padded.Height / 2f));
+            canvas!.Refresh();
+            return true;
+        }
+
+        private static bool IsFullyVisible(GH_Viewport viewport, RectangleF bounds)
+        {
+            var region = viewport.VisibleRegion;
+            return region.Left <= bounds.Left && region.Top <= bounds.Top &&
+                   region.Right >= bounds.Right && region.Bottom >= bounds.Bottom;
+        }
+
+        /// <summary>
+        /// Projects a proposed component's bounds to screen space. Resolution order:
+        /// bounds measured at review time (already world-space), then the live object's
+        /// bounds translated so its pivot-relative offset lands on the proposed pivot,
+        /// then a fixed-size estimate centered on the pivot. Grasshopper pivots are
+        /// bounds centers, not top-left corners.
+        /// </summary>
+        private static RectangleF ProjectProposedBounds(
+            GH_Canvas canvas,
+            CanvasChangeReviewSession session,
+            GhJsonComponent component)
+        {
+            return ProjectBounds(canvas.Viewport, GetProposedWorldBounds(canvas, session, component));
+        }
+
+        private static RectangleF GetProposedWorldBounds(
+            GH_Canvas canvas,
+            CanvasChangeReviewSession session,
+            GhJsonComponent component)
+        {
+            if (component.Id.HasValue &&
+                session.TryGetProposedComponentBounds(component.Id.Value, out var measuredBounds))
+            {
+                return measuredBounds;
+            }
+
+            var pivot = new PointF((float)component.Pivot!.X, (float)component.Pivot.Y);
+
+            var liveAttributes = component.InstanceGuid.HasValue
+                ? canvas.Document.FindObject(component.InstanceGuid.Value, false)?.Attributes
+                : null;
+            if (liveAttributes?.Bounds is RectangleF liveBounds && liveBounds.Width > 0f && liveBounds.Height > 0f)
+            {
+                var livePivot = liveAttributes.Pivot;
+                return new RectangleF(
+                    pivot.X + (liveBounds.Left - livePivot.X),
+                    pivot.Y + (liveBounds.Top - livePivot.Y),
+                    liveBounds.Width,
+                    liveBounds.Height);
+            }
+
+            return new RectangleF(pivot.X - 70f, pivot.Y - 26f, 140f, 52f);
         }
 
         private static RectangleF ProjectBounds(GH_Viewport viewport, RectangleF bounds)

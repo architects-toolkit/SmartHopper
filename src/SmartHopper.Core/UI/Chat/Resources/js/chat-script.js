@@ -13,7 +13,7 @@ const SCROLL_BOTTOM_THRESHOLD = 30; // consider near-bottom within this distance
 const SCROLL_SHOW_BTN_THRESHOLD = 5; // show scroll-to-bottom button when farther than this
 
 // Render limits and thresholds
-const MAX_MESSAGE_HTML_LENGTH = 20000; // cap DOM insertion size to avoid huge paints
+const TEMPLATE_CACHE_MAX_HTML = 256 * 1024; // larger payloads (e.g. embedded images) render uncached
 const PERF_LOG_THRESHOLD_MS = 16; // only log perf outliers (>1 frame)
 const LRU_MAX_ENTRIES = 100; // recent DOM html cache size
 const FLUSH_INTERVAL_MS = 50; // max wait before flushing queued DOM ops
@@ -140,10 +140,12 @@ function cloneFromTemplate(html, context) {
     const originalHtml = html;
     let frag = _templateCache.get(originalHtml);
     if (!frag) {
-        // Guard against excessively large payloads
-        if (html.length > MAX_MESSAGE_HTML_LENGTH) {
-            console.warn(`[JS] ${context}: html length ${html.length} exceeds cap ${MAX_MESSAGE_HTML_LENGTH}, truncating`);
-            html = html.slice(0, MAX_MESSAGE_HTML_LENGTH) + '…';
+        // Large payloads (data-URI images in tool results, big JSON dumps) are
+        // legitimate and must render in full — truncating mid-attribute corrupts
+        // the markup. They only bypass the fragment cache to keep it lightweight.
+        if (html.length > TEMPLATE_CACHE_MAX_HTML) {
+            console.warn(`[JS] ${context}: html length ${html.length} exceeds template-cache cap; rendering uncached`);
+            return null;
         }
         const safeHtml = sanitizeHtml(html);
         if (!safeHtml) {
@@ -801,6 +803,11 @@ function setupCollapsibleHandlers(rootNode) {
                 });
             }
 
+            // Messages that contain images start expanded so the image is visible
+            if (content.querySelector('img')) {
+                msg.classList.add('expanded');
+            }
+
             // Initial state
             refresh();
 
@@ -1014,18 +1021,31 @@ document.addEventListener('DOMContentLoaded', function () {
             scrollBtn: !!scrollBtn
         });
 
+        const attachBtn = document.getElementById('attach-button');
+        const attachStrip = document.getElementById('attachment-strip');
+
+        if (attachBtn) {
+            attachBtn.addEventListener('click', () => {
+                console.log('[JS] Attach button clicked');
+                window.location.href = 'sh://event?type=attach';
+            });
+            console.log('[JS] Attach button click handler attached');
+        }
+
         if (sendBtn) {
             sendBtn.addEventListener('click', () => {
                 console.log('[JS] Send button clicked');
                 const text = (input && input.value || '').trim();
-                console.log('[JS] Input text:', text);
-                if (!text) {
-                    console.log('[JS] No text to send, returning');
+                const hasAttachments = !!(attachStrip && attachStrip.children.length > 0);
+                console.log('[JS] Input text:', text, 'attachments:', hasAttachments);
+                if (!text && !hasAttachments) {
+                    console.log('[JS] No text or attachments to send, returning');
                     return;
                 }
 
                 // Host will append the user message; just notify and clear input for UX
                 try { setProcessing(true); } catch {}
+                try { clearSuggestedPrompts(); } catch {}
                 const url = `sh://event?type=send&text=${encodeURIComponent(text)}`;
                 console.log('[JS] Navigating to:', url);
                 window.location.href = url;
@@ -1074,6 +1094,14 @@ document.addEventListener('DOMContentLoaded', function () {
             console.log('[JS] Input keydown handler attached');
         } else {
             console.error('[JS] Input element not found!');
+        }
+
+        // Autonomy overlay: extend the run's time/token budgets by 50% per click
+        const extendBtn = document.getElementById('autonomy-extend-btn');
+        if (extendBtn) {
+            extendBtn.addEventListener('click', () => {
+                window.location.href = 'sh://event?type=extend_autonomy';
+            });
         }
 
         // Scroll controls: click to jump to bottom from indicator or button
@@ -1129,6 +1157,26 @@ function setProcessing(on) {
     if (spinner) {
         spinner.classList.toggle('hidden', !on);
 
+        // Processing end is the authoritative run-finished signal — freeze the autonomy
+        // overlay (last push may still report running) and start its hide countdown.
+        if (!on) {
+            try { freezeAutonomyOverlay(); } catch (e) {
+                console.warn('[JS] setProcessing: freezeAutonomyOverlay threw', e);
+            }
+        }
+
+        // Processing start is the authoritative new-run signal — reset the autonomy overlay
+        // so leftover state (and any stale last-run snapshot pushed before the session's run
+        // state resets) can never paint previous-run values during the new run.
+        if (on) {
+            try {
+                _autonomyAwaitingRun = true;
+                hideAutonomyOverlay();
+            } catch (e) {
+                console.warn('[JS] setProcessing: hideAutonomyOverlay threw', e);
+            }
+        }
+
         // Fail-safe: when processing stops, ensure any lingering loading bubble is removed
         if (!on && typeof removeThinkingMessage === 'function') {
             try {
@@ -1171,6 +1219,217 @@ function setProcessing(on) {
     }
 }
 
+// Attachment helpers — called by the host via ExecuteScript.
+// The host owns the attachment data; chips are visual only and identified by stable id.
+function addAttachmentChip(id, name, dataUri) {
+    const strip = document.getElementById('attachment-strip');
+    if (!strip) return;
+    strip.classList.remove('hidden');
+
+    const chip = document.createElement('div');
+    chip.className = 'attachment-chip';
+    chip.dataset.aid = id;
+
+    const img = document.createElement('img');
+    img.src = dataUri;
+    img.alt = name || 'attachment';
+
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'attachment-remove';
+    rm.textContent = '\u00d7';
+    rm.title = 'Remove attachment';
+    rm.addEventListener('click', () => {
+        window.location.href = 'sh://event?type=detach&id=' + encodeURIComponent(id);
+    });
+
+    chip.appendChild(img);
+    chip.appendChild(rm);
+    strip.appendChild(chip);
+}
+
+function removeAttachmentChip(id) {
+    const strip = document.getElementById('attachment-strip');
+    if (!strip) return;
+    const chip = strip.querySelector('.attachment-chip[data-aid="' + id + '"]');
+    if (chip) chip.remove();
+    if (!strip.children.length) strip.classList.add('hidden');
+}
+
+function clearAttachments() {
+    const strip = document.getElementById('attachment-strip');
+    if (!strip) return;
+    strip.innerHTML = '';
+    strip.classList.add('hidden');
+}
+
+function setAttachEnabled(enabled, tooltip) {
+    const btn = document.getElementById('attach-button');
+    if (!btn) return;
+    btn.disabled = !enabled;
+    if (tooltip) btn.title = tooltip;
+}
+
+// Autonomy overlay — floating card showing live autonomous-run consumption (elapsed time and
+// provider tokens versus the configured limits). Visible only while a run is in progress;
+// lingers briefly when a budget is exhausted so the limit state can be read.
+let _autonomy = null;
+let _autonomyTimer = null;
+let _autonomyHideTimer = null;
+// True from run start until the first running snapshot arrives. While set, a not-running
+// usage push is a stale snapshot of the previous run (the run-start push reads session
+// autonomy state before BeginAutonomyRun resets it) and must never paint.
+let _autonomyAwaitingRun = false;
+
+const AUTONOMY_FIRST_PAINT_MS = 15000;     // long-running turns still surface the overlay even with few interactions
+const AUTONOMY_MIN_INTERACTIONS = 10;      // don't flash the overlay for runs that produce little
+const AUTONOMY_HIDE_MS = 1200;             // normal completion: hide shortly after the run ends
+const AUTONOMY_EXHAUSTED_LINGER_MS = 6000; // keep the "limit reached" state readable
+
+function updateAutonomyUsage(usage) {
+    if (!usage) return;
+    // Drop snapshots that cannot belong to a live run: a not-running state arriving before the
+    // run's first live snapshot (stale last-run push at run start — the session's autonomy
+    // state is only reset once the turn loop begins) or with no run state at all. Painting it
+    // would show last run's values until the first meaningful render (~15 s in).
+    if (!usage.IsRunning && (_autonomyAwaitingRun || !_autonomy)) return;
+    if (usage.IsRunning) _autonomyAwaitingRun = false;
+    _autonomy = {
+        elapsedSec: usage.ElapsedSeconds || 0,
+        maxSec: usage.MaxSeconds || 0,
+        tokens: usage.Tokens || 0,
+        maxTokens: usage.MaxTokens || 0,
+        tokensEstimated: !!usage.TokensEstimated,
+        interactions: usage.Interactions || 0,
+        running: !!usage.IsRunning,
+        exhausted: !!usage.IsExhausted,
+        receivedAt: Date.now()
+    };
+    renderAutonomyOverlay();
+    if (_autonomy.running) {
+        cancelAutonomyHide();
+        if (!_autonomyTimer) _autonomyTimer = setInterval(renderAutonomyOverlay, 1000);
+    } else {
+        stopAutonomyTick();
+        scheduleAutonomyHide();
+    }
+}
+
+function renderAutonomyOverlay() {
+    const el = document.getElementById('autonomy-overlay');
+    if (!el || !_autonomy) return;
+    const elapsed = _autonomy.elapsedSec + (_autonomy.running ? (Date.now() - _autonomy.receivedAt) / 1000 : 0);
+
+    // Delayed first paint: the overlay appears once the run has produced enough interactions
+    // or run long enough to be meaningful, so short-lived runs do not flash metrics.
+    // Exhaustion is always surfaced.
+    const meaningful = _autonomy.exhausted || _autonomy.interactions >= AUTONOMY_MIN_INTERACTIONS ||
+        elapsed * 1000 >= AUTONOMY_FIRST_PAINT_MS;
+    if (!meaningful) return;
+
+    const timeRow = document.getElementById('autonomy-time-row');
+    const timeText = document.getElementById('autonomy-time-text');
+    const timeFill = document.getElementById('autonomy-time-fill');
+    if (timeText) {
+        timeText.textContent = fmtAutonomyDuration(elapsed) +
+            (_autonomy.maxSec > 0 ? ' / ' + fmtAutonomyDuration(_autonomy.maxSec) : '');
+    }
+    if (timeFill) {
+        timeFill.style.width = _autonomy.maxSec > 0 ? Math.min(100, elapsed / _autonomy.maxSec * 100) + '%' : '0%';
+    }
+    if (timeRow) {
+        timeRow.classList.toggle('autonomy-limit-hit', _autonomy.maxSec > 0 && elapsed >= _autonomy.maxSec);
+    }
+
+    const tokRow = document.getElementById('autonomy-tokens-row');
+    const tokText = document.getElementById('autonomy-tokens-text');
+    const tokFill = document.getElementById('autonomy-tokens-fill');
+    if (tokText) {
+        // '~' marks heuristic estimates (provider did not report usage for at least one call)
+        const tokPrefix = _autonomy.tokensEstimated ? '~' : '';
+        tokText.textContent = tokPrefix + fmtAutonomyTokens(_autonomy.tokens) +
+            (_autonomy.maxTokens > 0 ? ' / ' + fmtAutonomyTokens(_autonomy.maxTokens) : ' tok');
+        tokText.title = _autonomy.tokensEstimated ? 'Estimated token usage' : '';
+    }
+    if (tokFill) {
+        tokFill.style.width = _autonomy.maxTokens > 0 ? Math.min(100, _autonomy.tokens / _autonomy.maxTokens * 100) + '%' : '0%';
+    }
+    if (tokRow) {
+        tokRow.classList.toggle('autonomy-limit-hit', _autonomy.maxTokens > 0 && _autonomy.tokens >= _autonomy.maxTokens);
+    }
+
+    // Unbounded setup: both limits disabled — surface a warning instead of implying a bound.
+    const unlimited = _autonomy.maxSec <= 0 && _autonomy.maxTokens <= 0;
+    const warn = document.getElementById('autonomy-warning');
+    if (warn) warn.classList.toggle('hidden', !unlimited);
+    el.classList.toggle('autonomy-unlimited', unlimited);
+
+    // Extend row: meaningless when unbounded; disabled once the run ended or a budget is
+    // already exhausted (extending a finished run cannot resume it).
+    const extendRow = document.getElementById('autonomy-extend-row');
+    const extendBtn = document.getElementById('autonomy-extend-btn');
+    if (extendRow) extendRow.classList.toggle('hidden', unlimited);
+    if (extendBtn) extendBtn.disabled = !_autonomy.running || _autonomy.exhausted;
+
+    el.classList.toggle('autonomy-exhausted', _autonomy.exhausted);
+    el.classList.remove('hidden');
+}
+
+function stopAutonomyTick() {
+    if (_autonomyTimer) {
+        clearInterval(_autonomyTimer);
+        _autonomyTimer = null;
+    }
+}
+
+function cancelAutonomyHide() {
+    if (_autonomyHideTimer) {
+        clearTimeout(_autonomyHideTimer);
+        _autonomyHideTimer = null;
+    }
+}
+
+function scheduleAutonomyHide() {
+    cancelAutonomyHide();
+    const linger = _autonomy && _autonomy.exhausted ? AUTONOMY_EXHAUSTED_LINGER_MS : AUTONOMY_HIDE_MS;
+    _autonomyHideTimer = setTimeout(hideAutonomyOverlay, linger);
+}
+
+// Called from setProcessing(false). The last usage push can arrive while the run is still
+// marked running (the session clock stops in the iterator's finally, after the final
+// notification), so processing end is the authoritative signal to freeze and schedule hide.
+function freezeAutonomyOverlay() {
+    if (!_autonomy) return;
+    _autonomy.running = false;
+    stopAutonomyTick();
+    renderAutonomyOverlay();
+    scheduleAutonomyHide();
+}
+
+function hideAutonomyOverlay() {
+    _autonomy = null;
+    stopAutonomyTick();
+    cancelAutonomyHide();
+    const el = document.getElementById('autonomy-overlay');
+    if (el) el.classList.add('hidden');
+}
+
+function fmtAutonomyDuration(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    const ss = String(s).padStart(2, '0');
+    return h > 0 ? h + ':' + String(m).padStart(2, '0') + ':' + ss : m + ':' + ss;
+}
+
+function fmtAutonomyTokens(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 10000) return Math.round(n / 1000) + 'k';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+    return String(n);
+}
+
 function resetMessages() {
     console.log('[JS] resetMessages called');
     const chatContainer = document.getElementById('chat-container');
@@ -1179,6 +1438,9 @@ function resetMessages() {
         return;
     }
     chatContainer.innerHTML = '';
+    hideAutonomyOverlay();
+    hideTaskPlanPanel();
+    clearSuggestedPrompts();
 
     try {
         _templateCache.clear();
@@ -1339,17 +1601,22 @@ function resolvePlanConsent(id) {
     card.querySelectorAll('button').forEach(button => { button.disabled = true; });
 }
 
+// Renders the current task plan in the HUD panel docked below the autonomy overlay.
+// The panel shows one plan at a time; a new plan id replaces the previous card and the
+// final state stays visible until another plan arrives or the chat is reset.
 function updateTaskPlan(plan) {
-    const container = document.getElementById('chat-container');
-    if (!container || !plan || !plan.id) return;
+    const panel = document.getElementById('task-plan-panel');
+    if (!panel || !plan || !plan.id) return;
 
-    let card = Array.from(container.querySelectorAll('.task-plan-card'))
+    let card = Array.from(panel.querySelectorAll('.task-plan-card'))
         .find(node => node.dataset.planId === plan.id);
-    const isNew = !card;
-    if (isNew) {
+    if (!card) {
+        panel.innerHTML = '';
         card = document.createElement('section');
         card.className = 'task-plan-card';
         card.dataset.planId = plan.id;
+        panel.appendChild(card);
+        panel.classList.remove('hidden');
     } else {
         card.innerHTML = '';
     }
@@ -1396,9 +1663,177 @@ function updateTaskPlan(plan) {
         list.appendChild(item);
     });
     card.appendChild(list);
+}
 
-    if (isNew) {
-        insertAboveThinkingIfPresent(container, card);
-        scrollToBottom();
+function hideTaskPlanPanel() {
+    const panel = document.getElementById('task-plan-panel');
+    if (!panel) return;
+    panel.innerHTML = '';
+    panel.classList.add('hidden');
+}
+
+/**
+ * Renders suggested follow-up prompt chips above the input bar.
+ * Clicking a chip fills the input field but never sends automatically.
+ * @param {string[]} suggestions - 0-3 prompt strings
+ */
+function showSuggestedPrompts(suggestions) {
+    const strip = document.getElementById('suggestions-strip');
+    if (!strip) return;
+    strip.innerHTML = '';
+
+    const items = Array.isArray(suggestions) ? suggestions.filter(s => typeof s === 'string' && s.trim()).slice(0, 3) : [];
+    if (items.length === 0) {
+        strip.classList.add('hidden');
+        return;
     }
+
+    items.forEach(text => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'suggestion-chip';
+        chip.textContent = text;
+        chip.title = text;
+        chip.setAttribute('role', 'listitem');
+        chip.addEventListener('click', () => {
+            const input = document.getElementById('user-input');
+            if (input) {
+                input.value = text;
+                input.focus();
+            }
+        });
+        strip.appendChild(chip);
+    });
+    strip.classList.remove('hidden');
+}
+
+function clearSuggestedPrompts() {
+    const strip = document.getElementById('suggestions-strip');
+    if (!strip) return;
+    strip.innerHTML = '';
+    strip.classList.add('hidden');
+}
+
+/**
+ * Renders a canvas pointer card: the tool's message plus a button that replays
+ * the pan/zoom/highlight on the Grasshopper canvas via the sh:// bridge.
+ * @param {object} ptr - { id, message }
+ */
+function showCanvasPointer(ptr) {
+    const container = document.getElementById('chat-container');
+    if (!container || !ptr || !ptr.id) return;
+
+    const card = document.createElement('section');
+    card.className = 'canvas-pointer-card';
+    card.dataset.pointerId = ptr.id;
+
+    const header = document.createElement('div');
+    header.className = 'canvas-pointer-header';
+    const glyph = document.createElement('span');
+    glyph.className = 'canvas-pointer-glyph';
+    glyph.textContent = '◎';
+    header.appendChild(glyph);
+    const message = document.createElement('div');
+    message.className = 'canvas-pointer-message';
+    message.textContent = ptr.message || 'The assistant is pointing at something on the canvas.';
+    header.appendChild(message);
+    card.appendChild(header);
+
+    const actions = document.createElement('div');
+    actions.className = 'canvas-pointer-actions';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'Show on canvas';
+    button.addEventListener('click', () => {
+        window.location.href = `sh://event?type=canvas_pointer&id=${encodeURIComponent(ptr.id)}`;
+    });
+    actions.appendChild(button);
+    card.appendChild(actions);
+
+    insertAboveThinkingIfPresent(container, card);
+    scrollToBottom();
+}
+
+/**
+ * Renders a blocking question card: question text, 2-4 option buttons and an
+ * always-present free-text field. Answers travel back via the sh:// bridge.
+ * @param {object} q - { id, question, options }
+ */
+function showUserQuestion(q) {
+    const container = document.getElementById('chat-container');
+    if (!container || !q || !q.id) return;
+
+    const card = document.createElement('section');
+    card.className = 'user-question-card';
+    card.dataset.questionId = q.id;
+
+    const title = document.createElement('h3');
+    title.textContent = 'The assistant is asking';
+    card.appendChild(title);
+
+    const question = document.createElement('p');
+    question.className = 'user-question-text';
+    question.textContent = q.question || '';
+    card.appendChild(question);
+
+    const options = document.createElement('div');
+    options.className = 'user-question-options';
+    (Array.isArray(q.options) ? q.options : []).forEach((option, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'user-question-option';
+        button.textContent = option;
+        button.addEventListener('click', () => {
+            options.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+            button.classList.add('selected');
+            window.location.href = `sh://event?type=question&id=${encodeURIComponent(q.id)}&choice=${index}`;
+        });
+        options.appendChild(button);
+    });
+    card.appendChild(options);
+
+    const divider = document.createElement('div');
+    divider.className = 'user-question-divider';
+    divider.textContent = 'or type your own answer';
+    card.appendChild(divider);
+
+    const freeRow = document.createElement('div');
+    freeRow.className = 'user-question-free';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Type an answer…';
+    input.maxLength = 4000;
+    const send = document.createElement('button');
+    send.type = 'button';
+    send.textContent = 'Send';
+    const submitFree = () => {
+        const value = input.value.trim();
+        if (!value) return;
+        window.location.href = `sh://event?type=question&id=${encodeURIComponent(q.id)}&text=${encodeURIComponent(value)}`;
+    };
+    send.addEventListener('click', submitFree);
+    input.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter') {
+            ev.preventDefault();
+            submitFree();
+        }
+    });
+    freeRow.appendChild(input);
+    freeRow.appendChild(send);
+    card.appendChild(freeRow);
+
+    insertAboveThinkingIfPresent(container, card);
+    scrollToBottom();
+}
+
+/**
+ * Freezes a question card once an answer (or cancellation) was processed.
+ * @param {string} id - question id
+ */
+function resolveUserQuestion(id) {
+    const card = Array.from(document.querySelectorAll('.user-question-card'))
+        .find(node => node.dataset.questionId === id);
+    if (!card) return;
+    card.classList.add('resolved');
+    card.querySelectorAll('button, input').forEach(el => { el.disabled = true; });
 }

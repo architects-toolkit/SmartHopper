@@ -41,6 +41,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     public sealed partial class ConversationSession
     {
         /// <summary>
+        /// Fallback timeout for special turns whose config does not specify <see cref="SpecialTurnConfig.TimeoutMs"/>.
+        /// </summary>
+        private const int DefaultSpecialTurnTimeoutMs = 30000;
+
+        /// <summary>
         /// Executes a special turn with custom configuration.
         /// Special turns run through the regular conversation flow but can override interactions,
         /// provider settings, tools, and history persistence behavior.
@@ -80,7 +85,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 // - timeout via CancelAfter
                 using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(this.cts.Token, cancellationToken))
                 {
-                    linkedCts.CancelAfter(config.TimeoutMs.Value);
+                    linkedCts.CancelAfter(config.TimeoutMs ?? DefaultSpecialTurnTimeoutMs);
                     var effectiveCt = linkedCts.Token;
 
                     if (useStreaming)
@@ -282,6 +287,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             else if (this.Request.Body?.ToolFilter != null)
             {
                 builder.WithToolFilter(this.Request.Body.ToolFilter);
+            }
+
+            if (config.OverrideJsonOutputSchema != null)
+            {
+                builder.WithJsonOutputSchema(config.OverrideJsonOutputSchema);
             }
 
             // Create new isolated request (use parameterless ctor and assign Body explicitly)

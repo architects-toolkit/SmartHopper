@@ -238,11 +238,35 @@ namespace SmartHopper.Providers.OpenAI
             {
                 if (interaction is AIInteractionToolResult toolResultResp)
                 {
+                    var outputImages = toolResultResp.GetModelImages();
+                    JToken output = toolResultResp.Result?.ToString() ?? string.Empty;
+                    if (outputImages.Count > 0)
+                    {
+                        var outputParts = new JArray
+                        {
+                            new JObject
+                            {
+                                ["type"] = "input_text",
+                                ["text"] = output.ToString(),
+                            },
+                        };
+                        foreach (var img in outputImages)
+                        {
+                            outputParts.Add(new JObject
+                            {
+                                ["type"] = "input_image",
+                                ["image_url"] = $"data:{img.MimeType ?? "image/png"};base64,{img.ImageData}",
+                            });
+                        }
+
+                        output = outputParts;
+                    }
+
                     return new JObject
                     {
                         ["type"] = "function_call_output",
                         ["call_id"] = toolResultResp.Id,
-                        ["output"] = toolResultResp.Result?.ToString() ?? string.Empty,
+                        ["output"] = output,
                     };
                 }
 
@@ -295,6 +319,15 @@ namespace SmartHopper.Providers.OpenAI
                 }
 
                 messageObj["content"] = toolResultInteraction.Result?.ToString() ?? string.Empty;
+
+                // Chat Completions tool messages are text-only; emit model-bound images as a
+                // trailing user message. EncodeToJToken returns JToken, so a JArray is flattened
+                // by BuildFormattedMessages into consecutive messages.
+                var imageMessage = OpenAICompatibleImageCodec.ToUserImageMessage(toolResultInteraction.GetModelImages());
+                if (imageMessage != null)
+                {
+                    return new JArray { messageObj, imageMessage };
+                }
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
             {
@@ -444,7 +477,16 @@ namespace SmartHopper.Providers.OpenAI
             foreach (var interaction in mergedInteractions)
             {
                 var token = this.EncodeToJToken(interaction, format);
-                if (token != null)
+                if (token is JArray tokenArray)
+                {
+                    // A single interaction may expand to multiple messages (e.g. a tool result
+                    // whose images must be sent as a trailing user message).
+                    foreach (var item in tokenArray)
+                    {
+                        messages.Add(item);
+                    }
+                }
+                else if (token != null)
                 {
                     messages.Add(token);
                 }
@@ -2339,6 +2381,10 @@ namespace SmartHopper.Providers.OpenAI
                 }
 
                 final.SetBody(finalBuilder.Build());
+
+                // Ensure the call's usage is represented on an interaction even when the turn
+                // produced only tool calls (usage already on the text interaction is kept).
+                final.AttachUsageMetrics(finalMetrics);
                 yield return final;
             }
         }
