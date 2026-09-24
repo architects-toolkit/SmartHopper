@@ -54,9 +54,37 @@ namespace SmartHopper.ProviderSdk.Tests.AIProviders
 
             Assert.Equal(25, metrics.InputTokensCached);
             Assert.Equal(75, metrics.InputTokensPrompt);
-            Assert.Equal(40, metrics.OutputTokensGeneration);
+            Assert.Equal(25, metrics.OutputTokensGeneration);
             Assert.Equal(15, metrics.OutputTokensReasoning);
+            Assert.Equal(40, metrics.OutputTokens);
             Assert.Equal("stop", metrics.FinishReason);
+        }
+
+        /// <summary>
+        /// The shared decoder separates reasoning tokens from total chat-completion output tokens.
+        /// </summary>
+        [Fact]
+        public void DecodeCompatibleMetrics_ChatCompletionsShape_SplitsReasoningFromGeneration()
+        {
+            var provider = new FakeOpenAICompatibleProvider();
+            var response = new JObject
+            {
+                ["usage"] = new JObject
+                {
+                    ["prompt_tokens"] = 200,
+                    ["prompt_tokens_details"] = new JObject { ["cached_tokens"] = 50 },
+                    ["completion_tokens"] = 120,
+                    ["completion_tokens_details"] = new JObject { ["reasoning_tokens"] = 100 },
+                },
+            };
+
+            AIMetrics metrics = provider.DecodeCompatibleMetrics(response);
+
+            Assert.Equal(150, metrics.InputTokensPrompt);
+            Assert.Equal(50, metrics.InputTokensCached);
+            Assert.Equal(20, metrics.OutputTokensGeneration);
+            Assert.Equal(100, metrics.OutputTokensReasoning);
+            Assert.Equal(120, metrics.OutputTokens);
         }
 
         [Fact]

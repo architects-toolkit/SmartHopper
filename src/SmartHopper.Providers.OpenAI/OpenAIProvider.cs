@@ -1882,19 +1882,15 @@ namespace SmartHopper.Providers.OpenAI
                         else if (string.Equals(eventType, "response.completed", StringComparison.OrdinalIgnoreCase))
                         {
                             var responseObj = parsed["response"] as JObject;
-                            var respUsage = responseObj?["usage"] as JObject;
-                            if (respUsage != null)
+                            if (responseObj?["usage"] is JObject)
                             {
-                                var pt = respUsage["input_tokens"]?.Value<int?>();
-                                var ct = respUsage["output_tokens"]?.Value<int?>();
-                                if (pt.HasValue) promptTokens = pt.Value;
-                                if (ct.HasValue) completionTokens = ct.Value;
-                                assistantAggregate.CombineMetrics( new AIMetrics
+                                var usageMetrics = this.provider.DecodeOpenAICompatibleMetrics(responseObj);
+                                promptTokens = usageMetrics.InputTokensPrompt + usageMetrics.InputTokensCached;
+                                completionTokens = usageMetrics.OutputTokens;
+                                assistantAggregate.CombineMetrics(usageMetrics with
                                 {
                                     Provider = this.Provider.Name,
                                     Model = request.Model,
-                                    InputTokensPrompt = pt ?? 0,
-                                    OutputTokensGeneration = ct ?? 0,
                                 });
                             }
 
@@ -2079,7 +2075,7 @@ namespace SmartHopper.Providers.OpenAI
                     {
                         var usageMetrics = this.provider.DecodeOpenAICompatibleMetrics(parsed);
                         promptTokens = usageMetrics.InputTokensPrompt + usageMetrics.InputTokensCached;
-                        completionTokens = usageMetrics.OutputTokensGeneration;
+                        completionTokens = usageMetrics.OutputTokens;
 
                         // Update aggregate metrics
                         assistantAggregate.CombineMetrics(usageMetrics with
