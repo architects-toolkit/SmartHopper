@@ -1,3 +1,5 @@
+<!-- docs-validation: ignore -->
+
 # Plan: Layout quality overhaul + MCP/canvas tooling usability
 
 **Status:** planned — not yet implemented
