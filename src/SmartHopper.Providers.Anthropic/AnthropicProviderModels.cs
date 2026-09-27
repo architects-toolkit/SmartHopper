@@ -83,12 +83,32 @@ namespace SmartHopper.Providers.Anthropic
                 new AIModelCapabilities
                 {
                     Provider = providerName,
+                    Model = "claude-opus-5-5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9995,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 9, 22),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000004m,
+                        Completion = 0.00002m,
+                        InputCacheRead = 0.0000002m,
+                        InputCacheWrite = 0.000005m,
+                        WebSearch = 0.01m,
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
                     Model = "claude-opus-5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9995,
+                    Rank = 9990,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 7, 24),
                     Pricing = new AIModelPricing
@@ -117,7 +137,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9990,
+                    Rank = 9985,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 1),
                     Pricing = new AIModelPricing
@@ -141,7 +161,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9985,
+                    Rank = 9980,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 5, 27),
                     Pricing = new AIModelPricing
@@ -161,7 +181,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9980,
+                    Rank = 9975,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 16),
                     Pricing = new AIModelPricing
@@ -182,7 +202,7 @@ namespace SmartHopper.Providers.Anthropic
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9975,
+                    Rank = 9970,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 9),
                     Pricing = new AIModelPricing
@@ -216,7 +236,7 @@ namespace SmartHopper.Providers.Anthropic
                     Default = AICapability.Text2Json,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9970,
+                    Rank = 9965,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 2, 17),
                     Pricing = new AIModelPricing
@@ -236,7 +256,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9965,
+                    Rank = 9960,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 2, 4),
                     Pricing = new AIModelPricing
@@ -261,7 +281,7 @@ namespace SmartHopper.Providers.Anthropic
                     Default = AICapability.Text2Text | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.ToolChat | AICapability.Image2Text,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 9960,
+                    Rank = 9955,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 10, 15),
                     Pricing = new AIModelPricing
@@ -283,7 +303,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 9955,
+                    Rank = 9950,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 9, 29),
                     Pricing = new AIModelPricing
@@ -304,7 +324,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9950,
+                    Rank = 9945,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 11, 24),
                     Pricing = new AIModelPricing
@@ -369,49 +389,12 @@ namespace SmartHopper.Providers.Anthropic
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-opus-4-20250514",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -10,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 5, 22),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000015m,
-                        Completion = 0.000075m,
-                        InputCacheRead = 0.0000015m,
-                        InputCacheWrite = 0.00001875m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "claude-opus-4", "claude-opus-4-latest", "claude-opus-4-0", "claude-opus-4-0-latest" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
-                    Model = "claude-3-haiku-20240307",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -15,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2024, 3, 13),
-                    Aliases = new List<string> { "claude-3-haiku", "claude-3-haiku-latest" },
-                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
                     Model = "claude-3-5-haiku-20241022",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -20,
+                    Rank = -10,
                     ContextLimit = 200000,
                     Aliases = new List<string> { "claude-3-5-haiku", "claude-3-5-haiku-latest" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
@@ -425,9 +408,44 @@ namespace SmartHopper.Providers.Anthropic
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -25,
+                    Rank = -15,
                     ContextLimit = 200000,
                     Aliases = new List<string> { "claude-3-7-sonnet", "claude-3-7-sonnet-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-3-haiku-20240307",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -20,
+                    ContextLimit = 200000,
+                    Aliases = new List<string> { "claude-3-haiku", "claude-3-haiku-latest" },
+                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-opus-4-20250514",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -25,
+                    ContextLimit = 200000,
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000015m,
+                        Completion = 0.000075m,
+                        InputCacheRead = 0.0000015m,
+                        InputCacheWrite = 0.00001875m,
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "claude-opus-4", "claude-opus-4-latest", "claude-opus-4-0", "claude-opus-4-0-latest" },
                 }
             };
 
