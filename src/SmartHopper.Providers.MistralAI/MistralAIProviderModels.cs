@@ -173,6 +173,32 @@ namespace SmartHopper.Providers.MistralAI
                     Aliases = new List<string> { "ministral-14b-latest" },
                 },
 
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-large-2512",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9975,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2025, 12, 1),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000005m,
+                        Completion = 0.0000015m,
+                        InputCacheRead = 0.00000005m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000025m,
+                        Completion = 0.00000075m,
+                        InputCacheRead = 0.000000025m,
+                    },
+                    Aliases = new List<string> { "mistral-large", "mistral-large-latest", "mistral-large-veteran-2512", "mistral-large-2512:batch" },
+                },
+
 
 
                 // Released between June 2025 and September 2025
@@ -185,7 +211,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9975,
+                    Rank = 9970,
                     ContextLimit = 256000,
                     Created = new DateTime(2025, 8, 1),
                     Pricing = new AIModelPricing
@@ -206,32 +232,6 @@ namespace SmartHopper.Providers.MistralAI
 
 
                 // Released before September 2024 or unknown release date
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistral-large-2512",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9970,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2024, 2, 26),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000005m,
-                        Completion = 0.0000015m,
-                        InputCacheRead = 0.00000005m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.00000025m,
-                        Completion = 0.00000075m,
-                        InputCacheRead = 0.000000025m,
-                    },
-                    Aliases = new List<string> { "mistral-large", "mistral-large-latest", "mistral-large-veteran-2512", "mistral-large-2512:batch" },
-                },
 
                 new AIModelCapabilities
                 {
