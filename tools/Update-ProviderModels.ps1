@@ -796,6 +796,21 @@ $sourceDeprecatedSet = [System.Collections.Generic.HashSet[string]]::new(
     [string[]]($existingModels.Keys | Where-Object { $existingModels[$_].Deprecated -eq 'true' }),
     [System.StringComparer]::OrdinalIgnoreCase)
 
+# Aliases declared in the source file, mapped to the model that declares them.
+# These are maintainer decisions: when a provider-API id is already listed as
+# an alias of a source model, that id belongs to the declared canonical — it
+# must not be re-added as a new model, re-canonicalized, or counted as proof
+# that a differently-named canonical is alive (e.g. source canonical
+# "claude-opus-5.5" declaring API id "claude-opus-5-5" as its alias).
+$sourceDeclaredAliases = @{}
+foreach ($kvp in $existingModels.GetEnumerator()) {
+    foreach ($a in @($kvp.Value.Aliases)) {
+        if (-not [string]::IsNullOrWhiteSpace($a) -and -not $sourceDeclaredAliases.ContainsKey($a)) {
+            $sourceDeclaredAliases[$a] = $kvp.Key
+        }
+    }
+}
+
 Write-Host "[$Provider] Parsed $($existingModels.Count) existing model block(s)."
 
 if ($ValidateOnly) {
@@ -1243,6 +1258,13 @@ if ($providerApiQueried) {
 
         if (-not $canonicalVersionPeer) { continue }
 
+        # Skip when the source already declares this provider id as an alias of
+        # $srcKey: the maintainer's canonical name wins over the API id.
+        if ($sourceDeclaredAliases.ContainsKey($canonicalVersionPeer) -and
+            [string]::Equals($sourceDeclaredAliases[$canonicalVersionPeer], $srcKey, 'OrdinalIgnoreCase')) {
+            continue
+        }
+
         $apiCanonicalByAlias[$srcKey] = $canonicalVersionPeer
         if (-not $apiAliasesByCanonical.ContainsKey($canonicalVersionPeer)) {
             $apiAliasesByCanonical[$canonicalVersionPeer] = @()
@@ -1494,24 +1516,32 @@ if ($providerApiQueried) {
         $apiAliases = if ($apiAliasesByCanonical.ContainsKey($pmId)) { @($apiAliasesByCanonical[$pmId]) } else { @() }
         $isApiDeprecated = $apiDeprecatedCanonicals.Contains($pmId)
 
-        if ($mergedModels.Contains($pmId)) {
+        # When the source declares this API id as an alias, refresh the model
+        # that declares it instead of adding the id as a new entry.
+        $canonicalId = $pmId
+        if ($sourceDeclaredAliases.ContainsKey($pmId) -and
+            $mergedModels.Contains($sourceDeclaredAliases[$pmId])) {
+            $canonicalId = $sourceDeclaredAliases[$pmId]
+        }
+
+        if ($mergedModels.Contains($canonicalId)) {
             # Refresh Created/Pricing from OpenRouter when available (always
         # re-derived, since these are published metadata, not hand-curated).
         $ormRefresh = Resolve-OpenRouterEntry $pmId $apiAliases
         $enrichRefresh = Get-OpenRouterEnrichment -orm $ormRefresh
         if ($enrichRefresh) {
-            if ($enrichRefresh.Created) { $mergedModels[$pmId] | Add-Member -NotePropertyName 'Created' -NotePropertyValue $enrichRefresh.Created -Force }
+            if ($enrichRefresh.Created) { $mergedModels[$canonicalId] | Add-Member -NotePropertyName 'Created' -NotePropertyValue $enrichRefresh.Created -Force }
             if ($enrichRefresh.Pricing) {
-                $existingPricing = $mergedModels[$pmId].Pricing
+                $existingPricing = $mergedModels[$canonicalId].Pricing
                 $mergedPricing = Merge-Pricing $existingPricing $enrichRefresh.Pricing
-                $mergedModels[$pmId] | Add-Member -NotePropertyName 'Pricing' -NotePropertyValue $mergedPricing -Force
+                $mergedModels[$canonicalId] | Add-Member -NotePropertyName 'Pricing' -NotePropertyValue $mergedPricing -Force
             }
         }
 
         # Preserve all hand-curated data but update aliases from provider API
             # (additive merge: keep existing aliases, add any new ones from the API)
             # and propagate provider deprecation flag.
-            $existing = $mergedModels[$pmId]
+            $existing = $mergedModels[$canonicalId]
             $currentAliases = [System.Collections.Generic.List[string]]::new()
             if ($existing.Aliases) {
                 foreach ($a in @($existing.Aliases)) { [void]$currentAliases.Add($a) }
@@ -1527,7 +1557,10 @@ if ($providerApiQueried) {
             foreach ($a in $currentAliases) {
                 $isOtherCanonical = ($providerApiModelNames -contains $a) -and (
                     -not $apiCanonicalByAlias.ContainsKey($a) -or
-                    -not [string]::Equals($apiCanonicalByAlias[$a], $pmId, 'OrdinalIgnoreCase')
+                    -not [string]::Equals($apiCanonicalByAlias[$a], $canonicalId, 'OrdinalIgnoreCase')
+                ) -and -not (
+                    $sourceDeclaredAliases.ContainsKey($a) -and
+                    [string]::Equals($sourceDeclaredAliases[$a], $canonicalId, 'OrdinalIgnoreCase')
                 )
                 if (-not $isOtherCanonical) { [void]$cleaned.Add($a) }
             }
@@ -1750,7 +1783,23 @@ else {
 
 foreach ($kvp in $mergedModels.GetEnumerator()) {
     if (-not $apiModelNames.Contains($kvp.Key)) {
-        $kvp.Value.Deprecated = 'true'
+        # The canonical name may legitimately be absent from the API when the
+        # source file declares the API's id as an alias instead (e.g. canonical
+        # "claude-opus-5.5" served by API id "claude-opus-5-5"). The model is
+        # still live unless the API has remapped that id to another model.
+        $stillListed = $false
+        foreach ($a in @($kvp.Value.Aliases)) {
+            if ($apiModelNames.Contains($a) -and
+                $sourceDeclaredAliases.ContainsKey($a) -and
+                [string]::Equals($sourceDeclaredAliases[$a], $kvp.Key, 'OrdinalIgnoreCase') -and
+                (-not $apiCanonicalByAlias.ContainsKey($a) -or
+                 [string]::Equals($apiCanonicalByAlias[$a], $a, 'OrdinalIgnoreCase') -or
+                 [string]::Equals($apiCanonicalByAlias[$a], $kvp.Key, 'OrdinalIgnoreCase'))) {
+                $stillListed = $true
+                break
+            }
+        }
+        if (-not $stillListed) { $kvp.Value.Deprecated = 'true' }
     }
 }
 
