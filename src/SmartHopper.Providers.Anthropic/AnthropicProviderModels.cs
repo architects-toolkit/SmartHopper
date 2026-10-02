@@ -83,7 +83,7 @@ namespace SmartHopper.Providers.Anthropic
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-opus-5-5",
+                    Model = "claude-opus-5.5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
@@ -98,6 +98,7 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.000005m,
                         WebSearch = 0.01m,
                     },
+                    Aliases = new List<string> { "claude-opus-5-5" },
                 },
 
                 new AIModelCapabilities
