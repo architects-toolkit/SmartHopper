@@ -269,8 +269,8 @@ Some models are still supported but **not recommended** for script-oriented tool
 
 - **Anthropic**
   - `claude-haiku-4-5-20251001`/`claude-haiku-4-5`/`claude-haiku-4-5-latest`/`claude-haiku-4.5`/`claude-haiku-4.5-latest` -> discouraged for: `script_generate`, `script_edit`
-  - `claude-3-haiku-20240307`/`claude-3-haiku`/`claude-3-haiku-latest` -> discouraged for: `script_generate`, `script_edit`
   - `claude-3-5-haiku-20241022`/`claude-3-5-haiku`/`claude-3-5-haiku-latest` -> discouraged for: `script_generate`, `script_edit`
+  - `claude-3-haiku-20240307`/`claude-3-haiku`/`claude-3-haiku-latest` -> discouraged for: `script_generate`, `script_edit`
 - **MistralAI**
   - `mistral-small-2603`/`mistral-small`/`mistral-small-latest`/`magistral-small-latest`/`mistral-vibe-cli-fast`/`mistral-small-2603:batch` -> discouraged for: `script_generate`, `script_edit`
   - `mistral-ocr-2512`/`mistral-ocr-3-0`/`mistral-ocr-3` -> discouraged for: any tool
