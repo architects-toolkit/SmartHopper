@@ -53,7 +53,7 @@ namespace SmartHopper.Providers.MistralAI
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between March 2026 and June 2026
+                // Released between April 2026 and July 2026
 
                 new AIModelCapabilities
                 {
@@ -75,7 +75,7 @@ namespace SmartHopper.Providers.MistralAI
 
 
 
-                // Released between December 2025 and March 2026
+                // Released between January 2026 and April 2026
 
                 new AIModelCapabilities
                 {
@@ -107,7 +107,7 @@ namespace SmartHopper.Providers.MistralAI
 
 
 
-                // Released between September 2025 and December 2025
+                // Released between October 2025 and January 2026
 
                 new AIModelCapabilities
                 {
@@ -201,7 +201,7 @@ namespace SmartHopper.Providers.MistralAI
 
 
 
-                // Released between June 2025 and September 2025
+                // Released between July 2025 and October 2025
 
                 new AIModelCapabilities
                 {
@@ -231,7 +231,7 @@ namespace SmartHopper.Providers.MistralAI
 
 
 
-                // Released before September 2024 or unknown release date
+                // Released before October 2024 or unknown release date
 
                 new AIModelCapabilities
                 {
