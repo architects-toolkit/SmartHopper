@@ -48,7 +48,25 @@ namespace SmartHopper.Providers.DeepSeek
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between March 2026 and June 2026
+                // Released between April 2026 and July 2026
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek-v4-pro",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 10000,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 4, 24),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000002088m,
+                        Completion = 0.0000004176m,
+                        InputCacheRead = 0.0000000174m,
+                    },
+                },
 
                 new AIModelCapabilities
                 {
@@ -58,7 +76,7 @@ namespace SmartHopper.Providers.DeepSeek
                     Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 10000,
+                    Rank = 9995,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
@@ -68,24 +86,6 @@ namespace SmartHopper.Providers.DeepSeek
                         InputCacheRead = 0.000000016268m,
                     },
                     Aliases = new List<string> { "deepseek-v4-flash" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek-v4-pro",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9995,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 4, 24),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000000348m,
-                        Completion = 0.000000696m,
-                        InputCacheRead = 0.000000029m,
-                    },
                 },
 
 
