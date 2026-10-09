@@ -186,7 +186,7 @@ var text = result.Body.GetLastAssistantText();
 
 The OpenAI provider implements the `AIProvider` base class and communicates with the OpenAI REST API over HTTPS. It translates SmartHopper's internal `AIRequestCall` objects into OpenAI-compatible request payloads and parses responses back into the standard SmartHopper response format.
 
-Batch processing is handled by submitting jobs to the `/batches` endpoint and polling for completion. Image generation routes to `/images/generations` when the `ImageOutput` capability is requested. Structured output support leverages OpenAI's `json_schema` strict mode by automatically wrapping schemas into valid objects.
+Batch processing is handled by submitting jobs to the `/batches` endpoint and polling for completion. Image generation routes to `/images/generations` when the `ImageOutput` capability is requested. Dedicated speech capabilities route to `/audio/transcriptions` (`SpeechInput`, sent as `multipart/form-data` file uploads) and `/audio/speech` (`SpeechOutput`, returned as binary audio and normalized into typed `AIInteractionAudio` results). Multimodal audio — requests carrying `AIInteractionAudio` content parts or the `AudioInput`/`AudioOutput` capabilities — routes to `/chat/completions` using `input_audio` parts and `modalities: ["text", "audio"]`; the Responses API cannot carry audio payloads, so it is only used for ordinary text, tool, and JSON requests. Structured output support leverages OpenAI's `json_schema` strict mode by automatically wrapping schemas into valid objects.
 
 ## References
 

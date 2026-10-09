@@ -50,6 +50,28 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         public static bool TryResolveAudioData(AIInteractionAudio? audio, out string? base64Data, out string format)
         {
             base64Data = null;
+            if (!TryResolveAudioBytes(audio, out var bytes, out format) || bytes == null)
+            {
+                return false;
+            }
+
+            base64Data = Convert.ToBase64String(bytes);
+            return true;
+        }
+
+        /// <summary>
+        /// Resolves the raw audio bytes and format token from an <see cref="AIInteractionAudio"/>
+        /// without base64 encoding. Bytes come from <see cref="AIInteractionAudio.Data"/> when
+        /// present, otherwise the file referenced by <see cref="AIInteractionAudio.FilePath"/>
+        /// is read from disk.
+        /// </summary>
+        /// <param name="audio">The audio interaction to resolve.</param>
+        /// <param name="bytes">The resolved audio bytes.</param>
+        /// <param name="format">The OpenAI-compatible format token (wav, mp3, opus, ...).</param>
+        /// <returns><c>true</c> when audio bytes could be resolved.</returns>
+        public static bool TryResolveAudioBytes(AIInteractionAudio? audio, out byte[]? bytes, out string format)
+        {
+            bytes = null;
             format = MapAudioFormat(audio?.MimeType, audio?.FilePath);
 
             if (audio == null)
@@ -57,7 +79,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 return false;
             }
 
-            byte[]? bytes = audio.Data;
+            bytes = audio.Data;
             if ((bytes == null || bytes.Length == 0) && !string.IsNullOrWhiteSpace(audio.FilePath))
             {
                 try
@@ -67,16 +89,94 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 catch (Exception)
                 {
                     // The referenced file may not exist or be readable; treat as unresolvable.
+                    bytes = null;
                 }
             }
 
-            if (bytes == null || bytes.Length == 0)
+            return bytes != null && bytes.Length > 0;
+        }
+
+        /// <summary>
+        /// Detects the most likely audio MIME type from the leading magic bytes of a payload.
+        /// Falls back to <paramref name="fallback"/> when no known signature matches.
+        /// </summary>
+        /// <param name="data">The raw audio bytes.</param>
+        /// <param name="fallback">The MIME type returned when detection fails.</param>
+        /// <returns>A detected or fallback audio MIME type.</returns>
+        public static string DetectAudioMimeType(byte[]? data, string fallback = "audio/mpeg")
+        {
+            if (data == null || data.Length < 4)
             {
-                return false;
+                return fallback;
             }
 
-            base64Data = Convert.ToBase64String(bytes);
-            return true;
+            if (data[0] == 'R' && data[1] == 'I' && data[2] == 'F' && data[3] == 'F')
+            {
+                return "audio/wav";
+            }
+
+            if (data[0] == 'f' && data[1] == 'L' && data[2] == 'a' && data[3] == 'C')
+            {
+                return "audio/flac";
+            }
+
+            if (data[0] == 'O' && data[1] == 'g' && data[2] == 'g' && data[3] == 'S')
+            {
+                return "audio/ogg";
+            }
+
+            if (data[0] == 'I' && data[1] == 'D' && data[2] == '3')
+            {
+                return "audio/mpeg";
+            }
+
+            // MPEG audio frame sync (0xFFEx) covers headerless mp3 payloads.
+            if (data[0] == 0xFF && (data[1] & 0xE0) == 0xE0)
+            {
+                return "audio/mpeg";
+            }
+
+            return fallback;
+        }
+
+        /// <summary>
+        /// Decodes a speech-generation payload carrying base64 audio in <c>audio_data</c>
+        /// into an <see cref="AIInteractionAudio"/>. This shape is produced natively by
+        /// Mistral's <c>/audio/speech</c> endpoint and by the request pipeline's
+        /// normalization of raw binary audio responses (e.g. OpenAI <c>/audio/speech</c>).
+        /// </summary>
+        /// <param name="response">The provider response object.</param>
+        /// <returns>An assistant audio interaction, or <c>null</c> when no audio data is present.</returns>
+        public static AIInteractionAudio? TryDecodeAudioDataEnvelope(JObject? response)
+        {
+            var data = response?["audio_data"]?.ToString();
+            if (string.IsNullOrWhiteSpace(data))
+            {
+                return null;
+            }
+
+            byte[]? bytes = null;
+            try
+            {
+                bytes = Convert.FromBase64String(data);
+            }
+            catch (FormatException)
+            {
+                // Malformed base64 payload; still surface the interaction without data.
+            }
+
+            var mimeType = response!["mime_type"]?.ToString();
+            if (string.IsNullOrWhiteSpace(mimeType))
+            {
+                mimeType = DetectAudioMimeType(bytes);
+            }
+
+            return new AIInteractionAudio
+            {
+                Agent = AIAgent.Assistant,
+                Data = bytes,
+                MimeType = mimeType,
+            };
         }
 
         /// <summary>
@@ -250,7 +350,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
             {
                 Agent = AIAgent.Assistant,
                 Data = bytes,
-                MimeType = $"audio/{DefaultFormat}",
+                MimeType = DetectAudioMimeType(bytes, $"audio/{DefaultFormat}"),
             };
         }
     }

@@ -119,54 +119,67 @@ namespace SmartHopper.Providers.Gemini
                                 }
                             }
 
-                            if (part.ContainsKey("inlineData"))
+                            var inlineData = part["inlineData"] as JObject ?? part["inline_data"] as JObject;
+                            if (inlineData != null)
                             {
-                                var inlineData = part["inlineData"] as JObject;
-                                if (inlineData != null)
+                                var data = inlineData["data"]?.ToString();
+                                var mimeType = inlineData["mimeType"]?.ToString()
+                                               ?? inlineData["mime_type"]?.ToString()
+                                               ?? "image/jpeg";
+
+                                if (!string.IsNullOrWhiteSpace(data))
                                 {
-                                    var data = inlineData["data"]?.ToString();
-                                    var mimeType = inlineData["mimeType"]?.ToString() ?? "image/jpeg";
-
-                                    if (!string.IsNullOrWhiteSpace(data))
+                                    // Check if this is audio data
+                                    if (mimeType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase))
                                     {
-                                        // Check if this is audio data
-                                        if (mimeType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase))
+                                        byte[]? audioBytes = null;
+                                        try
                                         {
-                                            // Create audio interaction - store as AIInteractionText with audio metadata
-                                            // The audio data is base64 encoded
-                                            var audioInteraction = new AIInteractionText
-                                            {
-                                                Agent = AIAgent.Assistant,
-                                                Content = $"[Audio: {mimeType}]",
-                                            };
-
-                                            // Store audio data in a way that can be retrieved
-                                            // We'll use the interaction's metadata or extend it
-                                            // For now, add it as a custom property via JObject
-                                            var audioMetadata = new JObject
-                                            {
-                                                ["audioData"] = data,
-                                                ["mimeType"] = mimeType,
-                                            };
-
-                                            // Store in the interaction's result or create a specialized interaction
-                                            result.Add(new AIInteractionText
-                                            {
-                                                Agent = AIAgent.Assistant,
-                                                Content = audioMetadata.ToString(),
-                                            });
-                                            Debug.WriteLine($"[GeminiProvider] Decoded audio response: {mimeType}");
+                                            audioBytes = Convert.FromBase64String(data);
                                         }
-                                        else
+                                        catch (FormatException)
                                         {
-                                            // Image data
-                                            result.Add(new AIInteractionImage
-                                            {
-                                                Agent = AIAgent.Assistant,
-                                                ImageData = data,
-                                                MimeType = mimeType,
-                                            });
+                                            // Malformed base64; still surface the interaction without data.
                                         }
+
+                                        // Gemini TTS returns raw PCM (audio/L16); wrap it in a WAV
+                                        // container so downstream consumers get a playable format.
+                                        var effectiveMimeType = mimeType;
+                                        if (audioBytes != null && mimeType.StartsWith("audio/L16", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            var rate = ExtractSampleRate(mimeType, 24000);
+                                            audioBytes = WrapPcmInWav(audioBytes, rate);
+                                            effectiveMimeType = "audio/wav";
+                                        }
+
+                                        // Dedicated audio responses must carry a finish reason so
+                                        // aggregated call metrics validate.
+                                        var finishReason = candidate["finishReason"]?.ToString();
+                                        var audioMetrics = new AIMetrics
+                                        {
+                                            FinishReason = string.IsNullOrWhiteSpace(finishReason)
+                                                ? "stop"
+                                                : finishReason.ToLowerInvariant(),
+                                        };
+
+                                        result.Add(new AIInteractionAudio
+                                        {
+                                            Agent = AIAgent.Assistant,
+                                            Data = audioBytes,
+                                            MimeType = effectiveMimeType,
+                                            Metrics = audioMetrics,
+                                        });
+                                        Debug.WriteLine($"[GeminiProvider] Decoded audio response: {mimeType}");
+                                    }
+                                    else
+                                    {
+                                        // Image data
+                                        result.Add(new AIInteractionImage
+                                        {
+                                            Agent = AIAgent.Assistant,
+                                            ImageData = data,
+                                            MimeType = mimeType,
+                                        });
                                     }
                                 }
                             }
@@ -189,6 +202,73 @@ namespace SmartHopper.Providers.Gemini
             {
                 Debug.WriteLine($"Error decoding Gemini response: {ex.Message}");
                 return new List<IAIInteraction>();
+            }
+        }
+
+        /// <summary>
+        /// Extracts the <c>rate</c> parameter from an <c>audio/L16</c> MIME type
+        /// (e.g. "audio/L16;codec=pcm;rate=24000").
+        /// </summary>
+        /// <param name="mimeType">The reported MIME type.</param>
+        /// <param name="defaultRate">The sample rate to use when none is declared.</param>
+        /// <returns>The declared or default sample rate in Hz.</returns>
+        private static int ExtractSampleRate(string mimeType, int defaultRate)
+        {
+            if (!string.IsNullOrWhiteSpace(mimeType))
+            {
+                foreach (var segment in mimeType.Split(';'))
+                {
+                    var trimmed = segment.Trim();
+                    if (trimmed.StartsWith("rate=", StringComparison.OrdinalIgnoreCase) &&
+                        int.TryParse(trimmed.Substring("rate=".Length), out var rate) &&
+                        rate > 0)
+                    {
+                        return rate;
+                    }
+                }
+            }
+
+            return defaultRate;
+        }
+
+        /// <summary>
+        /// Wraps raw 16-bit mono PCM samples (Gemini's <c>audio/L16</c> payload) in a standard
+        /// RIFF/WAV container so the audio is playable by regular consumers.
+        /// </summary>
+        /// <param name="pcmData">Little-endian signed 16-bit PCM samples.</param>
+        /// <param name="sampleRate">The sample rate in Hz.</param>
+        /// <returns>A complete WAV file byte array.</returns>
+        private static byte[] WrapPcmInWav(byte[] pcmData, int sampleRate)
+        {
+            const int numChannels = 1;
+            const int bitsPerSample = 16;
+            var byteRate = sampleRate * numChannels * bitsPerSample / 8;
+            var blockAlign = (short)(numChannels * bitsPerSample / 8);
+            var dataSize = pcmData?.Length ?? 0;
+
+            using (var stream = new System.IO.MemoryStream(44 + dataSize))
+            using (var writer = new System.IO.BinaryWriter(stream))
+            {
+                writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
+                writer.Write(36 + dataSize);
+                writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
+                writer.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
+                writer.Write(16);
+                writer.Write((short)1); // PCM format
+                writer.Write((short)numChannels);
+                writer.Write(sampleRate);
+                writer.Write(byteRate);
+                writer.Write(blockAlign);
+                writer.Write((short)bitsPerSample);
+                writer.Write(System.Text.Encoding.ASCII.GetBytes("data"));
+                writer.Write(dataSize);
+                if (dataSize > 0)
+                {
+                    writer.Write(pcmData!);
+                }
+
+                writer.Flush();
+                return stream.ToArray();
             }
         }
 

@@ -54,7 +54,7 @@ Offer a template-method style pipeline for providers: register models, load sett
   - Default implementation delegates to centralized `AIModelCapabilityRegistry.SelectBestModel` to keep policy consistent while hiding the singleton behind the provider interface. Providers may override.
 - HTTP/API orchestration
   - `Call(request)` handles PreCall, validation, `CallApi`, metrics, PostCall.
-  - `CallApi` supports GET, POST, DELETE, PATCH, Bearer auth, JSON content.
+  - `CallApi` supports GET, POST, DELETE, PATCH, Bearer auth, JSON content. Request content is built by the virtual `BuildRequestContent(request)` hook — the default wraps `EncodedRequestBody` as `StringContent`; providers override it for non-JSON payloads such as `multipart/form-data` uploads. Successful `audio/*` responses (and `/audio/speech` responses with a non-textual media type) are read as bytes and normalized into an `{"audio_data","mime_type"}` JSON envelope so `Decode` implementations can surface them as `AIInteractionAudio`.
 - Batch API support
   - Providers can implement `IAIBatchProvider` to expose multi-item submission, status polling, cancellation, result download, and JSONL parsing.
 - Tools formatting
@@ -67,6 +67,7 @@ Offer a template-method style pipeline for providers: register models, load sett
 - OpenAI-compatible generic variant `OpenAICompatibleProvider<T>`
   - Extends `AIProvider<T>` with shared tool-choice, token metrics, and JSON-schema wrapping helpers.
   - `DecodeOpenAICompatibleMetrics` returns `OutputTokensGeneration` net of `OutputTokensReasoning`, because OpenAI-compatible APIs report `reasoning_tokens` as a subset of `completion_tokens`/`output_tokens`; `AIMetrics.OutputTokens` sums both.
+  - `BuildRequestContent` sends `/audio/transcriptions` requests as `multipart/form-data`: the audio bytes come from the request's last `AIInteractionAudio` (resolved via `OpenAICompatibleAudioCodec.TryResolveAudioBytes`) and scalar fields are copied from the encoded JSON metadata body, so providers keep their own field names without duplicating the multipart plumbing.
 
 ### Extending
 

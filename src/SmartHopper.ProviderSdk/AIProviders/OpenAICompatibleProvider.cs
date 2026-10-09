@@ -18,8 +18,12 @@
 
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using Newtonsoft.Json.Linq;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.JsonSchemas;
 using SmartHopper.ProviderSdk.AICall.Metrics;
@@ -115,6 +119,130 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 Debug.WriteLine($"[{this.Name}] DecodeOpenAICompatibleMetrics error: {ex.Message}");
                 return new AIMetrics();
             }
+        }
+
+        /// <summary>
+        /// Builds the HTTP content for the request. OpenAI-compatible providers send JSON by
+        /// default; dedicated <c>/audio/transcriptions</c> endpoints require
+        /// <c>multipart/form-data</c> uploads carrying the audio file plus scalar request fields.
+        /// </summary>
+        /// <param name="request">The prepared request being executed.</param>
+        /// <returns>The HTTP content to send, or <c>null</c> for a bodiless request.</returns>
+        protected override HttpContent? BuildRequestContent(AIRequestCall request)
+        {
+            if (request?.Endpoint?.Contains("/audio/transcriptions", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                var multipart = this.BuildAudioTranscriptionContent(request);
+                if (multipart != null)
+                {
+                    return multipart;
+                }
+            }
+
+            return base.BuildRequestContent(request);
+        }
+
+        /// <summary>
+        /// Builds a <c>multipart/form-data</c> upload for OpenAI-compatible
+        /// <c>/audio/transcriptions</c> endpoints. The audio bytes come from the request's last
+        /// <see cref="AIInteractionAudio"/>; scalar fields are copied from the provider-encoded
+        /// JSON metadata body (<see cref="AIRequestCall.EncodedRequestBody"/>), so the metadata
+        /// contract stays defined by the provider's request encoder.
+        /// </summary>
+        /// <param name="request">The prepared request being executed.</param>
+        /// <returns>Multipart content carrying the audio file and metadata, or <c>null</c> when no audio bytes could be resolved.</returns>
+        protected virtual HttpContent? BuildAudioTranscriptionContent(AIRequestCall request)
+        {
+            var audioInteraction = request?.Body?.Interactions?.OfType<AIInteractionAudio>().LastOrDefault();
+            if (audioInteraction == null ||
+                !OpenAICompatibleAudioCodec.TryResolveAudioBytes(audioInteraction, out var audioBytes, out var format) ||
+                audioBytes == null)
+            {
+                Debug.WriteLine($"[{this.Name}] Audio transcription request has no resolvable audio data.");
+                return null;
+            }
+
+            var multipart = new MultipartFormDataContent();
+
+            var fileContent = new ByteArrayContent(audioBytes);
+            var mimeType = string.IsNullOrWhiteSpace(audioInteraction.MimeType)
+                ? $"audio/{format}"
+                : audioInteraction.MimeType;
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
+
+            var fileName = !string.IsNullOrWhiteSpace(audioInteraction.FilePath)
+                ? Path.GetFileName(audioInteraction.FilePath)
+                : $"audio.{format}";
+            multipart.Add(fileContent, "file", fileName);
+
+            // Copy scalar metadata fields from the provider-encoded JSON body so the
+            // multipart contract reuses the same field names (model, language, ...).
+            JObject? metadata = null;
+            try
+            {
+                var encoded = request!.EncodedRequestBody;
+                if (!string.IsNullOrWhiteSpace(encoded))
+                {
+                    metadata = JObject.Parse(encoded);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{this.Name}] Failed to parse transcription metadata body: {ex.Message}");
+            }
+
+            if (metadata != null)
+            {
+                foreach (var property in metadata.Properties())
+                {
+                    if (property.Value is JValue scalar && scalar.Type != JTokenType.Null)
+                    {
+                        multipart.Add(new StringContent(FormatFormScalar(scalar)), property.Name);
+                    }
+                    else if (property.Value is JArray array)
+                    {
+                        // Form-array convention: repeat "<name>[]" for each scalar element.
+                        foreach (var element in array.OfType<JValue>())
+                        {
+                            multipart.Add(new StringContent(FormatFormScalar(element)), $"{property.Name}[]");
+                        }
+                    }
+                    else if (property.Value is JObject nested)
+                    {
+                        // Nested objects (e.g. chunking_strategy) are sent as compact JSON strings.
+                        multipart.Add(new StringContent(nested.ToString(Newtonsoft.Json.Formatting.None)), property.Name);
+                    }
+                }
+            }
+
+            if (metadata?["model"] == null && !string.IsNullOrWhiteSpace(request!.Model))
+            {
+                multipart.Add(new StringContent(request.Model), "model");
+            }
+
+            // Map the interaction language hint onto the standard 'language' field when the
+            // provider encoder did not already emit one.
+            if (metadata?["language"] == null && !string.IsNullOrWhiteSpace(audioInteraction.LanguageHint))
+            {
+                multipart.Add(new StringContent(audioInteraction.LanguageHint), "language");
+            }
+
+            request!.ContentType = "multipart/form-data";
+            return multipart;
+        }
+
+        /// <summary>
+        /// Formats a JSON scalar as a multipart form field value. Booleans are rendered as
+        /// lowercase JSON literals (<c>true</c>/<c>false</c>) since <see cref="JValue.ToString()"/>
+        /// produces capitalized CLR booleans that form parsers may reject.
+        /// </summary>
+        /// <param name="value">The scalar token to format.</param>
+        /// <returns>The form-safe string representation.</returns>
+        private static string FormatFormScalar(JValue value)
+        {
+            return value.Type == JTokenType.Boolean
+                ? (value.Value<bool>() ? "true" : "false")
+                : value.ToString();
         }
 
         /// <summary>

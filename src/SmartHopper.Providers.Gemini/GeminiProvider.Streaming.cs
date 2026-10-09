@@ -56,6 +56,11 @@ namespace SmartHopper.Providers.Gemini
                 StreamingOptions options,
                 CancellationToken cancellationToken = default)
             {
+                // Normalize the request (endpoint selection, auth, content type) before
+                // consuming its fields; callers may pass a request that has not been
+                // through the provider pipeline yet.
+                request = this.provider.PreCall(request);
+
                 string endpoint = request.Endpoint;
                 string httpMethod = request.HttpMethod;
                 string requestBody = request.EncodedRequestBody;
@@ -205,6 +210,17 @@ namespace SmartHopper.Providers.Gemini
                             while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
                             {
                                 if (string.IsNullOrWhiteSpace(line))
+                                {
+                                    continue;
+                                }
+
+                                // SSE payloads arrive as "data: {...}" lines; strip the prefix.
+                                if (line.StartsWith("data:", StringComparison.Ordinal))
+                                {
+                                    line = line.Substring("data:".Length).Trim();
+                                }
+
+                                if (string.IsNullOrWhiteSpace(line) || string.Equals(line, "[DONE]", StringComparison.Ordinal))
                                 {
                                     continue;
                                 }

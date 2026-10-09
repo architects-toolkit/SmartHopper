@@ -23,6 +23,7 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
 namespace SmartHopper.Core.Types
 {
@@ -160,6 +161,34 @@ namespace SmartHopper.Core.Types
                 PageOrSlide = pageOrSlide,
                 SourceDocument = sourceDocument ?? string.Empty,
             };
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="VersatileAudio"/> class from an
+        /// <see cref="AIInteractionAudio"/> produced by a provider call. In-memory audio
+        /// becomes a data URI; file references become local-file sources.
+        /// </summary>
+        /// <param name="interaction">The audio interaction to convert.</param>
+        /// <returns>A new VersatileAudio wrapping the interaction's audio payload.</returns>
+        public static VersatileAudio FromInteraction(AIInteractionAudio interaction)
+        {
+            if (interaction == null)
+            {
+                throw new ArgumentNullException(nameof(interaction));
+            }
+
+            if (interaction.Data != null && interaction.Data.Length > 0)
+            {
+                var mimeType = string.IsNullOrWhiteSpace(interaction.MimeType) ? "audio/mpeg" : interaction.MimeType;
+                return FromString($"data:{mimeType};base64,{Convert.ToBase64String(interaction.Data)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(interaction.FilePath))
+            {
+                return FromString(interaction.FilePath);
+            }
+
+            throw new ArgumentException("The audio interaction carries no audio data or file path.", nameof(interaction));
         }
 
         /// <summary>

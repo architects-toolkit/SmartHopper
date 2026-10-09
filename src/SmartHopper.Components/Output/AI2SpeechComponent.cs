@@ -84,6 +84,25 @@ namespace SmartHopper.Components.Output
                     Access = GH_ParamAccess.tree,
                     Extractor = OutputMapping.Single(aiReturn =>
                     {
+                        // Prefer a typed audio interaction produced by TTS-capable providers.
+                        var audioInteraction = aiReturn?.Body?.Interactions?
+                            .OfType<AIInteractionAudio>()
+                            .LastOrDefault(interaction => interaction.Agent == AIAgent.Assistant)
+                            ?? aiReturn?.Body?.Interactions?.OfType<AIInteractionAudio>().LastOrDefault();
+
+                        if (audioInteraction != null)
+                        {
+                            try
+                            {
+                                return new GH_VersatileAudio(VersatileAudio.FromInteraction(audioInteraction));
+                            }
+                            catch
+                            {
+                                return null;
+                            }
+                        }
+
+                        // Fallback: providers that return a path/URL/base64 payload as text.
                         if (aiReturn?.Body?.GetLastAssistantText() is string text && !string.IsNullOrWhiteSpace(text))
                         {
                             try

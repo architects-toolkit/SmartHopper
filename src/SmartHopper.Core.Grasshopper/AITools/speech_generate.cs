@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Types;
@@ -186,33 +187,58 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var response = result.Body.GetLastInteraction(AIAgent.Assistant)?.ToString() ?? string.Empty;
+                // Prefer a typed audio interaction produced by TTS-capable providers.
+                var audioInteraction = result.Body?.Interactions?
+                    .OfType<AIInteractionAudio>()
+                    .LastOrDefault(i => i.Agent == AIAgent.Assistant)
+                    ?? result.Body?.Interactions?.OfType<AIInteractionAudio>().LastOrDefault();
 
-                if (string.IsNullOrWhiteSpace(response))
+                VersatileAudio audio;
+                string audioPayload;
+                if (audioInteraction != null)
                 {
-                    if (result.Messages != null)
+                    try
                     {
-                        output.Messages = result.Messages;
+                        audio = VersatileAudio.FromInteraction(audioInteraction);
+                        audioPayload = audio.RawValue;
+                    }
+                    catch (Exception ex)
+                    {
+                        output.CreateToolError($"Failed to create VersatileAudio from audio interaction: {ex.Message}");
+                        return output;
+                    }
+                }
+                else
+                {
+                    // Fallback: providers that return a path/URL/base64 payload as text.
+                    var response = result.Body?.GetLastInteraction(AIAgent.Assistant)?.ToString() ?? string.Empty;
+
+                    if (string.IsNullOrWhiteSpace(response))
+                    {
+                        if (result.Messages != null)
+                        {
+                            output.Messages = result.Messages;
+                        }
+
+                        output.CreateToolError("Empty response from AI assistant.");
+                        return output;
                     }
 
-                    output.CreateToolError("Empty response from AI assistant.");
-                    return output;
-                }
+                    try
+                    {
+                        audio = VersatileAudio.FromString(response.Trim());
+                    }
+                    catch (Exception ex)
+                    {
+                        output.CreateToolError($"Failed to create VersatileAudio from response: {ex.Message}");
+                        return output;
+                    }
 
-                // Convert response to VersatileAudio
-                VersatileAudio audio;
-                try
-                {
-                    audio = VersatileAudio.FromString(response.Trim());
-                }
-                catch (Exception ex)
-                {
-                    output.CreateToolError($"Failed to create VersatileAudio from response: {ex.Message}");
-                    return output;
+                    audioPayload = response.Trim();
                 }
 
                 var toolResult = new JObject();
-                toolResult.Add("audioPath", response.Trim());
+                toolResult.Add("audioPath", audioPayload);
                 toolResult.Add("mimeType", audio.MimeType);
 
                 toolResult.WithEnvelope(
