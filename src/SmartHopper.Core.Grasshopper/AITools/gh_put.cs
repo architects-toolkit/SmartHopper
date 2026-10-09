@@ -102,6 +102,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var fixResult = GhJson.Fix(document);
                 document = fixResult.Document;
 
+                if (document?.Components == null)
+                {
+                    return CreateNoPlacementResult(
+                        output,
+                        toolCall,
+                        string.IsNullOrWhiteSpace(analysisMsg)
+                            ? "The GhJSON document could not be parsed into components."
+                            : analysisMsg,
+                        0);
+                }
+
                 // Remove any components that are currently protected (enabled MCP server or wired to it)
                 // from the incoming document so they are never modified or re-placed.
                 var protectedGuids = CanvasProtection.GetProtectedInstanceGuids();
