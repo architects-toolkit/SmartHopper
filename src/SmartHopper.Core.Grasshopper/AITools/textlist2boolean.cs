@@ -58,7 +58,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             "You are a list analyzer. Your task is to analyze a list of items and return a boolean value indicating whether the list matches the given criteria.\n\n" +
             "The list will be provided as a JSON dictionary where the key is the index and the value is the item.\n\n" +
             "Mainly you will base your answers on the item itself, unless the user asks for something regarding the position of items in the list.\n\n" +
-            "Respond with TRUE or FALSE, nothing else. " + BooleanResultResolver.TrueFalseGuard;
+            BooleanResultResolver.TrueFalseGuard;
 
         /// <summary>
         /// User prompt for the AI tool provided by this class. Use <question> and <list> placeholders.
@@ -66,7 +66,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private readonly string userPrompt =
             "LIST TO EVALUATE:\n\n---\n\n<list>\n\n---\n\n" +
             "QUESTION TO ANSWER:\n\n---\n\n\"<question>\"\n\n---\n\n" +
-            "Answer TRUE or FALSE based on the list above, nothing else.";
+            BooleanResultResolver.TrueFalseGuard;
 
         /// <summary>
         /// Get all tools provided by this class.
