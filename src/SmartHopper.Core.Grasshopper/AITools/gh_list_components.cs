@@ -120,8 +120,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     proxies = proxies
                         .Where(p => FilterParser.PassesCategoryFilter(
-                            p.Desc.Category,
-                            p.Desc.SubCategory,
+                            p.Desc?.Category,
+                            p.Desc?.SubCategory,
                             includeCats,
                             excludeCats))
                         .ToList();
@@ -132,8 +132,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     var filterLower = query.ToLowerInvariant();
                     proxies = proxies.Where(p =>
-                        p.Desc.Name.ToLowerInvariant().Contains(filterLower) ||
-                        p.Desc.NickName.ToLowerInvariant().Contains(filterLower)).ToList();
+                        (p.Desc?.Name?.ToLowerInvariant().Contains(filterLower) ?? false) ||
+                        (p.Desc?.NickName?.ToLowerInvariant().Contains(filterLower) ?? false)).ToList();
                 }
 
                 // Apply max results limit
@@ -144,73 +144,77 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var list = proxies.Select(p =>
                 {
-                    var instance = p.CreateInstance();
-                    instance.CreateAttributes();
-                    List<object> inputs;
-                    List<object> outputs;
-                    if (instance is IGH_Component comp)
+                    // Some proxies cannot be instantiated (missing add-on assemblies,
+                    // obsolete stubs, …); a single failure must not kill the listing.
+                    var inputs = new List<object>();
+                    var outputs = new List<object>();
+                    try
                     {
-                        inputs = comp.Params.Input
-                            .Select(param => new
-                            {
-                                name = param.Name,
-                                description = param.Description,
-                                dataType = param.GetType().Name,
-
-                                // access = param.Access.ToString(),
-                            })
-                            .Cast<object>()
-                            .ToList();
-                        outputs = comp.Params.Output
-                            .Select(param => new
-                            {
-                                name = param.Name,
-                                description = param.Description,
-                                dataType = param.GetType().Name,
-
-                                // access = param.Access.ToString(),
-                            })
-                            .Cast<object>()
-                            .ToList();
-                    }
-                    else if (instance is IGH_Param param)
-                    {
-                        inputs = new List<object>();
-                        outputs = new List<object>
+                        var instance = p.CreateInstance();
+                        if (instance is IGH_Component comp)
                         {
-                            new
-                            {
-                                name = param.Name,
-                                description = param.Description,
-                                dataType = param.GetType().Name,
+                            instance.CreateAttributes();
+                            inputs = comp.Params.Input
+                                .Select(param => new
+                                {
+                                    name = param.Name,
+                                    description = param.Description,
+                                    dataType = param.GetType().Name,
 
-                                // access = param.Access.ToString(),
-                            },
-                        };
+                                    // access = param.Access.ToString(),
+                                })
+                                .Cast<object>()
+                                .ToList();
+                            outputs = comp.Params.Output
+                                .Select(param => new
+                                {
+                                    name = param.Name,
+                                    description = param.Description,
+                                    dataType = param.GetType().Name,
+
+                                    // access = param.Access.ToString(),
+                                })
+                                .Cast<object>()
+                                .ToList();
+                        }
+                        else if (instance is IGH_Param param)
+                        {
+                            instance.CreateAttributes();
+                            outputs = new List<object>
+                            {
+                                new
+                                {
+                                    name = param.Name,
+                                    description = param.Description,
+                                    dataType = param.GetType().Name,
+
+                                    // access = param.Access.ToString(),
+                                },
+                            };
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        inputs = new List<object>();
-                        outputs = new List<object>();
+                        System.Diagnostics.Debug.WriteLine($"[gh_list_components] Skipping introspection for proxy '{p.Desc?.Name}' ({p.Guid}): {ex.Message}");
                     }
 
                     // Build component object based on includeDetails selection
-                    var componentData = new Dictionary<string, object>();
+                    var componentData = new Dictionary<string, object?>();
 
                     if (includeDetails.Count == 0 || includeDetails.Contains("name"))
-                        componentData["name"] = p.Desc.Name;
+                        componentData["name"] = p.Desc?.Name;
                     if (includeDetails.Count == 0 || includeDetails.Contains("nickname"))
-                        componentData["nickname"] = p.Desc.NickName;
+                        componentData["nickname"] = p.Desc?.NickName;
                     if (includeDetails.Count == 0 || includeDetails.Contains("category"))
-                        componentData["category"] = p.Desc.Category;
+                        componentData["category"] = p.Desc?.Category;
                     if (includeDetails.Count == 0 || includeDetails.Contains("subCategory"))
-                        componentData["subCategory"] = p.Desc.SubCategory;
+                        componentData["subCategory"] = p.Desc?.SubCategory;
                     if (includeDetails.Count == 0 || includeDetails.Contains("guid"))
                         componentData["guid"] = p.Guid.ToString();
                     if (includeDetails.Count == 0 || includeDetails.Contains("description"))
-                        componentData["description"] = p.Desc.Description;
+                        componentData["description"] = p.Desc?.Description;
                     if (includeDetails.Count == 0 || includeDetails.Contains("keywords"))
-                        componentData["keywords"] = p.Desc.Keywords;
+                        componentData["keywords"] = p.Desc?.Keywords;
                     if (includeDetails.Count == 0 || includeDetails.Contains("inputs"))
                         componentData["inputs"] = inputs;
                     if (includeDetails.Count == 0 || includeDetails.Contains("outputs"))
@@ -218,8 +222,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     return componentData;
                 }).ToList();
-                var names = list.Where(x => x.ContainsKey("name")).Select(x => x["name"].ToString()).Distinct().ToList();
-                var guids = list.Where(x => x.ContainsKey("guid")).Select(x => x["guid"].ToString()).Distinct().ToList();
+                var names = list.Select(x => x.TryGetValue("name", out var n) ? n?.ToString() : null).Where(n => n != null).Distinct().ToList();
+                var guids = list.Select(x => x.TryGetValue("guid", out var g) ? g?.ToString() : null).Where(g => g != null).Distinct().ToList();
                 var json = JsonConvert.SerializeObject(list, Formatting.None);
                 var toolResult = new JObject
                 {

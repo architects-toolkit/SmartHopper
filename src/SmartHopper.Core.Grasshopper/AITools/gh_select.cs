@@ -107,78 +107,41 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var canvas = Instances.ActiveCanvas;
-                var document = canvas?.Document;
-                if (canvas == null || document == null)
+                // The Grasshopper canvas is a WinForms control: every canvas, document
+                // and attribute access in this tool must run on the Rhino UI thread or
+                // it throws a cross-thread violation.
+                var plan = CanvasAccess.RunOnUiThread(() => PrepareSelection(mode, requested));
+                if (plan.Error != null)
                 {
-                    output.CreateError("No active Grasshopper canvas is available.");
+                    output.CreateError(plan.Error);
                     return output;
-                }
-
-                // Split requested GUIDs into objects that exist and unknown GUIDs.
-                var targets = new List<IGH_DocumentObject>();
-                var missing = new List<Guid>();
-                foreach (var guid in requested)
-                {
-                    var obj = document.FindObject(guid, true);
-                    if (obj == null)
-                    {
-                        missing.Add(guid);
-                    }
-                    else
-                    {
-                        targets.Add(obj);
-                    }
-                }
-
-                // Protected components are never added to the selection; deselecting
-                // them is still allowed because it only reduces AI control.
-                var addsToSelection = mode == "set" || mode == "add";
-                var allowed = new List<IGH_DocumentObject>();
-                var skippedProtected = new List<Guid>();
-                if (addsToSelection)
-                {
-                    var (allowedGuids, protectedGuids) = CanvasProtection.FilterProtectedGuids(targets.Select(t => t.InstanceGuid));
-                    var allowedSet = new HashSet<Guid>(allowedGuids);
-                    allowed.AddRange(targets.Where(t => allowedSet.Contains(t.InstanceGuid)));
-                    skippedProtected.AddRange(protectedGuids);
-                }
-                else
-                {
-                    allowed.AddRange(targets);
                 }
 
                 // The review proposes exactly the objects whose selection flag changes:
                 // for 'set' that is the allowed targets plus every currently selected
                 // object that is not requested (it would be deselected).
-                var proposed = ProposedObjects(document, mode, allowed);
-                var reviewSession = CanvasChangeReviewService.CreateComponentStateSession(ToolName, proposed.Select(o => o.InstanceGuid), "Update selection state");
+                var reviewSession = CanvasChangeReviewService.CreateComponentStateSession(ToolName, plan.ProposedGuids, "Update selection state");
                 var applyReview = reviewSession.Items.Count > 0 &&
                     await CanvasChangeReviewService.ReviewAsync(reviewSession, toolCall.InvocationContext, toolCall.CancellationToken).ConfigureAwait(false);
-                var changed = applyReview
-                    ? ApplySelection(document, mode, allowed, CanvasChangeReviewService.GetAcceptedComponentGuids(reviewSession))
-                    : new List<Guid>();
-                if (changed.Count > 0)
-                {
-                    canvas.Refresh();
-                }
+                var accepted = applyReview
+                    ? CanvasChangeReviewService.GetAcceptedComponentGuids(reviewSession)
+                    : (IReadOnlySet<Guid>)new HashSet<Guid>();
+                var (changed, selected) = CanvasAccess.RunOnUiThread(() => ApplySelection(mode, plan.AllowedGuids, accepted));
 
                 var result = new JObject
                 {
                     ["mode"] = mode,
-                    ["selected"] = JArray.FromObject(document.SelectedObjects()
-                        .Where(o => o?.Attributes?.Selected == true)
-                        .Select(o => o.InstanceGuid.ToString())),
+                    ["selected"] = JArray.FromObject(selected.Select(g => g.ToString())),
                     ["changed"] = JArray.FromObject(changed.Select(g => g.ToString())),
                 };
-                if (skippedProtected.Count > 0)
+                if (plan.SkippedProtectedGuids.Count > 0)
                 {
-                    result["skippedProtected"] = JArray.FromObject(skippedProtected.Select(g => g.ToString()));
+                    result["skippedProtected"] = JArray.FromObject(plan.SkippedProtectedGuids.Select(g => g.ToString()));
                 }
 
-                if (missing.Count > 0)
+                if (plan.MissingGuids.Count > 0)
                 {
-                    result["missingGuids"] = JArray.FromObject(missing.Select(g => g.ToString()));
+                    result["missingGuids"] = JArray.FromObject(plan.MissingGuids.Select(g => g.ToString()));
                 }
 
                 var builder = AIBodyBuilder.Create();
@@ -212,6 +175,57 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return guids;
         }
 
+        /// <summary>
+        /// Resolves the requested GUIDs, applies protection filtering and computes the
+        /// proposed change set for review. Must run on the Rhino UI thread.
+        /// </summary>
+        private static SelectionPlan PrepareSelection(string mode, List<Guid> requested)
+        {
+            var plan = new SelectionPlan();
+            var canvas = Instances.ActiveCanvas;
+            var document = canvas?.Document;
+            if (canvas == null || document == null)
+            {
+                plan.Error = "No active Grasshopper canvas is available.";
+                return plan;
+            }
+
+            // Split requested GUIDs into objects that exist and unknown GUIDs.
+            var targets = new List<IGH_DocumentObject>();
+            foreach (var guid in requested)
+            {
+                var obj = document.FindObject(guid, true);
+                if (obj == null)
+                {
+                    plan.MissingGuids.Add(guid);
+                }
+                else
+                {
+                    targets.Add(obj);
+                }
+            }
+
+            // Protected components are never added to the selection; deselecting
+            // them is still allowed because it only reduces AI control.
+            var addsToSelection = mode == "set" || mode == "add";
+            var allowed = new List<IGH_DocumentObject>();
+            if (addsToSelection)
+            {
+                var (allowedGuids, protectedGuids) = CanvasProtection.FilterProtectedGuids(targets.Select(t => t.InstanceGuid));
+                var allowedSet = new HashSet<Guid>(allowedGuids);
+                allowed.AddRange(targets.Where(t => allowedSet.Contains(t.InstanceGuid)));
+                plan.SkippedProtectedGuids.AddRange(protectedGuids);
+            }
+            else
+            {
+                allowed.AddRange(targets);
+            }
+
+            plan.AllowedGuids.AddRange(allowed.Select(o => o.InstanceGuid));
+            plan.ProposedGuids.AddRange(ProposedObjects(document, mode, allowed).Select(o => o.InstanceGuid));
+            return plan;
+        }
+
         private static List<IGH_DocumentObject> ProposedObjects(GH_Document document, string mode, List<IGH_DocumentObject> allowed)
         {
             switch (mode)
@@ -241,35 +255,58 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
         }
 
-        private static List<Guid> ApplySelection(
-            GH_Document document,
+        /// <summary>
+        /// Applies the accepted selection changes, refreshes the canvas and returns the
+        /// changed GUIDs plus the resulting selection. Must run on the Rhino UI thread.
+        /// </summary>
+        private static (List<Guid> Changed, List<Guid> Selected) ApplySelection(
             string mode,
-            List<IGH_DocumentObject> allowed,
+            List<Guid> allowedGuids,
             IReadOnlySet<Guid> accepted)
         {
             var changed = new List<Guid>();
-            if (accepted.Count == 0)
+            var canvas = Instances.ActiveCanvas;
+            var document = canvas?.Document;
+            if (canvas == null || document == null)
             {
-                return changed;
+                return (changed, new List<Guid>());
             }
 
-            switch (mode)
+            if (accepted.Count > 0)
             {
-                case "set":
-                    document.DeselectAll();
-                    changed.AddRange(Select(allowed.Where(o => accepted.Contains(o.InstanceGuid))));
-                    break;
-                case "add":
-                    changed.AddRange(Select(allowed.Where(o => accepted.Contains(o.InstanceGuid))));
-                    break;
-                case "remove":
-                case "clear":
-                    changed.AddRange(Deselect(document.SelectedObjects()
-                        .Where(o => accepted.Contains(o.InstanceGuid))));
-                    break;
+                var allowed = allowedGuids
+                    .Select(guid => document.FindObject(guid, true))
+                    .Where(o => o != null)
+                    .Cast<IGH_DocumentObject>()
+                    .ToList();
+
+                switch (mode)
+                {
+                    case "set":
+                        document.DeselectAll();
+                        changed.AddRange(Select(allowed.Where(o => accepted.Contains(o.InstanceGuid))));
+                        break;
+                    case "add":
+                        changed.AddRange(Select(allowed.Where(o => accepted.Contains(o.InstanceGuid))));
+                        break;
+                    case "remove":
+                    case "clear":
+                        changed.AddRange(Deselect(document.SelectedObjects()
+                            .Where(o => accepted.Contains(o.InstanceGuid))));
+                        break;
+                }
+
+                if (changed.Count > 0)
+                {
+                    canvas.Refresh();
+                }
             }
 
-            return changed;
+            var selected = document.SelectedObjects()
+                .Where(o => o?.Attributes?.Selected == true)
+                .Select(o => o.InstanceGuid)
+                .ToList();
+            return (changed, selected);
         }
 
         private static IEnumerable<Guid> Select(IEnumerable<IGH_DocumentObject> objects)
@@ -298,6 +335,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 obj.Attributes.Selected = false;
                 yield return obj.InstanceGuid;
             }
+        }
+
+        /// <summary>
+        /// Carries the UI-thread preparation results across the asynchronous review step.
+        /// </summary>
+        private sealed class SelectionPlan
+        {
+            public string? Error { get; set; }
+
+            public List<Guid> AllowedGuids { get; } = new List<Guid>();
+
+            public List<Guid> MissingGuids { get; } = new List<Guid>();
+
+            public List<Guid> SkippedProtectedGuids { get; } = new List<Guid>();
+
+            public List<Guid> ProposedGuids { get; } = new List<Guid>();
         }
     }
 }
