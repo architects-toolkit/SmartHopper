@@ -162,7 +162,7 @@ namespace SmartHopper.Components.Input
                     ["connectionDepth"] = connectionDepth,
                     ["includeMetadata"] = includeMetadata,
                     ["includeRuntimeData"] = includeRuntimeData,
-                    ["guidFilter"] = JArray.FromObject(this.SelectedObjects.Select(o => o.InstanceGuid.ToString())),
+                    ["instanceGuids"] = JArray.FromObject(this.SelectedObjects.Select(o => o.InstanceGuid.ToString())),
                 };
 
                 var toolCallInteraction = new AIInteractionToolCall

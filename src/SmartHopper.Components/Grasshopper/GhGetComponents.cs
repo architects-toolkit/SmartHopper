@@ -138,7 +138,7 @@ namespace SmartHopper.Components.Grasshopper
                         ["pageSize"] = this.count,
                         ["page"] = 1,
                         ["includeMetadata"] = this.includeMetadata,
-                        ["guidFilter"] = JArray.FromObject(this.selectedObjects.Select(o => o.InstanceGuid.ToString())),
+                        ["instanceGuids"] = JArray.FromObject(this.selectedObjects.Select(o => o.InstanceGuid.ToString())),
                         ["includeRuntimeData"] = this.includeRuntimeData,
                         ["viewportOnly"] = this.viewportOnly,
                     };

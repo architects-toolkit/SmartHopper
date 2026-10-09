@@ -153,10 +153,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""items"": { ""type"": ""string"" },
                             ""description"": ""Optional array of type tokens with include/exclude syntax. Defaults to all types. Available tokens:\n  params: only parameter objects;\n  components: only component objects;\n  startnodes: components with no incoming connections (data sources);\n  endnodes: components with no outgoing connections (data sinks);\n  middlenodes: components with both incoming and outgoing connections (processors);\n  isolatednodes: components with neither incoming nor outgoing connections.\nExamples: ['+params', '-components'] to include parameters and exclude components.""
                         },
-                        ""guidFilter"": {
+                        ""instanceGuids"": {
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
-                            ""description"": ""Optional list of component GUIDs for initial filtering. When provided, only components with these GUIDs are processed. If not provided, all components are processed.""
+                            ""description"": ""Optional list of object instance GUIDs for initial filtering. When provided, only objects with these instance GUIDs are processed. If not provided, all objects are processed.""
                         },
                         ""connectionDepth"": {
                             ""type"": ""integer"",
@@ -224,14 +224,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
             // Specialized wrapper: gh_get_by_guid
             yield return this.CreateGhGetTool(
                 name: "gh_get_by_guid",
-                description: "Read specific components by their GUIDs. Use this when you have component GUIDs from a previous query. Returns a GhJSON structure. Example: gh_get_by_guid({ guidFilter: ['...'], connectionDepth: 1 }).",
+                description: "Read specific objects by their instance GUIDs. Use this when you have instance GUIDs from a previous query. Returns a GhJSON structure. Example: gh_get_by_guid({ instanceGuids: ['...'], connectionDepth: 1 }).",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""guidFilter"": {
+                        ""instanceGuids"": {
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
-                            ""description"": ""Required list of component GUIDs to retrieve.""
+                            ""description"": ""Required list of object instance GUIDs to retrieve.""
                         },
                         ""connectionDepth"": {
                             ""type"": ""integer"",
@@ -239,29 +239,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""description"": ""Depth of connections to include: 0 (default) only specified components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
                         }
                     },
-                    ""required"": [""guidFilter""]
+                    ""required"": [""instanceGuids""]
                 }",
                 execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false));
 
             // Specialized wrapper: gh_get_by_guid_with_data
             yield return this.CreateGhGetTool(
                 name: "gh_get_by_guid_with_data",
-                description: "Read specific components by GUID WITH their runtime data (volatile data - actual values flowing through outputs). Use this when you need to inspect computed results from known components. Returns GhJSON with an additional 'runtimeData' object. This is token-expansive!",
+                description: "Read specific objects by instance GUID WITH their runtime data (volatile data - actual values flowing through outputs). Use this when you need to inspect computed results from known objects. Returns GhJSON with an additional 'runtimeData' object. This is token-expansive!",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""guidFilter"": {
+                        ""instanceGuids"": {
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
-                            ""description"": ""Required list of component GUIDs to retrieve.""
+                            ""description"": ""Required list of object instance GUIDs to retrieve.""
                         },
                         ""connectionDepth"": {
                             ""type"": ""integer"",
                             ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only specified components; 1 includes directly connected components, etc.""
+                            ""description"": ""Depth of connections to include: 0 (default) only specified objects; 1 includes directly connected objects, etc.""
                         }
                     },
-                    ""required"": [""guidFilter""]
+                    ""required"": [""instanceGuids""]
                 }",
                 execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, true),
                 includeInternalizedData: true);
@@ -487,8 +487,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
-                // GUID restriction
-                var guidStrings = args["guidFilter"]?.ToObject<List<string>>();
+                // Instance GUID restriction ("guidFilter" kept as a silent legacy alias)
+                var guidStrings = (args["instanceGuids"] ?? args["guidFilter"])?.ToObject<List<string>>();
                 if (guidStrings != null)
                 {
                     var guids = new List<Guid>();
