@@ -41,6 +41,13 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
     public static class BooleanResultResolver
     {
         /// <summary>
+        /// Guard sentence appended to the system prompt of boolean-output AI calls
+        /// (<c>text2boolean</c>, <c>textlist2boolean</c>) so the model returns only
+        /// TRUE or FALSE, which <see cref="AIResponseParser.ParseBooleanFromResponse"/> expects.
+        /// </summary>
+        public const string TrueFalseGuard = "Return exclusively TRUE or FALSE.";
+
+        /// <summary>
         /// Resolves a boolean result from raw AI response text and an optional user fallback.
         /// </summary>
         /// <param name="aiResponseText">The raw assistant response text.</param>
