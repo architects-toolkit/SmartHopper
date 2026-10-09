@@ -22,11 +22,13 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Threading.Tasks;
     using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.AICall.Tools;
+    using SmartHopper.Infrastructure.AIProviders;
     using SmartHopper.Infrastructure.AITools;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Requests;
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
+    using SmartHopper.ProviderSdk.AIModels;
     using SmartHopper.ProviderSdk.Diagnostics;
     using SmartHopper.ProviderSdk.Hosting;
     using Xunit;
@@ -404,6 +406,122 @@ namespace SmartHopper.Infrastructure.Tests
                 MutationUndoCoordinator.Current = null;
             }
         }
+
+        #region ExecuteTool Default Provider/Model Resolution
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("Default")]
+        public async Task ExecuteTool_OmittedProviderModel_ResolvesSmartHopperDefaults(string? provider)
+        {
+            this.ResetTools();
+
+            string? capturedProvider = null;
+            string? capturedModel = null;
+            var tool = new AITool(
+                "probe_default_resolution",
+                "Captures the provider/model received by the tool",
+                "test",
+                "{}",
+                request =>
+                {
+                    capturedProvider = request.Provider;
+                    capturedModel = request.Model;
+                    var ret = new AIReturn
+                    {
+                        Request = request,
+                    };
+                    ret.SetBody(AIBodyBuilder.Create()
+                        .WithTurnId(System.Guid.NewGuid().ToString("N"))
+                        .AddText(AIAgent.ToolResult, "ok")
+                        .Build());
+                    return Task.FromResult(ret);
+                },
+                requiredCapabilities: AICapability.TextOutput);
+            AIToolManager.RegisterTool(tool);
+
+            var toolCall = new AIToolCall
+            {
+                Provider = provider,
+                Body = AIBodyBuilder.Create()
+                    .WithTurnId(System.Guid.NewGuid().ToString("N"))
+                    .Add(new AIInteractionToolCall
+                    {
+                        Id = "call-1",
+                        Name = "probe_default_resolution",
+                        Arguments = new JObject(),
+                    })
+                    .Build(),
+            };
+
+            var result = await AIToolManager.ExecuteTool(toolCall).ConfigureAwait(false);
+
+            // The call must reach the tool carrying whatever the SmartHopper default
+            // resolution produces in this environment (empty when no provider is
+            // registered, the settings default or first registered provider otherwise).
+            var expectedProvider = ProviderManager.Instance.GetDefaultAIProvider() ?? string.Empty;
+            var expectedModel = string.IsNullOrWhiteSpace(expectedProvider)
+                ? string.Empty
+                : ProviderManager.Instance.GetProvider(expectedProvider)?
+                    .SelectModel(AICapability.TextOutput, string.Empty) ?? string.Empty;
+
+            Assert.DoesNotContain(result.Messages, m => m.Severity == SHRuntimeMessageSeverity.Error);
+            Assert.Equal(expectedProvider, capturedProvider ?? string.Empty);
+            Assert.Equal(expectedModel, capturedModel ?? string.Empty);
+        }
+
+        [Fact]
+        public async Task ExecuteTool_ExplicitProviderModel_ArePreserved()
+        {
+            this.ResetTools();
+
+            string? capturedProvider = null;
+            string? capturedModel = null;
+            var tool = new AITool(
+                "probe_preserved",
+                "Captures the provider/model received by the tool",
+                "test",
+                "{}",
+                request =>
+                {
+                    capturedProvider = request.Provider;
+                    capturedModel = request.Model;
+                    var ret = new AIReturn
+                    {
+                        Request = request,
+                    };
+                    ret.SetBody(AIBodyBuilder.Create()
+                        .WithTurnId(System.Guid.NewGuid().ToString("N"))
+                        .AddText(AIAgent.ToolResult, "ok")
+                        .Build());
+                    return Task.FromResult(ret);
+                });
+            AIToolManager.RegisterTool(tool);
+
+            var toolCall = new AIToolCall
+            {
+                Provider = "explicit-provider",
+                Model = "explicit-model",
+                Body = AIBodyBuilder.Create()
+                    .WithTurnId(System.Guid.NewGuid().ToString("N"))
+                    .Add(new AIInteractionToolCall
+                    {
+                        Id = "call-1",
+                        Name = "probe_preserved",
+                        Arguments = new JObject(),
+                    })
+                    .Build(),
+            };
+
+            var result = await AIToolManager.ExecuteTool(toolCall).ConfigureAwait(false);
+
+            Assert.DoesNotContain(result.Messages, m => m.Severity == SHRuntimeMessageSeverity.Error);
+            Assert.Equal("explicit-provider", capturedProvider);
+            Assert.Equal("explicit-model", capturedModel);
+        }
+
+        #endregion
 
         private void ResetTools()
         {

@@ -24,6 +24,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
@@ -153,6 +154,36 @@ namespace SmartHopper.Infrastructure.AITools
             {
                 output.CreateToolError($"Tool '{toolInfo.Name}' is not available on the {surface} surface.", toolCall);
                 return output;
+            }
+
+            // Resolve provider/model from SmartHopper settings defaults when the caller
+            // did not provide them (e.g., MCP tools/call has no provider context). This
+            // mirrors the component path, which resolves the "(Default)" selection via
+            // ProviderManager.GetDefaultAIProvider() before building the call. Model
+            // selection is capability-aware so tools like speech_generate pick a model
+            // that supports their required capabilities.
+            try
+            {
+                if (string.IsNullOrWhiteSpace(toolCall.Provider)
+                    || string.Equals(toolCall.Provider, "Default", StringComparison.Ordinal))
+                {
+                    toolCall.Provider = ProviderManager.Instance.GetDefaultAIProvider();
+                }
+
+                if (!string.IsNullOrWhiteSpace(toolCall.Provider) && string.IsNullOrWhiteSpace(toolCall.Model))
+                {
+                    var resolvedModel = ProviderManager.Instance
+                        .GetProvider(toolCall.Provider)?
+                        .SelectModel(tool.RequiredCapabilities, string.Empty);
+                    if (!string.IsNullOrWhiteSpace(resolvedModel))
+                    {
+                        toolCall.Model = resolvedModel;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AIToolManager] Failed to resolve default provider/model for tool '{toolInfo.Name}': {ex.Message}");
             }
 
             // Normalize a null arguments object to an empty JObject when the tool schema has no

@@ -10,7 +10,7 @@ Loopback-only MCP transport that exposes SmartHopper's existing `AITool` catalog
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Infrastructure/Mcp/` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-09-21 |
+| **Last Updated** | 2026-10-09 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -70,7 +70,7 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 - **Read-only by default.** Tools that alter the canvas are hidden unless `Allow Editing` (`ExposeMutatingTools`) is enabled.
 - **Viewport control is opt-in.** `ViewControl`-category tools such as `canvas_view` are hidden unless `Allow View Control` (`AllowViewControl`) is enabled, even though they do not mutate the document.
 - **Disabled tools are never exposed.** If `AITool.Enabled` is `false`, the tool is hidden from MCP regardless of the allow-list or mutating-tool policy.
-- **Tool surfaces are enforced.** Tools without `AIToolSurface.Mcp`, including WebChat control tools such as `plan_propose`, remain hidden even when named in an MCP allow-list.
+- **Tool surfaces are enforced.** Tools without `AIToolSurface.Mcp`, including WebChat control tools such as `plan_propose` and internal-only component-backing tools (`text2text`, `text2boolean`, `text2json`, `textlist2boolean`, `list_filter`, `text2img`, `speech_generate`), remain hidden even when named in an MCP allow-list.
 - **Allow-list overrides the mutating and view-control filters.** If `EnabledTools` is set, only those tools are exposed; this overrides `ExposeMutatingTools` and `AllowViewControl` but not the `Enabled` flag.
 - **No file-system or shell access.** MCP only exposes existing `IAIToolProvider` tools.
 - **No payload logging.** Requests are logged without GhJSON payload contents.
@@ -84,7 +84,7 @@ A tool is considered mutating when its `AITool.MutatesCanvas` flag is `true`.
 - Read-only, query, validation, and transformation tools should set `mutatesCanvas: false`.
 - MCP exposure uses the flag instead of name-prefix heuristics.
 
-That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `gh_diff`, `gh_patch_validate`, `script_review`, `text2json`, `img2text`, `canvas_screenshot`, `viewport_screenshot`, `web2md`, and the Discourse readers stay visible by default, while canvas-changing tools remain hidden unless explicitly enabled. Separately, `ViewControl`-category tools (`canvas_view`) are hidden by default because they move the user's viewport — they require `AllowViewControl` even though `MutatesCanvas` is `false`.
+That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `gh_diff`, `gh_patch_validate`, `script_review`, `img2text`, `canvas_screenshot`, `viewport_screenshot`, `web2md`, and the Discourse readers stay visible by default, while canvas-changing tools remain hidden unless explicitly enabled. Separately, `ViewControl`-category tools (`canvas_view`) are hidden by default because they move the user's viewport — they require `AllowViewControl` even though `MutatesCanvas` is `false`.
 
 ### What Enabled Means
 

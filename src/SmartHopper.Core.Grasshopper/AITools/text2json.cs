@@ -30,6 +30,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Hosting;
 using SmartHopper.ProviderSdk.Utilities;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -97,7 +98,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "text", "json", "data-processing", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""object"", ""description"": ""Generated JSON object conforming to the provided schema."" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
         }
 
         /// <summary>
