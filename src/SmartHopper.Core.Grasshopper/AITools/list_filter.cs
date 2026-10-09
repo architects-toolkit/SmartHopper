@@ -31,6 +31,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Hosting;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -106,7 +107,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "list", "text", "data-processing", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""array"", ""items"": { ""type"": ""integer"" }, ""description"": ""Zero-based indices of selected or reordered items."" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
         }
 
         /// <summary>

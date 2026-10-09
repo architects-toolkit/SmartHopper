@@ -28,6 +28,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Hosting;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -86,7 +87,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "image", "ai-generation", "read-only", "external" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""image"": { ""type"": ""string"", ""description"": ""Base64-encoded generated image or URL."" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
+                surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
         }
 
         /// <summary>

@@ -31,6 +31,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Hosting;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -85,7 +86,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "audio", "speech", "ai-generation", "read-only", "external" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""audio"": { ""type"": ""string"", ""description"": ""Base64-encoded audio data or URL."" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
+                surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
         }
 
         /// <summary>
