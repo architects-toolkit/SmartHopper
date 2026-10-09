@@ -67,7 +67,7 @@ Offer a template-method style pipeline for providers: register models, load sett
 - OpenAI-compatible generic variant `OpenAICompatibleProvider<T>`
   - Extends `AIProvider<T>` with shared tool-choice, token metrics, and JSON-schema wrapping helpers.
   - `DecodeOpenAICompatibleMetrics` returns `OutputTokensGeneration` net of `OutputTokensReasoning`, because OpenAI-compatible APIs report `reasoning_tokens` as a subset of `completion_tokens`/`output_tokens`; `AIMetrics.OutputTokens` sums both.
-  - `BuildRequestContent` sends `/audio/transcriptions` requests as `multipart/form-data`: the audio bytes come from the request's last `AIInteractionAudio` (resolved via `OpenAICompatibleAudioCodec.TryResolveAudioBytes`) and scalar fields are copied from the encoded JSON metadata body, so providers keep their own field names without duplicating the multipart plumbing.
+  - `BuildRequestContent` sends `/audio/transcriptions` requests as `multipart/form-data`: the audio bytes come from the request's last `AIInteractionAudio` (resolved via `OpenAICompatibleAudioCodec.TryResolveAudioBytes`) and scalar fields are copied from the encoded JSON metadata body, so providers keep their own field names without duplicating the multipart plumbing. When the metadata carries a `file_url` field (e.g. from a request extra), it becomes the audio source and no `file` part is attached — endpoints accept exactly one source. Numeric fields are formatted with the invariant culture; a request with neither resolvable audio bytes nor `file_url` throws `InvalidOperationException` before any HTTP call so the failure surfaces as an actionable provider error.
 
 ### Extending
 

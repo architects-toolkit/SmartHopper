@@ -18,6 +18,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -150,33 +151,15 @@ namespace SmartHopper.ProviderSdk.AIProviders
         /// contract stays defined by the provider's request encoder.
         /// </summary>
         /// <param name="request">The prepared request being executed.</param>
-        /// <returns>Multipart content carrying the audio file and metadata, or <c>null</c> when no audio bytes could be resolved.</returns>
+        /// <returns>Multipart content carrying the audio file and metadata.</returns>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown when the request carries no usable audio source: neither resolvable
+        /// <see cref="AIInteractionAudio"/> bytes nor a <c>file_url</c> metadata field.
+        /// </exception>
         protected virtual HttpContent? BuildAudioTranscriptionContent(AIRequestCall request)
         {
-            var audioInteraction = request?.Body?.Interactions?.OfType<AIInteractionAudio>().LastOrDefault();
-            if (audioInteraction == null ||
-                !OpenAICompatibleAudioCodec.TryResolveAudioBytes(audioInteraction, out var audioBytes, out var format) ||
-                audioBytes == null)
-            {
-                Debug.WriteLine($"[{this.Name}] Audio transcription request has no resolvable audio data.");
-                return null;
-            }
-
-            var multipart = new MultipartFormDataContent();
-
-            var fileContent = new ByteArrayContent(audioBytes);
-            var mimeType = string.IsNullOrWhiteSpace(audioInteraction.MimeType)
-                ? $"audio/{format}"
-                : audioInteraction.MimeType;
-            fileContent.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
-
-            var fileName = !string.IsNullOrWhiteSpace(audioInteraction.FilePath)
-                ? Path.GetFileName(audioInteraction.FilePath)
-                : $"audio.{format}";
-            multipart.Add(fileContent, "file", fileName);
-
-            // Copy scalar metadata fields from the provider-encoded JSON body so the
-            // multipart contract reuses the same field names (model, language, ...).
+            // Read the provider-encoded metadata first: it declares both the scalar form
+            // fields and whether a remote file source ('file_url') is available.
             JObject? metadata = null;
             try
             {
@@ -189,6 +172,46 @@ namespace SmartHopper.ProviderSdk.AIProviders
             catch (Exception ex)
             {
                 Debug.WriteLine($"[{this.Name}] Failed to parse transcription metadata body: {ex.Message}");
+            }
+
+            var hasFileUrl = !string.IsNullOrWhiteSpace(metadata?["file_url"]?.ToString());
+
+            var audioInteraction = request?.Body?.Interactions?.OfType<AIInteractionAudio>().LastOrDefault();
+            OpenAICompatibleAudioCodec.TryResolveAudioBytes(audioInteraction, out var audioBytes, out var format);
+            var hasAudioBytes = audioBytes is { Length: > 0 };
+
+            if (!hasAudioBytes && !hasFileUrl)
+            {
+                // Without 'file' bytes or a 'file_url', every transcription endpoint rejects the
+                // call; fail locally with an actionable error instead of an opaque HTTP 4xx.
+                throw new InvalidOperationException(
+                    $"Audio transcription request for '{this.Name}' has no audio source: the request carries no resolvable audio data and no 'file_url'.");
+            }
+
+            var multipart = new MultipartFormDataContent();
+
+            if (hasFileUrl)
+            {
+                // 'file_url' (set explicitly via request extras) is the audio source. Endpoints
+                // accept exactly one source, so no 'file' part is attached even when the request
+                // body also carries audio data.
+                if (hasAudioBytes)
+                {
+                    Debug.WriteLine($"[{this.Name}] Transcription request has both audio data and 'file_url'; using 'file_url' as the audio source.");
+                }
+            }
+            else
+            {
+                var fileContent = new ByteArrayContent(audioBytes!);
+                var mimeType = string.IsNullOrWhiteSpace(audioInteraction!.MimeType)
+                    ? $"audio/{format}"
+                    : audioInteraction.MimeType;
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
+
+                var fileName = !string.IsNullOrWhiteSpace(audioInteraction.FilePath)
+                    ? Path.GetFileName(audioInteraction.FilePath)
+                    : $"audio.{format}";
+                multipart.Add(fileContent, "file", fileName);
             }
 
             if (metadata != null)
@@ -233,16 +256,21 @@ namespace SmartHopper.ProviderSdk.AIProviders
 
         /// <summary>
         /// Formats a JSON scalar as a multipart form field value. Booleans are rendered as
-        /// lowercase JSON literals (<c>true</c>/<c>false</c>) since <see cref="JValue.ToString()"/>
-        /// produces capitalized CLR booleans that form parsers may reject.
+        /// lowercase JSON literals (<c>true</c>/<c>false</c>) and numbers with the invariant
+        /// culture, since <see cref="JValue.ToString()"/> is culture-sensitive for those types
+        /// (e.g. <c>0.5</c> rendering as <c>0,5</c> under ca-ES/de-DE locales).
         /// </summary>
         /// <param name="value">The scalar token to format.</param>
         /// <returns>The form-safe string representation.</returns>
         private static string FormatFormScalar(JValue value)
         {
-            return value.Type == JTokenType.Boolean
-                ? (value.Value<bool>() ? "true" : "false")
-                : value.ToString();
+            return value.Type switch
+            {
+                JTokenType.Boolean => value.Value<bool>() ? "true" : "false",
+                JTokenType.Float or JTokenType.Integer =>
+                    Convert.ToString(value.Value, CultureInfo.InvariantCulture),
+                _ => value.ToString(),
+            };
         }
 
         /// <summary>
