@@ -93,12 +93,11 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
 
             var settings = SmartHopperSettings.Load();
             var pins = settings.FallbackProviderPins ?? new Dictionary<string, FallbackProviderPin>();
-            var steps = new List<IModalityFallback>();
-            string chainProvider = null;
-            string chainModel = null;
+            var steps = new List<FallbackStep>();
             bool usesAlt = false;
 
-            // For each missing capability flag, find a fallback
+            // For each missing capability flag, find a fallback. Each step keeps its own
+            // resolved provider/model so a multi-modality chain may span providers.
             foreach (AICapability flag in Enum.GetValues(typeof(AICapability)))
             {
                 if (flag == AICapability.None) continue;
@@ -108,10 +107,9 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
 
                 var fallback = FindFallbackForFlag(flag, providerName, mode, pins, out var resolvedProvider, out var resolvedModel, out var isPinned);
                 if (fallback == null) return null; // cannot cover this missing flag
+                if (string.IsNullOrWhiteSpace(resolvedModel)) return null; // no model can perform the conversion
 
-                steps.Add(fallback);
-                chainProvider = resolvedProvider;
-                chainModel = resolvedModel;
+                steps.Add(new FallbackStep(fallback, resolvedProvider, resolvedModel));
                 if (!string.Equals(resolvedProvider, providerName, StringComparison.OrdinalIgnoreCase))
                 {
                     usesAlt = true;
@@ -120,14 +118,14 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
 
             if (steps.Count == 0) return null;
 
-            var description = string.Join("; ", steps.Select(s => s.Description));
+            var description = string.Join("; ", steps.Select(s => s.Fallback.Description));
             var effectiveCap = required;
             foreach (var s in steps)
             {
-                effectiveCap = (effectiveCap & ~s.Handles) | s.ResultsIn;
+                effectiveCap = (effectiveCap & ~s.Fallback.Handles) | s.Fallback.ResultsIn;
             }
 
-            return new FallbackChain(steps, description, chainProvider, chainModel, effectiveCap)
+            return new FallbackChain(steps, description, effectiveCap)
             {
                 UsesAltProvider = usesAlt,
             };

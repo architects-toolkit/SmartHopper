@@ -159,13 +159,17 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 SHMessageCode.Unknown,
                 $"[Fallback] {chain.Description}. Extra tokens will be consumed."));
 
-            if (chain.UsesAltProvider)
+            foreach (var step in chain.Steps)
             {
-                messages.Add(new SHRuntimeMessage(
-                    SHRuntimeMessageSeverity.Info,
-                    SHRuntimeMessageOrigin.Validation,
-                    SHMessageCode.Unknown,
-                    $"[Fallback] Using alternate provider '{chain.ActualProvider}' / model '{chain.ActualModel}' for modality conversion."));
+                if (!string.Equals(step.Provider, this._providerName, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(step.Model, effectiveModel, StringComparison.OrdinalIgnoreCase))
+                {
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Info,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.Unknown,
+                        $"[Fallback] {step.Fallback.Name} conversion uses '{step.Provider}' / model '{step.Model}'."));
+                }
             }
 
             return new ValidationResult
