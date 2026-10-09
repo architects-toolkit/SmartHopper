@@ -135,9 +135,16 @@ namespace SmartHopper.Core.ComponentBase
         /// Stores the AI return snapshot, accumulates per-branch metrics into the tree,
         /// and surfaces any messages from the result.
         /// </summary>
-        private void ProcessAIResult(AIReturn result, string origin)
+        /// <param name="result">The <see cref="AIReturn"/> to process.</param>
+        /// <param name="origin">Origin tag used for message attribution.</param>
+        /// <param name="recordMetrics">
+        /// When false, the result is only surfaced for messages: it is not stored as the AI
+        /// return snapshot and its metrics are not merged. Used for local-only tool executions
+        /// whose metrics carry no provider usage.
+        /// </param>
+        private void ProcessAIResult(AIReturn result, string origin, bool recordMetrics = true)
         {
-            if (result != null)
+            if (result != null && recordMetrics)
             {
                 this.AIReturnSnapshot = result;
 
@@ -206,11 +213,17 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="toolName">Name of the registered tool.</param>
         /// <param name="parameters">Tool-specific parameters; provider/model will be injected.</param>
         /// <param name="cancellationToken">Cancellation token for the operation.</param>
+        /// <param name="recordMetrics">
+        /// When true (default), the tool result is stored as the current AI return snapshot and
+        /// its metrics feed the Metrics output. Pass false for local-only tool executions that
+        /// never reach a provider (e.g. "web2md" with imageMode "link"), so they do not emit
+        /// placeholder all-zero metrics.
+        /// </param>
         /// <returns>Typed <see cref="ToolCallResult"/> envelope carrying execution
         /// success, the raw tool payload and diagnostic messages. The envelope's
         /// indexer and <see cref="ToolCallResult.ToString"/> delegate to the
         /// underlying payload for backward compatibility.</returns>
-        protected async Task<ToolCallResult> CallAIToolAsync(string toolName, JObject parameters, System.Threading.CancellationToken cancellationToken = default)
+        protected async Task<ToolCallResult> CallAIToolAsync(string toolName, JObject parameters, System.Threading.CancellationToken cancellationToken = default, bool recordMetrics = true)
         {
             parameters ??= new JObject();
 
@@ -354,7 +367,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // Store snapshot and surface messages
-            this.ProcessAIResult(toolResult, "ai");
+            this.ProcessAIResult(toolResult, "ai", recordMetrics);
             return result;
         }
 
