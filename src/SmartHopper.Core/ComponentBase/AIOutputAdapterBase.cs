@@ -366,9 +366,18 @@ namespace SmartHopper.Core.ComponentBase
                     "Modality fallback is not supported in batch mode. Run without batch mode to use fallback.");
             }
 
-            // Validate capabilities before AI call (RequiredCapability automatically merges UsingAiTools)
+            // Validate capabilities before AI call (RequiredCapability automatically merges UsingAiTools).
+            // The merged payload's interaction modalities add input requirements of their own
+            // (e.g. an image interaction requires ImageInput on the resolved model).
+            var requiredCapabilities = this.RequiredCapability;
+            if (inputs.TryGetValue("Input >", out var inputPayloadObj)
+                && inputPayloadObj is GH_Structure<GH_AIInputPayload> inputPayloadTree)
+            {
+                requiredCapabilities |= AIInputPayloadMerger.GetRequiredInputCapabilities(inputPayloadTree, context.Path);
+            }
+
             var validation = new ComponentCapabilityValidator(this.GetActualAIProviderName(), this.GetModel())
-                .ValidateSync(this.RequiredCapability, effectiveFallbackMode);
+                .ValidateSync(requiredCapabilities, effectiveFallbackMode);
 
             if (!validation.IsValid)
             {

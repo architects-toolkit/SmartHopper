@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 namespace SmartHopper.ProviderSdk.AIModels
 {
     /// <summary>
@@ -308,6 +309,37 @@ namespace SmartHopper.ProviderSdk.AIModels
         public static bool HasFlag(this AICapability capability, AICapability flag)
         {
             return (capability & flag) == flag;
+        }
+
+        /// <summary>
+        /// Derives the input-modality capabilities required to send the given interactions
+        /// to a model: an <see cref="AIInteractionImage"/> requires <see cref="AICapability.ImageInput"/>
+        /// and an <see cref="AIInteractionAudio"/> requires <see cref="AICapability.AudioInput"/>.
+        /// Text, tool, and other interaction kinds add no requirement.
+        /// </summary>
+        /// <param name="interactions">The interactions to inspect. Null-safe.</param>
+        /// <returns>The combined input-modality capability flags; <see cref="AICapability.None"/> when empty.</returns>
+        public static AICapability RequiredInputCapabilities(this IEnumerable<IAIInteraction> interactions)
+        {
+            var required = AICapability.None;
+            if (interactions == null)
+            {
+                return required;
+            }
+
+            foreach (var interaction in interactions)
+            {
+                if (interaction is AIInteractionImage)
+                {
+                    required |= AICapability.ImageInput;
+                }
+                else if (interaction is AIInteractionAudio)
+                {
+                    required |= AICapability.AudioInput;
+                }
+            }
+
+            return required;
         }
     }
 }

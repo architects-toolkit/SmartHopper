@@ -156,6 +156,10 @@ public static class AICapabilityExtensions
 {
     // Formats capabilities for logging (e.g., "TextInput, TextOutput, FunctionCalling")
     public static string ToDetailedString(this AICapability capabilities);
+
+    // Derives the input-modality capabilities required by a set of interactions
+    // (AIInteractionImage → ImageInput, AIInteractionAudio → AudioInput; other kinds add none)
+    public static AICapability RequiredInputCapabilities(this IEnumerable<IAIInteraction> interactions);
 }
 
 ```

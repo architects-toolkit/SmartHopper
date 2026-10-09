@@ -17,6 +17,7 @@ Eliminate boilerplate for "tree of payloads in → typed values out" components.
 - **`OutputMapping.Single` helper** wraps a scalar extractor into the unified `IEnumerable<IGH_Goo>` contract; list-shaped extractors return their list.
 - **Symmetric batch and sync paths.** Both legs run the same `DecodeAllMappings` helper, so list-shaped outputs work transparently in batch mode. The legacy `SentinelTransformOutputs` hook is **not** invoked by the adapter base — declare every named output through `GetOutputMappings` instead.
 - **Sealed input shape.** Adds `Input >` (`AIInputPayloadParameter`, tree access) at index 0, then chains to `base.RegisterInputParams`. Tree-access parameters registered by subclasses automatically participate in per-branch processing. Subclasses use `GatherAdditionalInputs(DA, dict)` only for custom item/list state that cannot use the tree pipeline.
+- **Payload-aware capability gate.** `PrepareInputs` validates `RequiredCapability` OR-ed with the input modalities present in the current branch's merged payload (`AIInteractionImage` → `ImageInput`, `AIInteractionAudio` → `AudioInput`, via `AIInputPayloadMerger.GetRequiredInputCapabilities`). A payload-modality gap resolves the configured modality fallback chain, or fails with a `[Capability] ... does not support` error when fallback is disabled.
 - **Category locked** to `"SmartHopper" / "Output"`.
 
 ## Subclass contract

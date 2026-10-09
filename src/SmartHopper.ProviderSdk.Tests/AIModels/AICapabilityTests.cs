@@ -19,6 +19,9 @@
 namespace SmartHopper.ProviderSdk.Tests.AIModels
 {
     using System;
+    using System.Collections.Generic;
+    using SmartHopper.ProviderSdk.AICall.Core.Base;
+    using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AIModels;
     using Xunit;
 
@@ -93,6 +96,60 @@ namespace SmartHopper.ProviderSdk.Tests.AIModels
         public void ToolChat_MatchesText2TextAndFunctionCalling()
         {
             Assert.Equal(AICapability.Text2Text | AICapability.FunctionCalling, AICapability.ToolChat);
+        }
+
+        [Fact(DisplayName = nameof(RequiredInputCapabilities_NullOrEmptyYieldsNone) + PlatformSuffix)]
+        public void RequiredInputCapabilities_NullOrEmptyYieldsNone()
+        {
+            Assert.Equal(AICapability.None, ((List<IAIInteraction>)null).RequiredInputCapabilities());
+            Assert.Equal(AICapability.None, new List<IAIInteraction>().RequiredInputCapabilities());
+        }
+
+        [Fact(DisplayName = nameof(RequiredInputCapabilities_TextOnlyYieldsNone) + PlatformSuffix)]
+        public void RequiredInputCapabilities_TextOnlyYieldsNone()
+        {
+            var interactions = new List<IAIInteraction>
+            {
+                new AIInteractionText { Agent = AIAgent.User, Content = "hello" },
+            };
+
+            Assert.Equal(AICapability.None, interactions.RequiredInputCapabilities());
+        }
+
+        [Fact(DisplayName = nameof(RequiredInputCapabilities_ImageRequiresImageInput) + PlatformSuffix)]
+        public void RequiredInputCapabilities_ImageRequiresImageInput()
+        {
+            var interactions = new List<IAIInteraction>
+            {
+                new AIInteractionText { Agent = AIAgent.User, Content = "describe" },
+                new AIInteractionImage { Agent = AIAgent.User, ImageData = "aW1n" },
+            };
+
+            Assert.Equal(AICapability.ImageInput, interactions.RequiredInputCapabilities());
+        }
+
+        [Fact(DisplayName = nameof(RequiredInputCapabilities_AudioRequiresAudioInput) + PlatformSuffix)]
+        public void RequiredInputCapabilities_AudioRequiresAudioInput()
+        {
+            var interactions = new List<IAIInteraction>
+            {
+                new AIInteractionAudio { Agent = AIAgent.User, Data = new byte[] { 1, 2, 3 }, MimeType = "audio/wav" },
+            };
+
+            Assert.Equal(AICapability.AudioInput, interactions.RequiredInputCapabilities());
+        }
+
+        [Fact(DisplayName = nameof(RequiredInputCapabilities_MixedMediaCombinesFlags) + PlatformSuffix)]
+        public void RequiredInputCapabilities_MixedMediaCombinesFlags()
+        {
+            var interactions = new List<IAIInteraction>
+            {
+                new AIInteractionImage { Agent = AIAgent.User, ImageData = "aW1n" },
+                new AIInteractionAudio { Agent = AIAgent.User, Data = new byte[] { 1 }, MimeType = "audio/mpeg" },
+                new AIInteractionText { Agent = AIAgent.Assistant, Content = "note" },
+            };
+
+            Assert.Equal(AICapability.ImageInput | AICapability.AudioInput, interactions.RequiredInputCapabilities());
         }
     }
 }
