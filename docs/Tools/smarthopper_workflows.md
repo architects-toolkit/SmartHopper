@@ -83,7 +83,7 @@ Returns an array of workflows, each with:
         "Call gh_patch_validate on the patch first.",
         "Call gh_patch_apply with the base GhJSON and the patch.",
         "Review any conflicts reported by gh_patch_apply.",
-        "Call gh_put with the resulting GhJSON and editMode=true to update the canvas."
+        "Call gh_put with the resulting GhJSON; components whose instanceGuid matches the canvas are updated in place."
       ]
     }
   ]

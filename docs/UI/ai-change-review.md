@@ -189,7 +189,7 @@ Runtime actions such as button clicks and script execution are not represented a
 - Zoom-to-changes framing uses the union of world-space bounds for all staged items (accepted or not): live `Attributes.Bounds` for existing objects, proposed bounds for ghosts, endpoint anchors inflated for wire curvature for connections, and member unions for groups. `FrameChanges` clamps the zoom to 0.01–32 like `canvas_view`.
 - Proposed-component ghosts use real bounds: components without a live canvas instance are instantiated off-document at review time (`PopulateProposedBounds` in `CanvasChangeReviewService`) and their `Attributes.Bounds` are stored on the session; live components reuse their current bounds translated to the proposed pivot. A fixed-size estimate centered on the pivot remains only as a fallback when neither is available.
 - Proposals without pivots use GhJSON dependency-graph layout for preview; Grasshopper-aware final layout may differ slightly.
-- Non-edit `gh_put` can auto-offset the accepted network to avoid live objects, so its final global offset can differ from the proposal coordinates.
+- Non-edit `gh_put` can auto-offset the accepted network to avoid live objects, so its final global offset can differ from the proposal coordinates. Documents that update existing objects (matching `instanceGuid`) skip auto-offset by default so updated objects keep their position.
 - Specialized structural tools (`gh_tidy_up`, `gh_smart_connect`, preview/lock changes, parameter modifiers) still use their existing execution paths and can adopt the same contracts later.
 
 ### Related Documentation

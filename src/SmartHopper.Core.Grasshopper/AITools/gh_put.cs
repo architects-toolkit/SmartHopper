@@ -58,20 +58,20 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AIMutatingTool(
                 name: this.toolName,
-                description: "Stage components from GhJSON, show the user an in-canvas visual diff, and place only accepted changes. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. Component-specific state (e.g. Number Slider values under componentState.extensions['gh.numberslider'].value using the format 'current<min~max>', Panel text under componentState.extensions['gh.panel'].text) is preserved. Example: gh_put({ ghjson: '...' }) or gh_put({ ghjson: 'C:/path/to/file.ghjson' }). See also: gh_get, script_generate_and_place_on_canvas.",
+                description: "Stage components from GhJSON, show the user an in-canvas visual diff, and apply only accepted changes. Use this to create component networks, update existing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. A component whose instanceGuid matches an existing canvas object updates that object in place (preserving identity, position unless pivot overrides it, and existing wires) instead of adding a duplicate; omit instanceGuid to place new components. Connections in the GhJSON are document-scoped: they wire components inside the same document by their id values (including ones updated in place); to connect objects already on the canvas use gh_connect instead. The result reports how many staged changes were actually applied (acceptedChanges) versus not applied (rejectedChanges: user rejections plus apply failures). Component-specific state (e.g. Number Slider values under componentState.extensions['gh.numberslider'].value using the format 'current<min~max>', Panel text under componentState.extensions['gh.panel'].text) is preserved. Example: gh_put({ ghjson: '...' }) or gh_put({ ghjson: 'C:/path/to/file.ghjson' }). See also: gh_get, gh_connect, script_generate_and_place_on_canvas.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON document string, or an absolute file path to a .ghjson file containing the document."" },
-                        ""editMode"": { ""type"": ""boolean"", ""description"": ""When true, proposed components with matching instance GUIDs are reviewed as modifications instead of additions."" },
-                        ""autoOffset"": { ""type"": ""boolean"", ""default"": true, ""description"": ""When true, newly placed components are offset on the canvas so they do not overlap existing objects. In edit mode this defaults to false."" }
+                        ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON document string, or an absolute file path to a .ghjson file containing the document. Components whose instanceGuid matches an existing canvas object update that object in place. Connections only reference components inside this document by their id values; they cannot wire objects that are already on the canvas unless those objects are also in the document — use gh_connect for that."" },
+                        ""editMode"": { ""type"": ""boolean"", ""description"": ""Optional hint kept for compatibility. Components with matching instance GUIDs are always updated in place; when true, autoOffset defaults to off so updated objects keep their position."" },
+                        ""autoOffset"": { ""type"": ""boolean"", ""default"": true, ""description"": ""When true, newly placed components are offset on the canvas so they do not overlap existing objects. Defaults to false when the document updates existing objects or editMode is set."" }
                     },
                     ""required"": [""ghjson""]
                 }",
                 execute: this.GhPutToolAsync,
                 tags: new[] { "canvas", "components", "mutating", "ghjson" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""components"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Names of the placed or replaced components."" }, ""instanceGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the placed or replaced components."" }, ""acceptedChanges"": { ""type"": ""integer"" }, ""rejectedChanges"": { ""type"": ""integer"" }, ""analysis"": { ""type"": [""string"", ""null""], ""description"": ""Validation, review, error, or warning summary. Null when nothing notable happened."" } } }",
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""components"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Names of the placed or replaced components."" }, ""instanceGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the placed or replaced components."" }, ""acceptedChanges"": { ""type"": ""integer"", ""description"": ""Number of staged changes actually applied to the canvas."" }, ""rejectedChanges"": { ""type"": ""integer"", ""description"": ""Number of staged changes not applied: user rejections plus apply failures."" }, ""analysis"": { ""type"": [""string"", ""null""], ""description"": ""Validation, review, error, or warning summary. Null when nothing notable happened."" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
@@ -94,7 +94,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.GetArgumentsOrEmpty();
                 var json = ExtractGhJsonString(args["ghjson"]);
                 var editMode = args["editMode"]?.ToObject<bool>() ?? false;
-                var autoOffset = args["autoOffset"]?.ToObject<bool>() ?? !editMode;
 
                 GhJson.IsValid(json, out analysisMsg);
                 var document = GhJson.FromJson(json);
@@ -149,24 +148,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var capturedConnections = new List<ConnectionInfo>();
                 var existingDocument = new GhJsonDocument();
 
-                if (editMode)
+                // A component whose instanceGuid matches a live canvas object is an
+                // update to that object, not an addition. Detection is unconditional so
+                // a put carrying live instance GUIDs updates in place instead of
+                // creating duplicates; the review plan stages them as modifications.
+                foreach (var component in document.Components.Where(component =>
+                             component.InstanceGuid.HasValue && component.InstanceGuid.Value != Guid.Empty))
                 {
-                    foreach (var component in document.Components.Where(component =>
-                                 component.InstanceGuid.HasValue && component.InstanceGuid.Value != Guid.Empty))
+                    var guid = component.InstanceGuid!.Value;
+                    var existing = CanvasAccess.FindInstance(guid);
+                    if (existing != null)
                     {
-                        var guid = component.InstanceGuid!.Value;
-                        var existing = CanvasAccess.FindInstance(guid);
-                        if (existing != null)
-                        {
-                            existingComponents[guid] = existing;
-                        }
-                    }
-
-                    if (existingComponents.Count > 0)
-                    {
-                        existingDocument = GhJsonGrasshopper.GetByGuids(existingComponents.Keys);
+                        existingComponents[guid] = existing;
                     }
                 }
+
+                if (existingComponents.Count > 0)
+                {
+                    existingDocument = GhJsonGrasshopper.GetByGuids(existingComponents.Keys);
+                }
+
+                // New components are offset below existing content by default. When the
+                // document updates existing objects, their position must be preserved,
+                // so the default is off; callers can still request it explicitly.
+                var autoOffset = args["autoOffset"]?.ToObject<bool>() ?? (!editMode && existingComponents.Count == 0);
 
                 var changePlan = GhPutChangePlan.Create(document, existingDocument);
                 if (changePlan.Session.Items.Count > 0)
@@ -217,6 +222,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Put operation must run on UI thread.
                 Debug.WriteLine("[gh_put] Putting document on canvas");
                 PutResult putResult = null;
+                var externalConnectionsCreated = 0;
                 var placeTcs = new TaskCompletionSource<bool>();
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
@@ -224,6 +230,20 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         toolCall.CancellationToken.ThrowIfCancellationRequested();
                         var ghDoc = GhJsonGrasshopper.GetActiveDocument();
+
+                        // Replacements keep their document pivot verbatim; when a
+                        // replacement omits the pivot the previous position is
+                        // preserved so the update does not move the object.
+                        foreach (var component in document.Components)
+                        {
+                            if (component.Pivot == null &&
+                                component.InstanceGuid.HasValue &&
+                                existingComponents.TryGetValue(component.InstanceGuid.Value, out var previousObj) &&
+                                previousObj.Attributes != null)
+                            {
+                                component.Pivot = GhJsonPivot.FromPointF(previousObj.Attributes.Pivot);
+                            }
+                        }
 
                         // Remove existing components that will be replaced
                         // Keep document enabled - disabling causes "object expired" errors
@@ -246,9 +266,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                         var putOptions = new PutOptions
                         {
-                            // In edit mode we keep instance guids from the input GhJSON.
-                            // Otherwise we regenerate to avoid accidental collisions.
-                            RegenerateInstanceGuids = !editMode,
+                            // Incoming instance GUIDs are always preserved: a guid
+                            // matching a live canvas object marks an update (the old
+                            // object was removed above and the replacement keeps the
+                            // guid), and unmatched guids are deterministic so a
+                            // repeated put updates instead of duplicating.
+                            RegenerateInstanceGuids = false,
                             CreateConnections = true,
                             CreateGroups = true,
                             SelectPlacedObjects = true,
@@ -263,7 +286,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             throw new InvalidOperationException($"Put failed: {putResult.ErrorMessage}");
                         }
 
-                        var externalConnectionsCreated = 0;
                         if (acceptedExternalConnections.Count > 0)
                         {
                             var resolvedGuids = new Dictionary<int, Guid>(putResult.IdToGuidMapping);
@@ -381,10 +403,27 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     analysisSections.Add(CanvasProtection.FormatProtectionMessage(protectedPutGuids));
                 }
 
-                var rejectedChanges = changePlan.Session.Items.Count - changePlan.Session.AcceptedCount;
-                if (rejectedChanges > 0)
+                // Accounting must reflect what was actually applied to the canvas,
+                // not what was staged or accepted. Every staged item maps 1:1 to a
+                // placed component, a created connection, or a created group, so
+                // anything not applied was either rejected by the user or failed at
+                // apply time (see the Errors/Warnings sections below).
+                var appliedChanges = putResult.ComponentsPlaced +
+                    putResult.ConnectionsCreated +
+                    putResult.GroupsCreated +
+                    externalConnectionsCreated;
+                var rejectedChanges = Math.Max(0, changePlan.Session.Items.Count - appliedChanges);
+
+                var userRejected = changePlan.Session.Items.Count - changePlan.Session.AcceptedCount;
+                if (userRejected > 0)
                 {
-                    analysisSections.Add($"The user rejected {rejectedChanges} of {changePlan.Session.Items.Count} staged change(s).");
+                    analysisSections.Add($"The user rejected {userRejected} of {changePlan.Session.Items.Count} staged change(s).");
+                }
+
+                var applyFailures = Math.Max(0, changePlan.Session.AcceptedCount - appliedChanges);
+                if (applyFailures > 0)
+                {
+                    analysisSections.Add($"{applyFailures} accepted change(s) could not be applied.");
                 }
 
                 if (putResult.FailedComponents != null && putResult.FailedComponents.Count > 0)
@@ -417,7 +456,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     ["components"] = JArray.FromObject(placedNames),
                     ["instanceGuids"] = JArray.FromObject(placedGuids),
-                    ["acceptedChanges"] = changePlan.Session.AcceptedCount,
+                    ["acceptedChanges"] = appliedChanges,
                     ["rejectedChanges"] = rejectedChanges,
                     ["analysis"] = combinedAnalysis,
                 };
