@@ -289,6 +289,10 @@ namespace SmartHopper.Providers.MistralAI
 
             int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
             double temperature = p?.Temperature ?? this.GetSetting<double>("Temperature");
+            if (double.IsNaN(temperature) || temperature < 0 || temperature > 1.5)
+            {
+                temperature = 0.5;
+            }
 
             string jsonSchema = request.Body.JsonOutputSchema;
             string? toolFilter = request.Body.ToolFilter;
