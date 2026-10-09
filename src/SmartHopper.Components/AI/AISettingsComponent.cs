@@ -115,7 +115,7 @@ namespace SmartHopper.Components.AI
         {
             pManager.AddTextParameter("Model", "M", "AI model name override. Leave empty to use the provider default model.", GH_ParamAccess.item, string.Empty);
             pManager.AddIntegerParameter("Max Tokens", "Tok", "Maximum number of output tokens. Leave disconnected to use the global provider setting.", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Temperature", "T", "Sampling temperature (0.0–2.0). Leave disconnected to use the global provider setting.\nSupported by OpenAI, Anthropic, MistralAI, DeepSeek.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Temperature", "T", "Sampling temperature. The accepted range depends on the provider. Leave disconnected to use the global provider setting.\nSupported by OpenAI, Anthropic, MistralAI, DeepSeek.", GH_ParamAccess.item);
             pManager.AddBooleanParameter("Batch", "B", "When true, all AI calls in a single run are aggregated into one batch HTTP request (async, lower cost). Requires the active provider to support batch processing.", GH_ParamAccess.item, false);
             pManager.AddIntegerParameter("Timeout", "Tout", "HTTP timeout in seconds. Leave disconnected to use the global setting.", GH_ParamAccess.item);
             pManager.AddTextParameter("Extras", "X", "Provider-specific extra settings as a JSON object. Connect an AI Extra Settings component output here.", GH_ParamAccess.item, string.Empty);

@@ -94,7 +94,7 @@ namespace SmartHopper.Providers.MistralAI
                     Type = typeof(string),
                     DefaultValue = "0.5",
                     DisplayName = "Temperature",
-                    Description = "Controls randomness (0.0–3.0). Higher values like 2.0 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
+                    Description = "Controls randomness (0.0–1.5). Higher values like 1.5 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
                 },
                 new SettingDescriptor
                 {
@@ -148,7 +148,7 @@ namespace SmartHopper.Providers.MistralAI
                 return false;
             }
 
-            if (!this.ValidateTemperature(settings, showErrorDialogs, "Temperature for MistralAI models must be between 0.0 and 3.0.", max: 3.0))
+            if (!this.ValidateTemperature(settings, showErrorDialogs, "Temperature for MistralAI models must be between 0.0 and 1.5.", max: 1.5))
             {
                 return false;
             }

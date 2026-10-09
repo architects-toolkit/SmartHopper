@@ -31,7 +31,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core
         /// <summary>Gets the model override. Null means "use provider default".</summary>
         public string Model { get; init; }
 
-        /// <summary>Gets the temperature override (0.0–2.0). Null means "use global setting".</summary>
+        /// <summary>Gets the temperature override. Null means "use global setting". The accepted range depends on the provider.</summary>
         public double? Temperature { get; init; }
 
         /// <summary>Gets the max tokens override. Null means "use global setting".</summary>

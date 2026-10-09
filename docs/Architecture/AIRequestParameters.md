@@ -45,7 +45,7 @@ AIRequestParameters is the central configuration object for customizing individu
 
 #### Sampling and Generation
 
-- `Temperature` (double?, 0.0–2.0) — temperature override for sampling. Null means "use global setting". Controls randomness/creativity of responses.
+- `Temperature` (double?) — temperature override for sampling. Null means "use global setting". Controls randomness/creativity of responses. The accepted range depends on the provider.
 - `TopP` (double?, 0.0–1.0) — nucleus sampling parameter. Null means omit. Filters tokens by cumulative probability.
 - `Seed` (int?, nullable) — seed for reproducibility. Null means omit. Enables deterministic outputs when supported by provider.
 - `MaxTokens` (int?, nullable) — max tokens override. Null means "use global setting". Limits response length.
