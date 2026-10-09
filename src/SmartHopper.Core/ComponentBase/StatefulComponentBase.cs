@@ -190,9 +190,12 @@ namespace SmartHopper.Core.ComponentBase
             // Update component message
             this.Message = this.GetStateMessage();
 
-            // Clear messages when entering NeedsRun or Processing from a different state
-            if ((newState == ComponentState.NeedsRun || newState == ComponentState.Processing) &&
-                oldState != ComponentState.NeedsRun && oldState != ComponentState.Processing)
+            // Clear persisted runtime messages whenever a new solve/run begins. Entering
+            // NeedsRun (inputs changed) or Processing (a new run is starting, including
+            // NeedsRun -> Processing when Run flips to true) drops diagnostics stored by
+            // the previous run so stale errors/warnings do not linger on the component.
+            // Messages produced during the upcoming run are stored and applied again.
+            if (newState == ComponentState.NeedsRun || newState == ComponentState.Processing)
             {
                 this.ClearPersistentRuntimeMessages();
             }

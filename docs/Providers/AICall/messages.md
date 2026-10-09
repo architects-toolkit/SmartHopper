@@ -197,6 +197,7 @@ return output;
   - `Request.Messages` (structured validation/capability notes).
   - `Body.Messages` (aggregated interaction and body validation messages).
   - Performs final deduplication and severity-first ordering.
+- `Create*Error()` helpers (`CreateError`, `CreateProviderError`, `CreateNetworkError`, `CreateToolError`) mirror the structured message text and origin into the body error diagnostic, so the pair deduplicates into a single surfaced message instead of one `[Provider]`/ `[Network]`/ `[Tool]` entry plus a second `[Return]` entry for the same failure.
 
 ### Wrapper Guidance (Core.Grasshopper/AITools)
 

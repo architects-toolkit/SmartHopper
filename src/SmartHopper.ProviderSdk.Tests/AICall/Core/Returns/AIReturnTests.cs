@@ -483,6 +483,88 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Returns
             Assert.Equal(0, ret.Metrics.TotalTokens);
         }
 
+#if NET7_WINDOWS
+        [Fact(DisplayName = "CreateProviderError_Messages_SurfacesSingleProviderError [Windows]")]
+#else
+        [Fact(DisplayName = "CreateProviderError_Messages_SurfacesSingleProviderError [Core]")]
+#endif
+        public void CreateProviderError_Messages_SurfacesSingleProviderError()
+        {
+            var ret = new AIReturn
+            {
+                SkipRequestValidation = true,
+                SkipMetricsValidation = true,
+            };
+
+            ret.CreateProviderError("HTTP 400: invalid request", CreateFakeRequest());
+
+            // The structured provider message and the body diagnostic must deduplicate:
+            // previously both '[Provider] Provider error: ...' and '[Return] HTTP 400 ...' surfaced.
+            var errors = ret.Messages.Where(m => m.Severity == SHRuntimeMessageSeverity.Error).ToList();
+            var error = Assert.Single(errors);
+            Assert.Equal("Provider error: HTTP 400: invalid request", error.Message);
+            Assert.Equal(SHRuntimeMessageOrigin.Provider, error.Origin);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "CreateProviderError_KeepsBodyDiagnostic [Windows]")]
+#else
+        [Fact(DisplayName = "CreateProviderError_KeepsBodyDiagnostic [Core]")]
+#endif
+        public void CreateProviderError_KeepsBodyDiagnostic()
+        {
+            var ret = new AIReturn();
+            ret.CreateProviderError("HTTP 400: invalid request", CreateFakeRequest());
+
+            // Consumers that inspect body diagnostics (e.g. chat renderers) must still find
+            // a single error interaction carrying the provider error text.
+            var diagnostic = Assert.IsType<AIInteractionRuntimeMessage>(ret.Body.Interactions.Last());
+            Assert.Equal("Provider error: HTTP 400: invalid request", diagnostic.Content);
+            Assert.Equal(SHRuntimeMessageOrigin.Provider, diagnostic.Origin);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "CreateNetworkError_Messages_SurfacesSingleNetworkError [Windows]")]
+#else
+        [Fact(DisplayName = "CreateNetworkError_Messages_SurfacesSingleNetworkError [Core]")]
+#endif
+        public void CreateNetworkError_Messages_SurfacesSingleNetworkError()
+        {
+            var ret = new AIReturn
+            {
+                SkipRequestValidation = true,
+                SkipMetricsValidation = true,
+            };
+
+            ret.CreateNetworkError("connection timed out", CreateFakeRequest());
+
+            var errors = ret.Messages.Where(m => m.Severity == SHRuntimeMessageSeverity.Error).ToList();
+            var error = Assert.Single(errors);
+            Assert.Equal("Network error: connection timed out", error.Message);
+            Assert.Equal(SHRuntimeMessageOrigin.Network, error.Origin);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "CreateError_Messages_SurfacesSingleReturnError [Windows]")]
+#else
+        [Fact(DisplayName = "CreateError_Messages_SurfacesSingleReturnError [Core]")]
+#endif
+        public void CreateError_Messages_SurfacesSingleReturnError()
+        {
+            var ret = new AIReturn
+            {
+                SkipRequestValidation = true,
+                SkipMetricsValidation = true,
+            };
+
+            ret.CreateError("The request is not valid", CreateFakeRequest());
+
+            var errors = ret.Messages.Where(m => m.Severity == SHRuntimeMessageSeverity.Error).ToList();
+            var error = Assert.Single(errors);
+            Assert.Equal("The request is not valid", error.Message);
+            Assert.Equal(SHRuntimeMessageOrigin.Return, error.Origin);
+        }
+
         private static AIRequestBase CreateFakeRequest()
         {
             return new AIRequestBase
