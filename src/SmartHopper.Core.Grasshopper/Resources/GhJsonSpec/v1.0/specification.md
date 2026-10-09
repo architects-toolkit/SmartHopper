@@ -176,6 +176,8 @@ Components can be identified with any of these combinations:
 
 You MAY include both `componentGuid` and `name` together. For reliable instantiation, include `componentGuid` and an `id` when the component will be referenced by connections or groups.
 
+When deserializing (placing) a document onto a Grasshopper canvas, `instanceGuid` carries identity semantics: a component whose `instanceGuid` matches an object already on the canvas SHOULD update that object in place — preserving its identity, its position (unless `pivot` is provided), and its existing wires — rather than producing a duplicate. To place additional copies of an object, omit `instanceGuid` (or assign a new one) so the component is treated as new.
+
 ### 3.5 Integer IDs
 
 The `id` property provides a compact integer reference for use in connections and groups. IDs:
@@ -246,6 +248,10 @@ Connections represent the wires between component parameters.
 | `paramIndex` | integer | Conditional | Zero-based parameter index (required if `paramName` is not provided) |
 
 The `paramIndex` provides reliable parameter matching when parameter names may vary due to localization or custom nicknames.
+
+### 4.4 Document Scope
+
+Connection endpoints are document-scoped: endpoint `id` values only reference components declared in the same document's `components` array. A connection cannot wire an endpoint to an object that exists only on the canvas unless that object is also described in the document (typically as an unchanged component carrying its `instanceGuid`). Implementations that need to wire pre-existing canvas objects MUST use a separate mechanism (for example, a dedicated connect operation keyed by `instanceGuid`).
 
 ---
 
