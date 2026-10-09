@@ -139,6 +139,8 @@ The MistralAI provider implements the `AIProvider` base class and communicates w
 
 Structured output support is achieved by injecting a system message that instructs the model to return valid JSON, combined with the `response_format` parameter. Streaming responses are handled by reading Server-Sent Events (SSE) from the API and yielding chunks as they arrive.
 
+Audio requests route by capability: `SpeechInput` goes to `/audio/transcriptions` as a `multipart/form-data` file upload (shared `OpenAICompatibleProvider` transport), `SpeechOutput` goes to `/audio/speech` with Mistral's JSON body (`input`, `voice_id`, `ref_audio`, `response_format`), and everything else uses `/chat/completions`. Voxtral audio input is encoded as `input_audio` content parts with base64 data; `AIInteractionAudio.LanguageHint` feeds the transcription `language` field when no explicit extra is set. Speech responses (`audio_data` envelopes or binary audio normalized by the shared pipeline) decode to `AIInteractionAudio`; transcription responses decode to assistant text.
+
 ## References
 
 - [Mistral AI API Documentation](https://docs.mistral.ai/)

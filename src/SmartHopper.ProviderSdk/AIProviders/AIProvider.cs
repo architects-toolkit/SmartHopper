@@ -923,8 +923,6 @@ namespace SmartHopper.ProviderSdk.AIProviders
         {
             string endpoint = request.Endpoint;
             string httpMethod = request.HttpMethod;
-            string requestBody = request.EncodedRequestBody;
-            string contentType = request.ContentType;
             string authentication = request.Authentication;
 
             if (string.IsNullOrWhiteSpace(endpoint))
@@ -1002,25 +1000,25 @@ namespace SmartHopper.ProviderSdk.AIProviders
                             response = await httpClient.GetAsync(fullUri, cancellationToken).ConfigureAwait(false);
                             break;
                         case "POST":
-                            var postContent = !string.IsNullOrEmpty(requestBody)
-                                ? new StringContent(requestBody, Encoding.UTF8, contentType)
-                                : null;
-                            response = await httpClient.PostAsync(fullUri, postContent, cancellationToken).ConfigureAwait(false);
+                            response = await httpClient.PostAsync(fullUri, this.BuildRequestContent(request), cancellationToken).ConfigureAwait(false);
                             break;
                         case "DELETE":
                             response = await httpClient.DeleteAsync(fullUri, cancellationToken).ConfigureAwait(false);
                             break;
                         case "PATCH":
-                            var patchContent = !string.IsNullOrEmpty(requestBody)
-                                ? new StringContent(requestBody, Encoding.UTF8, contentType)
-                                : null;
-                            response = await httpClient.PatchAsync(fullUri, patchContent, cancellationToken).ConfigureAwait(false);
+                            response = await httpClient.PatchAsync(fullUri, this.BuildRequestContent(request), cancellationToken).ConfigureAwait(false);
                             break;
                         default:
                             throw new NotSupportedException($"HTTP method '{httpMethod}' is not supported. Supported methods: GET, POST, DELETE, PATCH");
                     }
 
-                    var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                    // Detect binary audio payloads (e.g. /audio/speech returning audio/mpeg) before
+                    // materializing the body as a string; binary payloads would fail JSON parsing.
+                    bool isBinaryAudio = response.IsSuccessStatusCode && IsBinaryAudioResponse(request, response);
+
+                    var content = isBinaryAudio
+                        ? null
+                        : await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                     Debug.WriteLine($"[{this.Name}] Call - Response status: {response.StatusCode}");
 
                     if (!response.IsSuccessStatusCode)
@@ -1047,26 +1045,43 @@ namespace SmartHopper.ProviderSdk.AIProviders
 
                     // Prepare the AIReturn
                     JObject rawJObject;
-                    try
+                    if (isBinaryAudio)
                     {
-                        rawJObject = JObject.Parse(content);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[{this.Name}] Call - Failed to parse JSON response: {ex.Message}");
-
-                        // Provide a more useful error when the API returns non-JSON content (e.g., HTML error pages)
-                        var preview = content?.Length > 200 ? content.Substring(0, 200) + "..." : content;
-                        if (!string.IsNullOrEmpty(content) && content.TrimStart().StartsWith("<", StringComparison.Ordinal))
+                        // Normalize the binary audio payload into a JSON envelope
+                        // ({ "audio_data": base64, "mime_type": ... }) so provider Decode()
+                        // implementations can surface it as an AIInteractionAudio.
+                        var audioBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+                        var audioMimeType = response.Content?.Headers?.ContentType?.MediaType;
+                        rawJObject = new JObject
                         {
-                            throw new Exception(
-                                $"The {this.Name} API returned an HTML response instead of JSON. " +
-                                $"This usually indicates a server error, proxy issue, or Cloudflare challenge. " +
-                                $"Response preview: {preview}");
+                            ["audio_data"] = Convert.ToBase64String(audioBytes ?? Array.Empty<byte>()),
+                            ["mime_type"] = string.IsNullOrWhiteSpace(audioMimeType) ? "audio/mpeg" : audioMimeType,
+                        };
+                        Debug.WriteLine($"[{this.Name}] Call - Normalized binary audio response: {audioBytes?.Length ?? 0} bytes ({audioMimeType ?? "audio/mpeg"})");
+                    }
+                    else
+                    {
+                        try
+                        {
+                            rawJObject = JObject.Parse(content);
                         }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[{this.Name}] Call - Failed to parse JSON response: {ex.Message}");
 
-                        throw new Exception(
-                            $"The {this.Name} API returned invalid JSON. Response preview: {preview}", ex);
+                            // Provide a more useful error when the API returns non-JSON content (e.g., HTML error pages)
+                            var preview = content?.Length > 200 ? content.Substring(0, 200) + "..." : content;
+                            if (!string.IsNullOrEmpty(content) && content.TrimStart().StartsWith("<", StringComparison.Ordinal))
+                            {
+                                throw new Exception(
+                                    $"The {this.Name} API returned an HTML response instead of JSON. " +
+                                    $"This usually indicates a server error, proxy issue, or Cloudflare challenge. " +
+                                    $"Response preview: {preview}");
+                            }
+
+                            throw new Exception(
+                                $"The {this.Name} API returned invalid JSON. Response preview: {preview}", ex);
+                        }
                     }
 
                     var aiReturn = new AIReturn();
@@ -1094,6 +1109,53 @@ namespace SmartHopper.ProviderSdk.AIProviders
                     response?.Dispose();
                 }
             }
+        }
+
+        /// <summary>
+        /// Builds the HTTP request content sent by <c>CallApi</c>. The default implementation
+        /// wraps the provider-encoded body (<see cref="AIRequestCall.EncodedRequestBody"/>) in a
+        /// <see cref="StringContent"/> using <see cref="AIRequestCall.ContentType"/>.
+        /// Override in derived providers to send non-JSON payloads such as
+        /// <c>multipart/form-data</c> file uploads (e.g. transcription endpoints).
+        /// </summary>
+        /// <param name="request">The prepared request being executed.</param>
+        /// <returns>The HTTP content to send, or <c>null</c> for a bodiless request.</returns>
+        protected virtual HttpContent? BuildRequestContent(AIRequestCall request)
+        {
+            var requestBody = request?.EncodedRequestBody;
+            return !string.IsNullOrEmpty(requestBody)
+                ? new StringContent(requestBody, Encoding.UTF8, request?.ContentType)
+                : null;
+        }
+
+        /// <summary>
+        /// Determines whether a successful HTTP response carries raw binary audio rather
+        /// than JSON. Dedicated speech endpoints (e.g. <c>/audio/speech</c>) return audio
+        /// bytes with an <c>audio/*</c> media type; some deployments may omit or misreport
+        /// the content type, so the speech endpoint alone also marks the response as audio
+        /// when the media type is absent or non-textual.
+        /// </summary>
+        /// <param name="request">The executed request.</param>
+        /// <param name="response">The successful HTTP response.</param>
+        /// <returns><c>true</c> when the response body should be treated as binary audio.</returns>
+        private static bool IsBinaryAudioResponse(AIRequestCall request, HttpResponseMessage response)
+        {
+            var mediaType = response?.Content?.Headers?.ContentType?.MediaType;
+            if (!string.IsNullOrWhiteSpace(mediaType) &&
+                mediaType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (request?.Endpoint?.Contains("/audio/speech", StringComparison.OrdinalIgnoreCase) == true &&
+                (string.IsNullOrWhiteSpace(mediaType) ||
+                 (!mediaType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase) &&
+                  !mediaType.StartsWith("text/", StringComparison.OrdinalIgnoreCase))))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>

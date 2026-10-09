@@ -267,6 +267,28 @@ namespace SmartHopper.Providers.MistralAI
                     messageObj["content"] = imageInteraction.OriginalPrompt ?? string.Empty;
                 }
             }
+            else if (interaction is AIInteractionAudio audioInteraction)
+            {
+                // Mistral Voxtral chat accepts audio as {"type":"input_audio","input_audio":"<base64>"}
+                // where input_audio is a base64 string (optionally data-URI prefixed) or URL.
+                if (OpenAICompatibleAudioCodec.TryResolveAudioData(audioInteraction, out var base64Audio, out _) &&
+                    !string.IsNullOrWhiteSpace(base64Audio))
+                {
+                    messageObj["content"] = new JArray
+                    {
+                        new JObject
+                        {
+                            ["type"] = "input_audio",
+                            ["input_audio"] = base64Audio,
+                        },
+                    };
+                }
+                else
+                {
+                    // No resolvable audio data; emit empty content rather than a bogus part
+                    messageObj["content"] = string.Empty;
+                }
+            }
             else
             {
                 // Fallback: empty content
@@ -282,6 +304,17 @@ namespace SmartHopper.Providers.MistralAI
             if (request.HttpMethod == "GET" || request.HttpMethod == "DELETE")
             {
                 return "GET and DELETE requests do not use a request body";
+            }
+
+            // Dedicated audio endpoints carry their own request contracts.
+            if (request.Endpoint?.Contains("/audio/speech", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                return this.FormatAudioSpeechRequestBody(request);
+            }
+
+            if (request.Endpoint?.Contains("/audio/transcriptions", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                return this.FormatAudioTranscriptionRequestBody(request);
             }
 
             // Encode request body for Mistral. Supports string and AIText content in interactions.
@@ -430,6 +463,188 @@ namespace SmartHopper.Providers.MistralAI
             return requestBody.ToString();
         }
 
+        /// <summary>
+        /// Formats the request body for the Mistral <c>/audio/speech</c> (TTS) endpoint.
+        /// Expected shape: { model, input, voice_id?, ref_audio?, response_format, stream }.
+        /// </summary>
+        /// <param name="request">The prepared request.</param>
+        /// <returns>The serialized JSON request body.</returns>
+        private string FormatAudioSpeechRequestBody(AIRequestCall request)
+        {
+            // Get the text input from the request body
+            string input = string.Empty;
+            if (request.Body?.Interactions != null)
+            {
+                var textInteraction = request.Body.Interactions.OfType<AIInteractionText>()
+                    .LastOrDefault(i => !string.IsNullOrWhiteSpace(i.Content));
+                input = textInteraction?.Content ?? string.Empty;
+            }
+
+            string? voiceId = null;
+            string responseFormat = "mp3";
+            bool stream = false;
+
+            if (request.Parameters?.Extras != null)
+            {
+                // Accept both the provider-agnostic "voice" extra and Mistral's "voice_id".
+                if (request.Parameters.Extras.TryGetValue("voice_id", out var voiceIdToken) &&
+                    !string.IsNullOrWhiteSpace(voiceIdToken?.ToString()))
+                {
+                    voiceId = voiceIdToken.ToString();
+                }
+                else if (request.Parameters.Extras.TryGetValue("voice", out var voiceToken) &&
+                    !string.IsNullOrWhiteSpace(voiceToken?.ToString()))
+                {
+                    voiceId = voiceToken.ToString();
+                }
+
+                if (request.Parameters.Extras.TryGetValue("response_format", out var formatToken) &&
+                    !string.IsNullOrWhiteSpace(formatToken?.ToString()))
+                {
+                    responseFormat = formatToken.ToString();
+                }
+                else if (request.Parameters.Extras.TryGetValue("format", out var altFormatToken) &&
+                    !string.IsNullOrWhiteSpace(altFormatToken?.ToString()))
+                {
+                    responseFormat = altFormatToken.ToString();
+                }
+
+                if (request.Parameters.Extras.TryGetValue("stream", out var streamToken) && streamToken != null)
+                {
+                    stream = streamToken.Type == JTokenType.Boolean
+                        ? streamToken.Value<bool>()
+                        : bool.TryParse(streamToken.ToString(), out var s) && s;
+                }
+            }
+
+            var requestPayload = new JObject
+            {
+                ["model"] = request.Model,
+                ["input"] = input,
+                ["response_format"] = responseFormat,
+                ["stream"] = stream,
+            };
+
+            if (!string.IsNullOrWhiteSpace(voiceId))
+            {
+                requestPayload["voice_id"] = voiceId;
+            }
+
+            // Voice cloning reference: accept an explicit ref_audio extra, otherwise reuse an
+            // audio interaction from the body as the reference clip.
+            if (request.Parameters?.Extras != null &&
+                request.Parameters.Extras.TryGetValue("ref_audio", out var refToken) &&
+                !string.IsNullOrWhiteSpace(refToken?.ToString()))
+            {
+                requestPayload["ref_audio"] = refToken.ToString();
+            }
+            else
+            {
+                var refAudio = request.Body?.Interactions?.OfType<AIInteractionAudio>().LastOrDefault();
+                if (refAudio != null &&
+                    OpenAICompatibleAudioCodec.TryResolveAudioData(refAudio, out var refBase64, out _))
+                {
+                    requestPayload["ref_audio"] = refBase64;
+                }
+            }
+
+            Debug.WriteLine($"[MistralAI] AudioSpeech Request: model={request.Model}, voice_id={voiceId ?? "(default)"}, input length={input.Length}");
+            return requestPayload.ToString();
+        }
+
+        /// <summary>
+        /// Decodes usage metrics from a Mistral response, defaulting the finish reason to
+        /// <c>"stop"</c> for dedicated audio responses that carry no <c>choices</c> array.
+        /// </summary>
+        /// <param name="response">The provider response object.</param>
+        /// <returns>Metrics with a valid finish reason.</returns>
+        private AIMetrics DecodeMetricsOrStop(JObject response)
+        {
+            var metrics = this.DecodeMetrics(response);
+            if (metrics == null || string.IsNullOrEmpty(metrics.FinishReason))
+            {
+                metrics = (metrics ?? new AIMetrics()) with { FinishReason = "stop" };
+            }
+
+            return metrics;
+        }
+
+        /// <summary>
+        /// Formats the metadata JSON for the Mistral <c>/audio/transcriptions</c> (STT) endpoint.
+        /// The endpoint consumes <c>multipart/form-data</c>; this JSON body is converted into
+        /// form fields by <see cref="OpenAICompatibleProvider{T}.BuildRequestContent"/> while the
+        /// audio bytes come from the request's <see cref="AIInteractionAudio"/>.
+        /// </summary>
+        /// <param name="request">The prepared request.</param>
+        /// <returns>The serialized JSON metadata body.</returns>
+        private string FormatAudioTranscriptionRequestBody(AIRequestCall request)
+        {
+            var requestPayload = new JObject
+            {
+                ["model"] = request.Model,
+            };
+
+            if (request.Parameters?.Extras != null)
+            {
+                if (request.Parameters.Extras.TryGetValue("language", out var langToken) &&
+                    !string.IsNullOrWhiteSpace(langToken?.ToString()))
+                {
+                    requestPayload["language"] = langToken.ToString();
+                }
+
+                if (request.Parameters.Extras.TryGetValue("prompt", out var promptToken) &&
+                    !string.IsNullOrWhiteSpace(promptToken?.ToString()))
+                {
+                    requestPayload["prompt"] = promptToken.ToString();
+                }
+
+                if (request.Parameters.Extras.TryGetValue("temperature", out var tempToken) && tempToken != null)
+                {
+                    requestPayload["temperature"] = tempToken.Value<double?>();
+                }
+
+                if (request.Parameters.Extras.TryGetValue("diarize", out var diarizeToken) && diarizeToken != null)
+                {
+                    requestPayload["diarize"] = diarizeToken.Type == JTokenType.Boolean
+                        ? diarizeToken.Value<bool>()
+                        : bool.TryParse(diarizeToken.ToString(), out var d) && d;
+                }
+
+                if (request.Parameters.Extras.TryGetValue("timestamp_granularities", out var tgToken) &&
+                    tgToken is JArray tgArray)
+                {
+                    requestPayload["timestamp_granularities"] = tgArray;
+                }
+
+                if (request.Parameters.Extras.TryGetValue("context_bias", out var cbToken) &&
+                    cbToken is JArray cbArray)
+                {
+                    requestPayload["context_bias"] = cbArray;
+                }
+
+                if (request.Parameters.Extras.TryGetValue("file_url", out var fileUrlToken) &&
+                    !string.IsNullOrWhiteSpace(fileUrlToken?.ToString()))
+                {
+                    requestPayload["file_url"] = fileUrlToken.ToString();
+                }
+            }
+
+            // Fall back to the audio interaction's language hint when no explicit extra is set
+            if (requestPayload["language"] == null)
+            {
+                var audioLanguage = request.Body?.Interactions?
+                    .OfType<AIInteractionAudio>()
+                    .LastOrDefault()?.LanguageHint;
+                if (!string.IsNullOrWhiteSpace(audioLanguage))
+                {
+                    requestPayload["language"] = audioLanguage;
+                }
+            }
+
+            Debug.WriteLine($"[MistralAI] AudioTranscription Request: model={request.Model}");
+            return requestPayload.ToString();
+        }
+
         /// <inheritdoc/>
         public override List<IAIInteraction> Decode(JObject response)
         {
@@ -459,6 +674,35 @@ namespace SmartHopper.Providers.MistralAI
                     var msg = response["message"]?.ToString() ?? "Provider returned an error";
                     Debug.WriteLine($"[MistralAI] Decode: provider error in response body: {msg}");
                     interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = msg });
+                    return interactions;
+                }
+
+                // Speech generation response: { "audio_data": "<base64>" }
+                if (response["audio_data"] != null)
+                {
+                    var speechAudio = OpenAICompatibleAudioCodec.TryDecodeAudioDataEnvelope(response);
+                    if (speechAudio != null)
+                    {
+                        interactions.Add(speechAudio.WithMetrics(this.DecodeMetricsOrStop(response)));
+                    }
+
+                    return interactions;
+                }
+
+                // Transcription response: { "text": "...", "model": ..., "usage": ... }
+                if (response["text"] != null && response["choices"] == null)
+                {
+                    var transcription = response["text"]?.ToString();
+                    if (!string.IsNullOrEmpty(transcription))
+                    {
+                        interactions.Add(new AIInteractionText
+                        {
+                            Agent = AIAgent.Assistant,
+                            Content = transcription,
+                            Metrics = this.DecodeMetricsOrStop(response),
+                        });
+                    }
+
                     return interactions;
                 }
 

@@ -132,19 +132,29 @@ namespace SmartHopper.Providers.Gemini
                 return request;
             }
 
-            if (!string.IsNullOrWhiteSpace(request.Endpoint))
+            // Preserve real endpoint paths ("/models/...", "/tunedModels/..."). Logical tool or
+            // fallback names (e.g. "speech_generate", "fallback:stt") are not URL paths and must
+            // fall through to capability-based routing below.
+            if (!string.IsNullOrWhiteSpace(request.Endpoint) &&
+                request.Endpoint.StartsWith("/", StringComparison.Ordinal))
             {
                 request.HttpMethod ??= "POST";
                 request.ContentType ??= "application/json";
                 return request;
             }
 
-            if (request.Capability.HasFlag(AICapability.ImageOutput))
+            if (request.Capability.HasFlag(AICapability.ImageOutput) ||
+                request.Capability.HasFlag(AICapability.SpeechOutput) ||
+                request.Capability.HasFlag(AICapability.AudioOutput))
             {
+                // Media outputs are single-shot responses; force the non-streaming
+                // generateContent endpoint so the shared JSON pipeline can parse it.
                 request.Endpoint = $"/models/{request.Model}:generateContent";
             }
-            else if (this.GetSetting<bool>("EnableStreaming"))
+            else if (request.WantsStreaming && this.GetSetting<bool>("EnableStreaming"))
             {
+                // Only requests that actually stream may use the SSE endpoint; non-streaming
+                // calls go through CallApi which expects a single JSON document.
                 request.Endpoint = $"/models/{request.Model}:streamGenerateContent?alt=sse";
             }
             else

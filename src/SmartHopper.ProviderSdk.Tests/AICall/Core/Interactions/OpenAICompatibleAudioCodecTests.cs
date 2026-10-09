@@ -20,6 +20,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
 {
     using System;
     using System.Collections.Generic;
+    using System.IO;
     using Newtonsoft.Json.Linq;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
@@ -159,6 +160,112 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
 
             Assert.Null(audio);
             Assert.Null(transcript);
+        }
+
+        [Fact(DisplayName = "TryResolveAudioBytes resolves bytes from Data")]
+        public void TryResolveAudioBytes_ResolvesData()
+        {
+            var bytes = new byte[] { 0x52, 0x49, 0x46, 0x46 };
+            var audio = new AIInteractionAudio
+            {
+                Agent = AIAgent.User,
+                Data = bytes,
+                MimeType = "audio/wav",
+            };
+
+            var ok = OpenAICompatibleAudioCodec.TryResolveAudioBytes(audio, out var resolved, out var format);
+
+            Assert.True(ok);
+            Assert.Equal(bytes, resolved);
+            Assert.Equal("wav", format);
+        }
+
+        [Fact(DisplayName = "TryResolveAudioBytes resolves bytes from FilePath")]
+        public void TryResolveAudioBytes_ResolvesFilePath()
+        {
+            var path = Path.Combine(Path.GetTempPath(), $"sh-audio-test-{Guid.NewGuid():N}.mp3");
+            var bytes = new byte[] { 0xFF, 0xFB, 0x90, 0x00 };
+            File.WriteAllBytes(path, bytes);
+            try
+            {
+                var audio = new AIInteractionAudio
+                {
+                    Agent = AIAgent.User,
+                    FilePath = path,
+                };
+
+                var ok = OpenAICompatibleAudioCodec.TryResolveAudioBytes(audio, out var resolved, out var format);
+
+                Assert.True(ok);
+                Assert.Equal(bytes, resolved);
+                Assert.Equal("mp3", format);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        [Fact(DisplayName = "TryResolveAudioBytes returns false for unresolvable audio")]
+        public void TryResolveAudioBytes_ReturnsFalseForEmptyAudio()
+        {
+            var audio = new AIInteractionAudio { Agent = AIAgent.User, MimeType = "audio/wav" };
+
+            var ok = OpenAICompatibleAudioCodec.TryResolveAudioBytes(audio, out var resolved, out _);
+
+            Assert.False(ok);
+            Assert.Null(resolved);
+        }
+
+        [Theory(DisplayName = "DetectAudioMimeType detects container signatures")]
+        [InlineData(new byte[] { 0x52, 0x49, 0x46, 0x46, 0x24 }, "audio/wav")] // RIFF
+        [InlineData(new byte[] { 0x66, 0x4C, 0x61, 0x43, 0x00 }, "audio/flac")] // fLaC
+        [InlineData(new byte[] { 0x4F, 0x67, 0x67, 0x53, 0x00 }, "audio/ogg")] // OggS
+        [InlineData(new byte[] { 0x49, 0x44, 0x33, 0x04, 0x00 }, "audio/mpeg")] // ID3
+        [InlineData(new byte[] { 0xFF, 0xFB, 0x90, 0x00, 0x00 }, "audio/mpeg")] // frame sync
+        [InlineData(new byte[] { 0x00, 0x01, 0x02, 0x03, 0x04 }, "audio/mpeg")] // unknown -> fallback
+        public void DetectAudioMimeType_DetectsSignatures(byte[] data, string expected)
+        {
+            Assert.Equal(expected, OpenAICompatibleAudioCodec.DetectAudioMimeType(data));
+        }
+
+        [Fact(DisplayName = "TryDecodeAudioDataEnvelope decodes audio_data payloads")]
+        public void TryDecodeAudioDataEnvelope_DecodesPayload()
+        {
+            var bytes = new byte[] { 0x52, 0x49, 0x46, 0x46, 0x10 };
+            var response = new JObject
+            {
+                ["audio_data"] = Convert.ToBase64String(bytes),
+            };
+
+            var audio = OpenAICompatibleAudioCodec.TryDecodeAudioDataEnvelope(response);
+
+            Assert.NotNull(audio);
+            Assert.Equal(AIAgent.Assistant, audio.Agent);
+            Assert.Equal(bytes, audio.Data);
+            Assert.Equal("audio/wav", audio.MimeType); // detected from RIFF header
+        }
+
+        [Fact(DisplayName = "TryDecodeAudioDataEnvelope honors explicit mime_type")]
+        public void TryDecodeAudioDataEnvelope_HonorsMimeType()
+        {
+            var response = new JObject
+            {
+                ["audio_data"] = Convert.ToBase64String(new byte[] { 1, 2, 3 }),
+                ["mime_type"] = "audio/opus",
+            };
+
+            var audio = OpenAICompatibleAudioCodec.TryDecodeAudioDataEnvelope(response);
+
+            Assert.NotNull(audio);
+            Assert.Equal("audio/opus", audio.MimeType);
+        }
+
+        [Fact(DisplayName = "TryDecodeAudioDataEnvelope returns null without audio_data")]
+        public void TryDecodeAudioDataEnvelope_ReturnsNullWithoutData()
+        {
+            Assert.Null(OpenAICompatibleAudioCodec.TryDecodeAudioDataEnvelope(new JObject()));
+            Assert.Null(OpenAICompatibleAudioCodec.TryDecodeAudioDataEnvelope(null));
         }
     }
 }

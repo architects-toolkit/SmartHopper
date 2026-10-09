@@ -416,6 +416,10 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
         /// <returns>Aggregated AIReturn from the streaming results.</returns>
         private async Task<AIReturn> ExecStreamingInternal(System.Threading.CancellationToken cancellationToken = default)
         {
+            // Declare streaming intent so PreCall (invoked by streaming adapters) can pick
+            // streaming endpoints (e.g. SSE) instead of the regular generation endpoint.
+            this.WantsStreaming = true;
+
             // Get the streaming adapter directly from the provider instance.
             IStreamingAdapter adapter = null;
             try
@@ -429,7 +433,10 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
 
             if (adapter == null)
             {
-                // Provider doesn't support streaming, fall back to regular execution
+                // Provider doesn't support streaming, fall back to regular execution.
+                // Reset the streaming intent so provider PreCall does not pick an SSE endpoint
+                // that the non-streaming CallApi pipeline cannot parse.
+                this.WantsStreaming = false;
                 Debug.WriteLine($"[AIRequest.ExecStreamingInternal] No streaming adapter for provider '{this.Provider}', falling back to non-streaming");
                 var result = await this.ProviderInstance.Call(this, cancellationToken).ConfigureAwait(false);
                 return (AIReturn)result;

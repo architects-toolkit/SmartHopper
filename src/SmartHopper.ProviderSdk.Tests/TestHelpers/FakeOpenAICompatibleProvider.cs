@@ -121,6 +121,32 @@ namespace SmartHopper.ProviderSdk.Tests.TestHelpers
                 return interactions;
             }
 
+            // Normalized speech payload produced by the shared pipeline for binary audio
+            // responses ({"audio_data": base64, "mime_type": ...}), mirroring real providers.
+            var speechAudio = OpenAICompatibleAudioCodec.TryDecodeAudioDataEnvelope(response);
+            if (speechAudio != null)
+            {
+                interactions.Add(speechAudio with { Metrics = new AIMetrics { FinishReason = "stop" } });
+                return interactions;
+            }
+
+            // Transcription payload ({"text": "..."}) without a choices array.
+            if (response["choices"] == null && response["text"] != null)
+            {
+                var transcription = response["text"]?.ToString();
+                if (!string.IsNullOrEmpty(transcription))
+                {
+                    interactions.Add(new AIInteractionText
+                    {
+                        Agent = AIAgent.Assistant,
+                        Content = transcription,
+                        Metrics = new AIMetrics { FinishReason = "stop" },
+                    });
+                }
+
+                return interactions;
+            }
+
             var choices = response["choices"] as JArray;
             var choice = choices?.FirstOrDefault() as JObject;
             var message = choice?["message"] as JObject;

@@ -74,6 +74,13 @@ Specifies the source kind of audio:
   - Falls back to local file path
   - Throws `ArgumentException` if input is null or whitespace
 
+###### Provider Interaction
+
+- `FromInteraction(AIInteractionAudio interaction)` — creates from a typed audio interaction returned by a provider call
+  - In-memory `Data` bytes become a `data:<mime>;base64,...` source
+  - `FilePath` references become a local-file source
+  - Throws `ArgumentException` when the interaction carries neither data nor a file path
+
 ###### Document Extraction
 
 - `FromExtractedDocument(string base64Data, string mimeType, string id, string context, int pageOrSlide, string sourceDocument)` — creates from extracted document data

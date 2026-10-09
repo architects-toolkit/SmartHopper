@@ -140,11 +140,13 @@ namespace SmartHopper.Providers.OpenAI
                 request.Endpoint = "/audio/speech";
             }
             else if (request.Capability.HasFlag(AICapability.AudioInput)
-                     || request.Capability.HasFlag(AICapability.AudioOutput))
+                     || request.Capability.HasFlag(AICapability.AudioOutput)
+                     || (request.Body?.Interactions?.OfType<AIInteractionAudio>().Any() ?? false))
             {
                 // Multimodal chat audio (input_audio content parts and modalities/audio
                 // parameters) is only supported by Chat Completions; the Responses API
-                // cannot carry audio payloads.
+                // cannot carry audio payloads. Requests whose body already carries an
+                // AIInteractionAudio are routed here regardless of the declared capability.
                 request.Endpoint = "/chat/completions";
             }
             else if (request.Endpoint == "/models")
@@ -566,9 +568,29 @@ namespace SmartHopper.Providers.OpenAI
                     dummyRequest.Body = body;
                     return this.ProcessImageGenerationResponseData(response, dummyRequest);
                 }
-                else if (response["text"] != null && response["task"] != null)
+                else if (response["audio_data"] != null)
                 {
-                    // Audio transcription response (STT)
+                    // Speech generation payload. The /audio/speech endpoint returns raw binary
+                    // audio which the HTTP pipeline normalizes into {"audio_data","mime_type"};
+                    // Mistral-style JSON responses use the same envelope natively.
+                    var speechAudio = OpenAICompatibleAudioCodec.TryDecodeAudioDataEnvelope(response);
+                    if (speechAudio != null)
+                    {
+                        var metrics = this.DecodeMetrics(response);
+                        if (string.IsNullOrEmpty(metrics.FinishReason))
+                        {
+                            metrics = metrics with { FinishReason = "stop" };
+                        }
+
+                        interactions.Add(speechAudio.WithMetrics(metrics));
+                    }
+
+                    return interactions;
+                }
+                else if (response["text"] != null && (response["task"] != null || response["choices"] == null))
+                {
+                    // Audio transcription response (STT): verbose payloads carry a "task" field;
+                    // plain json responses only carry "text" plus usage metadata.
                     return this.ProcessAudioTranscriptionResponseData(response);
                 }
                 else if (response["output"] != null)
@@ -1098,6 +1120,18 @@ namespace SmartHopper.Providers.OpenAI
                 }
             }
 
+            // Fall back to the audio interaction's language hint when no explicit extra is set
+            if (requestPayload["language"] == null)
+            {
+                var audioLanguage = request.Body?.Interactions?
+                    .OfType<AIInteractionAudio>()
+                    .LastOrDefault()?.LanguageHint;
+                if (!string.IsNullOrWhiteSpace(audioLanguage))
+                {
+                    requestPayload["language"] = audioLanguage;
+                }
+            }
+
             Debug.WriteLine($"[OpenAI] AudioTranscription Request: {requestPayload}");
             return requestPayload.ToString();
         }
@@ -1249,7 +1283,7 @@ namespace SmartHopper.Providers.OpenAI
 
                 if (audioInteraction != null)
                 {
-                    interactions.Add(audioInteraction);
+                    interactions.Add(audioInteraction.WithMetrics(metrics));
                 }
 
                 // Add an AIInteractionToolCall for each tool call
@@ -1539,10 +1573,17 @@ namespace SmartHopper.Providers.OpenAI
                     return interactions;
                 }
 
+                var metrics = this.DecodeMetrics(responseJson);
+                if (string.IsNullOrEmpty(metrics.FinishReason))
+                {
+                    metrics = metrics with { FinishReason = "stop" };
+                }
+
                 var interaction = new AIInteractionText
                 {
                     Agent = AIAgent.Assistant,
                     Content = text,
+                    Metrics = metrics,
                 };
 
                 interactions.Add(interaction);
