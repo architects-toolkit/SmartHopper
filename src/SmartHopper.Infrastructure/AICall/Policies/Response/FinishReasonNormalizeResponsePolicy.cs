@@ -52,23 +52,6 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                     return Task.CompletedTask;
                 }
 
-                // Skip normalization on failed calls: error returns legitimately carry no
-                // finish reason, and defaulting to "stop" would record a misleading
-                // success-style metric (finish_reason:"stop" in Metrics JSON) and emit a
-                // spurious "finish reason missing" warning. A call counts as failed when
-                // the body carries an error diagnostic or the return reports a surfaceable
-                // error message (request validation errors use surfaceable=false and are
-                // ignored on purpose).
-                var hasErrorDiagnostic = response.Body?.Interactions?
-                    .OfType<AIInteractionRuntimeMessage>()
-                    .Any(d => d.Severity == SHRuntimeMessageSeverity.Error) == true;
-                var hasSurfaceableError = response.Messages?
-                    .Any(m => m != null && m.Severity == SHRuntimeMessageSeverity.Error && m.Surfaceable) == true;
-                if (hasErrorDiagnostic || hasSurfaceableError)
-                {
-                    return Task.CompletedTask;
-                }
-
                 var metrics = response.Metrics; // aggregated snapshot
 
                 // Try to get existing finish reason or fallback to last interaction
@@ -77,6 +60,28 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                 if (string.IsNullOrWhiteSpace(original))
                 {
                     original = lastInteraction?.Metrics?.FinishReason;
+                }
+
+                // Skip normalization only on failed calls that carry no finish reason:
+                // error returns legitimately carry none, and defaulting to "stop" would
+                // record a misleading success-style metric (finish_reason:"stop" in
+                // Metrics JSON) and emit a spurious "finish reason missing" warning.
+                // A call counts as failed when the body carries an error diagnostic or
+                // the return reports a surfaceable error message (request validation
+                // errors use surfaceable=false and are ignored on purpose). A failed
+                // call that still reports a finish reason (e.g. "length") is normalized
+                // normally so truncation/error messages are not lost.
+                if (string.IsNullOrWhiteSpace(original))
+                {
+                    var hasErrorDiagnostic = response.Body.Interactions?
+                        .OfType<AIInteractionRuntimeMessage>()
+                        .Any(d => d.Severity == SHRuntimeMessageSeverity.Error) == true;
+                    var hasSurfaceableError = response.Messages?
+                        .Any(m => m != null && m.Severity == SHRuntimeMessageSeverity.Error && m.Surfaceable) == true;
+                    if (hasErrorDiagnostic || hasSurfaceableError)
+                    {
+                        return Task.CompletedTask;
+                    }
                 }
 
                 // Normalize common values; default to "stop" if still missing

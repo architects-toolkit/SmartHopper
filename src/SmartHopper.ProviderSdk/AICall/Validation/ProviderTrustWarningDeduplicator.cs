@@ -26,11 +26,14 @@ namespace SmartHopper.ProviderSdk.AICall.Validation
     /// Process-wide deduplication for provider trust warnings produced by
     /// <see cref="ProviderTrustPolicy.Evaluate(AIRequestCall, IProviderTrustHost)"/>.
     /// Integrity notices such as "provider could not be verified" are provider/session-scoped,
-    /// not per-component diagnostics: surfacing them at most once per provider per session
-    /// avoids repeating the same warning on every component that validates a request.
-    /// Callers that surface <see cref="SHMessageCode.ProviderTrustWarning"/> messages to end
-    /// users should consult <see cref="ShouldSurface"/> before displaying them. Error-severity
-    /// (blocking) trust messages must always be surfaced and are not deduplicated here.
+    /// not per-component diagnostics: surfacing the same warning at most once per provider
+    /// per session avoids repeating it on every component that validates a request.
+    /// Deduplication keys on provider name AND warning text, so distinct trust conditions
+    /// for the same provider (e.g. "hash check unavailable" plus "community provider")
+    /// still surface once each. Callers that surface
+    /// <see cref="SHMessageCode.ProviderTrustWarning"/> messages to end users should consult
+    /// <see cref="ShouldSurface"/> before displaying them. Error-severity (blocking) trust
+    /// messages must always be surfaced and are not deduplicated here.
     /// </summary>
     public static class ProviderTrustWarningDeduplicator
     {
@@ -40,12 +43,14 @@ namespace SmartHopper.ProviderSdk.AICall.Validation
         private const string ProviderMarker = "Provider '";
 
         /// <summary>
-        /// Provider names whose trust warning has already been surfaced this session.
+        /// Dedup keys ("{provider}|{warning text}") already surfaced this session. Keying on
+        /// the full text — not the provider alone — keeps distinct trust conditions for the
+        /// same provider from being silently dropped.
         /// </summary>
-        private static readonly HashSet<string> SurfacedProviders = new(StringComparer.Ordinal);
+        private static readonly HashSet<string> SurfacedWarnings = new(StringComparer.Ordinal);
 
         /// <summary>
-        /// Guards <see cref="SurfacedProviders"/> because evaluation and surfacing can
+        /// Guards <see cref="SurfacedWarnings"/> because evaluation and surfacing can
         /// happen from worker and UI threads concurrently.
         /// </summary>
         private static readonly object SyncLock = new();
@@ -53,11 +58,12 @@ namespace SmartHopper.ProviderSdk.AICall.Validation
         /// <summary>
         /// Determines whether a message should be surfaced to the user. Trust-policy
         /// warnings (<see cref="SHMessageCode.ProviderTrustWarning"/>) surface only the
-        /// first time each provider produces one; every other message always surfaces,
-        /// including error-severity trust blocks.
+        /// first time each provider produces that particular warning; every other message
+        /// always surfaces, including error-severity trust blocks and distinct warnings
+        /// for the same provider.
         /// </summary>
         /// <param name="message">The message about to be surfaced.</param>
-        /// <returns><c>true</c> when the message should be surfaced; <c>false</c> for a repeat trust warning for the same provider.</returns>
+        /// <returns><c>true</c> when the message should be surfaced; <c>false</c> for a repeated identical trust warning for the same provider.</returns>
         public static bool ShouldSurface(SHRuntimeMessage message)
         {
             if (message == null || message.Code != SHMessageCode.ProviderTrustWarning)
@@ -67,19 +73,20 @@ namespace SmartHopper.ProviderSdk.AICall.Validation
 
             lock (SyncLock)
             {
-                return SurfacedProviders.Add(ExtractProviderKey(message.Message));
+                var key = ExtractProviderKey(message.Message) + "|" + message.Message;
+                return SurfacedWarnings.Add(key);
             }
         }
 
         /// <summary>
-        /// Clears all recorded providers. Intended for tests and for hosts that want to
+        /// Clears all recorded warnings. Intended for tests and for hosts that want to
         /// reset session-scoped deduplication state.
         /// </summary>
         public static void Reset()
         {
             lock (SyncLock)
             {
-                SurfacedProviders.Clear();
+                SurfacedWarnings.Clear();
             }
         }
 

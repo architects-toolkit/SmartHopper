@@ -128,6 +128,42 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Policies
             Assert.Equal("stop", response.Metrics.FinishReason);
         }
 
+#if NET7_WINDOWS
+        [Fact(DisplayName = "Failed return with length finish reason still surfaces truncation error [Windows]")]
+#else
+        [Fact(DisplayName = "Failed return with length finish reason still surfaces truncation error [Core]")]
+#endif
+        public async Task ApplyAsync_FailedWithLengthReason_SurfacesTruncationError()
+        {
+            var response = CreateSuccessResponse(new AIMetrics { FinishReason = "length" });
+            response.AddRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Provider, "partial failure");
+
+            await new FinishReasonNormalizeResponsePolicy().ApplyAsync(new PolicyContext { Response = response }).ConfigureAwait(false);
+
+            Assert.Equal("length", response.Metrics.FinishReason);
+            Assert.Contains(response.Messages, m =>
+                m.Severity == SHRuntimeMessageSeverity.Error &&
+                m.Message.Contains("maximum token limit"));
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "Failed return with provider finish reason keeps it without warning [Windows]")]
+#else
+        [Fact(DisplayName = "Failed return with provider finish reason keeps it without warning [Core]")]
+#endif
+        public async Task ApplyAsync_FailedWithProviderReason_KeepsReasonWithoutWarning()
+        {
+            var response = CreateSuccessResponse(new AIMetrics { FinishReason = "stop" });
+            response.SetBody(AIBodyBuilder.FromImmutable(response.Body)
+                .AddError("provider reported failure")
+                .Build());
+
+            await new FinishReasonNormalizeResponsePolicy().ApplyAsync(new PolicyContext { Response = response }).ConfigureAwait(false);
+
+            Assert.Equal("stop", response.Metrics.FinishReason);
+            Assert.DoesNotContain(response.Messages, m => m.Message.Contains("Finish reason missing"));
+        }
+
         private static AIReturn CreateSuccessResponse(AIMetrics metrics)
         {
             var response = new AIReturn
