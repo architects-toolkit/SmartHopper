@@ -58,7 +58,7 @@ Get your API key from [Mistral AI Console](https://console.mistral.ai/):
 - **Model**: Select from available MistralAI models (default resolved from registry)
 - **Enable Streaming**: Allow streaming responses (default: enabled)
 - **Max Tokens**: Maximum output tokens (default: 2000, range: 1–100000)
-- **Temperature**: Controls randomness (0.0–3.0, default: 0.5)
+- **Temperature**: Controls randomness (0.0–1.5, default: 0.5)
 
 ### JSON Schema Support
 
