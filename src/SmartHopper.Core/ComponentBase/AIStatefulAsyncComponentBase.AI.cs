@@ -305,7 +305,7 @@ namespace SmartHopper.Core.ComponentBase
                                 }
 
                                 this.SetPersistentRuntimeMessage(
-                                    "batch_val_warning",
+                                    $"batch_val_warning_{msg.Code}_{msg.Message.GetHashCode()}",
                                     GH_RuntimeMessageLevel.Warning,
                                     msg.Message,
                                     false);

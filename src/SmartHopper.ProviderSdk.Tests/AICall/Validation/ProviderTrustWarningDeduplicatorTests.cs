@@ -46,12 +46,14 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Validation
         }
 
         [Fact]
-        public void ShouldSurface_DistinctWarningsForSameProvider_SurfaceOnlyFirst()
+        public void ShouldSurface_DistinctWarningsForSameProvider_SurfaceEachOnce()
         {
             var first = CreateTrustWarning("Provider 'A' is unsigned. Use it only if you trust its source.");
             var second = CreateTrustWarning("Provider 'A' is a community provider, not signed by SmartHopper.");
 
             Assert.True(ProviderTrustWarningDeduplicator.ShouldSurface(first));
+            Assert.True(ProviderTrustWarningDeduplicator.ShouldSurface(second));
+            Assert.False(ProviderTrustWarningDeduplicator.ShouldSurface(first));
             Assert.False(ProviderTrustWarningDeduplicator.ShouldSurface(second));
         }
 

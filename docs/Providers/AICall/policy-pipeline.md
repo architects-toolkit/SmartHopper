@@ -66,7 +66,7 @@ The pipeline runs **6 request policies** and **2 response policies** in sequence
 
 | Policy | File | Trigger | Description |
 | --- | --- | --- | --- |
-| `FinishReasonNormalizeResponsePolicy` | `Response/FinishReasonNormalizeResponsePolicy.cs` | Response | Standardizes provider-specific finish reasons into canonical `AIFinishReason` values (e.g., `stop`, `length`, `tool_calls`, `content_filter`). Maps provider-specific strings to unified enum. Skipped on failed returns (error diagnostics or surfaceable error messages) and on bodies without interactions, so failed calls never report `finish_reason: "stop"`. |
+| `FinishReasonNormalizeResponsePolicy` | `Response/FinishReasonNormalizeResponsePolicy.cs` | Response | Standardizes provider-specific finish reasons into canonical `AIFinishReason` values (e.g., `stop`, `length`, `tool_calls`, `content_filter`). Maps provider-specific strings to unified enum. Skipped on failed returns that report no finish reason (error diagnostics or surfaceable error messages) and on bodies without interactions, so failed calls never report a synthetic `finish_reason: "stop"`; a failed return that still carries a provider finish reason (e.g. `length`) is normalized normally so truncation errors are not lost. |
 | `SchemaValidateResponsePolicy` | `Response/SchemaValidateResponsePolicy.cs` | Response | Validates the response against the requested JSON schema (if set). Uses `JsonSchemaResponseValidator` to check structure. Emits validation errors as structured messages via `AddRuntimeMessage()`. |
 
 ### Implementing a Custom Request Policy
