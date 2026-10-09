@@ -515,8 +515,7 @@ namespace SmartHopper.Components.Knowledge
                             ["imageMode"] = "link",
                         };
 
-                        // Local-only conversion (imageMode "link"): do not record placeholder metrics
-                        var toolResult = await this.parent.CallAIToolAsync("web2md", parameters, token, recordMetrics: false).ConfigureAwait(false);
+                        var toolResult = await this.parent.CallAIToolAsync("web2md", parameters, token).ConfigureAwait(false);
 
                         if (toolResult.Result == null)
                         {
