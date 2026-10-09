@@ -37,6 +37,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AICall.Validation;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 
@@ -297,6 +298,12 @@ namespace SmartHopper.Core.ComponentBase
                         {
                             foreach (var msg in warnings)
                             {
+                                // Provider-integrity warnings are session-scoped: surface once per session.
+                                if (!ProviderTrustWarningDeduplicator.ShouldSurface(msg))
+                                {
+                                    continue;
+                                }
+
                                 this.SetPersistentRuntimeMessage(
                                     "batch_val_warning",
                                     GH_RuntimeMessageLevel.Warning,

@@ -52,6 +52,23 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                     return Task.CompletedTask;
                 }
 
+                // Skip normalization on failed calls: error returns legitimately carry no
+                // finish reason, and defaulting to "stop" would record a misleading
+                // success-style metric (finish_reason:"stop" in Metrics JSON) and emit a
+                // spurious "finish reason missing" warning. A call counts as failed when
+                // the body carries an error diagnostic or the return reports a surfaceable
+                // error message (request validation errors use surfaceable=false and are
+                // ignored on purpose).
+                var hasErrorDiagnostic = response.Body?.Interactions?
+                    .OfType<AIInteractionRuntimeMessage>()
+                    .Any(d => d.Severity == SHRuntimeMessageSeverity.Error) == true;
+                var hasSurfaceableError = response.Messages?
+                    .Any(m => m != null && m.Severity == SHRuntimeMessageSeverity.Error && m.Surfaceable) == true;
+                if (hasErrorDiagnostic || hasSurfaceableError)
+                {
+                    return Task.CompletedTask;
+                }
+
                 var metrics = response.Metrics; // aggregated snapshot
 
                 // Try to get existing finish reason or fallback to last interaction

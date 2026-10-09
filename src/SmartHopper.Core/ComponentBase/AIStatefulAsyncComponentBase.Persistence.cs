@@ -35,6 +35,7 @@ using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AICall.Validation;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 
@@ -106,6 +107,13 @@ namespace SmartHopper.Core.ComponentBase
 
                 // Only surface messages intended for end users
                 if (item == null || !item.Surfaceable)
+                {
+                    continue;
+                }
+
+                // Provider-integrity warnings are session-scoped: surface at most once
+                // per provider across components (ProviderSdk-layer deduplication).
+                if (!ProviderTrustWarningDeduplicator.ShouldSurface(item))
                 {
                     continue;
                 }

@@ -306,9 +306,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
             // Add structured error message instead of setting ErrorMessage directly
             this.AddRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Return, message);
 
-            this.Body = AIBodyBuilder.Create()
-                .AddError(message, metrics)
-                .Build();
+            this.SetErrorBody(message, SHRuntimeMessageOrigin.Return, metrics);
         }
 
         /// <summary>
@@ -331,12 +329,15 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
             this.Request = request;
             this.Status = AICallStatus.Finished;
 
-            // Add structured message with Provider origin (not calling CreateError to avoid Return origin)
-            this.AddRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Provider, $"Provider error: {rawMessage}");
+            var text = $"Provider error: {rawMessage}";
 
-            this.Body = AIBodyBuilder.Create()
-                .AddError(rawMessage, null)
-                .Build();
+            // Add structured message with Provider origin (not calling CreateError to avoid Return origin)
+            this.AddRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Provider, text);
+
+            // Mirror the same text and origin in the body diagnostic so Messages
+            // deduplicates the pair instead of surfacing '[Provider] ...' plus '[Return] ...'
+            // for a single underlying provider failure.
+            this.SetErrorBody(text, SHRuntimeMessageOrigin.Provider);
         }
 
         /// <summary>
@@ -359,12 +360,13 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
             this.Request = request;
             this.Status = AICallStatus.Finished;
 
-            // Add structured message with Network origin
-            this.AddRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Network, $"Network error: {rawMessage}");
+            var text = $"Network error: {rawMessage}";
 
-            this.Body = AIBodyBuilder.Create()
-                .AddError(rawMessage, null)
-                .Build();
+            // Add structured message with Network origin
+            this.AddRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Network, text);
+
+            // Mirror text and origin in the body diagnostic so the pair deduplicates (see CreateProviderError)
+            this.SetErrorBody(text, SHRuntimeMessageOrigin.Network);
         }
 
         /// <summary>
@@ -387,11 +389,33 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
             this.Request = request;
             this.Status = AICallStatus.Finished;
 
-            // Add structured message with Tool origin
-            this.AddRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Tool, $"Tool error: {rawMessage}");
+            var text = $"Tool error: {rawMessage}";
 
+            // Add structured message with Tool origin
+            this.AddRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Tool, text);
+
+            // Mirror text and origin in the body diagnostic so the pair deduplicates (see CreateProviderError)
+            this.SetErrorBody(text, SHRuntimeMessageOrigin.Tool);
+        }
+
+        /// <summary>
+        /// Replaces <see cref="Body"/> with a single error diagnostic carrying the given
+        /// text and origin. When a structured message with the same text was already
+        /// added, <see cref="Messages"/> deduplicates the pair so the failure surfaces once.
+        /// </summary>
+        /// <param name="text">The error text, formatted identically to the structured message.</param>
+        /// <param name="origin">The diagnostic origin; should match the structured message origin.</param>
+        /// <param name="metrics">Optional metrics to attach to the diagnostic interaction.</param>
+        private void SetErrorBody(string text, SHRuntimeMessageOrigin origin, AIMetrics? metrics = null)
+        {
             this.Body = AIBodyBuilder.Create()
-                .AddError(rawMessage, null)
+                .Add(new AIInteractionRuntimeMessage
+                {
+                    Severity = SHRuntimeMessageSeverity.Error,
+                    Origin = origin,
+                    Content = text,
+                    Metrics = metrics ?? new AIMetrics(),
+                })
                 .Build();
         }
 
