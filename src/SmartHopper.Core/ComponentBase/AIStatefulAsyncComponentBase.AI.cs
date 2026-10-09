@@ -134,28 +134,30 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Stores the AI return snapshot, accumulates per-branch metrics into the tree,
         /// and surfaces any messages from the result.
+        /// The snapshot and metrics are only recorded when the result carries evidence of an
+        /// actual provider call — a finish reason, reported or estimated token usage, or a
+        /// measured completion time. Local-only results (e.g. tools that never reach a provider)
+        /// get provider/model stamped onto empty metrics by <see cref="AIReturn.CreateSuccess"/>,
+        /// so without this gate they would overwrite the last AI snapshot and emit phantom
+        /// all-zero metrics entries.
         /// </summary>
         /// <param name="result">The <see cref="AIReturn"/> to process.</param>
         /// <param name="origin">Origin tag used for message attribution.</param>
-        /// <param name="recordMetrics">
-        /// When false, the result is only surfaced for messages: it is not stored as the AI
-        /// return snapshot and its metrics are not merged. Used for local-only tool executions
-        /// whose metrics carry no provider usage.
-        /// </param>
-        private void ProcessAIResult(AIReturn result, string origin, bool recordMetrics = true)
+        private void ProcessAIResult(AIReturn result, string origin)
         {
-            if (result != null && recordMetrics)
+            var metrics = result?.Metrics;
+            var hasProviderMetrics = metrics != null
+                && (!string.IsNullOrEmpty(metrics.FinishReason)
+                    || metrics.EffectiveTotalTokens > 0
+                    || metrics.CompletionTime > 0);
+
+            if (hasProviderMetrics)
             {
                 this.AIReturnSnapshot = result;
 
                 // Accumulate per-branch metrics for non-batch multi-branch solves.
                 // Batch mode skips this path (sentinels are returned before ProcessAIResult).
-                if (result.Metrics != null)
-                {
-                    var metrics = result.Metrics;
-                    metrics = metrics with { DataCount = 1 }; // One AI call = one processing unit
-                    this.CombineIntoPersistedMetrics(metrics, "main");
-                }
+                this.CombineIntoPersistedMetrics(metrics with { DataCount = 1 }, "main"); // One AI call = one processing unit
             }
 
             if (result?.Messages != null && result.Messages.Count > 0)
@@ -213,17 +215,13 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="toolName">Name of the registered tool.</param>
         /// <param name="parameters">Tool-specific parameters; provider/model will be injected.</param>
         /// <param name="cancellationToken">Cancellation token for the operation.</param>
-        /// <param name="recordMetrics">
-        /// When true (default), the tool result is stored as the current AI return snapshot and
-        /// its metrics feed the Metrics output. Pass false for local-only tool executions that
-        /// never reach a provider (e.g. "web2md" with imageMode "link"), so they do not emit
-        /// placeholder all-zero metrics.
-        /// </param>
         /// <returns>Typed <see cref="ToolCallResult"/> envelope carrying execution
         /// success, the raw tool payload and diagnostic messages. The envelope's
         /// indexer and <see cref="ToolCallResult.ToString"/> delegate to the
         /// underlying payload for backward compatibility.</returns>
-        protected async Task<ToolCallResult> CallAIToolAsync(string toolName, JObject parameters, System.Threading.CancellationToken cancellationToken = default, bool recordMetrics = true)
+        /// <remarks>Metrics are only recorded when the tool result carries evidence of an
+        /// actual provider call; see <see cref="ProcessAIResult"/>.</remarks>
+        protected async Task<ToolCallResult> CallAIToolAsync(string toolName, JObject parameters, System.Threading.CancellationToken cancellationToken = default)
         {
             parameters ??= new JObject();
 
@@ -367,7 +365,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // Store snapshot and surface messages
-            this.ProcessAIResult(toolResult, "ai", recordMetrics);
+            this.ProcessAIResult(toolResult, "ai");
             return result;
         }
 
