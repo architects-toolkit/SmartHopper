@@ -24,7 +24,6 @@ using System.Linq;
 using System.Threading;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
-using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
@@ -336,47 +335,31 @@ namespace SmartHopper.Components.AI
         {
             IGH_Param param = null;
 
+            // Descriptor defaults are documented in the tooltip only. Seeding them as
+            // persistent data would make DA.GetData() return values the user never set,
+            // force-sending provider defaults (e.g. reasoning_effort) when no extra was configured.
+            var description = d.DefaultValue != null
+                ? $"{d.Description}\nDefault: {d.DefaultValue}"
+                : d.Description;
+
             if (d.Type == typeof(bool))
             {
-                var p = new Param_Boolean { Name = d.Key, NickName = d.Key, Description = d.Description, Access = GH_ParamAccess.item, Optional = true };
-                if (d.DefaultValue is bool defBool)
-                {
-                    p.SetPersistentData(defBool);
-                }
-
-                param = p;
+                param = new Param_Boolean { Name = d.Key, NickName = d.Key, Description = description, Access = GH_ParamAccess.item, Optional = true };
             }
             else if (d.Type == typeof(int))
             {
-                var p = new Param_Integer { Name = d.Key, NickName = d.Key, Description = d.Description, Access = GH_ParamAccess.item, Optional = true };
-                if (d.DefaultValue is int defInt)
-                {
-                    p.SetPersistentData(defInt);
-                }
-
-                param = p;
+                param = new Param_Integer { Name = d.Key, NickName = d.Key, Description = description, Access = GH_ParamAccess.item, Optional = true };
             }
             else if (d.Type == typeof(double))
             {
-                var p = new Param_Number { Name = d.Key, NickName = d.Key, Description = d.Description, Access = GH_ParamAccess.item, Optional = true };
-                if (d.DefaultValue is double defDouble)
-                {
-                    p.SetPersistentData(defDouble);
-                }
-
-                param = p;
+                param = new Param_Number { Name = d.Key, NickName = d.Key, Description = description, Access = GH_ParamAccess.item, Optional = true };
             }
             else
             {
-                var p = new Param_String { Name = d.Key, NickName = d.Key, Description = d.Description, Access = GH_ParamAccess.item, Optional = true };
+                var p = new Param_String { Name = d.Key, NickName = d.Key, Description = description, Access = GH_ParamAccess.item, Optional = true };
                 if (d.AllowedValues != null && d.AllowedValues.Length > 0)
                 {
                     p.Description += $"\nAllowed values: {string.Join(", ", d.AllowedValues)}";
-                }
-
-                if (d.DefaultValue is string defStr)
-                {
-                    p.SetPersistentData(new GH_String(defStr));
                 }
 
                 param = p;

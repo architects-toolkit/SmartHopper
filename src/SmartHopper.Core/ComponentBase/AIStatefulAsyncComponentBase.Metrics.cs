@@ -88,6 +88,8 @@ namespace SmartHopper.Core.ComponentBase
             if (metricsList == null && fallbackMetrics == null)
             {
                 Debug.WriteLine("[AIStatefulComponentBase] Empty metrics, skipping");
+                // Clear metrics persisted by a previous run so runs without AI calls emit nothing
+                this.SetPersistentOutput(WellKnownInputs.Metrics, null, dA);
                 return;
             }
 

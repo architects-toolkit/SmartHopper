@@ -544,7 +544,7 @@ namespace SmartHopper.Components.Knowledge
                                     ["extractImages"] = true,
                                 };
 
-                                var localResult = await this.parent.CallAIToolAsync("file2md", localParams, token).ConfigureAwait(false);
+                                var localResult = await this.parent.CallAIToolAsync("file2md", localParams, token, recordMetrics: false).ConfigureAwait(false);
 
                                 if (localResult?.Result == null)
                                 {
