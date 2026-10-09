@@ -127,7 +127,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""properties"": {
                         ""ghjson"": {
                             ""type"": ""string"",
-                            ""description"": ""GhJSON string representing the script component to edit. Retrieve it using gh_get[categoryFilter=[+Script]], gh_get[guidFilter=[<guid>]] or gh_get_selected if the user is asking about the currently selected component.""
+                            ""description"": ""GhJSON string representing the script component to edit. Retrieve it using gh_get[categoryFilter=[+Script]], gh_get[instanceGuids=[<guid>]] or gh_get_selected if the user is asking about the currently selected component.""
                         },
                         ""instructions"": {
                             ""type"": ""string"",
@@ -508,7 +508,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var ghGetArgs = new JObject
                 {
-                    ["guidFilter"] = new JArray(instanceGuidText),
+                    ["instanceGuids"] = new JArray(instanceGuidText),
                     ["connectionDepth"] = 0,
                 };
 

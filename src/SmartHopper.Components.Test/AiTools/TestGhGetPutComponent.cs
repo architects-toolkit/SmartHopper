@@ -222,7 +222,7 @@ namespace SmartHopper.Components.Test.AiTools
                 // Step 3: gh_get_by_guid to verify the placed objects and their connection.
                 var verifyResult = this.ExecuteTool(
                     "gh_get_by_guid",
-                    new JObject { ["guidFilter"] = new JArray(putGuids), ["connectionDepth"] = 1 });
+                    new JObject { ["instanceGuids"] = new JArray(putGuids), ["connectionDepth"] = 1 });
 
                 var verifyJson = this.ParseToolResult(verifyResult);
                 var verifyCount = verifyJson?["pagination"]?.Value<int>("returnedComponents") ?? 0;
@@ -299,7 +299,7 @@ namespace SmartHopper.Components.Test.AiTools
                 // Step 5: Verify the edited panel text.
                 var verifyEditResult = this.ExecuteTool(
                     "gh_get_by_guid",
-                    new JObject { ["guidFilter"] = new JArray(panelGuid) });
+                    new JObject { ["instanceGuids"] = new JArray(panelGuid) });
 
                 var verifyEditJson = this.ParseToolResult(verifyEditResult);
                 var actualText = verifyEditJson?["ghjson"]

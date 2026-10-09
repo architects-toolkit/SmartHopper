@@ -304,10 +304,10 @@ namespace SmartHopper.Components.Script
             {
                 Debug.WriteLine($"[AIScriptGenerateWorker] Edit mode: getting GhJSON for {guid}");
 
-                // Step 1: Get existing component GhJSON using gh_get with guidFilter
+                // Step 1: Get existing component GhJSON using gh_get with instanceGuids
                 var getParams = new JObject
                 {
-                    ["guidFilter"] = new JArray(guid),
+                    ["instanceGuids"] = new JArray(guid),
                     ["contextFilter"] = "-*",
                 };
 

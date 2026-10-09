@@ -106,6 +106,7 @@ Many thanks to the following contributors to this release:
 - The canvas change review dialog is now a floating non-modal topmost window instead of a modal dialog, so the Grasshopper canvas stays fully interactive for panning and zooming while reviewing staged changes. A "Zoom to changes" button frames the union of all staged change bounds (auto-framing on open when they are off-screen), and double-clicking a change row frames that single change.
 - Renamed the `plan_tasks`/`plan_propose` AITool category from `Control` to `Planning` (shared with the new `ask_user`), and added `Planning` to the WebChat tool filters in `CanvasButton` and `AIChatComponent`, fixing plan tools being unreachable from chat.
 - The WebChat task plan no longer renders as an inline message card; it is shown in the persistent HUD panel below the autonomy overlay instead.
+- Renamed the `guidFilter` parameter to `instanceGuids` in `gh_get`, `gh_get_by_guid`, and `gh_get_by_guid_with_data` to match the `instanceGuids` convention used by `gh_remove`, `button_click`, and the `gh_put` result payload, and to disambiguate document-object instance GUIDs from component-type (`componentGuid`) GUIDs. The old `guidFilter` key is still accepted as a silent alias on `gh_get` (where the parameter is optional); `gh_get_by_guid*` callers must use `instanceGuids` since it is a required parameter there.
 
 ### Removed
 
