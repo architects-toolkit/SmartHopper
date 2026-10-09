@@ -859,7 +859,9 @@ namespace SmartHopper.Core.ComponentBase
                         // Record fallback metrics
                         foreach (var m in fallbackResult.ExtraMetricsList)
                         {
-                            var stepName = chain.Steps.Count > 0 ? chain.Steps[0].Name : "unknown";
+                            var stepName = chain.Steps.Count > 0
+                                ? string.Join("+", chain.Steps.Select(s => s.Fallback.Name))
+                                : "unknown";
                             this._parent.CombineIntoPersistedMetricsInternal(m, $"fallback:{stepName}");
                         }
                     }

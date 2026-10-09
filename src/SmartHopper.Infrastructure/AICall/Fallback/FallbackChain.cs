@@ -25,7 +25,8 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
 {
     /// <summary>
     /// An ordered list of fallback steps that convert unsupported modalities
-    /// into supported ones. For v1, chains are always single-step.
+    /// into supported ones. Each step carries the provider and model resolved
+    /// for it, so a multi-modality chain may span providers.
     /// </summary>
     public sealed class FallbackChain
     {
@@ -33,33 +34,23 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
         /// Initializes a new instance of the <see cref="FallbackChain"/> class.
         /// </summary>
         public FallbackChain(
-            IReadOnlyList<IModalityFallback> steps,
+            IReadOnlyList<FallbackStep> steps,
             string description,
-            string actualProvider,
-            string actualModel,
             AICapability effectiveCapability)
         {
             this.Steps = steps;
             this.Description = description;
-            this.ActualProvider = actualProvider;
-            this.ActualModel = actualModel;
             this.EffectiveCapability = effectiveCapability;
         }
 
-        /// <summary>Ordered fallback steps.</summary>
-        public IReadOnlyList<IModalityFallback> Steps { get; }
+        /// <summary>Ordered fallback steps, each with its own resolved provider/model.</summary>
+        public IReadOnlyList<FallbackStep> Steps { get; }
 
         /// <summary>Joined step descriptions for the warning message.</summary>
         public string Description { get; }
 
-        /// <summary>Provider executing the fallback call(s). Equals the component's
-        /// configured provider unless mode is AnyProvider and a different one was chosen.</summary>
-        public string ActualProvider { get; }
-
-        /// <summary>Model executing the fallback (resolved, never null when chain is non-null).</summary>
-        public string ActualModel { get; }
-
-        /// <summary>True when a different provider from the component's configured one is used.</summary>
+        /// <summary>True when at least one step runs on a provider different from the
+        /// component's configured one.</summary>
         public bool UsesAltProvider { get; init; }
 
         /// <summary>Capability after all steps applied.</summary>
@@ -67,6 +58,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
 
         /// <summary>
         /// Applies all steps in order, transforming the body and collecting metrics.
+        /// Each step runs on its own resolved provider/model.
         /// </summary>
         public async Task<ModalityFallbackResult> ApplyAsync(AIBody body, CancellationToken ct)
         {
@@ -74,10 +66,10 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
 
             foreach (var step in this.Steps)
             {
-                var stepResult = await step.ApplyAsync(
+                var stepResult = await step.Fallback.ApplyAsync(
                     combinedResult.TransformedBody,
-                    this.ActualProvider,
-                    this.ActualModel,
+                    step.Provider,
+                    step.Model,
                     ct).ConfigureAwait(false);
 
                 combinedResult.TransformedBody = stepResult.TransformedBody;
