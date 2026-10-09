@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -60,14 +61,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Describes or analyzes an image using a vision AI model. Provide either an image URL or base64-encoded image data. Returns a text description of the image content. Example: img2text({ imageUrl: 'https://example.com/facade.jpg', prompt: 'List architectural materials' }).",
+                description: "Describes or analyzes an image using a vision AI model. Provide a public image URL, a local file path, or base64-encoded image data. Returns a text description of the image content. Example: img2text({ imageUrl: 'https://example.com/facade.jpg', prompt: 'List architectural materials' }).",
                 category: "Img",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
                         ""imageUrl"": {
                             ""type"": ""string"",
-                            ""description"": ""Public URL of the image to analyze (http/https). Use this or imageBase64.""
+                            ""description"": ""Public URL (http/https) or absolute local file path of the image to analyze. Use this or imageBase64.""
                         },
                         ""imageBase64"": {
                             ""type"": ""string"",
@@ -115,12 +116,82 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 builder.AddImageInputFromBase64(imageBase64, mimeType);
             }
+            else if (TryReadLocalImage(imageUrl, out string localBase64, out string localMimeType))
+            {
+                builder.AddImageInputFromBase64(localBase64, localMimeType);
+            }
             else
             {
                 builder.AddImageInput(imageUrl);
             }
 
             return builder.Build();
+        }
+
+        /// <summary>
+        /// Attempts to resolve <paramref name="imageUrl"/> as an existing local file and load it
+        /// as base64 so vision models that cannot fetch <c>file://</c> URIs still receive the image.
+        /// </summary>
+        /// <param name="imageUrl">The raw imageUrl argument.</param>
+        /// <param name="base64Data">The base64-encoded file content when resolved.</param>
+        /// <param name="mimeType">The MIME type inferred from the file extension when resolved.</param>
+        /// <returns>True when the argument was a readable local file path.</returns>
+        private static bool TryReadLocalImage(string imageUrl, out string base64Data, out string mimeType)
+        {
+            base64Data = null;
+            mimeType = null;
+
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                return false;
+            }
+
+            // Remote URLs are passed through untouched.
+            if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                return false;
+            }
+
+            // Normalize file:// URIs back to local paths.
+            var path = uri != null && uri.IsFile ? uri.LocalPath : imageUrl;
+
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            base64Data = Convert.ToBase64String(File.ReadAllBytes(path));
+            mimeType = GetImageMimeType(path);
+            return true;
+        }
+
+        /// <summary>
+        /// Infers an image MIME type from a file extension.
+        /// </summary>
+        /// <param name="path">The image file path.</param>
+        /// <returns>The inferred MIME type, defaulting to image/png.</returns>
+        private static string GetImageMimeType(string path)
+        {
+            switch (Path.GetExtension(path)?.ToLowerInvariant())
+            {
+                case ".jpg":
+                case ".jpeg":
+                    return "image/jpeg";
+                case ".gif":
+                    return "image/gif";
+                case ".webp":
+                    return "image/webp";
+                case ".bmp":
+                    return "image/bmp";
+                case ".svg":
+                    return "image/svg+xml";
+                case ".tif":
+                case ".tiff":
+                    return "image/tiff";
+                default:
+                    return "image/png";
+            }
         }
 
         /// <summary>
