@@ -103,6 +103,15 @@ namespace SmartHopper.ProviderSdk.Tests.TestHelpers
                     request?.Body?.Interactions?.Select(this.EncodeInteraction) ?? Enumerable.Empty<JToken>()),
             };
 
+            // Mirror the provider convention of forwarding request extras into the encoded body.
+            if (request?.Parameters?.Extras != null)
+            {
+                foreach (var extra in request.Parameters.Extras)
+                {
+                    body[extra.Key] = extra.Value;
+                }
+            }
+
             return body.ToString(Newtonsoft.Json.Formatting.None);
         }
 

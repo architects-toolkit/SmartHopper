@@ -19,6 +19,8 @@
 namespace SmartHopper.ProviderSdk.Tests.AIProviders
 {
     using System;
+    using System.Collections.Generic;
+    using System.Globalization;
     using System.Linq;
     using System.Net;
     using System.Net.Http;
@@ -136,20 +138,19 @@ namespace SmartHopper.ProviderSdk.Tests.AIProviders
         }
 
         /// <summary>
-        /// Requests to <c>/audio/transcriptions</c> without resolvable audio bytes must
-        /// not crash; the pipeline falls back to the regular JSON content.
+        /// Requests to <c>/audio/transcriptions</c> carrying neither resolvable audio bytes
+        /// nor a <c>file_url</c> source must fail locally with an actionable error instead
+        /// of silently posting a JSON body the endpoint rejects with an opaque 4xx.
         /// </summary>
         [Fact]
-        public async Task Call_TranscriptionEndpointWithoutAudio_FallsBackToJson()
+        public async Task Call_TranscriptionEndpointWithoutAudioSource_FailsLocally()
         {
             HttpRequestMessage? capturedRequest = null;
-            string? capturedContentType = null;
 
             ProviderSdkHost.HttpClientFactory = TestProviderHttpClientFactory.WithResponse(
                 (request, cancellationToken) =>
                 {
                     capturedRequest = request;
-                    capturedContentType = request.Content?.Headers?.ContentType?.MediaType;
 
                     return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
                     {
@@ -166,11 +167,120 @@ namespace SmartHopper.ProviderSdk.Tests.AIProviders
                     MimeType = "audio/wav",
                 });
 
+            var ex = await Assert.ThrowsAsync<Exception>(() => this.provider.Call(request)).ConfigureAwait(false);
+            Assert.Contains("no audio source", ex.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Null(capturedRequest);
+        }
+
+        /// <summary>
+        /// A <c>file_url</c> extra is a valid alternative audio source on its own; the
+        /// multipart body must then omit the <c>file</c> upload since transcription
+        /// endpoints accept exactly one audio source.
+        /// </summary>
+        [Fact]
+        public async Task Call_TranscriptionEndpointWithFileUrl_OmitsFilePart()
+        {
+            string? capturedContentType = null;
+            string? capturedBody = null;
+
+            ProviderSdkHost.HttpClientFactory = TestProviderHttpClientFactory.WithResponse(
+                async (request, cancellationToken) =>
+                {
+                    capturedContentType = request.Content?.Headers?.ContentType?.MediaType;
+                    capturedBody = request.Content != null
+                        ? await request.Content.ReadAsStringAsync().ConfigureAwait(false)
+                        : null;
+
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("{\"text\":\"hello world\"}"),
+                    };
+                });
+
+            var request = CreateRequest(
+                endpoint: "/audio/transcriptions",
+                capability: AICapability.Speech2Text,
+                interactions: new AIInteractionAudio
+                {
+                    Agent = AIAgent.User,
+                    Data = new byte[] { 0x52, 0x49, 0x46, 0x46, 0x10, 0x00 },
+                    MimeType = "audio/wav",
+                });
+            request.Parameters = AIRequestParameters.Empty with
+            {
+                Extras = new Dictionary<string, JToken>
+                {
+                    ["file_url"] = "https://files.example/audio.wav",
+                },
+            };
+
             var result = (AIReturn)await this.provider.Call(request).ConfigureAwait(false);
 
-            Assert.True(result.Success);
-            Assert.NotNull(capturedRequest);
-            Assert.Equal("application/json", capturedContentType);
+            Assert.True(result.Success, string.Join(" | ", result.Messages?.Select(m => m.Message) ?? Enumerable.Empty<string>()));
+            Assert.Equal("multipart/form-data", capturedContentType);
+            Assert.NotNull(capturedBody);
+
+            var normalizedBody = capturedBody!.Replace("\"", string.Empty);
+            Assert.DoesNotContain("filename=", normalizedBody, StringComparison.Ordinal);
+            Assert.Contains("name=file_url", normalizedBody, StringComparison.Ordinal);
+            Assert.Contains("https://files.example/audio.wav", capturedBody, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Numeric metadata fields must be formatted with the invariant culture so that
+        /// locales using a decimal comma (e.g. ca-ES) still emit <c>0.5</c>, not <c>0,5</c>.
+        /// </summary>
+        [Fact]
+        public async Task Call_TranscriptionEndpoint_FormatsNumbersInvariantly()
+        {
+            string? capturedBody = null;
+
+            ProviderSdkHost.HttpClientFactory = TestProviderHttpClientFactory.WithResponse(
+                async (request, cancellationToken) =>
+                {
+                    capturedBody = request.Content != null
+                        ? await request.Content.ReadAsStringAsync().ConfigureAwait(false)
+                        : null;
+
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("{\"text\":\"ok\"}"),
+                    };
+                });
+
+            var previousCulture = CultureInfo.CurrentCulture;
+            try
+            {
+                CultureInfo.CurrentCulture = new CultureInfo("ca-ES");
+
+                var request = CreateRequest(
+                    endpoint: "/audio/transcriptions",
+                    capability: AICapability.Speech2Text,
+                    interactions: new AIInteractionAudio
+                    {
+                        Agent = AIAgent.User,
+                        Data = new byte[] { 0x52, 0x49, 0x46, 0x46, 0x10, 0x00 },
+                        MimeType = "audio/wav",
+                    });
+                request.Parameters = AIRequestParameters.Empty with
+                {
+                    Extras = new Dictionary<string, JToken>
+                    {
+                        ["temperature"] = 0.5,
+                    },
+                };
+
+                var result = (AIReturn)await this.provider.Call(request).ConfigureAwait(false);
+
+                Assert.True(result.Success, string.Join(" | ", result.Messages?.Select(m => m.Message) ?? Enumerable.Empty<string>()));
+                Assert.NotNull(capturedBody);
+                Assert.Contains("0.5", capturedBody, StringComparison.Ordinal);
+                Assert.DoesNotContain("0,5", capturedBody, StringComparison.Ordinal);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = previousCulture;
+            }
         }
 
         /// <summary>
