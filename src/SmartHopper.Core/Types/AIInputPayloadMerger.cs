@@ -24,6 +24,7 @@ using Grasshopper.Kernel.Data;
 using SmartHopper.Core.Models;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AIModels;
 
 namespace SmartHopper.Core.Types
 {
@@ -185,6 +186,37 @@ namespace SmartHopper.Core.Types
             Debug.WriteLine($"[AIInputPayloadMerger] Merged {payloadTree.DataCount} payloads across {result.Count} branch paths");
 
             return result;
+        }
+
+        /// <summary>
+        /// Derives the input-modality capabilities required by the payload interactions on a
+        /// given branch path (e.g. an <see cref="AIInteractionImage"/> requires
+        /// <see cref="AICapability.ImageInput"/> on the resolved model).
+        /// </summary>
+        /// <param name="payloadTree">The data tree of GH_AIInputPayload objects.</param>
+        /// <param name="path">The branch path to inspect.</param>
+        /// <returns>The combined input-modality capability flags; <see cref="AICapability.None"/>
+        /// when the branch is missing or carries no media interactions.</returns>
+        public static AICapability GetRequiredInputCapabilities(GH_Structure<GH_AIInputPayload> payloadTree, GH_Path path)
+        {
+            var required = AICapability.None;
+            if (payloadTree == null || path == null)
+            {
+                return required;
+            }
+
+            var branch = payloadTree.get_Branch(path);
+            if (branch == null)
+            {
+                return required;
+            }
+
+            foreach (GH_AIInputPayload gooItem in branch)
+            {
+                required |= (gooItem?.Value?.Interactions).RequiredInputCapabilities();
+            }
+
+            return required;
         }
     }
 }

@@ -123,7 +123,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                     SHRuntimeMessageSeverity.Error,
                     SHRuntimeMessageOrigin.Validation,
                     SHMessageCode.CapabilityMismatch,
-                    $"Provider '{this._providerName}' / model '{effectiveModel}' does not support {capability}."));
+                    $"Provider '{this._providerName}' / model '{effectiveModel}' does not support {capability.ToDetailedString()}."));
 
                 return new ValidationResult
                 {
@@ -142,7 +142,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                     SHRuntimeMessageSeverity.Error,
                     SHRuntimeMessageOrigin.Validation,
                     SHMessageCode.CapabilityMismatch,
-                    $"Provider '{this._providerName}' / model '{effectiveModel}' does not support {capability}. " +
+                    $"Provider '{this._providerName}' / model '{effectiveModel}' does not support {capability.ToDetailedString()}. " +
                     $"Modality fallback is enabled but no conversion chain could be resolved."));
 
                 return new ValidationResult

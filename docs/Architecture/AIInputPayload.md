@@ -124,7 +124,7 @@ AIContextComponent("time") → GH_AIInputPayload(Context("time"))
 - `AIInputPayload.cs` — Core payload class and `AIInputPayloadType` enum
 - `GH_AIInputPayload.cs` — Grasshopper goo wrapper
 - `AIInputPayloadParameter.cs` — Grasshopper parameter type
-- `AIInputPayloadMerger.cs` — Branch-aware merging logic
+- `AIInputPayloadMerger.cs` — Branch-aware merging logic and payload-modality capability derivation (`GetRequiredInputCapabilities`)
 - `AIInputPayloadRenderer.cs` — User-readable rendering
 
 ### Image Support (SmartHopper.Core.Grasshopper/Types/)

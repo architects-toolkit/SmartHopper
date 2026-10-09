@@ -116,6 +116,7 @@ Validates that a component's required capability is supported by the configured 
 - **Methods**:
   - `ValidateSync(capability)` -- synchronous validation (preferred for pre-validation in SolveInstance)
   - `ValidateAsync(capability, context, cancellationToken)` -- asynchronous validation
+- **Note**: Callers may derive the required capability set from payload interaction modalities (see `AIInputPayloadMerger.GetRequiredInputCapabilities` / `AICapabilityExtensions.RequiredInputCapabilities`), so `CapabilityMismatch` errors list the full required flags via `ToDetailedString()`.
 
 #### ToolExistsValidator
 
