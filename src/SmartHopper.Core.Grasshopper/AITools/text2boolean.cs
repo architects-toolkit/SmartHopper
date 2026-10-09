@@ -55,7 +55,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         private readonly string systemPrompt =
             "You are a text evaluator. Your task is to analyze a text and return a boolean value indicating whether the text matches the given criteria.\n\n" +
-            "Respond with TRUE or FALSE, nothing else. " + BooleanResultResolver.TrueFalseGuard;
+            BooleanResultResolver.TrueFalseGuard;
 
         /// <summary>
         /// User prompt for the AI tool provided by this class. Use <question> and <text> placeholders.
@@ -63,7 +63,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private readonly string userPrompt =
             "TEXT TO EVALUATE:\n\n---\n\n<text>\n\n---\n\n" +
             "QUESTION TO ANSWER:\n\n---\n\n\"<question>\"\n\n---\n\n" +
-            "Remember, you must answer with TRUE or FALSE, nothing else.";
+            BooleanResultResolver.TrueFalseGuard;
 
         /// <summary>
         /// Get all tools provided by this class.
