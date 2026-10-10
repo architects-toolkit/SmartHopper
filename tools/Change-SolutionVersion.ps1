@@ -14,6 +14,7 @@
       - 0.1.0-dev          -> 0.1.0-dev.YYMMDD   (keep version, set date)
       - 0.1.0              -> 0.1.1-dev.YYMMDD   (increment patch, add -dev.date)
       - 0.1.0-dev.250101   -> 0.1.0-dev.YYMMDD   (keep version, update date)
+      - 0.1.0-dev.250101.3 -> 0.1.0-dev.YYMMDD   (same-day sequence counter resets on date change)
 
     Badge color/status rules (from .github/actions/documentation/update-badges):
       - *-dev*    -> brown  / Unstable Development
@@ -79,14 +80,15 @@ $today = (Get-Date).ToString("yyMMdd")
 function ConvertTo-VersionComponents {
     param([string]$Version)
 
-    if ($Version -match '^(\d+)\.(\d+)\.(\d+)(-([A-Za-z]+)(\.(\d+))?)?$') {
+    if ($Version -match '^(\d+)\.(\d+)\.(\d+)(-([A-Za-z]+)(\.(\d+)(\.(\d+))?)?)?$') {
         return @{
             Major      = [int]$Matches[1]
             Minor      = [int]$Matches[2]
             Patch      = [int]$Matches[3]
-            Suffix     = $Matches[4]       # e.g. "-dev.250101" or "-beta"
+            Suffix     = $Matches[4]       # e.g. "-dev.250101", "-dev.250101.1" or "-beta"
             PreType    = $Matches[5]       # e.g. "dev", "beta", "alpha"
             Date       = $Matches[7]       # e.g. "250101" or $null
+            Counter    = $Matches[9]       # e.g. same-day sequence "1" or $null
         }
     }
     return $null
