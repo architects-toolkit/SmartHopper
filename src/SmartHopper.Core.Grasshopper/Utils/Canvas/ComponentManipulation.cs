@@ -21,15 +21,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using GhJSON.Core.SchemaModels;
 using GhJSON.Grasshopper;
+using GhJSON.Grasshopper.Serialization;
 using Grasshopper;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Special;
-using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using Rhino;
 
@@ -445,116 +444,52 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         }
 
         /// <summary>
-        /// Replaces a persistent parameter's data with a single item at path {0},
-        /// converting the JSON value into the parameter's concrete goo type. Mirrors
-        /// the reflection recipe used by the GhJSON deserializer (SetPersistentData
-        /// lives on the generic <c>GH_PersistentParam&lt;T&gt;</c>, not on IGH_Param).
+        /// Replaces a persistent parameter's data with a single item at path {0}
+        /// through <see cref="GhJsonGrasshopper.ApplyParamData"/>, which owns the
+        /// <c>GH_PersistentParam&lt;T&gt;</c>/<c>GH_Structure&lt;T&gt;</c> recipe.
         /// </summary>
         private static bool SetPersistentParamValue(IGH_Param param, JToken value, out string detail)
         {
-            var persistentBase = FindGenericBaseType(param.GetType(), typeof(GH_PersistentParam<>));
-            if (persistentBase == null)
+            var settings = new GhJsonParameterSettings
             {
-                detail = $"Parameter '{param.NickName}' ({param.GetType().Name}) has no persistent data store.";
+                ParameterName = param.Name,
+                InternalizedData = new Dictionary<string, Dictionary<string, string>>
+                {
+                    ["{0}"] = new Dictionary<string, string> { ["{0}(0)"] = ToSerializedDataValue(value) },
+                },
+            };
+
+            if (!GhJsonGrasshopper.ApplyParamData(param, settings))
+            {
+                detail = $"Parameter '{param.NickName}' ({param.GetType().Name}) has no persistent data store or rejected the value.";
                 return false;
             }
-
-            var gooType = persistentBase.GetGenericArguments()[0];
-            var goo = CreateGoo(gooType, value);
-            if (goo == null)
-            {
-                detail = $"Cannot convert '{value}' to {gooType.Name}.";
-                return false;
-            }
-
-            var structureType = typeof(GH_Structure<>).MakeGenericType(gooType);
-            var structure = Activator.CreateInstance(structureType);
-            if (structure == null)
-            {
-                detail = $"Cannot build data structure for {gooType.Name}.";
-                return false;
-            }
-
-            structureType.GetMethod("Append", new[] { gooType, typeof(GH_Path) })
-                ?.Invoke(structure, new object?[] { goo, new GH_Path(0) });
-
-            var setMethod = param.GetType().GetMethod(
-                "SetPersistentData",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                null,
-                new[] { structureType },
-                null);
-            if (setMethod == null)
-            {
-                detail = $"Parameter '{param.NickName}' does not expose SetPersistentData.";
-                return false;
-            }
-
-            setMethod.Invoke(param, new object?[] { structure });
 
             var wired = param.Kind == GH_ParamKind.input && param.SourceCount > 0
                 ? " (note: the input is wired, so persistent data may be overridden)"
                 : string.Empty;
-            detail = $"Set '{param.NickName}' to '{value}' as {gooType.Name}{wired}";
+            detail = $"Set '{param.NickName}' to '{value}'{wired}";
             return true;
         }
 
         /// <summary>
-        /// Converts a JSON scalar into the target goo type via its constructors.
+        /// Converts a JSON scalar into the GhJSON data-tree value format, using the
+        /// registered primitive serializers with a <c>text:</c> fallback — the same
+        /// conversion the GhJSON deserializer applies on the way in.
         /// </summary>
-        private static object? CreateGoo(Type gooType, JToken value)
+        private static string ToSerializedDataValue(JToken value)
         {
-            var candidates = new List<object>();
-            switch (value?.Type)
+            object? primitive = value?.Type switch
             {
-                case JTokenType.Boolean:
-                    candidates.Add(value.Value<bool>());
-                    break;
-                case JTokenType.Integer:
-                    candidates.Add(value.Value<int>());
-                    candidates.Add(value.Value<long>());
-                    candidates.Add(value.Value<double>());
-                    break;
-                case JTokenType.Float:
-                    candidates.Add(value.Value<double>());
-                    candidates.Add(value.Value<decimal>());
-                    break;
-                case JTokenType.String:
-                    candidates.Add(value.Value<string>()!);
-                    break;
-            }
+                JTokenType.Boolean => value.Value<bool>(),
+                JTokenType.Integer => value.Value<int>(),
+                JTokenType.Float => value.Value<double>(),
+                JTokenType.String => value.Value<string>(),
+                _ => null,
+            };
 
-            foreach (var candidate in candidates)
-            {
-                try
-                {
-                    var ctor = gooType.GetConstructor(new[] { candidate.GetType() });
-                    if (ctor != null)
-                    {
-                        return ctor.Invoke(new[] { candidate });
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[ComponentManipulation] CreateGoo ctor failed for {gooType.Name}: {ex.Message}");
-                }
-            }
-
-            // String fallback: many goo types accept a text constructor.
-            try
-            {
-                var stringCtor = gooType.GetConstructor(new[] { typeof(string) });
-                if (stringCtor != null)
-                {
-                    return stringCtor.Invoke(new object?[] { value?.ToString() ?? string.Empty });
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[ComponentManipulation] CreateGoo string ctor failed for {gooType.Name}: {ex.Message}");
-            }
-
-            return null;
+            var serialized = primitive != null ? DataTypeRegistry.Serialize(primitive) : null;
+            return string.IsNullOrEmpty(serialized) ? $"text:{value}" : serialized;
         }
 
         private static IGH_Param? ResolveInputParam(IGH_Component comp, string paramName)
@@ -632,22 +567,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
             result = 0m;
             return false;
-        }
-
-        private static Type? FindGenericBaseType(Type type, Type openGenericBaseType)
-        {
-            var current = type;
-            while (current != null)
-            {
-                if (current.IsGenericType && current.GetGenericTypeDefinition() == openGenericBaseType)
-                {
-                    return current;
-                }
-
-                current = current.BaseType;
-            }
-
-            return null;
         }
 
         /// <summary>
