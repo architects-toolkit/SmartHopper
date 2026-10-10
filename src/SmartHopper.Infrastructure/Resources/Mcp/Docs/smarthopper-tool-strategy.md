@@ -24,6 +24,7 @@
 - Use selected-object actions when selection already expresses scope.
 - Use GhJSON/GhPatch for structured generation and replacement. Read `smarthopper_ghjson_reference` before manually authoring those formats.
 - `gh_put` replaces an existing object when its `instanceGuid` matches; preserve identity only for intentional edits.
+- Prefer `gh_set_value` for simple value edits (panel text, toggles, sliders, value lists, persistent parameter data) instead of rebuilding objects through `gh_put`.
 - Use `gh_connect` / `gh_disconnect` for known wiring and `gh_smart_connect` when connection intent requires AI inference.
 - Ask before `gh_clear`, broad replacement, or changes that may discard user work.
 - SmartHopper canvas mutations should support Grasshopper undo. After mutation, inspect errors and relevant outputs and summarize what changed.

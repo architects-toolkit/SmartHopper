@@ -17,14 +17,20 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using GhJSON.Grasshopper;
 using Grasshopper;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Special;
+using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
 using Rhino;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
@@ -216,6 +222,432 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 Debug.WriteLine($"[ComponentManipulation] ButtonClick failed for {guid}: {ex.Message}");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Outcome of a <see cref="SetObjectValue"/> attempt.
+        /// </summary>
+        public enum SetValueResult
+        {
+            /// <summary>The value was applied.</summary>
+            Success,
+
+            /// <summary>No document object exists for the supplied GUID.</summary>
+            NotFound,
+
+            /// <summary>The object (or the named input) cannot take a direct value.</summary>
+            Unsupported,
+
+            /// <summary>The mutation could not be applied safely.</summary>
+            Failed,
+        }
+
+        /// <summary>
+        /// Sets the value of a value-bearing canvas object on the Grasshopper UI thread.
+        /// Supports panels and scribbles (text), boolean toggles, number sliders
+        /// (range-clamped), value lists (selection by index, name, or item value) and
+        /// persistent parameters (persistent data replaced by a single item at {0}).
+        /// When <paramref name="paramName"/> is supplied and the target is a component,
+        /// the matching input parameter's persistent data is set instead.
+        /// The document is never touched while a solution is in progress.
+        /// </summary>
+        /// <param name="guid">GUID of the target object.</param>
+        /// <param name="value">The value to apply.</param>
+        /// <param name="paramName">Optional input parameter name, nickname, or zero-based index.</param>
+        /// <returns>Result code plus a human-readable detail message.</returns>
+        public static (SetValueResult result, string detail) SetObjectValue(Guid guid, JToken value, string? paramName = null)
+        {
+            var result = SetValueResult.Failed;
+            var detail = "Unknown failure";
+
+            try
+            {
+                InvokeOnUiThreadAndWait(() =>
+                {
+                    var obj = CanvasAccess.FindInstance(guid);
+                    if (obj == null)
+                    {
+                        result = SetValueResult.NotFound;
+                        detail = $"No canvas object matches {guid}";
+                        return;
+                    }
+
+                    var doc = obj.OnPingDocument();
+                    if (doc != null && doc.SolutionDepth > 0)
+                    {
+                        result = SetValueResult.Failed;
+                        detail = "A Grasshopper solution is in progress; the value was not applied.";
+                        return;
+                    }
+
+                    // A named input parameter targets the component's persistent data.
+                    if (!string.IsNullOrWhiteSpace(paramName))
+                    {
+                        if (obj is not IGH_Component comp)
+                        {
+                            result = SetValueResult.Unsupported;
+                            detail = "The 'param' argument only applies to components.";
+                            return;
+                        }
+
+                        var target = ResolveInputParam(comp, paramName);
+                        if (target == null)
+                        {
+                            result = SetValueResult.NotFound;
+                            detail = $"Component '{comp.NickName}' has no input parameter matching '{paramName}'.";
+                            return;
+                        }
+
+                        result = ApplyValue(target, () => SetPersistentParamValue(target, value, out detail));
+                    }
+                    else if (!IsSupportedValueTarget(obj))
+                    {
+                        result = SetValueResult.Unsupported;
+                        detail = $"Object of type '{obj.GetType().Name}' does not accept a direct value.";
+                        return;
+                    }
+                    else
+                    {
+                        // Undo must capture the pre-change state, so record before applying.
+                        obj.RecordUndoEvent("[SH] Set Value");
+                        if (!TryApplyObjectValue(obj, value, out result, out detail))
+                        {
+                            return;
+                        }
+                    }
+
+                    if (result == SetValueResult.Success)
+                    {
+                        // Schedule the downstream re-solve through the normal expiration
+                        // path — always on the UI thread and only when no solve is running.
+                        if (obj is IGH_ActiveObject active)
+                        {
+                            active.ExpireSolution(true);
+                        }
+
+                        doc?.NewSolution(false);
+                        Instances.RedrawCanvas();
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ComponentManipulation] SetObjectValue failed for {guid}: {ex.Message}");
+                return (SetValueResult.Failed, ex.Message);
+            }
+
+            return (result, detail);
+        }
+
+        /// <summary>
+        /// Records the undo event then applies a mutation to the target object.
+        /// </summary>
+        private static SetValueResult ApplyValue(IGH_DocumentObject target, Func<bool> apply)
+        {
+            target.RecordUndoEvent("[SH] Set Value");
+            return apply() ? SetValueResult.Success : SetValueResult.Failed;
+        }
+
+        /// <summary>
+        /// Whether the object type can take a direct value assignment.
+        /// </summary>
+        private static bool IsSupportedValueTarget(IGH_DocumentObject obj)
+        {
+            return obj is GH_Panel or GH_Scribble or GH_BooleanToggle or GH_NumberSlider or GH_ValueList or IGH_Param;
+        }
+
+        /// <summary>
+        /// Dispatches the value application to the concrete object type. Returns false
+        /// when nothing was applied (result/detail are populated either way).
+        /// </summary>
+        private static bool TryApplyObjectValue(IGH_DocumentObject obj, JToken value, out SetValueResult result, out string detail)
+        {
+            switch (obj)
+            {
+                case GH_Panel panel:
+                    panel.UserText = value?.ToString() ?? string.Empty;
+                    result = SetValueResult.Success;
+                    detail = $"Set panel text on '{panel.NickName}'";
+                    return true;
+
+                case GH_Scribble scribble:
+                    scribble.Text = value?.ToString() ?? string.Empty;
+                    result = SetValueResult.Success;
+                    detail = $"Set scribble text on '{scribble.NickName}'";
+                    return true;
+
+                case GH_BooleanToggle toggle:
+                    if (!TryGetBoolean(value, out var b))
+                    {
+                        result = SetValueResult.Failed;
+                        detail = $"Value '{value}' is not a boolean.";
+                        return false;
+                    }
+
+                    toggle.Value = b;
+                    result = SetValueResult.Success;
+                    detail = $"Set toggle '{toggle.NickName}' to {b}";
+                    return true;
+
+                case GH_NumberSlider slider:
+                    if (!TryGetDecimal(value, out var d))
+                    {
+                        result = SetValueResult.Failed;
+                        detail = $"Value '{value}' is not numeric.";
+                        return false;
+                    }
+
+                    var min = slider.Slider.Minimum;
+                    var max = slider.Slider.Maximum;
+                    if (d < min)
+                    {
+                        d = min;
+                    }
+
+                    if (d > max)
+                    {
+                        d = max;
+                    }
+
+                    slider.SetSliderValue(d);
+                    result = SetValueResult.Success;
+                    detail = $"Set slider '{slider.NickName}' to {d} (clamped to [{min}, {max}])";
+                    return true;
+
+                case GH_ValueList valueList:
+                    var index = FindValueListItem(valueList, value);
+                    if (index < 0)
+                    {
+                        result = SetValueResult.NotFound;
+                        detail = $"No value list item matches '{value}'.";
+                        return false;
+                    }
+
+                    for (var i = 0; i < valueList.ListItems.Count; i++)
+                    {
+                        valueList.ListItems[i].Selected = i == index;
+                    }
+
+                    result = SetValueResult.Success;
+                    detail = $"Selected item '{valueList.ListItems[index].Name}' in '{valueList.NickName}'";
+                    return true;
+
+                case IGH_Param param:
+                    var applied = SetPersistentParamValue(param, value, out detail);
+                    result = applied ? SetValueResult.Success : SetValueResult.Failed;
+                    return applied;
+
+                default:
+                    result = SetValueResult.Unsupported;
+                    detail = $"Object of type '{obj.GetType().Name}' does not accept a direct value.";
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Replaces a persistent parameter's data with a single item at path {0},
+        /// converting the JSON value into the parameter's concrete goo type. Mirrors
+        /// the reflection recipe used by the GhJSON deserializer (SetPersistentData
+        /// lives on the generic <c>GH_PersistentParam&lt;T&gt;</c>, not on IGH_Param).
+        /// </summary>
+        private static bool SetPersistentParamValue(IGH_Param param, JToken value, out string detail)
+        {
+            var persistentBase = FindGenericBaseType(param.GetType(), typeof(GH_PersistentParam<>));
+            if (persistentBase == null)
+            {
+                detail = $"Parameter '{param.NickName}' ({param.GetType().Name}) has no persistent data store.";
+                return false;
+            }
+
+            var gooType = persistentBase.GetGenericArguments()[0];
+            var goo = CreateGoo(gooType, value);
+            if (goo == null)
+            {
+                detail = $"Cannot convert '{value}' to {gooType.Name}.";
+                return false;
+            }
+
+            var structureType = typeof(GH_Structure<>).MakeGenericType(gooType);
+            var structure = Activator.CreateInstance(structureType);
+            if (structure == null)
+            {
+                detail = $"Cannot build data structure for {gooType.Name}.";
+                return false;
+            }
+
+            structureType.GetMethod("Append", new[] { gooType, typeof(GH_Path) })
+                ?.Invoke(structure, new object?[] { goo, new GH_Path(0) });
+
+            var setMethod = param.GetType().GetMethod(
+                "SetPersistentData",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                new[] { structureType },
+                null);
+            if (setMethod == null)
+            {
+                detail = $"Parameter '{param.NickName}' does not expose SetPersistentData.";
+                return false;
+            }
+
+            setMethod.Invoke(param, new object?[] { structure });
+
+            var wired = param.Kind == GH_ParamKind.input && param.SourceCount > 0
+                ? " (note: the input is wired, so persistent data may be overridden)"
+                : string.Empty;
+            detail = $"Set '{param.NickName}' to '{value}' as {gooType.Name}{wired}";
+            return true;
+        }
+
+        /// <summary>
+        /// Converts a JSON scalar into the target goo type via its constructors.
+        /// </summary>
+        private static object? CreateGoo(Type gooType, JToken value)
+        {
+            var candidates = new List<object>();
+            switch (value?.Type)
+            {
+                case JTokenType.Boolean:
+                    candidates.Add(value.Value<bool>());
+                    break;
+                case JTokenType.Integer:
+                    candidates.Add(value.Value<int>());
+                    candidates.Add(value.Value<long>());
+                    candidates.Add(value.Value<double>());
+                    break;
+                case JTokenType.Float:
+                    candidates.Add(value.Value<double>());
+                    candidates.Add(value.Value<decimal>());
+                    break;
+                case JTokenType.String:
+                    candidates.Add(value.Value<string>()!);
+                    break;
+            }
+
+            foreach (var candidate in candidates)
+            {
+                try
+                {
+                    var ctor = gooType.GetConstructor(new[] { candidate.GetType() });
+                    if (ctor != null)
+                    {
+                        return ctor.Invoke(new[] { candidate });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ComponentManipulation] CreateGoo ctor failed for {gooType.Name}: {ex.Message}");
+                }
+            }
+
+            // String fallback: many goo types accept a text constructor.
+            try
+            {
+                var stringCtor = gooType.GetConstructor(new[] { typeof(string) });
+                if (stringCtor != null)
+                {
+                    return stringCtor.Invoke(new object?[] { value?.ToString() ?? string.Empty });
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ComponentManipulation] CreateGoo string ctor failed for {gooType.Name}: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        private static IGH_Param? ResolveInputParam(IGH_Component comp, string paramName)
+        {
+            if (int.TryParse(paramName, out var index)
+                && index >= 0
+                && index < comp.Params.Input.Count)
+            {
+                return comp.Params.Input[index];
+            }
+
+            return comp.Params.Input.FirstOrDefault(p =>
+                string.Equals(p.NickName, paramName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(p.Name, paramName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static int FindValueListItem(GH_ValueList valueList, JToken value)
+        {
+            if (value?.Type == JTokenType.Integer)
+            {
+                var index = value.Value<int>();
+                return index >= 0 && index < valueList.ListItems.Count ? index : -1;
+            }
+
+            var text = value?.ToString();
+            for (var i = 0; i < valueList.ListItems.Count; i++)
+            {
+                var item = valueList.ListItems[i];
+                if (string.Equals(item.Name, text, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(item.Expression, text, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(item.Value?.ToString(), text, StringComparison.OrdinalIgnoreCase))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private static bool TryGetBoolean(JToken? value, out bool result)
+        {
+            switch (value?.Type)
+            {
+                case JTokenType.Boolean:
+                    result = value.Value<bool>();
+                    return true;
+                case JTokenType.String:
+                    return bool.TryParse(value.Value<string>(), out result);
+                default:
+                    result = false;
+                    return false;
+            }
+        }
+
+        private static bool TryGetDecimal(JToken? value, out decimal result)
+        {
+            try
+            {
+                switch (value?.Type)
+                {
+                    case JTokenType.Integer:
+                        result = value.Value<decimal>();
+                        return true;
+                    case JTokenType.Float:
+                        result = value.Value<decimal>();
+                        return true;
+                    case JTokenType.String:
+                        return decimal.TryParse(value.Value<string>(), out result);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ComponentManipulation] Numeric conversion failed: {ex.Message}");
+            }
+
+            result = 0m;
+            return false;
+        }
+
+        private static Type? FindGenericBaseType(Type type, Type openGenericBaseType)
+        {
+            var current = type;
+            while (current != null)
+            {
+                if (current.IsGenericType && current.GetGenericTypeDefinition() == openGenericBaseType)
+                {
+                    return current;
+                }
+
+                current = current.BaseType;
+            }
+
+            return null;
         }
 
         /// <summary>
