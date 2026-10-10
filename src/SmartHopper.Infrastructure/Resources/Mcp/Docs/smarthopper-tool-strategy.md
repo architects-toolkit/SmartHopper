@@ -27,6 +27,7 @@
 - Prefer `gh_set_value` for simple value edits (panel text, toggles, sliders, value lists, persistent parameter data) instead of rebuilding objects through `gh_put`.
 - Use `gh_connect` / `gh_disconnect` for known wiring and `gh_smart_connect` when connection intent requires AI inference.
 - Ask before `gh_clear`, broad replacement, or changes that may discard user work.
+- Use `gh_run` to re-compute specific components; it re-runs them through a disable-enable pulse and is refused while a solution is in progress.
 - SmartHopper canvas mutations should support Grasshopper undo. After mutation, inspect errors and relevant outputs and summarize what changed.
 
 ## Node terminology

@@ -59,6 +59,27 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         }
 
         /// <summary>
+        /// Outcome of a <see cref="PulseObject"/> attempt.
+        /// </summary>
+        public enum PulseResult
+        {
+            /// <summary>The object was locked then re-enabled; a re-solve was scheduled.</summary>
+            Pulsed,
+
+            /// <summary>No document object exists for the supplied GUID.</summary>
+            NotFound,
+
+            /// <summary>The object is locked; locked objects cannot run.</summary>
+            Locked,
+
+            /// <summary>A solution is currently in progress.</summary>
+            Busy,
+
+            /// <summary>The object does not participate in solutions (not an active object).</summary>
+            Unsupported,
+        }
+
+        /// <summary>
         /// Set preview state of a Grasshopper component by GUID.
         /// </summary>
         /// <param name="guid">GUID of the component.</param>
@@ -166,6 +187,69 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             {
                 Debug.WriteLine("[ComponentManipulation] Object is neither a GH_Component nor a GH_Param");
             }
+        }
+
+        /// <summary>
+        /// Re-runs a canvas object through the normal lock transition: disables then
+        /// re-enables it on the UI thread, letting Grasshopper expire and re-schedule
+        /// the solution itself. No direct <c>ExpireSolution</c> call is made and the
+        /// pulse is refused while a solution is in progress, avoiding
+        /// "component expired while running" failures. Locked objects are skipped
+        /// (locked components never compute). The pulse is a net-zero state change,
+        /// so no undo record is produced.
+        /// </summary>
+        /// <param name="guid">GUID of the component or parameter to re-run.</param>
+        /// <returns>The pulse outcome.</returns>
+        public static PulseResult PulseObject(Guid guid)
+        {
+            var result = PulseResult.Unsupported;
+
+            try
+            {
+                InvokeOnUiThreadAndWait(() =>
+                {
+                    var obj = CanvasAccess.FindInstance(guid);
+                    if (obj == null)
+                    {
+                        result = PulseResult.NotFound;
+                        return;
+                    }
+
+                    if (obj is not IGH_ActiveObject active)
+                    {
+                        result = PulseResult.Unsupported;
+                        return;
+                    }
+
+                    var doc = obj.OnPingDocument();
+                    if (doc != null && doc.SolutionDepth > 0)
+                    {
+                        result = PulseResult.Busy;
+                        return;
+                    }
+
+                    if (active.Locked)
+                    {
+                        result = PulseResult.Locked;
+                        return;
+                    }
+
+                    // Disable→enable transition. Re-enabling is the standard UI path
+                    // that expires the object and schedules a new solution.
+                    active.Locked = true;
+                    active.Locked = false;
+
+                    doc?.NewSolution(false);
+                    result = PulseResult.Pulsed;
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ComponentManipulation] PulseObject failed for {guid}: {ex.Message}");
+                return PulseResult.Unsupported;
+            }
+
+            return result;
         }
 
         /// <summary>
