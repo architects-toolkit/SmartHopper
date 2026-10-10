@@ -8,8 +8,8 @@ Read the current state of the Grasshopper canvas with the right level of detail.
 
 1. Call `gh_get_selected` when the user refers to selected objects, "this", or "these".
 2. Call `gh_get_errors` for failures or `gh_report` for a broad canvas summary.
-3. Call `gh_get_selected_with_data`, `gh_get_errors_with_data`, `gh_get_start_with_data`, `gh_get_end_with_data`, or `gh_get_by_guid_with_data` only when computed values are needed.
-4. Call `gh_get_start` or `gh_get_end` for wide source/sink views without runtime data.
+3. Call `gh_get` with `typeFilter: ['+startnodes']` or `['+endnodes']` for wide source/sink views without runtime data.
+4. Add `includeRuntimeData: true` (or `detail: 'summary'` + `fields: ['runtimeData']`) to any `gh_get*` call only when computed values are needed.
 5. Call `gh_get_by_guid` when GUIDs are already known.
 6. Use generic `gh_get` only when no specialized query fits.
 

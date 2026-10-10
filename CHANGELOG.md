@@ -58,6 +58,7 @@ Many thanks to the following contributors to this release:
 - Added a persistent task-plan panel to WebChat docked under the autonomy overlay in a shared `#hud` column. The active `plan_tasks` plan renders there with goal, completed/total count, progress bar, and per-task pending/in-progress/completed status, keeping its final state until replaced or the chat is reset.
 - Added a live "Extend limits" row to the WebChat autonomy overlay. Clicking it navigates `sh://event?type=extend_autonomy`, which calls the new `ConversationSession.ExtendAutonomyLimits()`: each call adds half of the configured `MaxAutonomousTime` and `MaxAutonomousTokens` on top of the effective budgets (accumulated via `Interlocked`-backed counters so the turn loop sees them at the next budget check). The row is hidden for unbounded runs and the button is disabled once the run ends or a budget is already exhausted.
 - Added local file path support to the `img2text` AI tool. When `imageUrl` resolves to an existing file on disk (absolute path or `file://` URI), the image is loaded and sent as base64 instead of passing an unfetchable `file://` URI to remote providers; MIME type is inferred from the file extension.
+- `gh_get` and its wrapper variants now accept a `nameFilter` parameter (case-insensitive substring match against `Name` or `NickName`), an `includeRuntimeMessages` flag, and a `fields` projection list for `detail: 'summary'`. Supported projection fields: `instanceGuid` (always emitted), `name`, `nickName`, `pivot`, `bounds`, `selected`, `locked`, `previewOn`, `category`, `subcategory`, `messages`, `runtimeData`, and `internalizedData`. The data projections reuse the GhJSON serializer's compact per-parameter form (only parameters that actually carry data, keyed by nickname) instead of dumping raw data trees.
 
 ### Changed
 
@@ -109,6 +110,8 @@ Many thanks to the following contributors to this release:
 - Renamed the `plan_tasks`/`plan_propose` AITool category from `Control` to `Planning` (shared with the new `ask_user`), and added `Planning` to the WebChat tool filters in `CanvasButton` and `AIChatComponent`, fixing plan tools being unreachable from chat.
 - The WebChat task plan no longer renders as an inline message card; it is shown in the persistent HUD panel below the autonomy overlay instead.
 - Renamed the `guidFilter` parameter to `instanceGuids` in `gh_get`, `gh_get_by_guid`, and `gh_get_by_guid_with_data` to match the `instanceGuids` convention used by `gh_remove`, `button_click`, and the `gh_put` result payload, and to disambiguate document-object instance GUIDs from component-type (`componentGuid`) GUIDs. The old `guidFilter` key is still accepted as a silent alias on `gh_get` (where the parameter is optional); `gh_get_by_guid*` callers must use `instanceGuids` since it is a required parameter there.
+- `includeRuntimeMessages` on `gh_get` is now implicit: any `attrFilters` include token for a runtime-message level (`error`, `warning`, `remark`, or a synonym) automatically enables runtime messages, so `gh_get({ attrFilters: ['+error'] })` returns a complete errors report without extra flags.
+- The four remaining `gh_get*` tools (`gh_get`, `gh_get_selected`, `gh_get_by_guid`, `gh_get_errors`) now share one parameter surface; each wrapper only injects a predefined filter that merges with user-supplied filters instead of replacing them.
 
 ### Removed
 
@@ -119,6 +122,7 @@ Many thanks to the following contributors to this release:
 - Removed the duplicated per-provider JSON schema adapters: `OpenAIJsonSchemaAdapter`, `MistralAIJsonSchemaAdapter`, `OllamaJsonSchemaAdapter`, `LocalAIJsonSchemaAdapter`, and the fallback `DefaultJsonSchemaAdapter`.
 - Removed the duplicated `AIFileContextComponent` Grasshopper component. Its free-form file context was redundant with `AIFileMetadataComponent`'s `description`; use `AIFileMetadataComponent` for title, description, version, author, and tags.
 - Removed the `pr-linear-history.yml` workflow. Pull requests are no longer required to be rebased onto their base branch or free of merge commits; history-shape enforcement, if desired, remains a repository ruleset setting.
+- Removed the specialized `gh_get_*` AI tool variants `gh_get_selected_with_data`, `gh_get_by_guid_with_data`, `gh_get_errors_with_data`, `gh_get_start`, `gh_get_start_with_data`, `gh_get_end`, `gh_get_end_with_data`, `gh_get_locked`, `gh_get_preview_off`, `gh_get_preview_on`, and `gh_get_visible`. Their behavior is covered by parameters on the remaining tools: `includeRuntimeData` for `*_with_data`, `typeFilter: ['+startnodes']`/`['+endnodes']` for start/end, `attrFilters: ['+disabled']` for locked, `attrFilters: ['+previewoff']`/`['+previewon']` for preview state, and `viewportOnly: true` for visible.
 
 ### Fixed
 
