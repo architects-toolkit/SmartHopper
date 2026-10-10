@@ -32,34 +32,35 @@ using SmartHopper.ProviderSdk.AIProviders;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
-    /// AI tool that retrieves the list of enabled AI providers and their configuration status.
+    /// AI tool that retrieves the list of registered AI providers and their status
+    /// (enabled, configured, default).
     /// </summary>
-    public class get_available_providers : IAIToolProvider
+    public class providers_list : IAIToolProvider
     {
-        private readonly string toolName = "get_available_providers";
+        private readonly string toolName = "providers_list";
 
         /// <inheritdoc/>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Retrieve the list of enabled AI providers registered in SmartHopper, including whether each provider is properly configured in the current environment.",
+                description: "Retrieve the list of AI providers registered in SmartHopper with per-provider status flags: enabled (registered for use), configured (all required settings such as API key or endpoint present in the current environment), and isDefault (currently selected default). Includes the top-level defaultProvider name.",
                 category: "Providers",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {},
                     ""required"": []
                 }",
-                execute: this.GetAvailableProvidersAsync,
+                execute: this.ProvidersListAsync,
                 requiredCapabilities: AICapability.None,
                 mutatesCanvas: false,
                 enabled: true,
                 tags: new[] { "providers", "read-only" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""providers"": { ""type"": ""array"", ""items"": { ""type"": ""object"", ""properties"": { ""name"": { ""type"": ""string"" }, ""configured"": { ""type"": ""boolean"", ""description"": ""True when the provider has all required settings (API key, endpoint URL, etc.) configured in the current environment."" } }, ""required"": [""name"", ""configured""] } } } }",
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""defaultProvider"": { ""type"": ""string"" }, ""providers"": { ""type"": ""array"", ""items"": { ""type"": ""object"", ""properties"": { ""name"": { ""type"": ""string"" }, ""enabled"": { ""type"": ""boolean"", ""description"": ""True when the provider is enabled for use."" }, ""configured"": { ""type"": ""boolean"", ""description"": ""True when the provider has all required settings (API key, endpoint URL, etc.) configured in the current environment."" }, ""isDefault"": { ""type"": ""boolean"", ""description"": ""True when the provider is the current default."" } }, ""required"": [""name"", ""enabled"", ""configured"", ""isDefault""] } } } }",
                 annotations: new AIToolAnnotations(openWorldHint: false, readOnlyHint: true, destructiveHint: false));
         }
 
-        private Task<AIReturn> GetAvailableProvidersAsync(AIToolCall toolCall)
+        private Task<AIReturn> ProvidersListAsync(AIToolCall toolCall)
         {
             var output = new AIReturn()
             {
@@ -73,18 +74,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var toolInfo = toolCall.GetToolCall();
 
+                var defaultProvider = ProviderManager.Instance.GetDefaultAIProvider();
+
                 var providers = ProviderManager.Instance.GetProviders()
-                    .Where(p => p.IsEnabled)
                     .Select(p => new JObject
                     {
                         ["name"] = p.Name,
+                        ["enabled"] = p.IsEnabled,
                         ["configured"] = p.IsConfigured,
+                        ["isDefault"] = string.Equals(p.Name, defaultProvider, StringComparison.OrdinalIgnoreCase),
                     })
-                    .OrderBy(p => p["name"]?.ToString(), StringComparer.OrdinalIgnoreCase)
+                    .OrderByDescending(p => p["isDefault"]?.ToObject<bool>() ?? false)
+                    .ThenBy(p => p["name"]?.ToString(), StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
                 var result = new JObject()
                 {
+                    ["defaultProvider"] = defaultProvider,
                     ["providers"] = new JArray(providers),
                 };
 

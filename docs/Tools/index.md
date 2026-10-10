@@ -55,8 +55,8 @@ SmartHopper's tool system extends Grasshopper components with AI-powered capabil
 - **Text tasks**: Use `text2text`, `text2boolean`, `text2textlist`, `text2json`
 - **Image tasks**: Use `img2text` (vision), `text2img` (generation), or `canvas_screenshot` / `viewport_screenshot` (capture)
 - **Document tasks**: Use `file2md` or `web2md` to convert documents and web pages to Markdown
-- **Canvas tasks**: Use `gh_get`, `gh_put`, `gh_move`, `gh_group`, `gh_tidy_up`, `gh_connect`, `gh_disconnect`, `gh_select`, `canvas_view`, `set_ai_provider_and_model` for Grasshopper automation
-- **Provider/model tasks**: Use `get_available_providers` (includes a `configured` flag per provider), `get_available_models` to inspect registered AI providers and their supported models, and `set_ai_provider_and_model` to override provider/model on a component
+- **Canvas tasks**: Use `gh_get`, `gh_put`, `gh_move`, `gh_group`, `gh_tidy_up`, `gh_connect`, `gh_disconnect`, `gh_select`, `canvas_view`, `gh_component_set_provider` for Grasshopper automation
+- **Provider/model tasks**: Use `providers_list` (includes `enabled`, `configured`, and `isDefault` flags per provider plus the top-level `defaultProvider`), `providers_models` to inspect registered AI providers and their supported models, and `gh_component_set_provider` to override provider/model on a component
 - **Knowledge tasks**: Use `smarthopper_readme`, `smarthopper_tool_help`, `mcneel_forum_search` for contextual guidance
 
 ### Visual Guide

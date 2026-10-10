@@ -171,7 +171,7 @@ namespace SmartHopper.Components.AI
                     var toolCallInteraction = new AIInteractionToolCall()
                     {
                         Id = Guid.NewGuid().ToString(),
-                        Name = "get_available_models",
+                        Name = "providers_models",
                         Arguments = args,
                         Agent = AIAgent.Assistant,
                     };
@@ -180,7 +180,7 @@ namespace SmartHopper.Components.AI
                     {
                         Provider = providerName,
                         Model = string.Empty,
-                        Endpoint = "get_available_models",
+                        Endpoint = "providers_models",
                         SkipMetricsValidation = true,
                         CancellationToken = token,
                     };
