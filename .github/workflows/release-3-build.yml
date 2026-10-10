@@ -478,16 +478,9 @@ jobs:
         base-ref: main
         pr-title: "chore: add provider hash manifest for ${{ needs.prep.outputs.version }}"
 
-    - name: Auto-merge Hash PR
-      if: needs.prep.outputs.is_release == 'true' && steps.hash-pr.outputs.hash_pr_number != ''
-      shell: pwsh
-      run: |
-        $prNumber = "${{ steps.hash-pr.outputs.hash_pr_number }}"
-        if ($prNumber) {
-          gh pr merge $prNumber --auto --rebase
-        }
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # No auto-merge: the hash PR goes through the normal validated PR + merge
+    # queue path. gh pr merge --auto fails on repos where auto-merge is
+    # unavailable under the merge queue (enablePullRequestAutoMerge).
 
     - name: Upload Hash Manifest
       uses: actions/upload-artifact@v6
