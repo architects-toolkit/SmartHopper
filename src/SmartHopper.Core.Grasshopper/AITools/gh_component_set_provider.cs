@@ -44,16 +44,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// selected AI provider and wiring a new Panel with the model name into its
     /// Settings input.
     /// </summary>
-    public class set_ai_provider_and_model : IAIToolProvider
+    public class gh_component_set_provider : IAIToolProvider
     {
-        private readonly string toolName = "set_ai_provider_and_model";
+        private readonly string toolName = "gh_component_set_provider";
 
         /// <inheritdoc/>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AIMutatingTool(
                 name: this.toolName,
-                description: "Set the AI provider and/or model for a component that implements IProviderComponent. If a provider is supplied, the component's AI provider selection is updated. If a model is supplied, a new Panel containing the model name is created and wired to the component's Settings input.",
+                description: "Set the AI provider for a single component that implements IProviderComponent (component-scoped, not global). If a provider is supplied, the component's AI provider selection is updated. If a model is supplied, a new Panel containing the model name is created and wired to the component's Settings input. Use providers_list / providers_models to discover valid names.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -64,7 +64,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""componentGuid""]
                 }",
-                execute: this.SetAIProviderAndModelAsync,
+                execute: this.GhComponentSetProviderAsync,
                 requiredCapabilities: AICapability.None,
                 enabled: true,
                 tags: new[] { "canvas", "components", "mutating", "settings", "provider", "model" },
@@ -72,7 +72,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
-        private async Task<AIReturn> SetAIProviderAndModelAsync(AIToolCall toolCall)
+        private async Task<AIReturn> GhComponentSetProviderAsync(AIToolCall toolCall)
         {
             var output = new AIReturn()
             {

@@ -34,9 +34,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// <summary>
     /// AI tool that retrieves the list of available models for a given AI provider.
     /// </summary>
-    public class get_available_models : IAIToolProvider
+    public class providers_models : IAIToolProvider
     {
-        private readonly string toolName = "get_available_models";
+        private readonly string toolName = "providers_models";
 
         /// <inheritdoc/>
         public IEnumerable<AITool> GetTools()
@@ -52,7 +52,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": []
                 }",
-                execute: this.GetAvailableModelsAsync,
+                execute: this.ProvidersModelsAsync,
                 requiredCapabilities: AICapability.None,
                 mutatesCanvas: false,
                 enabled: true,
@@ -61,7 +61,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 annotations: new AIToolAnnotations(openWorldHint: true, readOnlyHint: true, destructiveHint: false));
         }
 
-        private async Task<AIReturn> GetAvailableModelsAsync(AIToolCall toolCall)
+        private async Task<AIReturn> ProvidersModelsAsync(AIToolCall toolCall)
         {
             var output = new AIReturn()
             {
