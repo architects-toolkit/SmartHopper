@@ -296,20 +296,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var includeRuntimeData = args["includeRuntimeData"]?.ToObject<bool>() ?? false;
 
                 // Attribute filters (predefined tokens merged with user tokens)
-                var attrTokens = (predefinedAttrFilters ?? Array.Empty<string>())
-                    .Concat(args["attrFilters"]?.ToObject<string[]>() ?? Array.Empty<string>())
-                    .ToArray();
+                var attrTokens = MergeFilterTokens(predefinedAttrFilters, args["attrFilters"]?.ToObject<string[]>(), "attrFilters", output);
 
                 // An error/warning/remark include filter implies runtime messages:
                 // an errors report without message contents would be useless.
                 var includeMessages = forceIncludeMessages
                     || (args["includeRuntimeMessages"]?.ToObject<bool>() ?? false)
-                    || attrTokens.Any(t =>
-                    {
-                        var token = t.Trim();
-                        return token.StartsWith("+", StringComparison.Ordinal)
-                            && MessageLevelTokens.Contains(token.Substring(1).Trim());
-                    });
+                    || attrTokens.Any(t => t.StartsWith("+", StringComparison.Ordinal)
+                        && MessageLevelTokens.Contains(t.Substring(1).Trim()));
                 var includeMetadata = args["includeMetadata"]?.ToObject<bool>() ?? false;
                 var viewportOnly = forceViewportOnly || (args["viewportOnly"]?.ToObject<bool>() ?? false);
                 var page = args["page"]?.ToObject<int>() ?? 1;
@@ -419,9 +413,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Type filters (predefined tokens merged with user tokens)
-                var typeTokens = (predefinedTypeFilters ?? Array.Empty<string>())
-                    .Concat(args["typeFilter"]?.ToObject<string[]>() ?? Array.Empty<string>())
-                    .ToArray();
+                var typeTokens = MergeFilterTokens(predefinedTypeFilters, args["typeFilter"]?.ToObject<string[]>(), "typeFilter", output);
                 if (typeTokens.Length > 0)
                 {
                     selector.WithTypes(typeTokens);
@@ -536,7 +528,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 JObject toolResult;
                 if (detail == "summary")
                 {
-                    var names = resultObjects
+                    var names = pagedObjects
                         .Where(o => !string.IsNullOrWhiteSpace(o?.Name))
                         .Select(o => o.Name)
                         .Distinct()
@@ -582,7 +574,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         ["detail"] = "summary",
                         ["names"] = JArray.FromObject(names),
-                        ["guids"] = JArray.FromObject(resultObjects.Select(o => o.InstanceGuid.ToString()).Distinct()),
+                        ["guids"] = JArray.FromObject(pagedObjects.Select(o => o.InstanceGuid.ToString()).Distinct()),
                         ["components"] = JArray.FromObject(components),
                         ["pagination"] = new JObject
                         {
@@ -644,7 +636,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         },
                         ["serializationQuality"] = new JObject
                         {
-                            ["totalComponents"] = document.Components.Count,
+                            ["totalComponents"] = totalComponents,
                             ["thinComponents"] = JArray.FromObject(thinComponents),
                             ["referencedPlugins"] = JArray.FromObject(missingPlugins),
                         },
@@ -693,26 +685,25 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 item["nickName"] = o.NickName;
             }
 
-            if (fields.Contains("pivot") || fields.Contains("bounds"))
+            if (fields.Contains("pivot"))
+            {
+                item["pivot"] = o.Attributes != null
+                    ? new JObject { ["x"] = o.Attributes.Pivot.X, ["y"] = o.Attributes.Pivot.Y }
+                    : null;
+            }
+
+            if (fields.Contains("bounds"))
             {
                 var bounds = o.Attributes?.Bounds;
                 if (bounds.HasValue)
                 {
-                    if (fields.Contains("pivot"))
+                    item["bounds"] = new JObject
                     {
-                        item["pivot"] = new JObject { ["x"] = bounds.Value.X, ["y"] = bounds.Value.Y };
-                    }
-
-                    if (fields.Contains("bounds"))
-                    {
-                        item["bounds"] = new JObject
-                        {
-                            ["x"] = bounds.Value.X,
-                            ["y"] = bounds.Value.Y,
-                            ["width"] = bounds.Value.Width,
-                            ["height"] = bounds.Value.Height,
-                        };
-                    }
+                        ["x"] = bounds.Value.X,
+                        ["y"] = bounds.Value.Y,
+                        ["width"] = bounds.Value.Width,
+                        ["height"] = bounds.Value.Height,
+                    };
                 }
             }
 
@@ -817,6 +808,59 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
 
             return data;
+        }
+
+        /// <summary>
+        /// Merges wrapper-injected (predefined) filter tokens with user-supplied ones.
+        /// Empty entries are dropped, and a user token that directly negates a
+        /// predefined token (e.g. '-error' against an injected '+error') is dropped
+        /// with a warning so the wrapper's core guarantee cannot be silently broken.
+        /// </summary>
+        private static string[] MergeFilterTokens(string[]? predefined, string[]? user, string parameterName, AIReturn output)
+        {
+            var merged = new List<string>();
+            var dropped = new List<string>();
+
+            if (predefined != null)
+            {
+                merged.AddRange(predefined.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()));
+            }
+
+            if (user != null)
+            {
+                foreach (var raw in user)
+                {
+                    if (string.IsNullOrWhiteSpace(raw))
+                    {
+                        continue;
+                    }
+
+                    var token = raw.Trim();
+                    var contradicts = token.StartsWith("-", StringComparison.Ordinal)
+                        && merged.Any(p =>
+                            p.StartsWith("+", StringComparison.Ordinal)
+                            && string.Equals(p.Substring(1).Trim(), token.Substring(1).Trim(), StringComparison.OrdinalIgnoreCase));
+
+                    if (contradicts)
+                    {
+                        dropped.Add(token);
+                    }
+                    else
+                    {
+                        merged.Add(token);
+                    }
+                }
+            }
+
+            if (dropped.Count > 0)
+            {
+                output.AddRuntimeMessage(
+                    SHRuntimeMessageSeverity.Warning,
+                    SHRuntimeMessageOrigin.Tool,
+                    $"Dropped {parameterName} tokens that contradict this tool's predefined filter: {string.Join(", ", dropped)}.");
+            }
+
+            return merged.ToArray();
         }
     }
 }
