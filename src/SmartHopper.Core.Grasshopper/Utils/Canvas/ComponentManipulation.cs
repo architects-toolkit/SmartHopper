@@ -41,42 +41,28 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
     public static class ComponentManipulation
     {
         /// <summary>
-        /// Outcome of a <see cref="SetObjectValue"/> attempt.
+        /// Outcome of a canvas object manipulation attempt (<see cref="PulseObject"/>,
+        /// <see cref="SetObjectValue"/>). Each method documents which values it can return.
         /// </summary>
-        public enum SetValueResult
+        public enum ObjectManipulationResult
         {
-            /// <summary>The value was applied.</summary>
+            /// <summary>The operation was applied.</summary>
             Success,
 
             /// <summary>No document object exists for the supplied GUID.</summary>
             NotFound,
 
-            /// <summary>The object (or the named input) cannot take a direct value.</summary>
+            /// <summary>The object does not support the requested operation.</summary>
             Unsupported,
+
+            /// <summary>The object is locked, so the operation was skipped.</summary>
+            Locked,
+
+            /// <summary>A solution is currently in progress; the operation was not attempted.</summary>
+            Busy,
 
             /// <summary>The mutation could not be applied safely.</summary>
             Failed,
-        }
-
-        /// <summary>
-        /// Outcome of a <see cref="PulseObject"/> attempt.
-        /// </summary>
-        public enum PulseResult
-        {
-            /// <summary>The object was locked then re-enabled; a re-solve was scheduled.</summary>
-            Pulsed,
-
-            /// <summary>No document object exists for the supplied GUID.</summary>
-            NotFound,
-
-            /// <summary>The object is locked; locked objects cannot run.</summary>
-            Locked,
-
-            /// <summary>A solution is currently in progress.</summary>
-            Busy,
-
-            /// <summary>The object does not participate in solutions (not an active object).</summary>
-            Unsupported,
         }
 
         /// <summary>
@@ -200,9 +186,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// </summary>
         /// <param name="guid">GUID of the component or parameter to re-run.</param>
         /// <returns>The pulse outcome.</returns>
-        public static PulseResult PulseObject(Guid guid)
+        public static ObjectManipulationResult PulseObject(Guid guid)
         {
-            var result = PulseResult.Unsupported;
+            var result = ObjectManipulationResult.Unsupported;
 
             try
             {
@@ -211,26 +197,26 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     var obj = CanvasAccess.FindInstance(guid);
                     if (obj == null)
                     {
-                        result = PulseResult.NotFound;
+                        result = ObjectManipulationResult.NotFound;
                         return;
                     }
 
                     if (obj is not IGH_ActiveObject active)
                     {
-                        result = PulseResult.Unsupported;
+                        result = ObjectManipulationResult.Unsupported;
                         return;
                     }
 
                     var doc = obj.OnPingDocument();
                     if (doc != null && doc.SolutionDepth > 0)
                     {
-                        result = PulseResult.Busy;
+                        result = ObjectManipulationResult.Busy;
                         return;
                     }
 
                     if (active.Locked)
                     {
-                        result = PulseResult.Locked;
+                        result = ObjectManipulationResult.Locked;
                         return;
                     }
 
@@ -240,13 +226,13 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     active.Locked = false;
 
                     doc?.NewSolution(false);
-                    result = PulseResult.Pulsed;
+                    result = ObjectManipulationResult.Success;
                 });
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ComponentManipulation] PulseObject failed for {guid}: {ex.Message}");
-                return PulseResult.Unsupported;
+                return ObjectManipulationResult.Unsupported;
             }
 
             return result;
@@ -339,9 +325,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// <param name="value">The value to apply.</param>
         /// <param name="paramName">Optional input parameter name, nickname, or zero-based index.</param>
         /// <returns>Result code plus a human-readable detail message.</returns>
-        public static (SetValueResult result, string detail) SetObjectValue(Guid guid, JToken value, string? paramName = null)
+        public static (ObjectManipulationResult result, string detail) SetObjectValue(Guid guid, JToken value, string? paramName = null)
         {
-            var result = SetValueResult.Failed;
+            var result = ObjectManipulationResult.Failed;
             var detail = "Unknown failure";
 
             try
@@ -351,7 +337,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     var obj = CanvasAccess.FindInstance(guid);
                     if (obj == null)
                     {
-                        result = SetValueResult.NotFound;
+                        result = ObjectManipulationResult.NotFound;
                         detail = $"No canvas object matches {guid}";
                         return;
                     }
@@ -359,7 +345,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     var doc = obj.OnPingDocument();
                     if (doc != null && doc.SolutionDepth > 0)
                     {
-                        result = SetValueResult.Failed;
+                        result = ObjectManipulationResult.Busy;
                         detail = "A Grasshopper solution is in progress; the value was not applied.";
                         return;
                     }
@@ -369,7 +355,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     {
                         if (obj is not IGH_Component comp)
                         {
-                            result = SetValueResult.Unsupported;
+                            result = ObjectManipulationResult.Unsupported;
                             detail = "The 'param' argument only applies to components.";
                             return;
                         }
@@ -377,7 +363,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                         var target = ResolveInputParam(comp, paramName);
                         if (target == null)
                         {
-                            result = SetValueResult.NotFound;
+                            result = ObjectManipulationResult.NotFound;
                             detail = $"Component '{comp.NickName}' has no input parameter matching '{paramName}'.";
                             return;
                         }
@@ -386,7 +372,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     }
                     else if (!IsSupportedValueTarget(obj))
                     {
-                        result = SetValueResult.Unsupported;
+                        result = ObjectManipulationResult.Unsupported;
                         detail = $"Object of type '{obj.GetType().Name}' does not accept a direct value.";
                         return;
                     }
@@ -400,7 +386,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                         }
                     }
 
-                    if (result == SetValueResult.Success)
+                    if (result == ObjectManipulationResult.Success)
                     {
                         // Schedule the downstream re-solve through the normal expiration
                         // path — always on the UI thread and only when no solve is running.
@@ -417,7 +403,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ComponentManipulation] SetObjectValue failed for {guid}: {ex.Message}");
-                return (SetValueResult.Failed, ex.Message);
+                return (ObjectManipulationResult.Failed, ex.Message);
             }
 
             return (result, detail);
@@ -426,10 +412,10 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// <summary>
         /// Records the undo event then applies a mutation to the target object.
         /// </summary>
-        private static SetValueResult ApplyValue(IGH_DocumentObject target, Func<bool> apply)
+        private static ObjectManipulationResult ApplyValue(IGH_DocumentObject target, Func<bool> apply)
         {
             target.RecordUndoEvent("[SH] Set Value");
-            return apply() ? SetValueResult.Success : SetValueResult.Failed;
+            return apply() ? ObjectManipulationResult.Success : ObjectManipulationResult.Failed;
         }
 
         /// <summary>
@@ -444,39 +430,39 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// Dispatches the value application to the concrete object type. Returns false
         /// when nothing was applied (result/detail are populated either way).
         /// </summary>
-        private static bool TryApplyObjectValue(IGH_DocumentObject obj, JToken value, out SetValueResult result, out string detail)
+        private static bool TryApplyObjectValue(IGH_DocumentObject obj, JToken value, out ObjectManipulationResult result, out string detail)
         {
             switch (obj)
             {
                 case GH_Panel panel:
                     panel.UserText = value?.ToString() ?? string.Empty;
-                    result = SetValueResult.Success;
+                    result = ObjectManipulationResult.Success;
                     detail = $"Set panel text on '{panel.NickName}'";
                     return true;
 
                 case GH_Scribble scribble:
                     scribble.Text = value?.ToString() ?? string.Empty;
-                    result = SetValueResult.Success;
+                    result = ObjectManipulationResult.Success;
                     detail = $"Set scribble text on '{scribble.NickName}'";
                     return true;
 
                 case GH_BooleanToggle toggle:
                     if (!TryGetBoolean(value, out var b))
                     {
-                        result = SetValueResult.Failed;
+                        result = ObjectManipulationResult.Failed;
                         detail = $"Value '{value}' is not a boolean.";
                         return false;
                     }
 
                     toggle.Value = b;
-                    result = SetValueResult.Success;
+                    result = ObjectManipulationResult.Success;
                     detail = $"Set toggle '{toggle.NickName}' to {b}";
                     return true;
 
                 case GH_NumberSlider slider:
                     if (!TryGetDecimal(value, out var d))
                     {
-                        result = SetValueResult.Failed;
+                        result = ObjectManipulationResult.Failed;
                         detail = $"Value '{value}' is not numeric.";
                         return false;
                     }
@@ -494,7 +480,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     }
 
                     slider.SetSliderValue(d);
-                    result = SetValueResult.Success;
+                    result = ObjectManipulationResult.Success;
                     detail = $"Set slider '{slider.NickName}' to {d} (clamped to [{min}, {max}])";
                     return true;
 
@@ -502,7 +488,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     var index = FindValueListItem(valueList, value);
                     if (index < 0)
                     {
-                        result = SetValueResult.NotFound;
+                        result = ObjectManipulationResult.NotFound;
                         detail = $"No value list item matches '{value}'.";
                         return false;
                     }
@@ -512,17 +498,17 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                         valueList.ListItems[i].Selected = i == index;
                     }
 
-                    result = SetValueResult.Success;
+                    result = ObjectManipulationResult.Success;
                     detail = $"Selected item '{valueList.ListItems[index].Name}' in '{valueList.NickName}'";
                     return true;
 
                 case IGH_Param param:
                     var applied = SetPersistentParamValue(param, value, out detail);
-                    result = applied ? SetValueResult.Success : SetValueResult.Failed;
+                    result = applied ? ObjectManipulationResult.Success : ObjectManipulationResult.Failed;
                     return applied;
 
                 default:
-                    result = SetValueResult.Unsupported;
+                    result = ObjectManipulationResult.Unsupported;
                     detail = $"Object of type '{obj.GetType().Name}' does not accept a direct value.";
                     return false;
             }
