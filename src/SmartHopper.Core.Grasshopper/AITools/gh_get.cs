@@ -41,7 +41,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
     /// Tool provider for Grasshopper component retrieval via AI Tool Manager.
-    /// Provides both a generic gh_get tool and specialized wrapper tools for common use cases.
+    /// Provides a generic <c>gh_get</c> tool plus a small set of specialized
+    /// wrappers (<c>gh_get_selected</c>, <c>gh_get_by_guid</c>, <c>gh_get_errors</c>)
+    /// that share the same parameter surface and only inject a predefined filter.
     /// </summary>
     public class gh_get : IAIToolProvider
     {
@@ -51,25 +53,47 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private readonly string toolName = "gh_get";
 
         /// <summary>
+        /// Fields allowed in the <c>fields</c> parameter for the summary projection.
+        /// </summary>
+        private static readonly string[] AllowedFields =
+        {
+            "instanceGuid", "name", "nickName", "pivot", "bounds",
+            "selected", "locked", "previewOn", "category", "subcategory",
+            "messages", "runtimeData", "internalizedData",
+        };
+
+        /// <summary>
+        /// Fields emitted when <c>fields</c> is not provided.
+        /// </summary>
+        private static readonly string[] DefaultFields =
+        {
+            "instanceGuid", "name", "nickName", "pivot", "bounds",
+        };
+
+        /// <summary>
+        /// Attribute filter tokens (without the '+') that denote a runtime-message
+        /// level. An include token of this kind automatically enables
+        /// <c>includeRuntimeMessages</c>.
+        /// </summary>
+        private static readonly HashSet<string> MessageLevelTokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "error", "errors", "warning", "warnings", "warn", "remark", "remarks", "info",
+        };
+
+        /// <summary>
         /// Common metadata for all gh_get variants.
         /// </summary>
         private AITool CreateGhGetTool(
             string name,
             string description,
-            string parametersSchema,
-            Func<AIToolCall, Task<AIReturn>> execute,
-            bool includeInternalizedData = false,
-            bool includePagination = true)
+            bool requireGuidFilter,
+            Func<AIToolCall, Task<AIReturn>> execute)
         {
             var tags = new List<string> { "canvas", "components", "read-only", "ghjson" };
-            if (includeInternalizedData)
-            {
-                tags.Add("data-intensive");
-            }
 
-            var outputSchema = @"{ ""type"": ""object"", ""properties"": { ""detail"": { ""type"": ""string"" }, ""ghjson"": { ""type"": ""string"", ""description"": ""Serialized Grasshopper document in GhJSON format. Omitted when detail=summary."" }, ""components"": { ""type"": ""array"", ""description"": ""Compact per-component projection (instanceGuid, name, nickName, pivot, bounds). Only present when detail=summary."" }, ""runtimeData"": { ""type"": ""object"", ""description"": ""Volatile data values for requested components."" }, ""pagination"": { ""type"": ""object"", ""description"": ""Pagination metadata."" }, ""serializationQuality"": { ""type"": ""object"", ""description"": ""Omitted when detail=summary."" } } }";
+            var outputSchema = @"{ ""type"": ""object"", ""properties"": { ""detail"": { ""type"": ""string"" }, ""ghjson"": { ""type"": ""string"", ""description"": ""Serialized Grasshopper document in GhJSON format. Omitted when detail=summary."" }, ""components"": { ""type"": ""array"", ""description"": ""Per-component projection. Only present when detail=summary; controlled by the 'fields' parameter."" }, ""pagination"": { ""type"": ""object"", ""description"": ""Pagination metadata."" }, ""serializationQuality"": { ""type"": ""object"", ""description"": ""Omitted when detail=summary."" } } }";
 
-            var schema = AddDetailToSchema(includePagination ? AddPaginationToSchema(parametersSchema) : parametersSchema);
+            var schema = AddDetailToSchema(AddPaginationToSchema(BuildParametersSchema(requireGuidFilter)));
 
             return new AITool(
                 name: name,
@@ -81,6 +105,91 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: tags,
                 outputSchema: outputSchema,
                 annotations: new AIToolAnnotations(readOnlyHint: true));
+        }
+
+        /// <summary>
+        /// Builds the shared parameter schema used by every gh_get variant.
+        /// </summary>
+        private static string BuildParametersSchema(bool requireGuidFilter)
+        {
+            var schema = JObject.Parse(@"{
+                ""type"": ""object"",
+                ""properties"": {
+                    ""attrFilters"": {
+                        ""type"": ""array"",
+                        ""items"": { ""type"": ""string"" },
+                        ""description"": ""Optional array of attribute filter tokens. '+' includes, '-' excludes. Defaults to all components. Available tags:\n  selected/unselected: component selection state on canvas;\n  enabled/disabled: whether the component can run (enabled = unlocked);\n  error/warning/remark: runtime message levels;\n  previewcapable/notpreviewcapable: supports geometry preview;\n  previewon/previewoff: current preview toggle.\nSynonyms: locked→disabled, unlocked→enabled, remarks/info→remark, warn/warnings→warning, errors→error, visible→previewon, hidden→previewoff. Examples: '+error' → only components with errors; '+error +warning' → errors OR warnings; '+error -warning' → errors excluding warnings; '+error -previewoff' → errors with preview on; no filter → all components.""
+                    },
+                    ""categoryFilter"": {
+                        ""type"": ""array"",
+                        ""items"": { ""type"": ""string"" },
+                        ""description"": ""Optionally filter components by Grasshopper category or subcategory. '+' includes, '-' excludes. Most common categories: Params, Maths, Vector, Curve, Surface, Mesh, Intersect, Transform, Sets, Display, Rhino, Kangaroo, Script. E.g. ['+Vector','-Curve','+Script'].""
+                    },
+                    ""typeFilter"": {
+                        ""type"": ""array"",
+                        ""items"": { ""type"": ""string"" },
+                        ""description"": ""Optional array of type tokens with include/exclude syntax. Defaults to all types. Available tokens:\n  params: only parameter objects;\n  components: only component objects;\n  startnodes: components with no incoming connections (data sources);\n  endnodes: components with no outgoing connections (data sinks);\n  middlenodes: components with both incoming and outgoing connections (processors);\n  isolatednodes: components with neither incoming nor outgoing connections.\nExamples: ['+params', '-components'] to include parameters and exclude components.""
+                    },
+                    ""instanceGuids"": {
+                        ""type"": ""array"",
+                        ""items"": { ""type"": ""string"" },
+                        ""description"": ""Optional list of object instance GUIDs for initial filtering. When provided, only objects with these instance GUIDs are processed. If not provided, all objects are processed.""
+                    },
+                    ""nameFilter"": {
+                        ""type"": ""array"",
+                        ""items"": { ""type"": ""string"" },
+                        ""description"": ""Optional list of name fragments. Only components whose Name OR NickName contains any fragment (case-insensitive) are returned. Examples: ['panel'] finds all panels; ['slider','script'] finds sliders and scripts.""
+                    },
+                    ""connectionDepth"": {
+                        ""type"": ""integer"",
+                        ""default"": 0,
+                        ""description"": ""Depth of connections to include: 0 (default) only matching components; 1 includes directly connected components; 2 includes two-level connected components, etc. Note: when used with viewportOnly, values > 0 may include off-screen neighbors of visible components.""
+                    },
+                    ""viewportOnly"": {
+                        ""type"": ""boolean"",
+                        ""default"": false,
+                        ""description"": ""When true, only returns components currently visible in the canvas viewport. Useful for large definitions where off-screen components should be ignored.""
+                    },
+                    ""includeMetadata"": {
+                        ""type"": ""boolean"",
+                        ""default"": false,
+                        ""description"": ""Whether to include document metadata (timestamps, Rhino/Grasshopper versions, plugin dependencies). Default is false.""
+                    },
+                    ""includeInternalizedData"": {
+                        ""type"": ""boolean"",
+                        ""default"": false,
+                        ""description"": ""Whether to include internalized (persistent) data stored in parameters, such as panel text or slider values. Default is false. This is token-expansive!""
+                    },
+                    ""includeRuntimeData"": {
+                        ""type"": ""boolean"",
+                        ""default"": false,
+                        ""description"": ""Whether to include runtime (volatile) data - actual values currently flowing through component outputs. Useful for inspecting computed results. Default is false. This is token-expansive!""
+                    },
+                    ""includeRuntimeMessages"": {
+                        ""type"": ""boolean"",
+                        ""default"": false,
+                        ""description"": ""Whether to include runtime messages (errors, warnings, remarks) per component in the GhJSON output. Automatically enabled when an error/warning/remark include filter is used (e.g. attrFilters:['+error']). Default is false.""
+                    },
+                    ""fields"": {
+                        ""type"": ""array"",
+                        ""items"": { ""type"": ""string"" },
+                        ""description"": ""Optional list of fields to emit per component when detail='summary'. Allowed: instanceGuid, name, nickName, pivot, bounds, selected, locked, previewOn, category, subcategory, messages, runtimeData, internalizedData. 'instanceGuid' is always included. 'messages' returns the component's errors/warnings/remarks; 'runtimeData'/'internalizedData' return the GhJSON-serialized volatile/persistent data per output parameter. Default: instanceGuid, name, nickName, pivot, bounds. The includeRuntimeData/includeInternalizedData/includeRuntimeMessages flags also enable their corresponding fields in summary mode. Ignored when detail='full'.""
+                    }
+                }
+            }");
+
+            if (requireGuidFilter)
+            {
+                schema["required"] = new JArray("instanceGuids");
+                var guidDesc = schema["properties"]?["instanceGuids"]?["description"];
+                if (guidDesc != null)
+                {
+                    schema["properties"]!["instanceGuids"]!["description"] =
+                        "Required list of object instance GUIDs to retrieve.";
+                }
+            }
+
+            return schema.ToString(Formatting.None);
         }
 
         /// <summary>
@@ -121,7 +230,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 return parametersSchema;
             }
 
-            properties["detail"] = JObject.Parse(@"{ ""type"": ""string"", ""enum"": [""summary"", ""full""], ""default"": ""full"", ""description"": ""Response detail level. 'full' (default) returns the complete GhJSON serialization. 'summary' omits 'ghjson' and 'serializationQuality' and returns a compact per-component projection with instanceGuid, name, nickName, pivot and live bounds."" }");
+            properties["detail"] = JObject.Parse(@"{ ""type"": ""string"", ""enum"": [""summary"", ""full""], ""default"": ""full"", ""description"": ""Response detail level. 'full' (default) returns the complete GhJSON serialization. 'summary' omits 'ghjson' and 'serializationQuality' and returns a compact per-component projection controlled by the 'fields' parameter."" }");
             return obj.ToString(Formatting.None);
         }
 
@@ -134,313 +243,42 @@ namespace SmartHopper.Core.Grasshopper.AITools
             // Generic gh_get tool with all options
             yield return this.CreateGhGetTool(
                 name: this.toolName,
-                description: "Read the current Grasshopper file with optional filters. By default, it returns all components. Returns a GhJSON structure of the file. Example: gh_get({ categoryFilter: ['+Script'] }). See also: gh_get_selected, gh_get_errors.",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""attrFilters"": {
-                            ""type"": ""array"",
-                            ""items"": { ""type"": ""string"" },
-                            ""description"": ""Optional array of attribute filter tokens. '+' includes, '-' excludes. Defaults to all components. Available tags:\n  selected/unselected: component selection state on canvas;\n  enabled/disabled: whether the component can run (enabled = unlocked);\n  error/warning/remark: runtime message levels;\n  previewcapable/notpreviewcapable: supports geometry preview;\n  previewon/previewoff: current preview toggle.\nSynonyms: locked→disabled, unlocked→enabled, remarks/info→remark, warn/warnings→warning, errors→error, visible→previewon, hidden→previewoff. Examples: '+error' → only components with errors; '+error +warning' → errors OR warnings; '+error -warning' → errors excluding warnings; '+error -previewoff' → errors with preview on; no filter → all components.""
-                        },
-                        ""categoryFilter"": {
-                            ""type"": ""array"",
-                            ""items"": { ""type"": ""string"" },
-                            ""description"": ""Optionally filter components by Grasshopper category or subcategory. '+' includes, '-' excludes. Most common categories: Params, Maths, Vector, Curve, Surface, Mesh, Intersect, Transform, Sets, Display, Rhino, Kangaroo, Script. E.g. ['+Vector','-Curve','+Script'].""
-                        },
-                        ""typeFilter"": {
-                            ""type"": ""array"",
-                            ""items"": { ""type"": ""string"" },
-                            ""description"": ""Optional array of type tokens with include/exclude syntax. Defaults to all types. Available tokens:\n  params: only parameter objects;\n  components: only component objects;\n  startnodes: components with no incoming connections (data sources);\n  endnodes: components with no outgoing connections (data sinks);\n  middlenodes: components with both incoming and outgoing connections (processors);\n  isolatednodes: components with neither incoming nor outgoing connections.\nExamples: ['+params', '-components'] to include parameters and exclude components.""
-                        },
-                        ""instanceGuids"": {
-                            ""type"": ""array"",
-                            ""items"": { ""type"": ""string"" },
-                            ""description"": ""Optional list of object instance GUIDs for initial filtering. When provided, only objects with these instance GUIDs are processed. If not provided, all objects are processed.""
-                        },
-                        ""connectionDepth"": {
-                            ""type"": ""integer"",
-                            ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only matching components; 1 includes directly connected components; 2 includes two-level connected components, etc. Note: when used with viewportOnly, values > 0 may include off-screen neighbors of visible components.""
-                        },
-                        ""includeMetadata"": {
-                            ""type"": ""boolean"",
-                            ""default"": false,
-                            ""description"": ""Whether to include document metadata (timestamps, Rhino/Grasshopper versions, plugin dependencies). Default is false.""
-                        },
-                        ""includeInternalizedData"": {
-                            ""type"": ""boolean"",
-                            ""default"": false,
-                            ""description"": ""Whether to include internalized (persistent) data stored in parameters, such as panel text or slider values. Default is false. This is token-expansive!""
-                        },
-                        ""includeRuntimeData"": {
-                            ""type"": ""boolean"",
-                            ""default"": false,
-                            ""description"": ""Whether to include runtime (volatile) data - actual values currently flowing through component outputs. Useful for inspecting computed results. Default is false. This is token-expansive!""
-                        },
-                        ""viewportOnly"": {
-                            ""type"": ""boolean"",
-                            ""default"": false,
-                            ""description"": ""When true, only returns components currently visible in the canvas viewport. Useful for large definitions where off-screen components should be ignored.""
-                        }
-                    }
-                }",
-                includePagination: true,
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false));
+                description: "Read the current Grasshopper file with optional filters. By default, it returns all components. Returns a GhJSON structure of the file. Examples: selected components → gh_get({ attrFilters: ['+selected'] }); errors only → gh_get({ attrFilters: ['+error'], detail: 'summary', fields: ['name','messages'] }); viewport only → gh_get({ viewportOnly: true }); by name → gh_get({ nameFilter: ['panel'] }); data sources → gh_get({ typeFilter: ['+startnodes'] }). See also: gh_get_selected, gh_get_errors, gh_get_by_guid.",
+                requireGuidFilter: false,
+                execute: (toolCall) => this.GhGetToolAsync(toolCall));
 
             // Specialized wrapper: gh_get_selected
             yield return this.CreateGhGetTool(
                 name: "gh_get_selected",
-                description: "Read only the selected components from the Grasshopper canvas. Use this when the user asks about 'selected', 'this', or 'these' components. Returns a GhJSON structure. Example: gh_get_selected({ connectionDepth: 1 }).",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""connectionDepth"": {
-                            ""type"": ""integer"",
-                            ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only selected components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
-                        }
-                    }
-                }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+selected" }, null, false));
-
-            // Specialized wrapper: gh_get_selected_with_data
-            yield return this.CreateGhGetTool(
-                name: "gh_get_selected_with_data",
-                description: "Read selected components WITH their runtime data (volatile data - actual values flowing through outputs). Use this when you need to inspect computed results, count items, or check actual output values. Returns GhJSON with an additional 'runtimeData' object. This is token-expansive!",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""connectionDepth"": {
-                            ""type"": ""integer"",
-                            ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only selected components; 1 includes directly connected components, etc.""
-                        }
-                    }
-                }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+selected" }, null, true),
-                includeInternalizedData: true);
+                description: "Read only the selected components from the Grasshopper canvas. Use this when the user asks about 'selected', 'this', or 'these' components. Accepts the same filters as gh_get (e.g. connectionDepth: 1 to include connected neighbors, includeRuntimeData for computed values). Returns a GhJSON structure.",
+                requireGuidFilter: false,
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, predefinedAttrFilters: new[] { "+selected" }));
 
             // Specialized wrapper: gh_get_by_guid
             yield return this.CreateGhGetTool(
                 name: "gh_get_by_guid",
-                description: "Read specific objects by their instance GUIDs. Use this when you have instance GUIDs from a previous query. Returns a GhJSON structure. Example: gh_get_by_guid({ instanceGuids: ['...'], connectionDepth: 1 }).",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""instanceGuids"": {
-                            ""type"": ""array"",
-                            ""items"": { ""type"": ""string"" },
-                            ""description"": ""Required list of object instance GUIDs to retrieve.""
-                        },
-                        ""connectionDepth"": {
-                            ""type"": ""integer"",
-                            ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only specified components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
-                        }
-                    },
-                    ""required"": [""instanceGuids""]
-                }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false));
-
-            // Specialized wrapper: gh_get_by_guid_with_data
-            yield return this.CreateGhGetTool(
-                name: "gh_get_by_guid_with_data",
-                description: "Read specific objects by instance GUID WITH their runtime data (volatile data - actual values flowing through outputs). Use this when you need to inspect computed results from known objects. Returns GhJSON with an additional 'runtimeData' object. This is token-expansive!",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""instanceGuids"": {
-                            ""type"": ""array"",
-                            ""items"": { ""type"": ""string"" },
-                            ""description"": ""Required list of object instance GUIDs to retrieve.""
-                        },
-                        ""connectionDepth"": {
-                            ""type"": ""integer"",
-                            ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only specified objects; 1 includes directly connected objects, etc.""
-                        }
-                    },
-                    ""required"": [""instanceGuids""]
-                }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, true),
-                includeInternalizedData: true);
+                description: "Read specific components by their GUIDs. Use this when you have component GUIDs from a previous query. Accepts the same filters as gh_get (e.g. includeRuntimeData for computed values, detail: 'summary' for a compact projection). Returns a GhJSON structure. Example: gh_get_by_guid({ instanceGuids: ['...'], connectionDepth: 1 }).",
+                requireGuidFilter: true,
+                execute: (toolCall) => this.GhGetToolAsync(toolCall));
 
             // Specialized wrapper: gh_get_errors
             yield return this.CreateGhGetTool(
                 name: "gh_get_errors",
-                description: "Read only components that have error messages. Use this when debugging or when the user asks about errors or broken components. Returns a GhJSON structure. Example: gh_get_errors({ connectionDepth: 1 }). See also: gh_get, script_review.",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""connectionDepth"": {
-                            ""type"": ""integer"",
-                            ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only error components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
-                        }
-                    }
-                }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+error" }, null, false, includeMessages: true));
-
-            // Specialized wrapper: gh_get_errors_with_data
-            yield return this.CreateGhGetTool(
-                name: "gh_get_errors_with_data",
-                description: "Read only components that have error messages WITH their runtime data (volatile data - actual values flowing through outputs). Use this when debugging broken components and you also need to inspect their computed results. Returns GhJSON plus a 'runtimeData' object. This is token-expansive!",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""connectionDepth"": {
-                            ""type"": ""integer"",
-                            ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only error components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
-                        }
-                    }
-                }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+error" }, null, true, includeMessages: true),
-                includeInternalizedData: true);
-
-            // Specialized wrapper: gh_get_locked
-            yield return this.CreateGhGetTool(
-                name: "gh_get_locked",
-                description: "Read only locked (disabled) components from the Grasshopper canvas. Use this when the user asks about locked or disabled components. Returns a GhJSON structure.",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""connectionDepth"": {
-                            ""type"": ""integer"",
-                            ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only locked components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
-                        }
-                    }
-                }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+disabled" }, null, false));
-
-            // Specialized wrapper: gh_get_preview_off (formerly gh_get_hidden)
-            yield return this.CreateGhGetTool(
-                name: "gh_get_preview_off",
-                description: "Read only components with preview turned off (hidden geometry). Use this when the user asks about hidden components or components with disabled preview. Returns a GhJSON structure.",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""connectionDepth"": {
-                            ""type"": ""integer"",
-                            ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only preview-off components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
-                        }
-                    }
-                }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewoff" }, null, false));
-
-            // Specialized wrapper: gh_get_preview_on (formerly gh_get_visible)
-            yield return this.CreateGhGetTool(
-                name: "gh_get_preview_on",
-                description: "Read only components with preview turned on (visible geometry). Use this when the user asks about visible components or components with enabled preview. Returns a GhJSON structure.",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""connectionDepth"": {
-                            ""type"": ""integer"",
-                            ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only preview-on components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
-                        }
-                    }
-                }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewon" }, null, false));
-
-            // Specialized wrapper: gh_get_visible — viewport-based filter
-            yield return this.CreateGhGetTool(
-                name: "gh_get_visible",
-                description: "Read only components currently visible in the canvas viewport. Use this when the user refers to 'on screen', 'visible', or 'what I can see'. Returns a GhJSON structure.",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""connectionDepth"": {
-                            ""type"": ""integer"",
-                            ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only visible components; 1 includes directly connected components; 2 includes two-level connected components, etc. Note: values > 0 may include off-screen neighbors of visible components.""
-                        }
-                    }
-                }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false, forceViewportOnly: true));
-
-            // Specialized wrapper: gh_get_start
-            yield return this.CreateGhGetTool(
-                name: "gh_get_start",
-                description: "Read only start nodes (components with no incoming connections - data sources like parameters, sliders, panels with internalized data). Use this to get a wide view of where data originates in the definition. Returns a GhJSON structure.",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""connectionDepth"": {
-                            ""type"": ""integer"",
-                            ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only start nodes; 1 includes directly connected components; 2 includes two-level connected components, etc.""
-                        }
-                    }
-                }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+startnodes" }, false));
-
-            // Specialized wrapper: gh_get_start_with_data
-            yield return this.CreateGhGetTool(
-                name: "gh_get_start_with_data",
-                description: "Read start nodes (data sources) WITH their runtime data. Use this to inspect what initial values are feeding into the definition. Returns GhJSON with 'runtimeData'. This is token-expansive!",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""connectionDepth"": {
-                            ""type"": ""integer"",
-                            ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only start nodes; 1 includes directly connected components, etc.""
-                        }
-                    }
-                }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+startnodes" }, true),
-                includeInternalizedData: true);
-
-            // Specialized wrapper: gh_get_end
-            yield return this.CreateGhGetTool(
-                name: "gh_get_end",
-                description: "Read only end nodes (components with no outgoing connections - data sinks like panels, preview components, bake components). Use this to get a wide view of the definition's outputs. Returns a GhJSON structure.",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""connectionDepth"": {
-                            ""type"": ""integer"",
-                            ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only end nodes; 1 includes directly connected components; 2 includes two-level connected components, etc.""
-                        }
-                    }
-                }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+endnodes" }, false));
-
-            // Specialized wrapper: gh_get_end_with_data
-            yield return this.CreateGhGetTool(
-                name: "gh_get_end_with_data",
-                description: "Read end nodes (data sinks) WITH their runtime data. Use this to inspect the final computed outputs of the definition. Returns GhJSON with 'runtimeData'. This is token-expansive!",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""connectionDepth"": {
-                            ""type"": ""integer"",
-                            ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only end nodes; 1 includes directly connected components, etc.""
-                        }
-                    }
-                }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+endnodes" }, true),
-                includeInternalizedData: true);
+                description: "Read only components that have error messages. Use this when debugging or when the user asks about errors or broken components. Runtime messages are always included. Accepts the same filters as gh_get (use detail: 'summary' + fields: ['name','messages'] for a compact report). Returns a GhJSON structure. See also: gh_get, gh_report, script_review.",
+                requireGuidFilter: false,
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, predefinedAttrFilters: new[] { "+error" }, forceIncludeMessages: true));
         }
 
         /// <summary>
         /// Executes the Grasshopper get components tool with optional predefined filters.
         /// </summary>
         /// <param name="toolCall">The tool call containing parameters.</param>
-        /// <param name="predefinedAttrFilters">Predefined attribute filters to apply (used by wrapper tools).</param>
-        /// <param name="predefinedTypeFilters">Predefined type filters to apply (used by wrapper tools).</param>
-        /// <param name="forceIncludeData">When true, forces inclusion of both internalized and runtime data regardless of parameter value.</param>
+        /// <param name="predefinedAttrFilters">Attribute filters injected by wrapper tools. Merged with user-provided attrFilters.</param>
+        /// <param name="predefinedTypeFilters">Type filters injected by wrapper tools. Merged with user-provided typeFilter.</param>
         /// <param name="forceViewportOnly">When true, restricts results to components visible in the canvas viewport regardless of parameter value.</param>
-        /// <param name="includeMessages">When true, forces inclusion of runtime messages (errors/warnings/remarks) regardless of parameter value.</param>
+        /// <param name="forceIncludeMessages">When true, forces inclusion of runtime messages (errors/warnings/remarks) regardless of parameter value.</param>
         /// <returns>Task that returns the result of the operation.</returns>
-        private Task<AIReturn> GhGetToolAsync(AIToolCall toolCall, string[] predefinedAttrFilters = null, string[] predefinedTypeFilters = null, bool forceIncludeData = false, bool forceViewportOnly = false, bool includeMessages = false)
+        private Task<AIReturn> GhGetToolAsync(AIToolCall toolCall, string[]? predefinedAttrFilters = null, string[]? predefinedTypeFilters = null, bool forceViewportOnly = false, bool forceIncludeMessages = false)
         {
             var output = new AIReturn() { Request = toolCall };
 
@@ -454,8 +292,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Parse parameters
                 var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
-                var includeInternalizedData = forceIncludeData || (args["includeInternalizedData"]?.ToObject<bool>() ?? false);
-                var includeRuntimeData = forceIncludeData || (args["includeRuntimeData"]?.ToObject<bool>() ?? false);
+                var includeInternalizedData = args["includeInternalizedData"]?.ToObject<bool>() ?? false;
+                var includeRuntimeData = args["includeRuntimeData"]?.ToObject<bool>() ?? false;
+
+                // Attribute filters (predefined tokens merged with user tokens)
+                var attrTokens = (predefinedAttrFilters ?? Array.Empty<string>())
+                    .Concat(args["attrFilters"]?.ToObject<string[]>() ?? Array.Empty<string>())
+                    .ToArray();
+
+                // An error/warning/remark include filter implies runtime messages:
+                // an errors report without message contents would be useless.
+                var includeMessages = forceIncludeMessages
+                    || (args["includeRuntimeMessages"]?.ToObject<bool>() ?? false)
+                    || attrTokens.Any(t =>
+                    {
+                        var token = t.Trim();
+                        return token.StartsWith("+", StringComparison.Ordinal)
+                            && MessageLevelTokens.Contains(token.Substring(1).Trim());
+                    });
                 var includeMetadata = args["includeMetadata"]?.ToObject<bool>() ?? false;
                 var viewportOnly = forceViewportOnly || (args["viewportOnly"]?.ToObject<bool>() ?? false);
                 var page = args["page"]?.ToObject<int>() ?? 1;
@@ -467,7 +321,64 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return Task.FromResult(output);
                 }
 
-                Debug.WriteLine($"[gh_get] includeInternalizedData: {includeInternalizedData}, includeRuntimeData: {includeRuntimeData}, includeMessages: {includeMessages}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}, viewportOnly: {viewportOnly}, page: {page}, pageSize: {pageSize}, detail: {detail}");
+                // Resolve requested summary fields
+                var fieldTokens = args["fields"]?.ToObject<List<string>>();
+                var requestedFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (fieldTokens != null && fieldTokens.Count > 0)
+                {
+                    var invalid = fieldTokens
+                        .Where(f => !AllowedFields.Contains(f, StringComparer.OrdinalIgnoreCase))
+                        .ToList();
+                    if (invalid.Count > 0)
+                    {
+                        output.AddRuntimeMessage(
+                            SHRuntimeMessageSeverity.Warning,
+                            SHRuntimeMessageOrigin.Tool,
+                            $"Unknown 'fields' entries ignored: {string.Join(", ", invalid)}. Allowed: {string.Join(", ", AllowedFields)}.");
+                    }
+
+                    foreach (var f in fieldTokens.Where(f => AllowedFields.Contains(f, StringComparer.OrdinalIgnoreCase)))
+                    {
+                        requestedFields.Add(f);
+                    }
+
+                    if (detail == "full")
+                    {
+                        output.AddRuntimeMessage(
+                            SHRuntimeMessageSeverity.Warning,
+                            SHRuntimeMessageOrigin.Tool,
+                            "'fields' only applies when detail='summary'; it is ignored in the full GhJSON response.");
+                    }
+                }
+                else
+                {
+                    foreach (var f in DefaultFields)
+                    {
+                        requestedFields.Add(f);
+                    }
+                }
+
+                // In summary mode the include* flags map to their projection fields,
+                // so e.g. gh_get_errors with detail:'summary' still reports messages.
+                if (detail == "summary")
+                {
+                    if (includeMessages)
+                    {
+                        requestedFields.Add("messages");
+                    }
+
+                    if (includeRuntimeData)
+                    {
+                        requestedFields.Add("runtimeData");
+                    }
+
+                    if (includeInternalizedData)
+                    {
+                        requestedFields.Add("internalizedData");
+                    }
+                }
+
+                Debug.WriteLine($"[gh_get] internalized: {includeInternalizedData}, runtime: {includeRuntimeData}, messages: {includeMessages}, depth: {connectionDepth}, metadata: {includeMetadata}, viewportOnly: {viewportOnly}, page: {page}, pageSize: {pageSize}, detail: {detail}");
 
                 // Build the query using CanvasSelector
                 var selector = CanvasSelector.FromActiveCanvas();
@@ -487,6 +398,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
+                // GUID restriction
                 // Instance GUID restriction ("guidFilter" kept as a silent legacy alias)
                 var guidStrings = (args["instanceGuids"] ?? args["guidFilter"])?.ToObject<List<string>>();
                 if (guidStrings != null)
@@ -506,10 +418,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
-                // Type filters
-                var typeTokens = predefinedTypeFilters
-                    ?? args["typeFilter"]?.ToObject<string[]>();
-                if (typeTokens != null)
+                // Type filters (predefined tokens merged with user tokens)
+                var typeTokens = (predefinedTypeFilters ?? Array.Empty<string>())
+                    .Concat(args["typeFilter"]?.ToObject<string[]>() ?? Array.Empty<string>())
+                    .ToArray();
+                if (typeTokens.Length > 0)
                 {
                     selector.WithTypes(typeTokens);
                 }
@@ -521,10 +434,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     selector.WithCategories(categoryTokens);
                 }
 
-                // Attribute filters
-                var attrTokens = predefinedAttrFilters
-                    ?? args["attrFilters"]?.ToObject<string[]>();
-                if (attrTokens != null)
+                // Attribute filters were already merged above (needed for includeMessages detection)
+                if (attrTokens.Length > 0)
                 {
                     selector.WithAttributes(attrTokens);
                 }
@@ -537,6 +448,21 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Execute the query
                 var resultObjects = selector.Execute();
+
+                // Name/nickname substring restriction (post-filter on live objects)
+                var nameTokens = args["nameFilter"]?.ToObject<List<string>>()
+                    ?.Where(t => !string.IsNullOrWhiteSpace(t))
+                    .Select(t => t.Trim())
+                    .ToList();
+                if (nameTokens != null && nameTokens.Count > 0)
+                {
+                    resultObjects = resultObjects
+                        .Where(o => nameTokens.Any(t =>
+                            (o.Name ?? string.Empty).IndexOf(t, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            (o.NickName ?? string.Empty).IndexOf(t, StringComparison.OrdinalIgnoreCase) >= 0))
+                        .ToList();
+                }
+
                 Debug.WriteLine($"[gh_get] Query returned {resultObjects.Count} objects");
 
                 // Serialize the result
@@ -601,71 +527,62 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
-                var document = GhJsonGrasshopper.Serialize(resultObjects, serOptions);
-
-                var names = document.Components
-                    .Where(c => !string.IsNullOrWhiteSpace(c.Name))
-                    .Select(c => c.Name)
-                    .Distinct()
-                    .ToList();
-
-                var guidList = document.Components
-                    .Where(c => c.InstanceGuid.HasValue)
-                    .Select(c => c.InstanceGuid!.Value.ToString())
-                    .Distinct()
-                    .ToList();
-
                 var totalComponents = resultObjects.Count;
                 var pageCount = pageSize > 0 ? (int)Math.Ceiling((double)totalComponents / pageSize) : 1;
-
-                if (document.Components.Count == 0)
-                {
-                    output.AddRuntimeMessage(SHRuntimeMessageSeverity.Warning, SHRuntimeMessageOrigin.Tool, "No components matched the requested filters. Try relaxing filters or adjusting pagination.");
-                }
+                var pagedObjects = pageSize > 0
+                    ? resultObjects.Skip((page - 1) * pageSize).Take(pageSize).ToList()
+                    : resultObjects;
 
                 JObject toolResult;
                 if (detail == "summary")
                 {
-                    // Compact projection: no ghjson serialization and no serializationQuality.
-                    // Bounds come from the live document objects, not the GhJSON model.
-                    var boundsByGuid = resultObjects
-                        .Where(o => o?.Attributes != null)
-                        .GroupBy(o => o.InstanceGuid)
-                        .ToDictionary(g => g.Key, g => g.First().Attributes.Bounds);
-
-                    var components = document.Components
-                        .Where(c => c.InstanceGuid.HasValue)
-                        .Select(c =>
-                        {
-                            var item = new JObject
-                            {
-                                ["instanceGuid"] = c.InstanceGuid!.Value.ToString(),
-                                ["name"] = c.Name,
-                                ["nickName"] = c.NickName,
-                                ["pivot"] = c.Pivot == null
-                                    ? null
-                                    : new JObject { ["x"] = c.Pivot.X, ["y"] = c.Pivot.Y },
-                            };
-                            if (boundsByGuid.TryGetValue(c.InstanceGuid.Value, out var bounds))
-                            {
-                                item["bounds"] = new JObject
-                                {
-                                    ["x"] = bounds.X,
-                                    ["y"] = bounds.Y,
-                                    ["width"] = bounds.Width,
-                                    ["height"] = bounds.Height,
-                                };
-                            }
-
-                            return item;
-                        })
+                    var names = resultObjects
+                        .Where(o => !string.IsNullOrWhiteSpace(o?.Name))
+                        .Select(o => o.Name)
+                        .Distinct()
                         .ToList();
+
+                    // Runtime and internalized data are projected through the GhJSON
+                    // serializer itself (structure-aware, compact) rather than dumping
+                    // raw data-tree items. Scalar fields are read off live objects.
+                    var wantRuntimeData = requestedFields.Contains("runtimeData");
+                    var wantInternalizedData = requestedFields.Contains("internalizedData");
+                    Dictionary<Guid, JObject> fragmentMap = new Dictionary<Guid, JObject>();
+                    if (wantRuntimeData || wantInternalizedData)
+                    {
+                        var fragmentDoc = GhJsonGrasshopper.Serialize(pagedObjects, new SerializationOptions
+                        {
+                            IncludeConnections = false,
+                            IncludeGroups = false,
+                            IncludeInternalizedData = wantInternalizedData,
+                            IncludeRuntimeData = wantRuntimeData,
+                            IncludeRuntimeMessages = false,
+                            IncludeSelectedState = false,
+                            IncludeMetadata = false,
+                        });
+
+                        fragmentMap = fragmentDoc.Components
+                            .Where(c => c.InstanceGuid.HasValue)
+                            .GroupBy(c => c.InstanceGuid!.Value)
+                            .ToDictionary(g => g.Key, g => JObject.FromObject(g.First()));
+                    }
+
+                    var components = pagedObjects
+                        .Where(o => o != null)
+                        .Select(o => BuildSummaryItem(o, requestedFields, fragmentMap.GetValueOrDefault(o.InstanceGuid)))
+                        .Where(item => item != null)
+                        .ToList();
+
+                    if (components.Count == 0)
+                    {
+                        output.AddRuntimeMessage(SHRuntimeMessageSeverity.Warning, SHRuntimeMessageOrigin.Tool, "No components matched the requested filters. Try relaxing filters or adjusting pagination.");
+                    }
 
                     toolResult = new JObject
                     {
                         ["detail"] = "summary",
                         ["names"] = JArray.FromObject(names),
-                        ["guids"] = JArray.FromObject(guidList),
+                        ["guids"] = JArray.FromObject(resultObjects.Select(o => o.InstanceGuid.ToString()).Distinct()),
                         ["components"] = JArray.FromObject(components),
                         ["pagination"] = new JObject
                         {
@@ -673,12 +590,31 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ["pageSize"] = pageSize,
                             ["totalComponents"] = totalComponents,
                             ["pageCount"] = pageCount,
-                            ["returnedComponents"] = document.Components.Count,
+                            ["returnedComponents"] = components.Count,
                         },
                     };
                 }
                 else
                 {
+                    var document = GhJsonGrasshopper.Serialize(resultObjects, serOptions);
+
+                    var names = document.Components
+                        .Where(c => !string.IsNullOrWhiteSpace(c.Name))
+                        .Select(c => c.Name)
+                        .Distinct()
+                        .ToList();
+
+                    var guidList = document.Components
+                        .Where(c => c.InstanceGuid.HasValue)
+                        .Select(c => c.InstanceGuid!.Value.ToString())
+                        .Distinct()
+                        .ToList();
+
+                    if (document.Components.Count == 0)
+                    {
+                        output.AddRuntimeMessage(SHRuntimeMessageSeverity.Warning, SHRuntimeMessageOrigin.Tool, "No components matched the requested filters. Try relaxing filters or adjusting pagination.");
+                    }
+
                     var json = GhJson.ToJson(document, new WriteOptions { Indented = false });
 
                     var thinComponents = document.Components
@@ -708,7 +644,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         },
                         ["serializationQuality"] = new JObject
                         {
-                            ["totalComponents"] = totalComponents,
+                            ["totalComponents"] = document.Components.Count,
                             ["thinComponents"] = JArray.FromObject(thinComponents),
                             ["referencedPlugins"] = JArray.FromObject(missingPlugins),
                         },
@@ -716,7 +652,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var body = AIBodyBuilder.Create()
-                    .AddToolResult(toolResult)
+                    .AddToolResult(toolResult, toolInfo.Id, toolInfo.Name ?? this.toolName)
                     .Build();
 
                 output.CreateSuccess(body, toolCall);
@@ -724,9 +660,163 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                output.CreateError($"Error: {ex.Message}");
+                output.CreateError($"Error executing {this.toolName}: {ex.Message}");
                 return Task.FromResult(output);
             }
+        }
+
+        /// <summary>
+        /// Builds a per-component summary item from the live document object,
+        /// emitting only the requested fields. <paramref name="serializedFragment"/>
+        /// is the GhJSON-serialized form of the same object, used for the
+        /// <c>runtimeData</c> and <c>internalizedData</c> projections.
+        /// </summary>
+        private static JObject? BuildSummaryItem(IGH_DocumentObject? o, HashSet<string> fields, JObject? serializedFragment)
+        {
+            if (o == null)
+            {
+                return null;
+            }
+
+            var item = new JObject();
+
+            // instanceGuid is always emitted: it is the join key for follow-up queries.
+            item["instanceGuid"] = o.InstanceGuid.ToString();
+
+            if (fields.Contains("name"))
+            {
+                item["name"] = o.Name;
+            }
+
+            if (fields.Contains("nickName"))
+            {
+                item["nickName"] = o.NickName;
+            }
+
+            if (fields.Contains("pivot") || fields.Contains("bounds"))
+            {
+                var bounds = o.Attributes?.Bounds;
+                if (bounds.HasValue)
+                {
+                    if (fields.Contains("pivot"))
+                    {
+                        item["pivot"] = new JObject { ["x"] = bounds.Value.X, ["y"] = bounds.Value.Y };
+                    }
+
+                    if (fields.Contains("bounds"))
+                    {
+                        item["bounds"] = new JObject
+                        {
+                            ["x"] = bounds.Value.X,
+                            ["y"] = bounds.Value.Y,
+                            ["width"] = bounds.Value.Width,
+                            ["height"] = bounds.Value.Height,
+                        };
+                    }
+                }
+            }
+
+            if (fields.Contains("selected"))
+            {
+                item["selected"] = o.Attributes?.Selected ?? false;
+            }
+
+            if (fields.Contains("locked"))
+            {
+                item["locked"] = (o as IGH_ActiveObject)?.Locked;
+            }
+
+            if (fields.Contains("previewOn"))
+            {
+                item["previewOn"] = o is IGH_PreviewObject p && p.IsPreviewCapable
+                    ? !p.Hidden
+                    : (bool?)null;
+            }
+
+            if (fields.Contains("category"))
+            {
+                item["category"] = (o as GH_DocumentObject)?.Category;
+            }
+
+            if (fields.Contains("subcategory"))
+            {
+                item["subcategory"] = (o as GH_DocumentObject)?.SubCategory;
+            }
+
+            if (fields.Contains("messages"))
+            {
+                var active = o as IGH_ActiveObject;
+                if (active != null)
+                {
+                    item["messages"] = new JObject
+                    {
+                        ["errors"] = JArray.FromObject(active.RuntimeMessages(GH_RuntimeMessageLevel.Error)),
+                        ["warnings"] = JArray.FromObject(active.RuntimeMessages(GH_RuntimeMessageLevel.Warning)),
+                        ["remarks"] = JArray.FromObject(active.RuntimeMessages(GH_RuntimeMessageLevel.Remark)),
+                    };
+                }
+                else
+                {
+                    item["messages"] = null;
+                }
+            }
+
+            if (fields.Contains("runtimeData"))
+            {
+                item["runtimeData"] = serializedFragment != null
+                    ? ExtractParamData(serializedFragment, "runtimeData")
+                    : null;
+            }
+
+            if (fields.Contains("internalizedData"))
+            {
+                item["internalizedData"] = serializedFragment != null
+                    ? ExtractParamData(serializedFragment, "internalizedData")
+                    : null;
+            }
+
+            return item;
+        }
+
+        /// <summary>
+        /// Extracts per-parameter data (<c>runtimeData</c> or <c>internalizedData</c>)
+        /// from a GhJSON-serialized component, keyed by parameter nickname.
+        /// Only parameters that actually carry the requested data are included.
+        /// </summary>
+        private static JObject ExtractParamData(JObject compJson, string dataKey)
+        {
+            var data = new JObject();
+            foreach (var side in new[] { "inputSettings", "outputSettings" })
+            {
+                if (compJson[side] is not JArray settings)
+                {
+                    continue;
+                }
+
+                foreach (var p in settings.OfType<JObject>())
+                {
+                    var value = p[dataKey];
+                    if (value == null || value.Type == JTokenType.Null)
+                    {
+                        continue;
+                    }
+
+                    var key = p["nickName"]?.ToString()
+                        ?? p["parameterName"]?.ToString()
+                        ?? p["variableName"]?.ToString()
+                        ?? side;
+
+                    // Disambiguate input/output params that share a nickname.
+                    if (data[key] != null)
+                    {
+                        key = $"{key} ({side})";
+                    }
+
+                    data[key] = value.DeepClone();
+                }
+            }
+
+            return data;
         }
     }
 }

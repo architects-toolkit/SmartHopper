@@ -4,11 +4,11 @@
 
 - Start with `gh_get_selected` when the user refers to "this", "these", or selected objects.
 - Use `gh_report` for a broad canvas summary and `gh_get_errors` for failures.
-- Use `gh_get_visible` for objects currently in the canvas viewport.
-- Use `gh_get_start` / `gh_get_end` for wide source/sink views without runtime values.
-- Use `gh_get_start_with_data` / `gh_get_end_with_data` only when computed values are required.
-- Use `gh_get_locked`, `gh_get_preview_off`, and `gh_get_preview_on` for attribute-specific queries.
-- Use `gh_get_by_guid` only after obtaining GUIDs from prior tool output. Use generic `gh_get` only when no specialized query fits.
+- Use `gh_get` with `viewportOnly: true` for objects currently in the canvas viewport.
+- Use `gh_get` with `typeFilter: ['+startnodes']` / `['+endnodes']` for wide source/sink views without runtime values; add `includeRuntimeData: true` when computed values are required.
+- Use `gh_get` `attrFilters` for attribute-specific queries: `+disabled` (locked), `+previewoff`/`+previewon`, `+selected`, `+error`.
+- Use `gh_get` `detail: 'summary'` with a `fields` projection for compact reads; request `fields: ['runtimeData']` or `['internalizedData']` only when those values are needed.
+- Use `gh_get_by_guid` only after obtaining GUIDs from prior tool output.
 - Use `canvas_screenshot` or `viewport_screenshot` only when visual layout, preview, or geometry appearance is needed; prefer structural queries when an image is unnecessary.
 
 ## Discover components
