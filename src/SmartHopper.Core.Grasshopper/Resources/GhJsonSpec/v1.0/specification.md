@@ -212,6 +212,12 @@ Each item is a **Parameter Settings** object:
 | `internalizedData` | object | No | Internalized data tree |
 | `runtimeData` | object | No | Runtime (volatile) data tree |
 
+Objects without a persistent parameter store may interpret these trees
+differently. For a `Panel`, `internalizedData`/`runtimeData` items map to
+newline-separated panel text — one line per item — emitted as individual items
+(the `gh.panel` extension remains the canonical representation; see
+[extensions.md](extensions.md#51-ghpanel)).
+
 ---
 
 ## 4. Connections
