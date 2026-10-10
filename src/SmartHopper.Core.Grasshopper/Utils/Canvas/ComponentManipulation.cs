@@ -41,6 +41,24 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
     public static class ComponentManipulation
     {
         /// <summary>
+        /// Outcome of a <see cref="SetObjectValue"/> attempt.
+        /// </summary>
+        public enum SetValueResult
+        {
+            /// <summary>The value was applied.</summary>
+            Success,
+
+            /// <summary>No document object exists for the supplied GUID.</summary>
+            NotFound,
+
+            /// <summary>The object (or the named input) cannot take a direct value.</summary>
+            Unsupported,
+
+            /// <summary>The mutation could not be applied safely.</summary>
+            Failed,
+        }
+
+        /// <summary>
         /// Set preview state of a Grasshopper component by GUID.
         /// </summary>
         /// <param name="guid">GUID of the component.</param>
@@ -222,24 +240,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 Debug.WriteLine($"[ComponentManipulation] ButtonClick failed for {guid}: {ex.Message}");
                 return false;
             }
-        }
-
-        /// <summary>
-        /// Outcome of a <see cref="SetObjectValue"/> attempt.
-        /// </summary>
-        public enum SetValueResult
-        {
-            /// <summary>The value was applied.</summary>
-            Success,
-
-            /// <summary>No document object exists for the supplied GUID.</summary>
-            NotFound,
-
-            /// <summary>The object (or the named input) cannot take a direct value.</summary>
-            Unsupported,
-
-            /// <summary>The mutation could not be applied safely.</summary>
-            Failed,
         }
 
         /// <summary>
