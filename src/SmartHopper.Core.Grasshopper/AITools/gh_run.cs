@@ -126,7 +126,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 foreach (var guid in allowedGuids.Where(accepted.Contains))
                 {
                     var result = ComponentManipulation.PulseObject(guid);
-                    if (result == ComponentManipulation.PulseResult.Pulsed)
+                    if (result == ComponentManipulation.ObjectManipulationResult.Success)
                     {
                         runGuids.Add(guid);
                     }
@@ -134,9 +134,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         skippedGuids[guid.ToString()] = result switch
                         {
-                            ComponentManipulation.PulseResult.NotFound => "No canvas object matches this GUID.",
-                            ComponentManipulation.PulseResult.Locked => "Object is locked; locked objects cannot run.",
-                            ComponentManipulation.PulseResult.Busy => "A Grasshopper solution is in progress.",
+                            ComponentManipulation.ObjectManipulationResult.NotFound => "No canvas object matches this GUID.",
+                            ComponentManipulation.ObjectManipulationResult.Locked => "Object is locked; locked objects cannot run.",
+                            ComponentManipulation.ObjectManipulationResult.Busy => "A Grasshopper solution is in progress.",
                             _ => "Object does not participate in solutions.",
                         };
                     }

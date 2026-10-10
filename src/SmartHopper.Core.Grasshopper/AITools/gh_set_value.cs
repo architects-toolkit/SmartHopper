@@ -139,7 +139,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 foreach (var acceptedGuid in allowedGuids.Where(accepted.Contains))
                 {
                     var (result, detail) = ComponentManipulation.SetObjectValue(acceptedGuid, value, paramName);
-                    if (result == ComponentManipulation.SetValueResult.Success)
+                    if (result == ComponentManipulation.ObjectManipulationResult.Success)
                     {
                         updated.Add(acceptedGuid.ToString());
                     }
