@@ -1,0 +1,2 @@
+Plain text file for E2E testing.
+Second line.
