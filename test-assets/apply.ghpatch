@@ -1,0 +1,1 @@
+{"schema": "1.0", "kind": "ghpatch", "patch": {"base": {"schema": "1.0", "checksum": "sha256-5602a30d74f591a0b3dd5a95bbd522a9f966690eb5f03873192633985eb81b4d"}, "components": {"add": [{"name": "Panel", "id": 9001, "pivot": "350,300", "componentState": {"extensions": {"gh.panel": {"text": "Patch-added panel"}}}}]}}}
