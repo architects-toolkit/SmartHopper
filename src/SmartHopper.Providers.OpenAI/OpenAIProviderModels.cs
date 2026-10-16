@@ -87,40 +87,12 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5.6-luna",
+                    Model = "gpt-6.1-sol",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
                     Rank = 9995,
-                    ContextLimit = 1050000,
-                    Created = new DateTime(2026, 7, 9),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000012m,
-                        InputCacheRead = 0.00000002m,
-                        InputCacheWrite = 0.00000025m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000006m,
-                        InputCacheRead = 0.00000001m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "gpt-5.6-luna:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-6.1-sol",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9990,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 29),
                     Pricing = new AIModelPricing
@@ -131,6 +103,15 @@ namespace SmartHopper.Providers.OpenAI
                         InputCacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Prompt = 0.000001m,
+                        Completion = 0.000005m,
+                        InputCacheRead = 0.00000005m,
+                        InputCacheWrite = 0.00000125m,
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "gpt-6.1-sol:batch" },
                 },
 
                 new AIModelCapabilities
@@ -141,7 +122,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9985,
+                    Rank = 9990,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
@@ -166,12 +147,75 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5.6-sol",
+                    Model = "gpt-6-astra",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9985,
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 9, 4),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00001m,
+                        Completion = 0.00005m,
+                        InputCacheRead = 0.000001m,
+                        InputCacheWrite = 0.0000125m,
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Prompt = 0.000005m,
+                        Completion = 0.000025m,
+                        InputCacheRead = 0.0000005m,
+                        InputCacheWrite = 0.00000625m,
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "gpt-6-astra:batch" },
+                },
+
+
+
+                // Released between April 2026 and July 2026
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5.6-luna",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
                     Rank = 9980,
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 7, 9),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000002m,
+                        Completion = 0.0000012m,
+                        InputCacheRead = 0.00000002m,
+                        InputCacheWrite = 0.00000025m,
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000001m,
+                        Completion = 0.0000006m,
+                        InputCacheRead = 0.00000001m,
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "gpt-5.6-luna:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5.6-sol",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9975,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
@@ -201,7 +245,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9975,
+                    Rank = 9970,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
@@ -221,40 +265,6 @@ namespace SmartHopper.Providers.OpenAI
                     },
                     Aliases = new List<string> { "gpt-5.6-terra:batch" },
                 },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-6-astra",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9970,
-                    ContextLimit = 1050000,
-                    Created = new DateTime(2026, 9, 4),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.00001m,
-                        Completion = 0.00005m,
-                        InputCacheRead = 0.000001m,
-                        InputCacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.000005m,
-                        Completion = 0.000025m,
-                        InputCacheRead = 0.0000005m,
-                        InputCacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "gpt-6-astra:batch" },
-                },
-
-
-
-                // Released between April 2026 and July 2026
 
                 new AIModelCapabilities
                 {
@@ -582,30 +592,11 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5-pro-2025-10-06",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9885,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2025, 10, 6),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000015m,
-                        Completion = 0.00012m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "gpt-5-pro", "gpt-5-pro-latest" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "gpt-5.2-pro-2025-12-11",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9880,
+                    Rank = 9885,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 12, 10),
                     Pricing = new AIModelPricing
@@ -629,7 +620,7 @@ namespace SmartHopper.Providers.OpenAI
                     Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json | AICapability.Image2Text,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 9875,
+                    Rank = 9880,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 8, 7),
                     Pricing = new AIModelPricing
@@ -649,7 +640,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9870,
+                    Rank = 9875,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 8, 7),
                     Pricing = new AIModelPricing
@@ -669,7 +660,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9865,
+                    Rank = 9870,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 8, 7),
                     Pricing = new AIModelPricing
@@ -680,6 +671,25 @@ namespace SmartHopper.Providers.OpenAI
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "gpt-5", "gpt-5-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5-pro-2025-10-06",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9865,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2025, 10, 6),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000015m,
+                        Completion = 0.00012m,
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "gpt-5-pro", "gpt-5-pro-latest" },
                 },
 
 
