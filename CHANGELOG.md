@@ -173,6 +173,7 @@ Many thanks to the following contributors to this release:
 - Settings dialog tabs are now ordered General → Canvas Assistant → AI Providers (the former Providers tab is renamed AI Providers).
 - `GhJSON.Core`/`GhJSON.Grasshopper` package references are bumped to `1.3.4`, which adds directional connection expansion and reports whether `Disconnect` actually removed a wire.
 - `docs/UI/icon-set-brief.md` was re-audited against the current component set (14 missing + 8 shared/mis-assigned icons, all unchanged) and extended with a small-format design review (§11: no multi-character text, 2 px strokes, badge-dominance rules, stock-GH style decision) and a production-workflow comparison (§12: code-generated icons via `System.Drawing`, the GH2 alpha plugin's `G2IconSetup`/`G2IconSymbol`/`G2ExportIcons` workflow, official/recovered vector sources, AI generators).
+- Settings dialog tabs are now ordered General → Canvas Assistant → AI Providers (the former Providers tab is renamed AI Providers).
 
 ### Removed
 

@@ -162,18 +162,18 @@ namespace SmartHopper.Menu.Dialogs
                 Content = this._generalPage,
             });
 
-            // Add Providers tab
-            tabControl.Pages.Add(new TabPage
-            {
-                Text = "Providers",
-                Content = this._providersPage,
-            });
-
             // Add SmartHopper Assistant tab
             tabControl.Pages.Add(new TabPage
             {
                 Text = "Canvas Assistant",
                 Content = this._assistantPage,
+            });
+
+            // Add Providers tab
+            tabControl.Pages.Add(new TabPage
+            {
+                Text = "AI Providers",
+                Content = this._providersPage,
             });
 
             // Create buttons
