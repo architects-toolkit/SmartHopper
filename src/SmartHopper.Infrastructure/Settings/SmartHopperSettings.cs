@@ -59,6 +59,13 @@ namespace SmartHopper.Infrastructure.Settings
         [ThreadStatic]
         private static HashSet<string> _currentlyGettingSettings;
 
+        // Serializes access to ProviderSettings. Provider background workers write settings
+        // (OAuth grants, connection status) while UI threads read them, so the plain
+        // Dictionary must never be read or enumerated while another thread mutates it.
+        // The lock is only held for the dictionary operation itself, never across calls
+        // into providers or descriptors.
+        private readonly object _providerSettingsLock = new object();
+
         /// <summary>
         /// Gets or sets the persisted provider settings dictionary keyed by provider name, then setting name.
         /// </summary>
@@ -249,8 +256,18 @@ namespace SmartHopper.Infrastructure.Settings
             {
                 _currentlyGettingSettings.Add(settingKey);
 
-                if (this.ProviderSettings.TryGetValue(providerName, out var settings) &&
-                    settings.TryGetValue(settingName, out var value))
+                object value = null;
+                var found = false;
+                lock (this._providerSettingsLock)
+                {
+                    if (this.ProviderSettings.TryGetValue(providerName, out var settings) &&
+                        settings.TryGetValue(settingName, out value))
+                    {
+                        found = true;
+                    }
+                }
+
+                if (found)
                 {
                     var descriptors = this.GetProviderDescriptors(providerName);
                     var descriptor = descriptors.FirstOrDefault(d => d.Name == settingName);
@@ -298,41 +315,55 @@ namespace SmartHopper.Infrastructure.Settings
         /// <param name="value">The setting value.</param>
         internal void SetSetting(string providerName, string settingName, object value)
         {
-            if (!this.ProviderSettings.TryGetValue(providerName, out Dictionary<string, object>? settingsValue))
-            {
-                settingsValue = new Dictionary<string, object>();
-                this.ProviderSettings[providerName] = settingsValue;
-            }
-
             var descriptors = this.GetProviderDescriptors(providerName);
             var descriptor = descriptors.FirstOrDefault(d => d.Name == settingName);
+
+            object? storedValue = value;
+            var remove = false;
 
             if (descriptor?.IsSecret == true && value != null)
             {
                 var secret = value.ToString();
                 if (string.IsNullOrEmpty(secret))
                 {
-                    settingsValue.Remove(settingName);
+                    remove = true;
                 }
                 else
                 {
                     Logger.For<SmartHopperSettings>().Trace($"[Settings] Storing encrypted secret for {providerName}.{settingName}");
                     try
                     {
-                        settingsValue[settingName] = this.Encrypt(secret);
+                        storedValue = this.Encrypt(secret);
                     }
                     catch (Exception ex)
                     {
                         // Broad catch is intentional: any encryption failure must not leave the secret in plaintext.
                         Logger.For<SmartHopperSettings>().Exception(ex, $"[Settings] Refusing to store secret for {providerName}.{settingName}: {ex.Message}");
-                        settingsValue.Remove(settingName);
+                        remove = true;
                     }
                 }
             }
             else
             {
                 Logger.For<SmartHopperSettings>().Trace($"[Settings] Storing value for {providerName}.{settingName} = {value}");
-                settingsValue[settingName] = value;
+            }
+
+            lock (this._providerSettingsLock)
+            {
+                if (!this.ProviderSettings.TryGetValue(providerName, out Dictionary<string, object>? settingsValue))
+                {
+                    settingsValue = new Dictionary<string, object>();
+                    this.ProviderSettings[providerName] = settingsValue;
+                }
+
+                if (remove)
+                {
+                    settingsValue.Remove(settingName);
+                }
+                else
+                {
+                    settingsValue[settingName] = storedValue!;
+                }
             }
         }
 
@@ -365,9 +396,12 @@ namespace SmartHopper.Infrastructure.Settings
         /// <param name="settingName">The name of the setting.</param>
         internal void RemoveSetting(string providerName, string settingName)
         {
-            if (this.ProviderSettings.TryGetValue(providerName, out var settings))
+            lock (this._providerSettingsLock)
             {
-                settings.Remove(settingName);
+                if (this.ProviderSettings.TryGetValue(providerName, out var settings))
+                {
+                    settings.Remove(settingName);
+                }
             }
         }
 
@@ -408,8 +442,13 @@ namespace SmartHopper.Infrastructure.Settings
 
             bool isValid = true;
             var invalidSettings = new List<(string Provider, string Setting)>();
+            List<string> providerNames;
+            lock (this._providerSettingsLock)
+            {
+                providerNames = this.ProviderSettings.Keys.ToList();
+            }
 
-            foreach (var provider in this.ProviderSettings.Keys.ToList())
+            foreach (var provider in providerNames)
             {
                 var descriptors = this.GetProviderDescriptors(provider);
                 if (descriptors == null || !descriptors.Any())
@@ -419,7 +458,13 @@ namespace SmartHopper.Infrastructure.Settings
 
                 // Check for unknown settings
                 var knownSettingNames = descriptors.Select(d => d.Name).ToList();
-                var unknownSettings = this.ProviderSettings[provider].Keys
+                List<string> storedKeys;
+                lock (this._providerSettingsLock)
+                {
+                    storedKeys = this.ProviderSettings[provider].Keys.ToList();
+                }
+
+                var unknownSettings = storedKeys
                     .Where(key => !knownSettingNames.Contains(key))
                     .ToList();
 
@@ -497,10 +542,14 @@ namespace SmartHopper.Infrastructure.Settings
                             if (value != null)
                             {
                                 providerSettings[descriptor.Name] = value;
-                                bool hasStorage = this.ProviderSettings
-                                    .TryGetValue(provider.Name, out var storedSettings)
-                                    && storedSettings != null
-                                    && storedSettings.ContainsKey(descriptor.Name);
+                                bool hasStorage;
+                                lock (this._providerSettingsLock)
+                                {
+                                    hasStorage = this.ProviderSettings
+                                        .TryGetValue(provider.Name, out var storedSettings)
+                                        && storedSettings != null
+                                        && storedSettings.ContainsKey(descriptor.Name);
+                                }
 
                                 string sourceInfo = hasStorage
                                     ? "(from storage)"
@@ -876,8 +925,13 @@ namespace SmartHopper.Infrastructure.Settings
             }
 
             bool migratedAny = false;
+            List<KeyValuePair<string, Dictionary<string, object>>> providerSnapshot;
+            lock (this._providerSettingsLock)
+            {
+                providerSnapshot = this.ProviderSettings.ToList();
+            }
 
-            foreach (var providerKvp in this.ProviderSettings.ToList())
+            foreach (var providerKvp in providerSnapshot)
             {
                 var providerName = providerKvp.Key;
                 var settings = providerKvp.Value;
@@ -887,8 +941,13 @@ namespace SmartHopper.Infrastructure.Settings
                 }
 
                 var descriptors = this.GetProviderDescriptors(providerName);
+                List<KeyValuePair<string, object>> settingSnapshot;
+                lock (this._providerSettingsLock)
+                {
+                    settingSnapshot = settings.ToList();
+                }
 
-                foreach (var settingKvp in settings.ToList())
+                foreach (var settingKvp in settingSnapshot)
                 {
                     var settingName = settingKvp.Key;
                     var encryptedValue = settingKvp.Value?.ToString();
@@ -914,7 +973,11 @@ namespace SmartHopper.Infrastructure.Settings
                             continue;
                         }
 
-                        settings[settingName] = EncryptWithSecureKey(plainText, key);
+                        lock (this._providerSettingsLock)
+                        {
+                            settings[settingName] = EncryptWithSecureKey(plainText, key);
+                        }
+
                         migratedAny = true;
                         Logger.For<SmartHopperSettings>().Trace($"[Migration] Migrated {providerName}.{settingName} to SH04: AES-GCM.");
                     }
@@ -944,14 +1007,26 @@ namespace SmartHopper.Infrastructure.Settings
                 return false;
             }
 
-            foreach (var settings in this.ProviderSettings.Values)
+            List<Dictionary<string, object>> providerValues;
+            lock (this._providerSettingsLock)
+            {
+                providerValues = this.ProviderSettings.Values.ToList();
+            }
+
+            foreach (var settings in providerValues)
             {
                 if (settings == null)
                 {
                     continue;
                 }
 
-                foreach (var value in settings.Values)
+                List<object> settingValues;
+                lock (this._providerSettingsLock)
+                {
+                    settingValues = settings.Values.ToList();
+                }
+
+                foreach (var value in settingValues)
                 {
                     if (value?.ToString()?.StartsWith(LegacySecurePrefix, StringComparison.Ordinal) == true)
                     {
@@ -975,18 +1050,34 @@ namespace SmartHopper.Infrastructure.Settings
                 return;
             }
 
-            foreach (var settings in this.ProviderSettings.Values.ToList())
+            List<Dictionary<string, object>> providerValues;
+            lock (this._providerSettingsLock)
+            {
+                providerValues = this.ProviderSettings.Values.ToList();
+            }
+
+            foreach (var settings in providerValues)
             {
                 if (settings == null)
                 {
                     continue;
                 }
 
-                foreach (var key in settings.Keys.ToList())
+                List<string> settingKeys;
+                lock (this._providerSettingsLock)
                 {
-                    if (settings[key]?.ToString()?.StartsWith(LegacySecurePrefix, StringComparison.Ordinal) == true)
+                    settingKeys = settings.Keys.ToList();
+                }
+
+                foreach (var key in settingKeys)
+                {
+                    lock (this._providerSettingsLock)
                     {
-                        settings.Remove(key);
+                        if (settings.TryGetValue(key, out var value)
+                            && value?.ToString()?.StartsWith(LegacySecurePrefix, StringComparison.Ordinal) == true)
+                        {
+                            settings.Remove(key);
+                        }
                     }
                 }
             }
@@ -1098,24 +1189,37 @@ namespace SmartHopper.Infrastructure.Settings
 
                 if (this.ProviderSettings != null)
                 {
-                    foreach (var providerKvp in this.ProviderSettings)
+                    List<KeyValuePair<string, Dictionary<string, object>>> providerSnapshot;
+                    lock (this._providerSettingsLock)
+                    {
+                        providerSnapshot = this.ProviderSettings.ToList();
+                    }
+
+                    foreach (var providerKvp in providerSnapshot)
                     {
                         Logger.For<SmartHopperSettings>().Trace($"[Settings] Provider '{providerKvp.Key}' has {providerKvp.Value?.Count ?? 0} settings");
-                        if (providerKvp.Value != null)
+                        List<KeyValuePair<string, object>> settingSnapshot;
+                        lock (this._providerSettingsLock)
                         {
-                            foreach (var settingKvp in providerKvp.Value)
-                            {
-                                // Don't log the actual values of secrets
-                                var isSecret = this.GetProviderDescriptors(providerKvp.Key)
-                                    .FirstOrDefault(d => d.Name == settingKvp.Key)?.IsSecret ?? false;
+                            settingSnapshot = providerKvp.Value?.ToList() ?? new List<KeyValuePair<string, object>>();
+                        }
 
-                                Logger.For<SmartHopperSettings>().Trace($"[Settings]   - {settingKvp.Key} = {(isSecret ? "<secret>" : settingKvp.Value)}");
-                            }
+                        foreach (var settingKvp in settingSnapshot)
+                        {
+                            // Don't log the actual values of secrets
+                            var isSecret = this.GetProviderDescriptors(providerKvp.Key)
+                                .FirstOrDefault(d => d.Name == settingKvp.Key)?.IsSecret ?? false;
+
+                            Logger.For<SmartHopperSettings>().Trace($"[Settings]   - {settingKvp.Key} = {(isSecret ? "<secret>" : settingKvp.Value)}");
                         }
                     }
                 }
 
-                var json = JsonConvert.SerializeObject(this, Formatting.Indented);
+                string json;
+                lock (this._providerSettingsLock)
+                {
+                    json = JsonConvert.SerializeObject(this, Formatting.Indented);
+                }
                 File.WriteAllText(SettingsPath, json);
                 Logger.For<SmartHopperSettings>().Trace($"[Settings] Settings saved successfully ({json.Length} bytes)");
 

@@ -26,6 +26,7 @@ using Eto.Forms;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Menu.Dialogs.SettingsTabs
@@ -67,6 +68,13 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             };
 
             this.CreateLayout();
+<<<<<<< HEAD
+=======
+            this._refreshTimer = new UITimer { Interval = 2 };
+            this._refreshTimer.Elapsed += (sender, e) => this.SafeReloadProviderSettings();
+            this._refreshTimer.Start();
+            this.UnLoad += (sender, e) => this._refreshTimer?.Stop();
+>>>>>>> 4d1cfab1 (fix(settings): add thread-safety to provider settings, normalize stale Cloud status, guard periodic refresh)
         }
 
         /// <summary>
@@ -472,6 +480,22 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             if (updatedSettings.Any())
             {
                 Infrastructure.AIProviders.ProviderManager.Instance.UpdateProviderSettings(this._provider.Name, updatedSettings);
+            }
+        }
+
+        /// <summary>
+        /// Timer entry point that keeps the periodic refresh alive even when a single
+        /// reload fails; failures are logged instead of surfacing on the UI thread.
+        /// </summary>
+        private void SafeReloadProviderSettings()
+        {
+            try
+            {
+                this.ReloadProviderSettings();
+            }
+            catch (Exception ex)
+            {
+                Logger.For<GenericProviderSettingsPage>().Exception(ex, $"[SettingsPage] Periodic settings reload failed for {this._provider?.Name}");
             }
         }
 
