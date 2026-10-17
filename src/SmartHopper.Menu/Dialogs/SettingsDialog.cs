@@ -48,8 +48,11 @@ namespace SmartHopper.Menu.Dialogs
         private readonly GeneralSettingsPage _generalPage;
         private readonly ProvidersSettingsPage _providersPage;
         private readonly AssistantSettingsPage _assistantPage;
-        private readonly List<GenericProviderSettingsPage> _providerPages;
-        private TabControl _tabControl;
+        private readonly Dictionary<string, GenericProviderSettingsPage> _providerPages;
+
+        // Navigation between the tabbed view and a single provider's settings view
+        private readonly Panel _viewContainer = new Panel();
+        private Control _mainView;
 
         // Settings models
         private readonly GeneralSettings _generalSettings;
@@ -128,13 +131,13 @@ namespace SmartHopper.Menu.Dialogs
             this._generalPage = new GeneralSettingsPage(this._providers);
             this._assistantPage = new AssistantSettingsPage(this._providers);
             this._providersPage = new ProvidersSettingsPage(this._providers, this.ShowProviderSettings);
-            this._providerPages = new List<GenericProviderSettingsPage>();
+            this._providerPages = new Dictionary<string, GenericProviderSettingsPage>();
 
-            // Create provider-specific tabs
+            // Create provider-specific pages (navigated to via each provider's Configure button)
             foreach (var provider in this._providers)
             {
                 var providerPage = new GenericProviderSettingsPage(provider);
-                this._providerPages.Add(providerPage);
+                this._providerPages[provider.Name] = providerPage;
             }
 
             // Load settings into pages
@@ -151,7 +154,6 @@ namespace SmartHopper.Menu.Dialogs
         private void CreateTabLayout()
         {
             var tabControl = new TabControl();
-            this._tabControl = tabControl;
 
             // Add General tab
             tabControl.Pages.Add(new TabPage
@@ -174,19 +176,6 @@ namespace SmartHopper.Menu.Dialogs
                 Content = this._assistantPage,
             });
 
-            // Add provider-specific tabs
-            for (int i = 0; i < this._providers.Length; i++)
-            {
-                var provider = this._providers[i];
-                var providerPage = this._providerPages[i];
-
-                tabControl.Pages.Add(new TabPage
-                {
-                    Text = provider.Name,
-                    Content = providerPage,
-                });
-            }
-
             // Create buttons
             var saveButton = new Button { Text = "Save" };
             var cancelButton = new Button { Text = "Cancel" };
@@ -201,9 +190,12 @@ namespace SmartHopper.Menu.Dialogs
             buttonLayout.Items.Add(saveButton);
             buttonLayout.Items.Add(cancelButton);
 
-            // Set up the dialog content
+            // Set up the dialog content: a swappable view container over the shared buttons
+            this._mainView = tabControl;
+            this._viewContainer.Content = this._mainView;
+
             var content = new DynamicLayout();
-            content.Add(tabControl, yscale: true);
+            content.Add(this._viewContainer, yscale: true);
             content.Add(buttonLayout);
 
             this.Content = content;
@@ -216,25 +208,39 @@ namespace SmartHopper.Menu.Dialogs
         }
 
         /// <summary>
-        /// Switches to the given provider's settings tab.
+        /// Switches the dialog content to the given provider's settings view.
+        /// The same Save button still applies — Back is navigation, not commit.
         /// </summary>
-        /// <param name="provider">The provider whose settings tab should be shown.</param>
+        /// <param name="provider">The provider whose settings should be shown.</param>
         private void ShowProviderSettings(IAIProvider provider)
         {
-            if (provider == null || this._tabControl == null)
+            if (provider == null || !this._providerPages.TryGetValue(provider.Name, out var providerPage))
             {
                 return;
             }
 
-            // Provider tabs follow the fixed tabs (General, Providers, Canvas Assistant)
-            for (int i = 0; i < this._providers.Length; i++)
+            var backButton = new Button { Text = "< Back" };
+            backButton.Click += (sender, e) => this.ShowMainView();
+
+            var providerView = new DynamicLayout { Spacing = new Size(5, 5) };
+            providerView.Add(new StackLayout
             {
-                if (ReferenceEquals(this._providers[i], provider) || this._providers[i].Name == provider.Name)
-                {
-                    this._tabControl.SelectedIndex = i + 3;
-                    return;
-                }
-            }
+                Orientation = Orientation.Horizontal,
+                Items = { backButton },
+            });
+            providerView.Add(providerPage, yscale: true);
+
+            this._viewContainer.Content = providerView;
+            this.Title = $"SmartHopper Settings — {provider.Name}";
+        }
+
+        /// <summary>
+        /// Restores the main tabbed settings view.
+        /// </summary>
+        private void ShowMainView()
+        {
+            this._viewContainer.Content = this._mainView;
+            this.Title = "SmartHopper Settings";
         }
 
         /// <summary>
@@ -250,7 +256,7 @@ namespace SmartHopper.Menu.Dialogs
                 this._assistantPage.SaveSettings(this._assistantSettings);
 
                 // Save provider-specific settings
-                foreach (var providerPage in this._providerPages)
+                foreach (var providerPage in this._providerPages.Values)
                 {
                     providerPage.SaveSettings();
                 }
