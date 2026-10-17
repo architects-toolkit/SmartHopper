@@ -142,6 +142,11 @@ namespace SmartHopper.ProviderSdk.AIProviders
         private Dictionary<string, object> _injectedSettings;
         private Dictionary<string, object> _defaultSettings;
 
+        // Serializes every access to _injectedSettings. UI threads read provider settings
+        // (settings-page refresh, descriptors) while background connection/request workers
+        // write them, so the plain Dictionary must never be read and mutated concurrently.
+        private readonly object _settingsLock = new object();
+
         // Recursion guard to prevent infinite loops during settings access
         [ThreadStatic]
         private static HashSet<string> _currentlyGettingSettings;
@@ -491,9 +496,12 @@ namespace SmartHopper.ProviderSdk.AIProviders
 
             if (settings != null)
             {
-                foreach (var kvp in settings)
+                lock (this._settingsLock)
                 {
-                    this._injectedSettings[kvp.Key] = kvp.Value;
+                    foreach (var kvp in settings)
+                    {
+                        this._injectedSettings[kvp.Key] = kvp.Value;
+                    }
                 }
             }
         }
@@ -532,13 +540,28 @@ namespace SmartHopper.ProviderSdk.AIProviders
             {
                 _currentlyGettingSettings.Add(settingKey);
 
+                object value;
+                bool found;
+                lock (this._settingsLock)
+                {
+                    if (this._injectedSettings == null)
+                    {
+                        found = false;
+                        value = null;
+                    }
+                    else
+                    {
+                        found = this._injectedSettings.TryGetValue(key, out value);
+                    }
+                }
+
                 if (this._injectedSettings == null)
                 {
                     Logger.For<AIProvider>().Trace($"Warning: Settings not initialized for {this.Name}");
                     return default;
                 }
 
-                if (!this._injectedSettings.TryGetValue(key, out var value) || value == null)
+                if (!found || value == null)
                 {
                     // Try to get the default value from the descriptor
                     var descriptor = this.GetSettingDescriptors().FirstOrDefault(d => d.Name == key);
@@ -719,12 +742,15 @@ namespace SmartHopper.ProviderSdk.AIProviders
             try
             {
                 // Update the local injected settings cache
-                if (this._injectedSettings == null)
+                lock (this._settingsLock)
                 {
-                    this._injectedSettings = new Dictionary<string, object>();
-                }
+                    if (this._injectedSettings == null)
+                    {
+                        this._injectedSettings = new Dictionary<string, object>();
+                    }
 
-                this._injectedSettings[key] = value;
+                    this._injectedSettings[key] = value;
+                }
 
                 // Persist to the global settings via the host-injected per-provider store
                 var store = ProviderSdkHost.SettingsStoreFactory(this.Name);
@@ -1366,7 +1392,10 @@ namespace SmartHopper.ProviderSdk.AIProviders
         /// </remarks>
         private void ResetCachedSettings(Dictionary<string, object> settings)
         {
-            this._injectedSettings = settings ?? new Dictionary<string, object>();
+            lock (this._settingsLock)
+            {
+                this._injectedSettings = settings ?? new Dictionary<string, object>();
+            }
         }
 
         /// <inheritdoc/>
