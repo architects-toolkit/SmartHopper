@@ -303,71 +303,13 @@ namespace SmartHopper.Providers.MistralAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "mistral-ocr-2512",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.ImageOutput,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 9940,
-                    Aliases = new List<string> { "mistral-ocr-3-0", "mistral-ocr-3" },
-                    DiscouragedForTools = new List<string> { "*" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistral-ocr-4-0",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.ImageOutput,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9935,
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistral-ocr-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.ImageOutput,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9930,
-                    Aliases = new List<string> { "mistral-ocr-4", "mistral-ocr-4-1" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "voxtral-mini-2602",
-                    Capabilities = AICapability.SpeechInput | AICapability.AudioInput | AICapability.TextOutput,
-                    Default = AICapability.Speech2Text,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 9925,
-                    ContextLimit = 32000,
-                    Aliases = new List<string> { "voxtral-mini-transcribe-2602", "voxtral-mini-latest" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "voxtral-mini-tts-2603",
                     Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.SpeechOutput,
                     Default = AICapability.Text2Speech,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9920,
+                    Rank = 9940,
                     Aliases = new List<string> { "voxtral-mini-tts-latest" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "voxtral-small-2507",
-                    Capabilities = AICapability.SpeechInput | AICapability.AudioInput | AICapability.TextOutput,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 9915,
-                    ContextLimit = 32000,
-                    Aliases = new List<string> { "voxtral-small-latest" },
                 },
 
                 new AIModelCapabilities
@@ -377,7 +319,7 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9910,
+                    Rank = 9935,
                     Aliases = new List<string> { "zai-glm-5", "zai-glm-latest" },
                 },
 
@@ -478,12 +420,37 @@ namespace SmartHopper.Providers.MistralAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
+                    Model = "Mistral OCR 3.0",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.ImageOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -35,
+                    Aliases = new List<string> { "mistral-ocr-3-0", "mistral-ocr-3", "mistral-ocr-2512" },
+                    DiscouragedForTools = new List<string> { "*" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "Mistral OCR 4.1",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.ImageOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -40,
+                    Aliases = new List<string> { "mistral-ocr-4", "mistral-ocr-4-1", "mistral-ocr-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
                     Model = "mistral-large-2411",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -35,
+                    Rank = -45,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
@@ -501,7 +468,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -40,
+                    Rank = -50,
                     ContextLimit = 128000,
                 },
 
@@ -513,7 +480,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -45,
+                    Rank = -55,
                     ContextLimit = 128000,
                     Aliases = new List<string> { "mistral-moderation-latest" },
                 },
@@ -526,7 +493,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -50,
+                    Rank = -60,
                 },
 
                 new AIModelCapabilities
@@ -537,8 +504,19 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -55,
+                    Rank = -65,
                     DiscouragedForTools = new List<string> { "*" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-ocr-4-0",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.ImageOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -70,
                 },
 
                 new AIModelCapabilities
@@ -549,7 +527,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -60,
+                    Rank = -75,
                 },
 
                 new AIModelCapabilities
@@ -560,7 +538,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -65,
+                    Rank = -80,
                     ContextLimit = 128000,
                     Aliases = new List<string> { "open-mistral-nemo-2407", "mistral-tiny-2407", "mistral-tiny-latest" },
                 },
@@ -573,7 +551,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -70,
+                    Rank = -85,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
@@ -587,12 +565,39 @@ namespace SmartHopper.Providers.MistralAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
+                    Model = "Voxtral Mini Transcribe",
+                    Capabilities = AICapability.SpeechInput | AICapability.AudioInput | AICapability.TextOutput,
+                    Default = AICapability.Speech2Text,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -90,
+                    ContextLimit = 32000,
+                    Aliases = new List<string> { "voxtral-mini-transcribe-2602", "voxtral-mini-latest", "voxtral-mini-2602" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "Voxtral Small Transcribe",
+                    Capabilities = AICapability.SpeechInput | AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -95,
+                    ContextLimit = 32000,
+                    Aliases = new List<string> { "voxtral-small-latest", "voxtral-small-2507" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
                     Model = "voxtral-mini-2507",
                     Capabilities = AICapability.SpeechInput | AICapability.AudioInput | AICapability.TextOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -75,
+                    Rank = -100,
                     Aliases = new List<string> { "voxtral-mini-latest" },
                 },
 
@@ -604,7 +609,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -80,
+                    Rank = -105,
                     Aliases = new List<string> { "voxtral-mini-2507" },
                 },
 
@@ -617,7 +622,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -85,
+                    Rank = -110,
                 }
             };
 
