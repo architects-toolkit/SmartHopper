@@ -66,10 +66,21 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             {
                 try
                 {
-                    var snapshot = Capture();
+                    var status = Capture(out var snapshot);
                     if (snapshot == null)
                     {
-                        this.documentId = null;
+                        if (status == CaptureStatus.NoDocument)
+                        {
+                            this.documentId = null;
+                        }
+
+                        return Array.Empty<AIInteractionDocumentEvent>();
+                    }
+
+                    // CollectChanges may have announced this document already; just refresh the baseline.
+                    if (this.documentId == snapshot.DocumentId)
+                    {
+                        this.SaveBaseline(snapshot.Document);
                         return Array.Empty<AIInteractionDocumentEvent>();
                     }
 
@@ -90,7 +101,13 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             {
                 try
                 {
-                    var snapshot = Capture();
+                    var status = Capture(out var snapshot);
+                    if (status == CaptureStatus.Failed)
+                    {
+                        // Keep the baseline and tracked document; report again on the next successful capture.
+                        return Array.Empty<AIInteractionDocumentEvent>();
+                    }
+
                     if (snapshot == null)
                     {
                         if (this.documentId == null)
@@ -161,7 +178,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             {
                 try
                 {
-                    var snapshot = Capture();
+                    Capture(out var snapshot);
 
                     // A different (or no) document is reported as a switch by the next CollectChanges call.
                     if (snapshot == null || this.documentId == null || snapshot.DocumentId != this.documentId.Value)
@@ -225,10 +242,13 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// <summary>
         /// Serializes the active document on the UI thread.
         /// </summary>
-        private static Snapshot? Capture()
+        /// <param name="snapshot">The captured snapshot, or null when no document is active or capture failed.</param>
+        /// <returns>Whether a document was captured, no document was active, or the capture failed.</returns>
+        private static CaptureStatus Capture(out Snapshot? snapshot)
         {
             Snapshot? result = null;
             Exception? error = null;
+            var timedOut = false;
 
             void Run()
             {
@@ -285,7 +305,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 if (!done.Wait(UiThreadTimeout))
                 {
                     Debug.WriteLine("[ChatDocumentTracker] Timed out waiting for the UI thread");
-                    return null;
+                    timedOut = true;
                 }
             }
 
@@ -294,7 +314,20 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 Debug.WriteLine($"[ChatDocumentTracker] Capture failed: {error.Message}");
             }
 
-            return result;
+            snapshot = result;
+            if (timedOut || error != null)
+            {
+                return CaptureStatus.Failed;
+            }
+
+            return result == null ? CaptureStatus.NoDocument : CaptureStatus.Captured;
+        }
+
+        private enum CaptureStatus
+        {
+            Captured,
+            NoDocument,
+            Failed,
         }
 
         private static string GetDocumentName(GH_Document doc)
