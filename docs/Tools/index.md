@@ -217,6 +217,7 @@ Component → AIToolRequest → ToolManager → Provider formatting → AI Model
 | Image Processing | `img2text`, `text2img`, `canvas_screenshot`, `viewport_screenshot` |
 | Grasshopper Canvas | `gh_get`, `gh_put`, `gh_move`, `gh_merge`, `gh_group`, `gh_tidy_up`, `gh_list_categories`, `gh_list_components`, `gh_component_preview`, `gh_component_lock`, `gh_connect`, `gh_disconnect`, `gh_select`, `canvas_view` |
 | Scripting | `script_generate`, `script_edit`, `script_review` |
+| Documents | `gh_document_list`, `gh_document_switch`, `gh_document_new`, `gh_document_open`, `gh_document_save` (see [Document Tools](./gh_document.md)) |
 
 ### Related Documentation
 
@@ -227,3 +228,4 @@ Component → AIToolRequest → ToolManager → Provider formatting → AI Model
 - [smarthopper_workflows Tool](./smarthopper_workflows.md)
 - [smarthopper_tool_help Tool](./smarthopper_tool_help.md)
 - [smarthopper_ghjson_reference Tool](./smarthopper_ghjson_reference.md)
+- [Document Tools](./gh_document.md)

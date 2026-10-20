@@ -30,6 +30,7 @@ using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIContext;
 using SmartHopper.Infrastructure.AITools;
@@ -115,6 +116,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             var schema = JObject.Parse(@"{
                 ""type"": ""object"",
                 ""properties"": {
+                    ""documentId"": {
+                        ""type"": ""string"",
+                        ""description"": ""Optional documentId of an open document to read (from gh_document_list). Defaults to the active document. Reading another document does not switch the canvas.""
+                    },
                     ""attrFilters"": {
                         ""type"": ""array"",
                         ""items"": { ""type"": ""string"" },
@@ -375,10 +380,28 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine($"[gh_get] internalized: {includeInternalizedData}, runtime: {includeRuntimeData}, messages: {includeMessages}, depth: {connectionDepth}, metadata: {includeMetadata}, viewportOnly: {viewportOnly}, page: {page}, pageSize: {pageSize}, detail: {detail}");
 
                 // Build the query using CanvasSelector
-                var selector = CanvasSelector.FromActiveCanvas();
+                // Document: active canvas by default, or another open document by documentId
+                var documentId = args["documentId"]?.ToString();
+                GH_Document? targetDocument = null;
+                if (!string.IsNullOrWhiteSpace(documentId))
+                {
+                    targetDocument = GhDocumentAccess.FindById(documentId);
+                    if (targetDocument == null)
+                    {
+                        output.CreateError($"No open document with documentId '{documentId}'. Call gh_document_list to get valid ids.");
+                        return Task.FromResult(output);
+                    }
+                }
+
+                var readsActiveDocument = targetDocument == null || ReferenceEquals(targetDocument, Instances.ActiveCanvas?.Document);
+                var selector = targetDocument == null ? CanvasSelector.FromActiveCanvas() : CanvasSelector.From(targetDocument);
 
                 // Viewport restriction — only include components whose bounds intersect the visible canvas area
-                if (viewportOnly)
+                if (viewportOnly && !readsActiveDocument)
+                {
+                    output.AddRuntimeMessage(SHRuntimeMessageSeverity.Warning, SHRuntimeMessageOrigin.Tool, "viewportOnly only applies to the active document. Returning all components.");
+                }
+                else if (viewportOnly)
                 {
                     var canvas = Instances.ActiveCanvas;
                     if (canvas?.Viewport != null)

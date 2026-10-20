@@ -47,14 +47,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Save the current Grasshopper document. If no filePath is provided, the document is saved to its existing location. Provide a full file path to save a copy or unnamed document.",
+                description: "Save a Grasshopper document. Defaults to the active document; pass documentId (from gh_document_list) to save another open document. If no filePath is provided, the document is saved to its existing location. Provide an absolute .gh or .ghx file path to save a copy or an unsaved document.",
                 category: "Document",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
                         ""filePath"": {
                             ""type"": [""string"", ""null""],
-                            ""description"": ""Optional full file path to save the document. If omitted, the current document path is used.""
+                            ""description"": ""Optional absolute .gh or .ghx file path to save the document. If omitted, the current document path is used.""
+                        },
+                        ""documentId"": {
+                            ""type"": [""string"", ""null""],
+                            ""description"": ""Optional documentId of an open document (from gh_document_list). Defaults to the active document.""
                         }
                     }
                 }",
@@ -77,12 +81,31 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.GetArgumentsOrEmpty();
                 var filePath = args["filePath"]?.ToString();
 
+                var documentId = args["documentId"]?.ToString();
+                var doc = string.IsNullOrWhiteSpace(documentId)
+                    ? CanvasAccess.GetCurrentCanvas()
+                    : GhDocumentAccess.FindById(documentId);
+                if (doc == null)
+                {
+                    output.CreateError(string.IsNullOrWhiteSpace(documentId)
+                        ? "No active document."
+                        : $"No open document with documentId '{documentId}'. Call gh_document_list to get valid ids.");
+                    return Task.FromResult(output);
+                }
+
                 if (string.IsNullOrWhiteSpace(filePath))
                 {
                     filePath = null;
                 }
                 else
                 {
+                    if (!GrasshopperFilePath.TryNormalize(filePath, mustExist: false, out var fullPath, out var pathError))
+                    {
+                        output.CreateError(pathError);
+                        return Task.FromResult(output);
+                    }
+
+                    filePath = fullPath;
                     var directory = Path.GetDirectoryName(filePath);
                     if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
                     {
@@ -90,12 +113,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
-                var savedPath = CanvasAccess.SaveDocument(filePath);
+                var savedPath = CanvasAccess.SaveDocument(doc, filePath);
                 var saved = !string.IsNullOrWhiteSpace(savedPath);
 
                 if (!saved)
                 {
-                    output.CreateError("Could not save the document. No active document or no file path available.");
+                    output.CreateError("Could not save the document. Unsaved documents need a filePath.");
                     return Task.FromResult(output);
                 }
 
@@ -103,6 +126,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     ["saved"] = saved,
                     ["filePath"] = savedPath,
+                    ["documentId"] = doc.DocumentID.ToString("D"),
                 };
 
                 var body = AIBodyBuilder.Create()

@@ -363,7 +363,17 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// <returns>The file path where the document was saved, or null.</returns>
         public static string SaveDocument(string filePath = null)
         {
-            var doc = GetCurrentCanvas();
+            return SaveDocument(GetCurrentCanvas(), filePath);
+        }
+
+        /// <summary>
+        /// Saves <paramref name="doc"/> to <paramref name="filePath"/>, or to its own file path when null.
+        /// </summary>
+        /// <param name="doc">The document to save.</param>
+        /// <param name="filePath">Optional destination file path.</param>
+        /// <returns>The file path where the document was saved, or null.</returns>
+        public static string SaveDocument(GH_Document doc, string filePath)
+        {
             if (doc == null)
             {
                 return null;
