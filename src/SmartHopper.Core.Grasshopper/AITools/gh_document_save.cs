@@ -24,7 +24,6 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
-using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -71,28 +70,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
         private Task<AIReturn> GhDocumentSaveToolAsync(AIToolCall toolCall)
         {
-            var output = new AIReturn { Request = toolCall };
-
-            try
+            return GhDocumentTools.Run(toolCall, args =>
             {
-                toolCall.SkipMetricsValidation = true;
-
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.GetArgumentsOrEmpty();
-                var filePath = args["filePath"]?.ToString();
-
                 var documentId = args["documentId"]?.ToString();
                 var doc = string.IsNullOrWhiteSpace(documentId)
                     ? CanvasAccess.GetCurrentCanvas()
-                    : GhDocumentAccess.FindById(documentId);
+                    : GhDocumentTools.RequireDocument(documentId);
                 if (doc == null)
                 {
-                    output.CreateError(string.IsNullOrWhiteSpace(documentId)
-                        ? "No active document."
-                        : $"No open document with documentId '{documentId}'. Call gh_document_list to get valid ids.");
-                    return Task.FromResult(output);
+                    throw new InvalidOperationException("No active document.");
                 }
 
+                var filePath = args["filePath"]?.ToString();
                 if (string.IsNullOrWhiteSpace(filePath))
                 {
                     filePath = null;
@@ -101,8 +90,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     if (!GrasshopperFilePath.TryNormalize(filePath, mustExist: false, out var fullPath, out var pathError))
                     {
-                        output.CreateError(pathError);
-                        return Task.FromResult(output);
+                        throw new InvalidOperationException(pathError);
                     }
 
                     filePath = fullPath;
@@ -114,33 +102,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var savedPath = CanvasAccess.SaveDocument(doc, filePath);
-                var saved = !string.IsNullOrWhiteSpace(savedPath);
-
-                if (!saved)
+                if (string.IsNullOrWhiteSpace(savedPath))
                 {
-                    output.CreateError("Could not save the document. Unsaved documents need a filePath.");
-                    return Task.FromResult(output);
+                    throw new InvalidOperationException("Could not save the document. Unsaved documents need a filePath.");
                 }
 
-                var toolResult = new JObject
+                return new JObject
                 {
-                    ["saved"] = saved,
+                    ["saved"] = true,
                     ["filePath"] = savedPath,
                     ["documentId"] = doc.DocumentID.ToString("D"),
                 };
-
-                var body = AIBodyBuilder.Create()
-                    .AddToolResult(toolResult)
-                    .Build();
-
-                output.CreateSuccess(body, toolCall);
-                return Task.FromResult(output);
-            }
-            catch (Exception ex)
-            {
-                output.CreateError($"Error: {ex.Message}");
-                return Task.FromResult(output);
-            }
+            });
         }
     }
 }
