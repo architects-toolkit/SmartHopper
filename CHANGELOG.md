@@ -15,6 +15,7 @@ Many thanks to the following contributors to this release:
 
 ### Added
 
+- Added a "Visit Website" item to the SmartHopper Grasshopper menu that opens https://smarthopper.xyz, placed just above "About".
 - Added an agentic WebChat planning flow through the Chat-only `plan_propose` tool. Proposed multi-step plans pause in an interactive chat card until approved or rejected; plan approval never pre-approves later canvas edits.
 - Added a Chat-only `plan_tasks` tool that renders a live task plan card in WebChat. The model sends the complete task list on every call, tasks show as pending, in progress, or completed, and a progress indicator updates in place per plan ID through the new `ITaskPlanPresenter` invocation seam.
 - Added invocation-scoped `ConsentGate`, explicit `AIToolSurface` exposure controls, and `AIMutatingTool` metadata so WebChat, MCP, direct AITool calls, and Grasshopper components share one-call mutation consent without requiring a `ConversationSession`.
