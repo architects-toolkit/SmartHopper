@@ -48,6 +48,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         private readonly ChatCanvasBaselineStore store;
         private GhJsonStableIdMap idMap = new GhJsonStableIdMap();
         private Guid? documentId;
+        private bool pendingFailedCapture;
         private bool disposed;
 
         /// <summary>
@@ -80,6 +81,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     // CollectChanges may have announced this document already; just refresh the baseline.
                     if (this.documentId == snapshot.DocumentId)
                     {
+                        this.idMap.Apply(snapshot.Document);
                         this.SaveBaseline(snapshot.Document);
                         return Array.Empty<AIInteractionDocumentEvent>();
                     }
@@ -105,8 +107,11 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     if (status == CaptureStatus.Failed)
                     {
                         // Keep the baseline and tracked document; report again on the next successful capture.
+                        this.pendingFailedCapture = true;
                         return Array.Empty<AIInteractionDocumentEvent>();
                     }
+
+                    this.pendingFailedCapture = false;
 
                     if (snapshot == null)
                     {
@@ -178,6 +183,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             {
                 try
                 {
+                    if (this.pendingFailedCapture)
+                    {
+                        // A failed CollectChanges still owes the model a diff; keep the old baseline.
+                        return;
+                    }
+
                     Capture(out var snapshot);
 
                     // A different (or no) document is reported as a switch by the next CollectChanges call.
