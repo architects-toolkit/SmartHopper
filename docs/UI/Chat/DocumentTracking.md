@@ -35,7 +35,7 @@ A chat dialog is not bound to one file: tools and context always use the **activ
 - `Switched to **file.gh**` — when you send a message after switching documents. No diff is reported for the new document; the file context already reports its counts.
 - `Canvas changed since the last AI response: …` — when the active document changed structurally since the last AI response, whoever made the change.
 
-The change sentence always lists: components added / removed / modified, input modifiers changed, connections added / removed (a rewired connection is one removal plus one addition). Output modifier and group changes are appended only when non-zero. Small GhPatches (≤ 4000 characters) are included as a collapsed JSON block; larger ones are replaced by a `gh_get` hint listing affected component GUIDs and removed components.
+The change sentence always lists: components added / removed / modified, input modifiers changed, output modifiers changed, connections added / removed (a rewired connection is one removal plus one addition). Group changes are appended only when non-zero. Small GhPatches (≤ 4000 characters) are included as a collapsed JSON block; larger ones are replaced by a `gh_get` hint listing affected component GUIDs and removed components.
 
 Ignored as noise: component positions (pivots), errors/warnings/remarks, runtime data, selection, and metadata.
 

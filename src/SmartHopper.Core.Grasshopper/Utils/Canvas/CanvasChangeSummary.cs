@@ -119,12 +119,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 counts.ComponentsRemoved.ToString(CultureInfo.InvariantCulture) + " removed",
                 counts.ComponentsModified.ToString(CultureInfo.InvariantCulture) + " modified",
                 Count(counts.InputModifiersChanged, "input modifier", "input modifiers") + " changed",
+                Count(counts.OutputModifiersChanged, "output modifier", "output modifiers") + " changed",
             };
-
-            if (counts.OutputModifiersChanged > 0)
-            {
-                parts.Add(Count(counts.OutputModifiersChanged, "output modifier", "output modifiers") + " changed");
-            }
 
             var sentence = new StringBuilder("Canvas changed since the last AI response: ");
             sentence.Append(string.Join(", ", parts));
