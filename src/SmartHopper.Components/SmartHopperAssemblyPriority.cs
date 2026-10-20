@@ -21,6 +21,7 @@ using Grasshopper.Kernel;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.UI;
+using SmartHopper.Core.UI.Chat;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Dialogs;
 
@@ -45,6 +46,9 @@ namespace SmartHopper.Components
             };
 
             CanvasChangePreviewOverlay.EnsureInitialized();
+
+            // Let chat dialogs record the active document and canvas changes between AI responses.
+            ChatDocumentTracking.TrackerFactory = () => new ChatDocumentTracker();
             MutationUndoCoordinator.Current = new GrasshopperMutationUndoCoordinator();
 
             // Initialize the visual overlay that marks protected components on the canvas.

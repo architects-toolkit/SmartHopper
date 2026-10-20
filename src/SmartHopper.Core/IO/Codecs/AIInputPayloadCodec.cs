@@ -163,6 +163,15 @@ namespace SmartHopper.Core.IO.Codecs
                     json["reasoning"] = toolCall.Reasoning;
                     break;
 
+                case AIInteractionDocumentEvent docEvent:
+                    json["$type"] = "documentEvent";
+                    json["id"] = docEvent.Id.ToString("D");
+                    json["kind"] = docEvent.Kind.ToString();
+                    json["documentId"] = docEvent.DocumentId;
+                    json["documentName"] = docEvent.DocumentName;
+                    json["content"] = docEvent.Content;
+                    break;
+
                 case AIInteractionRuntimeMessage msg:
                     json["$type"] = "runtimeMessage";
                     json["severity"] = msg.Severity.ToString();
@@ -229,6 +238,14 @@ namespace SmartHopper.Core.IO.Codecs
                     Arguments = json.Value<string>("arguments") != null ? JObject.Parse(json.Value<string>("arguments")) : null,
                     Reasoning = json.Value<string>("reasoning"),
                     Result = json.Value<string>("result") != null ? JObject.Parse(json.Value<string>("result")) : null
+                },
+                "documentEvent" => new AIInteractionDocumentEvent
+                {
+                    Id = Guid.TryParse(json.Value<string>("id"), out var docEventId) ? docEventId : Guid.NewGuid(),
+                    Kind = Enum.TryParse<AIDocumentEventKind>(json.Value<string>("kind") ?? string.Empty, out var docEventKind) ? docEventKind : AIDocumentEventKind.CanvasChanged,
+                    DocumentId = json.Value<string>("documentId"),
+                    DocumentName = json.Value<string>("documentName"),
+                    Content = json.Value<string>("content")
                 },
                 "runtimeMessage" => new AIInteractionRuntimeMessage
                 {

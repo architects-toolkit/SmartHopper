@@ -124,6 +124,21 @@ This section provides an overview of all interaction types available in the AICa
   - `ToString()` — returns a formatted string containing audio metadata (MIME type, source, size, language hint)
 - Implements: `IAIKeyedInteraction`
 
+### AIInteractionDocumentEvent
+
+- File: `AIInteractionDocumentEvent.cs`
+- Purpose: conversation record of the active Grasshopper document ("Active document", "Switched to") and of canvas changes since the last AI response. See [Chat Document Tracking](../../UI/Chat/DocumentTracking.md).
+- Fields: `Id` (Guid, unique per event), `Kind` (`AIDocumentEventKind`), `DocumentId`, `DocumentName`, `Content` (deterministic Markdown shared by UI and model)
+- `Agent` is fixed to `User`; renders with role class `system` and header "Canvas"
+- Keys: `document-event:{Id}` for both stream and dedup keys, so repeated identical events stay distinct
+- Implements: `IAIKeyedInteraction`, `IAIRenderInteraction`, `IAIModelProjectedInteraction`
+
+### IAIModelProjectedInteraction
+
+- Interactions that keep their own type in history but are sent to providers as user text (`GetModelContent()`).
+- `InteractionModelProjection.Project(...)` converts them at encode time: consecutive projected interactions are prepended to the next user text, or emitted as a standalone user text when none follows. It is applied by `AIProvider.MergeSystemAndSummary` and `GeminiProvider.Encode`, so providers need no type-specific code.
+- Do not convert them in a request policy: policies mutate the session request, which would replace the type in history.
+
 ---
 
 ## Developer Reference

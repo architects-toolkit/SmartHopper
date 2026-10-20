@@ -58,6 +58,10 @@ For the canonical documentation of interaction contracts (`IAIRenderInteraction`
 
 This page references rendering at a high level and leaves type-level details to the Interactions documentation.
 
+### Document tracking
+
+"Active document", "Switched to" and "Canvas changed since the last AI response" cards are `AIInteractionDocumentEvent` entries. See [Chat Document Tracking](./DocumentTracking.md).
+
 ---
 
 ## Developer Reference

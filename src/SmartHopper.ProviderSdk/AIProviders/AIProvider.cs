@@ -269,6 +269,8 @@ namespace SmartHopper.ProviderSdk.AIProviders
         /// <summary>
         /// Merges System and Summary interactions into a single System interaction.
         /// Summary interactions are appended to the System prompt with a separator.
+        /// Projected interactions (<see cref="IAIModelProjectedInteraction"/>) are first converted into user text
+        /// via <see cref="InteractionModelProjection.Project"/>.
         /// </summary>
         /// <param name="interactions">The interactions to process.</param>
         /// <returns>A new list with System and Summary merged.</returns>
@@ -278,6 +280,9 @@ namespace SmartHopper.ProviderSdk.AIProviders
             {
                 return new List<IAIInteraction>();
             }
+
+            // Convert projected interactions (e.g. document events) into provider-encodable user text.
+            interactions = InteractionModelProjection.Project(interactions);
 
             var result = new List<IAIInteraction>();
             AIInteractionText systemInteraction = null;

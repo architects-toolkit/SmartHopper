@@ -378,8 +378,9 @@ namespace SmartHopper.Providers.Gemini
         {
             var jObject = new JObject();
 
-            var interactions = request.Body?.Interactions;
-            if (interactions != null && interactions.Count > 0)
+            // Convert projected interactions (e.g. document events) into provider-encodable user text.
+            var interactions = InteractionModelProjection.Project(request.Body?.Interactions);
+            if (interactions.Count > 0)
             {
                 var systemParts = new List<JObject>();
                 var contents = new JArray();
