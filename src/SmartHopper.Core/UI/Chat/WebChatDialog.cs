@@ -65,6 +65,9 @@ namespace SmartHopper.Core.UI.Chat
         private bool _webViewInitialized;
         private TaskCompletionSource<bool> _webViewInitializedTcs = new TaskCompletionSource<bool>();
         private ConversationSession _currentSession = null!;
+
+        // Tracks the active Grasshopper document and canvas changes between AI responses (null when unavailable).
+        private readonly IChatDocumentTracker? _documentTracker = ChatDocumentTracking.CreateTracker();
         private System.Threading.CancellationTokenSource? _currentCts;
         private string? _pendingUserMessage;
 
@@ -1169,6 +1172,9 @@ namespace SmartHopper.Core.UI.Chat
                 // the renderer treat them as a single user message.
                 var userTurnId = InteractionUtility.GenerateTurnId();
 
+                // Record document switches and canvas changes since the last AI response before the user message.
+                await this.AppendDocumentEventsAsync(tracker => tracker.CollectChanges()).ConfigureAwait(false);
+
                 // Add the pending user message to the session
                 if (!string.IsNullOrWhiteSpace(this._pendingUserMessage))
                 {
@@ -1276,6 +1282,9 @@ namespace SmartHopper.Core.UI.Chat
                 this._currentCts?.Dispose();
                 this._currentCts = null;
 
+                // The canvas state after this AI response is the baseline for the next change summary.
+                await this.RebaselineDocumentAsync().ConfigureAwait(false);
+
                 // Leave processing state: re-enable input/send, disable cancel in the web UI
                 this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(false);"));
 
@@ -1286,6 +1295,54 @@ namespace SmartHopper.Core.UI.Chat
                 }
 
                 // Keep the session alive for reuse - do not set to null
+            }
+        }
+
+        /// <summary>
+        /// Appends document events from the tracker to the session so they are persisted, rendered and sent to the model.
+        /// Tracker work runs off the calling thread; the tracker marshals canvas serialization to the UI thread.
+        /// </summary>
+        /// <param name="collect">The tracker operation that produces the events.</param>
+        private async Task AppendDocumentEventsAsync(Func<IChatDocumentTracker, IReadOnlyList<AIInteractionDocumentEvent>> collect)
+        {
+            var tracker = this._documentTracker;
+            if (tracker == null || this._currentSession == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var events = await Task.Run(() => collect(tracker)).ConfigureAwait(false);
+                foreach (var documentEvent in events ?? Array.Empty<AIInteractionDocumentEvent>())
+                {
+                    this._currentSession.AddInteraction(documentEvent);
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] Document tracking error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Captures the current canvas as the baseline for the next change summary.
+        /// </summary>
+        private async Task RebaselineDocumentAsync()
+        {
+            var tracker = this._documentTracker;
+            if (tracker == null)
+            {
+                return;
+            }
+
+            try
+            {
+                await Task.Run(tracker.Rebaseline).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] Document rebaseline error: {ex.Message}");
             }
         }
 
@@ -1307,6 +1364,9 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     DebugLog($"[WebChatDialog] Error in InitializeNewConversationAsync: {rex.Message}");
                 }
+
+                // Record the active document (and capture the canvas baseline) before any AI turn.
+                await this.AppendDocumentEventsAsync(tracker => tracker.Start()).ConfigureAwait(false);
 
                 // If greeting was requested by the creator (e.g., CanvasButton), trigger the session's
                 // one-shot greeting path. RunToStableResult enters ConversationSession.TurnLoopAsync,
@@ -1611,6 +1671,7 @@ namespace SmartHopper.Core.UI.Chat
             {
                 DebugLog("[WebChatDialog] Dialog closing, cancelling ongoing AI calls");
                 this.CancelChat();
+                this._documentTracker?.Dispose();
             }
             catch (Exception ex)
             {

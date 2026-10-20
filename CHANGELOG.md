@@ -15,6 +15,9 @@ Many thanks to the following contributors to this release:
 
 ### Added
 
+- Added chat document tracking to WebChat. The chat now records an "Active document" card when it opens, a "Switched to <document>" card when the active document changes, and a deterministic "Canvas changed since the last AI response" summary (components added/removed/modified, input modifiers changed, connections added/removed) with the GhPatch inlined when small or a `gh_get` hint when large. Pivots, runtime messages, selection and metadata are ignored. The cards are persisted in history, replayed in the UI, and sent to the model as user-side text. Baselines are stored under `%APPDATA%/Grasshopper/SmartHopper/ChatCanvasBaselines`.
+- Added `AIInteractionDocumentEvent`, `IAIModelProjectedInteraction`, and `InteractionModelProjection` to the Provider SDK so special interactions can keep their own type in history while providers encode them as user text.
+
 - Added a "Visit Website" item to the SmartHopper Grasshopper menu that opens https://smarthopper.xyz, placed just above "About".
 - Added an agentic WebChat planning flow through the Chat-only `plan_propose` tool. Proposed multi-step plans pause in an interactive chat card until approved or rejected; plan approval never pre-approves later canvas edits.
 - Added a Chat-only `plan_tasks` tool that renders a live task plan card in WebChat. The model sends the complete task list on every call, tasks show as pending, in progress, or completed, and a progress indicator updates in place per plan ID through the new `ITaskPlanPresenter` invocation seam.
