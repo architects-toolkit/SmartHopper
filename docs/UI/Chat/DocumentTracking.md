@@ -59,12 +59,6 @@ history ─▶ provider Encode ─▶ InteractionModelProjection ─▶ user tex
 - `IAIModelProjectedInteraction` + `InteractionModelProjection.Project(...)` (ProviderSdk): projects such interactions into user `AIInteractionText` at encode time. Consecutive events are prepended to the next user text (providers such as DeepSeek reasoner reject consecutive user messages) or emitted standalone. Called from `AIProvider.MergeSystemAndSummary` (all OpenAI-compatible, Anthropic, Mistral, Ollama, DeepSeek, LocalAI providers) and from `GeminiProvider.Encode`.
 - `IChatDocumentTracker` / `ChatDocumentTracking.TrackerFactory` (Core): WebChat's seam. `SmartHopperAssemblyPriority` registers `ChatDocumentTracker` (Core.Grasshopper), because GhJSON.Grasshopper serialization is not available in Core.
 
-### Why not a context provider or a System message?
-
-- Context providers are re-injected every call and replace each other (`ContextInjectionRequestPolicy` strips `AIAgent.Context`), so they are not visible history.
-- Request policies mutate the session request, so converting in a policy would erase the dedicated type from history.
-- `System` interactions are hoisted into the system prompt by Anthropic/Gemini and `MergeSystemAndSummary` keeps only the last one, which would overwrite the real system prompt and lose timeline position.
-
 ### Diffing
 
 - Snapshot: `GhJsonGrasshopper.Serialize(doc.Objects, …)` with connections, groups and internalized data; without runtime data/messages, selection and metadata. Serialized on the Rhino UI thread.
@@ -80,3 +74,13 @@ history ─▶ provider Encode ─▶ InteractionModelProjection ─▶ user tex
 - The baseline is updated right after a change is reported and again after every AI response, so AI-made edits are never reported back as user changes and failed turns do not repeat a summary.
 - GhPatch component ids in the summary are tracking ids, not the sequential ids returned by `gh_get`; use the instance GUIDs to correlate.
 - `GhJson.Diff` clears `InstanceGuid` on added components of the right-hand document in place, so `CanvasChangeSummary` diffs a JSON copy of the current snapshot and resolves added-component GUIDs from the original.
+
+---
+
+## Architecture & Design
+
+### Why a dedicated interaction (not a context provider or a System message)?
+
+- Context providers are re-injected every call and replace each other (`ContextInjectionRequestPolicy` strips `AIAgent.Context`), so they are not visible history.
+- Request policies mutate the session request, so converting in a policy would erase the dedicated type from history.
+- `System` interactions are hoisted into the system prompt by Anthropic/Gemini and `MergeSystemAndSummary` keeps only the last one, which would overwrite the real system prompt and lose timeline position.
