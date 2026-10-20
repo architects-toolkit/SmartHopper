@@ -799,9 +799,11 @@ $sourceDeprecatedSet = [System.Collections.Generic.HashSet[string]]::new(
 # Aliases declared in the source file, mapped to the model that declares them.
 # These are maintainer decisions: when a provider-API id is already listed as
 # an alias of a source model, that id belongs to the declared canonical — it
-# must not be re-added as a new model, re-canonicalized, or counted as proof
-# that a differently-named canonical is alive (e.g. source canonical
-# "claude-opus-5.5" declaring API id "claude-opus-5-5" as its alias).
+# must not be re-added as a new model or counted as proof that a
+# differently-named canonical is alive (e.g. source canonical "claude-opus-5-5"
+# declaring OpenRouter id "claude-opus-5.5" as its alias). Version-variant
+# spellings are the exception: the provider-API spelling always wins the
+# canonical slot (see the version-peer pass below).
 $sourceDeclaredAliases = @{}
 foreach ($kvp in $existingModels.GetEnumerator()) {
     foreach ($a in @($kvp.Value.Aliases)) {
@@ -1122,6 +1124,10 @@ if (-not [string]::IsNullOrWhiteSpace($ProviderApiKey) -and $ProviderApis.Contai
 #                key. The dated id is canonical (immutable release); the bare
 #                id and -latest variant become aliases. Driven by
 #                $ProviderAliasSuffix table above.
+#                Ids that differ only in the version separator ("claude-opus-5-5"
+#                vs "claude-opus-5.5") are the same model: the provider-API
+#                spelling is canonical and every other spelling becomes an
+#                alias (normalized via Get-LogicalModelKey).
 #   Other       - Use the per-entry "aliases" array when present (DeepSeek
 #                currently doesn't expose aliases, so the map is empty).
 # ---------------------------------------------------------------------------
@@ -1213,7 +1219,16 @@ if ($providerApiQueried) {
             else {
                 $latest = @($ids | Where-Object { $latestRx.IsMatch($_) })
                 if ($latest.Count -gt 0) { $canonical = $latest[0] }
-                else                     { $canonical = $baseKey }
+                else {
+                    # Bare fallback: keep the provider API's own spelling
+                    # (e.g. "claude-haiku-5-5"), never the normalized logical
+                    # base key ("claude-haiku-5.5"), which would silently
+                    # canonicalize away the provider's id.
+                    $bare = @($ids | Where-Object {
+                        -not $dateRx.IsMatch($_) -and -not $latestRx.IsMatch($_)
+                    } | Sort-Object { $_.Contains('.') })
+                    $canonical = if ($bare.Count -gt 0) { $bare[0] } else { $ids[0] }
+                }
             }
 
             # Aliases: only the bare baseKey and the -latest variant, when
@@ -1226,9 +1241,21 @@ if ($providerApiQueried) {
                 if ($isBare -or $isLatest) { [void]$aliasList.Add($id) }
             }
 
-            # Always include bare baseKey and baseKey-latest as aliases on the canonical
-            # dated id, regardless of whether the API listed them as separate entries.
-            foreach ($implied in @($baseKey, "$baseKey-latest")) {
+            # Always include the bare and -latest spellings as aliases on the
+            # canonical id, in BOTH the provider's separator style and the
+            # normalized (dot) style, regardless of whether the API listed them
+            # as separate entries. E.g. canonical "claude-haiku-4-5-20251001"
+            # gets {claude-haiku-4-5, claude-haiku-4-5-latest, claude-haiku-4.5,
+            # claude-haiku-4.5-latest}; canonical "claude-haiku-5-5" gets
+            # {claude-haiku-5.5, claude-haiku-5.5-latest, claude-haiku-5-5-latest}.
+            $providerBaseKey = $suffixRx.Replace($canonical, '')
+            $impliedAliases = [System.Collections.Generic.List[string]]::new()
+            foreach ($cand in @($providerBaseKey, $baseKey, "$providerBaseKey-latest", "$baseKey-latest")) {
+                if (-not ($impliedAliases | Where-Object { [string]::Equals($_, $cand, 'OrdinalIgnoreCase') })) {
+                    [void]$impliedAliases.Add($cand)
+                }
+            }
+            foreach ($implied in $impliedAliases) {
                 if (-not [string]::Equals($implied, $canonical, 'OrdinalIgnoreCase') -and
                     -not ($aliasList | Where-Object { [string]::Equals($_, $implied, 'OrdinalIgnoreCase') })) {
                     [void]$aliasList.Add($implied)
@@ -1258,13 +1285,11 @@ if ($providerApiQueried) {
 
         if (-not $canonicalVersionPeer) { continue }
 
-        # Skip when the source already declares this provider id as an alias of
-        # $srcKey: the maintainer's canonical name wins over the API id.
-        if ($sourceDeclaredAliases.ContainsKey($canonicalVersionPeer) -and
-            [string]::Equals($sourceDeclaredAliases[$canonicalVersionPeer], $srcKey, 'OrdinalIgnoreCase')) {
-            continue
-        }
-
+        # The provider-API id is always the canonical name, even when the
+        # source file currently declares that id as an alias of $srcKey (e.g.
+        # source canonical "claude-opus-5.5" aliasing API id "claude-opus-5-5").
+        # The rekey pass below then renames the entry to the API id and records
+        # $srcKey as an alias instead.
         $apiCanonicalByAlias[$srcKey] = $canonicalVersionPeer
         if (-not $apiAliasesByCanonical.ContainsKey($canonicalVersionPeer)) {
             $apiAliasesByCanonical[$canonicalVersionPeer] = @()
@@ -1785,7 +1810,7 @@ foreach ($kvp in $mergedModels.GetEnumerator()) {
     if (-not $apiModelNames.Contains($kvp.Key)) {
         # The canonical name may legitimately be absent from the API when the
         # source file declares the API's id as an alias instead (e.g. canonical
-        # "claude-opus-5.5" served by API id "claude-opus-5-5"). The model is
+        # "claude-opus-5-5" served by alias id "claude-opus-5.5"). The model is
         # still live unless the API has remapped that id to another model.
         $stillListed = $false
         foreach ($a in @($kvp.Value.Aliases)) {

@@ -68,6 +68,7 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.000000125m,
                         WebSearch = 0.01m,
                     },
+                    Aliases = new List<string> { "claude-haiku-5.5", "claude-haiku-5.5-latest", "claude-haiku-5-5-latest" },
                 },
 
                 new AIModelCapabilities
@@ -88,12 +89,13 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
+                    Aliases = new List<string> { "claude-sonnet-5.5", "claude-sonnet-5.5-latest", "claude-sonnet-5-5-latest" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-opus-5.5",
+                    Model = "claude-opus-5-5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = true,
@@ -117,7 +119,7 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
-                    Aliases = new List<string> { "claude-opus-5-5", "claude-opus-5.5:batch" },
+                    Aliases = new List<string> { "claude-opus-5.5", "claude-opus-5.5-latest", "claude-opus-5-5-latest", "claude-opus-5.5:batch" },
                 },
 
                 new AIModelCapabilities
@@ -168,6 +170,7 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.0000125m,
                         WebSearch = 0.01m,
                     },
+                    Aliases = new List<string> { "claude-fable-5.1", "claude-fable-5.1-latest", "claude-fable-5-1-latest" },
                 },
 
 
@@ -222,6 +225,7 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
+                    Aliases = new List<string> { "claude-opus-4.8", "claude-opus-4.8-latest", "claude-opus-4-8-latest" },
                 },
 
                 new AIModelCapabilities
@@ -277,6 +281,7 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.00000375m,
                         WebSearch = 0.01m,
                     },
+                    Aliases = new List<string> { "claude-sonnet-4.6", "claude-sonnet-4.6-latest", "claude-sonnet-4-6-latest" },
                 },
 
                 new AIModelCapabilities
@@ -297,6 +302,7 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
+                    Aliases = new List<string> { "claude-opus-4.7", "claude-opus-4.7-latest", "claude-opus-4-7-latest" },
                 },
 
                 new AIModelCapabilities
@@ -317,6 +323,7 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
+                    Aliases = new List<string> { "claude-opus-4.6", "claude-opus-4.6-latest", "claude-opus-4-6-latest" },
                 },
 
 
