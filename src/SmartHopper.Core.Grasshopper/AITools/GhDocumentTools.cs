@@ -18,6 +18,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -76,7 +77,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         /// <param name="documentId">The document id.</param>
         /// <returns>The document.</returns>
-        public static Grasshopper.Kernel.GH_Document RequireDocument(string? documentId)
+        public static GH_Document RequireDocument(string? documentId)
         {
             return GhDocumentAccess.FindById(documentId)
                 ?? throw new InvalidOperationException($"No open document with documentId '{documentId}'. Call gh_document_list to get valid ids.");
