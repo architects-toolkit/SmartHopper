@@ -996,6 +996,13 @@ function showToast(message) {
     }, 2000);
 }
 
+// Disable the browser context menu (e.g. WebView2's "Refresh"). Reloading the
+// page would wipe the chat UI, since messages are rendered into the DOM by the
+// host and are not part of the document itself.
+document.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+});
+
 // Full WebView UI wiring
 document.addEventListener('DOMContentLoaded', function () {
     console.log('[JS] DOMContentLoaded event fired');
