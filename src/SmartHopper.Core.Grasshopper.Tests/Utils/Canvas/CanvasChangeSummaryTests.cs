@@ -66,7 +66,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Canvas
 
             Assert.NotNull(summary);
             Assert.StartsWith(
-                "Canvas changed since the last AI response: 1 component added, 0 removed, 0 modified, 0 input modifiers changed; 1 connection added, 0 removed.",
+                "Canvas changed since the last AI response: 1 component added, 0 removed, 0 modified, 0 input modifiers changed, 0 output modifiers changed; 1 connection added, 0 removed.",
                 summary);
             Assert.Contains("```json", summary);
             Assert.Contains("\"name\":\"Addition\"", summary);
@@ -98,7 +98,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Canvas
 
             Assert.NotNull(summary);
             Assert.StartsWith(
-                "Canvas changed since the last AI response: 1 component added, 1 removed, 0 modified, 0 input modifiers changed; 0 connections added, 0 removed.",
+                "Canvas changed since the last AI response: 1 component added, 1 removed, 0 modified, 0 input modifiers changed, 0 output modifiers changed; 0 connections added, 0 removed.",
                 summary);
             Assert.DoesNotContain("```json", summary);
             Assert.Contains("too large to include", summary);
@@ -139,7 +139,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Canvas
 
             Assert.NotNull(summary);
             Assert.StartsWith(
-                "Canvas changed since the last AI response: 0 components added, 1 removed, 0 modified, 0 input modifiers changed; 0 connections added, 0 removed.",
+                "Canvas changed since the last AI response: 0 components added, 1 removed, 0 modified, 0 input modifiers changed, 0 output modifiers changed; 0 connections added, 0 removed.",
                 summary);
             Assert.Equal(2, current.Components.Single(c => c.InstanceGuid == SliderGuid).Id);
             Assert.Equal(2, current.Connections!.Single().From.Id);
