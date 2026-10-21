@@ -26,6 +26,9 @@ namespace SmartHopper.ProviderSdk.AIModels
     /// </summary>
     public class AIModelPricing
     {
+        /// <summary>ISO-style currency the prices are denominated in (e.g. <c>"USD"</c>, <c>"EUR"</c>). Defaults to <c>"USD"</c>.</summary>
+        public string Currency { get; set; } = "USD";
+
         /// <summary>Price per prompt (input text) token.</summary>
         public decimal? Prompt { get; set; }
 

@@ -166,3 +166,16 @@ AIModelCapabilityRegistry.SetDefault(
 The design uses bitmasks for capabilities and defaults so that a single model can serve multiple roles, while still having a clear default for each role. The `Verified`, `Deprecated`, and `Rank` fields create a simple scoring system that `AIModelCapabilityRegistry.SelectBestModel` uses when multiple models satisfy the requested capability.
 
 `DiscouragedForTools` is intentionally non-blocking: it feeds UI badges rather than hard restrictions, keeping the system flexible while still guiding users toward better choices.
+
+---
+
+## Remote catalogue layer (`smarthopper-models/1`)
+
+Provider `AIProviderModels` seed lists are still shipped in the assembly, but at startup `ModelCatalogueService` (in `SmartHopper.ProviderSdk.Catalogue`) may overlay fresher metadata fetched from `https://models.smarthopper.xyz/api`:
+
+- The service serves **signed** catalogue artefacts (`catalogue.json` + detached ES256 signature over canonical JSON). The plugin verifies the signature against an embedded public key **before parsing**, then strictly re-validates every field (closed property sets, bounded identifiers, decimal-string money, no URL/HTML-capable fields).
+- A verified copy is cached atomically under `%APPDATA%/Grasshopper/models-catalogue.{json,sig,meta}` and reapplied on later starts when the network is unavailable or the remote serves no newer `catalogue_version`. Monotonic versions plus a "never older than applied" floor prevent rollback/replay.
+- Catalogue entries win over embedded seeds for the same `provider.model` key — they are the fresher, human-validated source. Nothing is ever deleted; deprecated entries are applied as `Deprecated = true`.
+- Every failure path is silent: signature mismatch, malformed JSON, schema violations, HTTP errors, or a missing cache leave the registry untouched and AI calls keep working — unknown models behave exactly as they did before.
+
+Signing keys rotate through a signed keyset (`keys.json` + `keys.sig`): new keys are trusted only when signed by an already-trusted key. Local development can inject trust anchors via `SMARTHOPPER_CATALOGUE_KEYS` (`keyid=base64spki;...`); production embeds the key in `ModelCatalogueTrust.EmbeddedKeys`.
