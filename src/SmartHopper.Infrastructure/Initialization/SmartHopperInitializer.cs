@@ -26,6 +26,7 @@ using SmartHopper.Infrastructure.Hosting;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Utils;
 using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Catalogue;
 using SmartHopper.ProviderSdk.Hosting;
 using SmartHopper.ProviderSdk.Settings;
 using SmartHopper.ProviderSdk.Utils;
@@ -96,6 +97,11 @@ namespace SmartHopper.Infrastructure.Initialization
                         {
                             // RefreshProvidersAsync will internally refresh settings once as providers are registered
                             await providerManager.RefreshProvidersAsync().ConfigureAwait(false);
+
+                            // Catalogue override layer: apply the verified local cache, then fetch a
+                            // newer signed catalogue when available. Never blocks startup beyond this
+                            // background task and never throws — failures degrade to the seed lists.
+                            await ModelCatalogueService.Instance.RefreshAsync().ConfigureAwait(false);
 
                             // Step 4: On Windows, migrate any remaining SH02: prefixed secrets to the current SH03: prefix.
                             // macOS is skipped because the old file-based master key cannot be recovered reliably.
