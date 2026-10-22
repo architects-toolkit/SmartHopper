@@ -38,32 +38,10 @@ namespace SmartHopper.ProviderSdk.Catalogue
         /// development can inject keys via the <c>SMARTHOPPER_CATALOGUE_KEYS</c>
         /// environment variable (<c>keyid=base64spki;keyid2=base64spki2</c>).
         /// </summary>
-        public static readonly IReadOnlyDictionary<string, string> EmbeddedKeys =
-            BuildEmbeddedKeys();
-
-        private static IReadOnlyDictionary<string, string> BuildEmbeddedKeys()
+        public static readonly IReadOnlyDictionary<string, string> EmbeddedKeys = new Dictionary<string, string>
         {
-            var keys = new Dictionary<string, string>(StringComparer.Ordinal);
-
-            // RELEASE TODO: embed the production catalogue public key here, e.g.
-            // keys["0123456789abcdef"] = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE…";
-
-            // Dev/test override — never a production trust path.
-            var env = Environment.GetEnvironmentVariable("SMARTHOPPER_CATALOGUE_KEYS");
-            if (!string.IsNullOrWhiteSpace(env))
-            {
-                foreach (var pair in env.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
-                {
-                    var kv = pair.Split(new[] { '=' }, 2);
-                    if (kv.Length == 2 && kv[0].Length == 16)
-                    {
-                        keys[kv[0].ToLowerInvariant()] = kv[1];
-                    }
-                }
-            }
-
-            return keys;
-        }
+            { "0570629f4d96bba5", "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEdQNKafQa+ww7bWtUbT7MX6cTN0Jc0cocVoTnwshMlxhmIec89x7rl7+TODNkKe0bb1YBDELNoko99m1hR6pkEw==" },
+        };
 
         /// <summary>
         /// Wire provider id → plugin provider name (lowercased, as registered in
