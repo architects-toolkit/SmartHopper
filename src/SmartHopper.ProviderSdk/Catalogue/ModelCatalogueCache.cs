@@ -48,13 +48,19 @@ namespace SmartHopper.ProviderSdk.Catalogue
     }
 
     /// <summary>
-    /// Durable local cache for the signed catalogue, beside
-    /// <c>SmartHopper.json</c> under <c>%APPDATA%/Grasshopper</c>:
+    /// Durable local cache for the signed catalogue under
+    /// <c>%APPDATA%/Grasshopper/SmartHopper</c> — the same folder used by the
+    /// rest of the plugin's persisted state:
     /// <c>models-catalogue.json</c>, <c>.sig</c> and <c>.meta</c>. The cache is
     /// kept indefinitely — a months-old signed artefact stays valid until
     /// atomically replaced by a newer one. Corrupt or partial files are ignored,
     /// never repaired in place.
     /// </summary>
+    /// <remarks>
+    /// The directory is user-writable and therefore untrusted input: callers
+    /// must verify the detached signature over the exact cached bytes before
+    /// applying anything (as <see cref="ModelCatalogueService"/> does).
+    /// </remarks>
     public sealed class ModelCatalogueCache
     {
         private readonly string _directory;
@@ -62,12 +68,12 @@ namespace SmartHopper.ProviderSdk.Catalogue
         /// <summary>
         /// Initializes a new instance of the <see cref="ModelCatalogueCache"/> class.
         /// </summary>
-        /// <param name="directory">Cache directory; defaults to <c>%APPDATA%/Grasshopper</c>.</param>
+        /// <param name="directory">Cache directory; defaults to <c>%APPDATA%/Grasshopper/SmartHopper</c>.</param>
         public ModelCatalogueCache(string directory = null)
         {
             this._directory = directory ?? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Grasshopper");
+                "Grasshopper", "SmartHopper");
         }
 
         private string CataloguePath => Path.Combine(this._directory, "models-catalogue.json");
@@ -102,6 +108,14 @@ namespace SmartHopper.ProviderSdk.Catalogue
 
                 if (version <= 0 || bytes.Length == 0 || bytes.Length > CatalogueWire.MaxDocumentBytes ||
                     string.IsNullOrEmpty(signature) || string.IsNullOrEmpty(sha256))
+                {
+                    return false;
+                }
+
+                // The signature is verified by the caller anyway, but an early
+                // hash check catches meta/bytes divergence and truncated writes.
+                var actual = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
+                if (!string.Equals(actual, sha256, StringComparison.OrdinalIgnoreCase))
                 {
                     return false;
                 }
