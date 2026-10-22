@@ -202,6 +202,12 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
             // Corrupt metadata → cache is unusable (not repaired).
             File.WriteAllText(Path.Combine(this.cacheDir, "models-catalogue.meta"), "{corrupt");
             Assert.False(cache.TryLoad(out _));
+
+            // Meta/bytes divergence (e.g. swapped or hand-edited files) → rejected.
+            cache.Save(bytes, sig, this.keyId, sha, 1);
+            var meta = File.ReadAllText(Path.Combine(this.cacheDir, "models-catalogue.meta"));
+            File.WriteAllText(Path.Combine(this.cacheDir, "models-catalogue.meta"), meta.Replace(sha, new string('0', 64)));
+            Assert.False(cache.TryLoad(out _));
         }
 
         [Fact]
