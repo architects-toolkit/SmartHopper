@@ -112,12 +112,73 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
                 new HttpClient(new DelegateHandler(this.route), disposeHandler: true);
         }
 
+        /// <summary>
+        /// Handler whose response is decided per call — the callback receives the
+        /// call ordinal and may return a response or throw to simulate a network
+        /// failure. Lets retry tests count attempts deterministically.
+        /// </summary>
+        private sealed class FlakyHandler : HttpMessageHandler
+        {
+            private readonly Func<int, string, HttpResponseMessage> respond;
+            private int calls;
+
+            public FlakyHandler(Func<int, string, HttpResponseMessage> respond)
+            {
+                this.respond = respond;
+            }
+
+            public int Calls => this.calls;
+
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                var call = Interlocked.Increment(ref this.calls);
+                return Task.FromResult(this.respond(call, request.RequestUri.AbsolutePath));
+            }
+        }
+
+        private sealed class FlakyFactory : IProviderHttpClientFactory
+        {
+            public FlakyHandler Handler { get; }
+
+            private readonly Func<int, string, HttpResponseMessage> respond;
+
+            public FlakyFactory(Func<int, string, HttpResponseMessage> respond)
+            {
+                this.respond = respond;
+                this.Handler = new FlakyHandler(respond);
+            }
+
+            public HttpClient CreateClient(string providerName, TimeSpan timeout) =>
+                new HttpClient(this.Handler, disposeHandler: false);
+        }
+
+        private static HttpResponseMessage Json(int status, string body) =>
+            new HttpResponseMessage((HttpStatusCode)status)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json"),
+            };
+
+        private static AIModelCapabilities Seed(string provider, string model) =>
+            new AIModelCapabilities
+            {
+                Provider = provider,
+                Model = model,
+                Capabilities = AICapability.Text2Text,
+            };
+
         private ModelCatalogueService NewService(Func<string, (int status, string body)> route) =>
             new ModelCatalogueService(
                 baseUrl: "https://test.invalid",
                 cache: new ModelCatalogueCache(this.cacheDir),
                 trustedKeys: this.Trusted(),
                 httpFactory: new RoutingFactory(route));
+
+        private ModelCatalogueService NewService(FlakyFactory factory) =>
+            new ModelCatalogueService(
+                baseUrl: "https://test.invalid",
+                cache: new ModelCatalogueCache(this.cacheDir),
+                trustedKeys: this.Trusted(),
+                httpFactory: factory);
 
         [Fact]
         public void SignatureVerifiesAndRejectsTamper()
@@ -301,6 +362,273 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
             // The fresh service fell back to its cache (v1) and never called remote.
             Assert.Equal(1, second.AppliedVersion);
             Assert.Equal(ModelCatalogueSource.Cache, second.Source);
+        }
+
+        [Fact]
+        public async Task TransientServerErrorsAreRetried()
+        {
+            var factory = new FlakyFactory((call, path) =>
+            {
+                if (call <= 2) return Json(503, "{}");
+                if (path.EndsWith("/manifest")) return Json(200, this.ManifestJson(1));
+                var docBytes = Encoding.UTF8.GetBytes(CatalogueJson());
+                if (path.EndsWith("/catalogue")) return Json(200, Encoding.UTF8.GetString(docBytes));
+                if (path.EndsWith("/catalogue.sig")) return Json(200, this.Sign(docBytes));
+                return Json(404, "{}");
+            });
+            var service = this.NewService(factory);
+
+            await service.RefreshAsync();
+
+            // 2 failed + 1 good manifest, then manifest.sig (404 → tolerated),
+            // one catalogue + one sig fetch.
+            Assert.Equal(6, factory.Handler.Calls);
+            Assert.Equal(1, service.AppliedVersion);
+            Assert.Equal(ModelCatalogueSource.Remote, service.Source);
+        }
+
+        [Fact]
+        public async Task ClientErrorsAreNotRetried()
+        {
+            var factory = new FlakyFactory((call, path) => Json(404, "{}"));
+            var service = this.NewService(factory);
+
+            await service.RefreshAsync();
+
+            // 404 on the manifest is terminal — exactly one attempt, no artefact applied.
+            Assert.Equal(1, factory.Handler.Calls);
+            Assert.Equal(0, service.AppliedVersion);
+        }
+
+        [Fact]
+        public async Task NetworkFailuresAreRetriedThenGiveUp()
+        {
+            var factory = new FlakyFactory((call, path) => throw new HttpRequestException("simulated network failure"));
+            var service = this.NewService(factory);
+
+            await service.RefreshAsync();
+
+            Assert.Equal(3, factory.Handler.Calls);
+            Assert.Equal(0, service.AppliedVersion);
+            Assert.Equal(ModelCatalogueSource.None, service.Source);
+        }
+
+        [Fact]
+        public async Task CatalogueIsSourceOfTruthForCoveredProviders()
+        {
+            var registry = AIModelCapabilityRegistry.Instance;
+            registry.SetCapabilities(Seed("openai", "gpt-test-1"));       // doc model — replaced by catalogue entry
+            registry.SetCapabilities(Seed("openai", "gpt-test-1-latest")); // doc alias → removed
+            registry.SetCapabilities(Seed("openai", "gpt-legacy-9"));      // absent → removed (unknown, not deprecated)
+            registry.SetCapabilities(Seed("ollama", "local-model"));       // uncovered provider → untouched
+
+            var docBytes = Encoding.UTF8.GetBytes(CatalogueJson());
+            var docSig = this.Sign(docBytes);
+            var service = this.NewService(path =>
+            {
+                if (path.EndsWith("/manifest")) return (200, this.ManifestJson(1));
+                if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(docBytes));
+                if (path.EndsWith("/catalogue.sig")) return (200, docSig);
+                return (404, "{}");
+            });
+            await service.RefreshAsync();
+
+            // Folded: the alias-keyed entry is gone; lookups resolve to the canonical.
+            Assert.False(registry.Models.ContainsKey("openai.gpt-test-1-latest"));
+            var resolved = registry.GetCapabilities("openai", "gpt-test-1-latest");
+            Assert.NotNull(resolved);
+            Assert.Equal("gpt-test-1", resolved.Model);
+            Assert.True(resolved.HasCapability(AICapability.FunctionCalling));
+
+            // Absent from the document: removed outright — treated as unknown.
+            Assert.Null(registry.GetCapabilities("openai", "gpt-legacy-9"));
+            Assert.False(registry.Models.ContainsKey("openai.gpt-legacy-9"));
+
+            // Providers the document does not cover keep their own tables.
+            var local = registry.GetCapabilities("ollama", "local-model");
+            Assert.NotNull(local);
+            Assert.False(local.Deprecated);
+        }
+
+        [Fact]
+        public async Task ForceReappliesCacheAfterProviderReregistration()
+        {
+            var registry = AIModelCapabilityRegistry.Instance;
+            var docBytes = Encoding.UTF8.GetBytes(CatalogueJson());
+            var docSig = this.Sign(docBytes);
+            var online = this.NewService(path =>
+            {
+                if (path.EndsWith("/manifest")) return (200, this.ManifestJson(1));
+                if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(docBytes));
+                if (path.EndsWith("/catalogue.sig")) return (200, docSig);
+                return (404, "{}");
+            });
+            await online.RefreshAsync();
+            Assert.Equal(1, online.AppliedVersion);
+
+            // Providers re-registering overwrite catalogue entries with seed tables.
+            registry.SetCapabilities(Seed("openai", "gpt-test-1"));
+            registry.SetCapabilities(Seed("openai", "gpt-ghost"));
+            Assert.False(registry.GetCapabilities("openai", "gpt-test-1").HasCapability(AICapability.FunctionCalling));
+
+            // Forced refresh re-applies the verified cache even though the version
+            // did not change — remote is dead, no network needed.
+            var forced = this.NewService(_ => (503, "{}"));
+            await forced.RefreshAsync(force: true);
+
+            Assert.Equal(1, forced.AppliedVersion);
+            Assert.Equal(ModelCatalogueSource.Cache, forced.Source);
+            Assert.True(registry.GetCapabilities("openai", "gpt-test-1").HasCapability(AICapability.FunctionCalling));
+            Assert.Null(registry.GetCapabilities("openai", "gpt-ghost"));
+        }
+
+        [Fact]
+        public async Task SignedManifestIsVerifiedAndApplied()
+        {
+            var manifestBytes = Encoding.UTF8.GetBytes(this.ManifestJson(1));
+            var docBytes = Encoding.UTF8.GetBytes(CatalogueJson());
+            var docSig = this.Sign(docBytes);
+            var service = this.NewService(path =>
+            {
+                if (path.EndsWith("/manifest.sig")) return (200, this.Sign(manifestBytes));
+                if (path.EndsWith("/manifest")) return (200, this.ManifestJson(1));
+                if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(docBytes));
+                if (path.EndsWith("/catalogue.sig")) return (200, docSig);
+                return (404, "{}");
+            });
+
+            var lines = new List<string>();
+            service.RefreshLog += (sender, e) => lines.Add(e.Message);
+            await service.RefreshAsync();
+
+            Assert.Equal(1, service.AppliedVersion);
+            Assert.Equal(ModelCatalogueSource.Remote, service.Source);
+            Assert.Contains(lines, l => l.Contains("verified manifest signature"));
+        }
+
+        [Fact]
+        public async Task BadManifestSignatureFailsClosed()
+        {
+            var manifestBytes = Encoding.UTF8.GetBytes(this.ManifestJson(1));
+            var docBytes = Encoding.UTF8.GetBytes(CatalogueJson());
+            var service = this.NewService(path =>
+            {
+                if (path.EndsWith("/manifest.sig")) return (200, Convert.ToBase64String(new byte[64]));
+                if (path.EndsWith("/manifest")) return (200, this.ManifestJson(1));
+                if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(docBytes));
+                if (path.EndsWith("/catalogue.sig")) return (200, this.Sign(docBytes));
+                return (404, "{}");
+            });
+
+            await service.RefreshAsync();
+
+            // The manifest is untrusted before verification — a forged signature
+            // must abort the whole update, never reach the catalogue fetch.
+            Assert.Equal(0, service.AppliedVersion);
+            Assert.NotNull(service.LastError);
+            Assert.Null(AIModelCapabilityRegistry.Instance.GetCapabilities("openai", "gpt-test-1"));
+        }
+
+        [Fact]
+        public async Task MissingManifestSignatureIsTolerated()
+        {
+            var docBytes = Encoding.UTF8.GetBytes(CatalogueJson());
+            var service = this.NewService(path =>
+            {
+                if (path.EndsWith("/manifest.sig")) return (404, "{}");
+                if (path.EndsWith("/manifest")) return (200, this.ManifestJson(1));
+                if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(docBytes));
+                if (path.EndsWith("/catalogue.sig")) return (200, this.Sign(docBytes));
+                return (404, "{}");
+            });
+
+            await service.RefreshAsync();
+
+            // Rollout compatibility: pre-sig servers keep working — the manifest
+            // is only a hint, the catalogue signature still gates application.
+            Assert.Equal(1, service.AppliedVersion);
+            Assert.Equal(ModelCatalogueSource.Remote, service.Source);
+        }
+
+        [Fact]
+        public async Task PersistedFloorRejectsSignedReplayAfterCacheLoss()
+        {
+            // Prime the floor at v2 through a good remote run.
+            var v2Bytes = Encoding.UTF8.GetBytes(CatalogueJson(2));
+            var online = this.NewService(path =>
+            {
+                if (path.EndsWith("/manifest.sig")) return (200, this.Sign(Encoding.UTF8.GetBytes(this.ManifestJson(2))));
+                if (path.EndsWith("/manifest")) return (200, this.ManifestJson(2));
+                if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(v2Bytes));
+                if (path.EndsWith("/catalogue.sig")) return (200, this.Sign(v2Bytes));
+                return (404, "{}");
+            });
+            await online.RefreshAsync();
+            Assert.Equal(2, online.AppliedVersion);
+            Assert.Equal(2, new ModelCatalogueCache(this.cacheDir).ReadFloor());
+            AIModelCapabilityRegistry.Instance.Models.Clear();
+
+            // Cache artefact is lost/corrupted, only the floor survives.
+            File.Delete(Path.Combine(this.cacheDir, "models-catalogue.json"));
+            File.Delete(Path.Combine(this.cacheDir, "models-catalogue.sig"));
+            File.Delete(Path.Combine(this.cacheDir, "models-catalogue.meta"));
+
+            // Attacker replays a genuine but older signed release (v1).
+            var v1Bytes = Encoding.UTF8.GetBytes(CatalogueJson(1));
+            var replayed = this.NewService(path =>
+            {
+                if (path.EndsWith("/manifest.sig")) return (200, this.Sign(Encoding.UTF8.GetBytes(this.ManifestJson(1))));
+                if (path.EndsWith("/manifest")) return (200, this.ManifestJson(1));
+                if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(v1Bytes));
+                if (path.EndsWith("/catalogue.sig")) return (200, this.Sign(v1Bytes));
+                return (404, "{}");
+            });
+            await replayed.RefreshAsync();
+
+            // The persisted floor short-circuits the replayed manifest — nothing
+            // is applied even though every artefact verifies.
+            Assert.Equal(2, replayed.AppliedFloor);
+            Assert.Equal(0, replayed.AppliedVersion);
+            Assert.Null(AIModelCapabilityRegistry.Instance.GetCapabilities("openai", "gpt-test-1"));
+        }
+
+        [Fact]
+        public void FloorIsMonotonicAndSurvivesWithoutCache()
+        {
+            var cache = new ModelCatalogueCache(this.cacheDir);
+            Assert.Equal(0, cache.ReadFloor());
+
+            cache.WriteFloor(3);
+            cache.WriteFloor(5);
+            cache.WriteFloor(4); // ratchet never moves down
+            Assert.Equal(5, cache.ReadFloor());
+
+            // Corrupt/garbage floor → treated as absent, never breaks the plugin.
+            File.WriteAllText(Path.Combine(this.cacheDir, "models-catalogue.floor"), "not-a-number");
+            Assert.Equal(0, cache.ReadFloor());
+            cache.WriteFloor(2);
+            Assert.Equal(2, cache.ReadFloor());
+        }
+
+        [Fact]
+        public async Task RefreshLogEmitsProgressLines()
+        {
+            var docBytes = Encoding.UTF8.GetBytes(CatalogueJson());
+            var docSig = this.Sign(docBytes);
+            var service = this.NewService(path =>
+            {
+                if (path.EndsWith("/manifest")) return (200, this.ManifestJson(1));
+                if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(docBytes));
+                if (path.EndsWith("/catalogue.sig")) return (200, docSig);
+                return (404, "{}");
+            });
+
+            var lines = new List<string>();
+            service.RefreshLog += (sender, e) => lines.Add(e.Message);
+            await service.RefreshAsync();
+
+            Assert.Contains(lines, l => l.Contains("starting catalogue refresh"));
+            Assert.Contains(lines, l => l.Contains("applied remote catalogue v1"));
         }
     }
 }

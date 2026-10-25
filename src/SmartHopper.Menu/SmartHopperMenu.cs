@@ -143,6 +143,7 @@ namespace SmartHopper.Menu
                 SettingsMenuItem.Create(),
                 new ToolStripSeparator(),
                 RefreshProvidersMenuItem.Create(),
+                RefreshCatalogueMenuItem.Create(),
                 VerifyProvidersMenuItem.Create(),
                 new ToolStripSeparator(),
                 VisitWebsiteMenuItem.Create(),
