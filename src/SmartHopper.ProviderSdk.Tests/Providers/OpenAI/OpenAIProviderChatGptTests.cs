@@ -333,7 +333,7 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.OpenAI
         /// token is persisted and used.
         /// </summary>
         [Fact]
-        public async Task EnsureFreshTokenAsync_RefreshesExpiredGrant()
+        public async Task EnsureFreshAccessTokenAsync_RefreshesExpiredGrant()
         {
             var settings = GrantSettings();
             settings["ChatGptAccessTokenExpiresAt"] =
@@ -353,7 +353,7 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.OpenAI
                             "\"scope\":\"" + ScopesWithPlanUsage + "\"}"),
                     })));
 
-                await this.provider.EnsureFreshTokenAsync(CancellationToken.None).ConfigureAwait(false);
+                await this.provider.EnsureFreshAccessTokenAsync(CancellationToken.None).ConfigureAwait(false);
 
                 Assert.Equal("at_fresh", this.store.Get<string>("ChatGptAccessToken"));
                 Assert.Equal("rt_new", this.store.Get<string>("ChatGptRefreshToken"));
@@ -368,7 +368,7 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.OpenAI
         /// A rejected refresh clears the stored grant so the API key path takes over.
         /// </summary>
         [Fact]
-        public async Task EnsureFreshTokenAsync_RejectedRefresh_ClearsGrant()
+        public async Task EnsureFreshAccessTokenAsync_RejectedRefresh_ClearsGrant()
         {
             var settings = GrantSettings();
             settings["ChatGptAccessTokenExpiresAt"] =
@@ -386,7 +386,7 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.OpenAI
                         Content = new StringContent("{\"error\":\"invalid_grant\"}"),
                     })));
 
-                await this.provider.EnsureFreshTokenAsync(CancellationToken.None).ConfigureAwait(false);
+                await this.provider.EnsureFreshAccessTokenAsync(CancellationToken.None).ConfigureAwait(false);
 
                 Assert.False(this.provider.IsChatGptConnected);
                 Assert.Equal(string.Empty, this.store.Get<string>("ChatGptAccessToken"));

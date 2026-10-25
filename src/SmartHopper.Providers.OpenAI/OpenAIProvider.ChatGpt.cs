@@ -23,6 +23,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Hosting;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -39,6 +41,9 @@ namespace SmartHopper.Providers.OpenAI
         /// </summary>
         internal const string ChatGptCredentialTag = "chatgpt";
 
+        /// <summary>Refresh skew: access tokens are rotated once inside this window of expiry.</summary>
+        private static readonly TimeSpan TokenRefreshSkew = TimeSpan.FromSeconds(60);
+
         private readonly SemaphoreSlim loginGate = new SemaphoreSlim(1, 1);
         private readonly SemaphoreSlim refreshGate = new SemaphoreSlim(1, 1);
         private readonly object connectionStateLock = new object();
@@ -54,8 +59,19 @@ namespace SmartHopper.Providers.OpenAI
         /// <summary>True while a sign-in or refresh action is running.</summary>
         internal bool IsChatGptActionRunning => Volatile.Read(ref this.actionInFlight) != 0;
 
+        /// <summary>Gets or sets the OAuth sign-in implementation used by this provider.</summary>
+        internal Func<string, string?, string?, string?, CancellationToken, Task<ChatGptGrant>> OAuthLoginAsync { get; set; } = ChatGptOAuth.SignInAsync;
+
+        /// <summary>Gets or sets the OAuth token refresh implementation used by this provider.</summary>
+        internal Func<string, string, CancellationToken, Task<ChatGptGrant>> OAuthRefreshAsync { get; set; } = ChatGptOAuth.RefreshAsync;
+
+        /// <summary>Gets or sets the OAuth token revocation implementation used by this provider.</summary>
+        internal Func<string, string, CancellationToken, Task> OAuthRevokeAsync { get; set; } = ChatGptOAuth.TryRevokeAsync;
+
         /// <summary>True when a stored OAuth grant exists.</summary>
-        internal bool IsChatGptConnected => !string.IsNullOrWhiteSpace(this.GetSetting<string>("ChatGptAccessToken"));
+        internal bool IsChatGptConnected
+            => !string.IsNullOrWhiteSpace(this.GetSetting<string>("ChatGptAccessToken"))
+                || !string.IsNullOrWhiteSpace(this.GetSetting<string>("ChatGptRefreshToken"));
 
         /// <summary>True when the grant includes permission to use the user's ChatGPT plan.</summary>
         internal bool HasChatGptPlanUsage =>
@@ -110,7 +126,7 @@ namespace SmartHopper.Providers.OpenAI
                 return request;
             }
 
-            await this.EnsureFreshTokenAsync(cancellationToken).ConfigureAwait(false);
+            await this.EnsureFreshAccessTokenAsync(cancellationToken).ConfigureAwait(false);
             var accessToken = this.GetSetting<string>("ChatGptAccessToken");
             if (string.IsNullOrWhiteSpace(accessToken))
             {
@@ -132,16 +148,23 @@ namespace SmartHopper.Providers.OpenAI
             return request;
         }
 
-        /// <summary>Refreshes the access token when it is within two minutes of expiry.</summary>
-        internal async Task EnsureFreshTokenAsync(CancellationToken cancellationToken)
+        /// <summary>
+        /// Rotates the stored ChatGPT access token when it is expired or inside the refresh
+        /// skew window. Permanent failures (revoked grant) clear the stored credentials so
+        /// the API key path takes over; transient network errors keep the stale token.
+        /// </summary>
+        internal async Task EnsureFreshAccessTokenAsync(CancellationToken cancellationToken = default)
         {
             var refreshToken = this.GetSetting<string>("ChatGptRefreshToken");
+            var accessToken = this.GetSetting<string>("ChatGptAccessToken");
+            var accessTokenMissing = string.IsNullOrWhiteSpace(accessToken);
+
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
                 return;
             }
 
-            if (this.GetAccessTokenExpiry() > DateTimeOffset.UtcNow.AddMinutes(2))
+            if (!accessTokenMissing && DateTimeOffset.UtcNow < this.GetAccessTokenExpiry() - TokenRefreshSkew)
             {
                 return;
             }
@@ -150,24 +173,47 @@ namespace SmartHopper.Providers.OpenAI
             try
             {
                 // Re-check inside the gate: another call may have refreshed already.
-                if (this.GetAccessTokenExpiry() > DateTimeOffset.UtcNow.AddMinutes(2))
+                accessTokenMissing = string.IsNullOrWhiteSpace(this.GetSetting<string>("ChatGptAccessToken"));
+                if (!accessTokenMissing
+                    && this.GetAccessTokenExpiry() - TokenRefreshSkew > DateTimeOffset.UtcNow)
                 {
                     return;
                 }
 
-                var clientId = this.GetSetting<string>("ChatGptClientId");
+                refreshToken = this.GetSetting<string>("ChatGptRefreshToken");
+                if (string.IsNullOrWhiteSpace(refreshToken))
+                {
+                    return;
+                }
+
+                var clientId = this.GetSetting<string>("ChatGptClientId") ?? string.Empty;
                 try
                 {
-                    var refreshed = await ChatGptOAuth.RefreshAsync(clientId ?? string.Empty, refreshToken, cancellationToken).ConfigureAwait(false);
-                    this.StoreGrant(refreshed);
-                    Debug.WriteLine("[OpenAI] ChatGPT access token refreshed.");
+                    var refreshed = await this.OAuthRefreshAsync(clientId, refreshToken, cancellationToken).ConfigureAwait(false);
+                    if (refreshed != null && !string.IsNullOrWhiteSpace(refreshed.AccessToken))
+                    {
+                        this.StoreGrant(refreshed);
+                        Debug.WriteLine("[OpenAI] ChatGPT access token refreshed.");
+                        return;
+                    }
+
+                    this.ClearGrantTokens();
                 }
                 catch (InvalidOperationException ex)
                 {
-                    // Grant rejected (revoked or expired): drop it so the API key path takes over.
+                    // Permanent grant failure (revoked/expired refresh token): force re-sign-in.
                     Debug.WriteLine($"[OpenAI] ChatGPT refresh rejected, clearing stored grant: {ex.Message}");
                     this.ClearGrantTokens();
-                    this.SetConnectionStatus("Sign-in expired — sign in again", "error");
+                    this.SetConnectionStatus("Sign-in expired — sign in again");
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // Transient failure: keep the stale token so the call can still be attempted.
+                    Debug.WriteLine($"[OpenAI] ChatGPT token refresh failed (transient): {ex.Message}");
                 }
             }
             finally
@@ -244,15 +290,41 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <summary>Writes the user-facing connection status and its colour level.</summary>
-        private void SetConnectionStatus(string status, string level)
+        private void SetConnectionStatus(string status)
         {
             this.SetSetting("ChatGptStatus", status);
-            this.SetSetting("ChatGptStatusLevel", level);
+            this.SetSetting("ChatGptStatusLevel", StatusLevel(status));
+        }
+
+        /// <summary>Maps a user-facing connection status to the status-label level.</summary>
+        internal static string StatusLevel(string status)
+        {
+            if (status.Contains("fail", StringComparison.OrdinalIgnoreCase)
+                || status.Contains("timed out", StringComparison.OrdinalIgnoreCase)
+                || status.Contains("expired", StringComparison.OrdinalIgnoreCase)
+                || status.Contains("revoked", StringComparison.OrdinalIgnoreCase))
+            {
+                return "error";
+            }
+
+            if (status.StartsWith("Connected", StringComparison.Ordinal))
+            {
+                return "ok";
+            }
+
+            if (status.StartsWith("Connecting", StringComparison.Ordinal)
+                || status.StartsWith("Refreshing", StringComparison.Ordinal))
+            {
+                return "busy";
+            }
+
+            return "none";
         }
 
         /// <summary>
-        /// Rewrites a stale busy status when no action is actually running (e.g. after
-        /// the process closed mid sign-in; the busy state is persisted).
+        /// Rewrites a stale busy status ("Connecting…") when no sign-in action is
+        /// actually running, e.g. after the process was closed mid sign-in. The busy
+        /// state is persisted, so without this pass the settings page shows it forever.
         /// </summary>
         internal void NormalizeConnectionStatus()
         {
@@ -261,15 +333,17 @@ namespace SmartHopper.Providers.OpenAI
                 return;
             }
 
-            var level = this.GetSetting<string>("ChatGptStatusLevel") ?? string.Empty;
-            if (!string.Equals(level, "busy", StringComparison.Ordinal))
+            var status = this.GetSetting<string>("ChatGptStatus") ?? string.Empty;
+            if (!string.Equals(StatusLevel(status), "busy", StringComparison.Ordinal))
             {
                 return;
             }
 
-            this.SetConnectionStatus(
-                this.IsChatGptConnected ? this.ConnectedStatusText() : "Not connected",
-                this.IsChatGptConnected ? "ok" : "none");
+            var normalized = this.IsChatGptConnected
+                ? this.ConnectedStatusText()
+                : "Not connected";
+            Debug.WriteLine($"[OpenAI] Normalizing stale ChatGPT busy status '{status}' -> '{normalized}'");
+            this.SetConnectionStatus(normalized);
         }
 
         /// <summary>The status text shown while connected.</summary>
@@ -295,7 +369,7 @@ namespace SmartHopper.Providers.OpenAI
             this.connectionCancellation = connectionCancellation;
             Volatile.Write(ref this.actionInFlight, 1);
             this.ConnectionTask = Task.Run(() => this.RunChatGptSignInAsync(connectionCancellation));
-            this.SetConnectionStatus("Connecting — complete sign-in in your browser…", "busy");
+            this.SetConnectionStatus("Connecting — complete sign-in in your browser…");
             Debug.WriteLine("[OpenAI] ChatGPT sign-in started.");
             return this.ConnectionTask;
         }
@@ -328,7 +402,7 @@ namespace SmartHopper.Providers.OpenAI
                 ChatGptGrant grant;
                 try
                 {
-                    grant = await ChatGptOAuth.SignInAsync(
+                    grant = await this.OAuthLoginAsync(
                         this.EnsureHostId(),
                         this.GetSetting<string>("ChatGptClientId"),
                         this.GetSetting<string>("ChatGptIdToken"),
@@ -341,7 +415,7 @@ namespace SmartHopper.Providers.OpenAI
                 }
                 catch (OperationCanceledException) when (loginCancellation.IsCancellationRequested)
                 {
-                    this.SetConnectionStatus("Sign-in timed out — retry", "error");
+                    this.SetConnectionStatus("Sign-in timed out — retry");
                     return;
                 }
 
@@ -354,7 +428,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     connectionCancellation.Token.ThrowIfCancellationRequested();
                     this.StoreGrant(grant);
-                    this.SetConnectionStatus(this.ConnectedStatusText(), "ok");
+                    this.SetConnectionStatus(this.ConnectedStatusText());
                 }
 
                 Debug.WriteLine("[OpenAI] ChatGPT sign-in completed; grant stored.");
@@ -363,36 +437,58 @@ namespace SmartHopper.Providers.OpenAI
             {
                 if (!string.Equals(this.GetSetting<string>("ChatGptStatus"), "Not connected", StringComparison.Ordinal))
                 {
-                    this.SetConnectionStatus("Sign-in cancelled", "none");
+                    this.SetConnectionStatus("Sign-in cancelled");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[OpenAI] ChatGPT sign-in failed: {ex.Message}");
-                this.SetConnectionStatus("Sign-in failed — retry", "error");
+                this.ReportConnectionFailure(ex);
             }
             finally
             {
-                Volatile.Write(ref this.actionInFlight, 0);
-                this.connectionCancellation = null;
-                this.loginGate.Release();
+                this.CompleteBackgroundAction(connectionCancellation);
             }
+        }
+
+        private void CompleteBackgroundAction(CancellationTokenSource connectionCancellation)
+        {
+            if (ReferenceEquals(this.connectionCancellation, connectionCancellation))
+            {
+                this.connectionCancellation = null;
+            }
+
+            connectionCancellation.Dispose();
+            Volatile.Write(ref this.actionInFlight, 0);
+            this.loginGate.Release();
+        }
+
+        private void ReportConnectionFailure(Exception exception)
+        {
+            Debug.WriteLine($"[OpenAI] ChatGPT sign-in background action failed: {exception.Message}");
+            ProviderSdkHost.Diagnostics.Report(this.Name, new SHRuntimeMessage(
+                SHRuntimeMessageSeverity.Error,
+                SHRuntimeMessageOrigin.Provider,
+                SHMessageCode.Unknown,
+                "ChatGPT sign-in failed — retry"));
+            this.SetConnectionStatus("Sign-in failed — retry");
         }
 
         /// <summary>Disconnects the sign-in: revokes the session best-effort and clears tokens.</summary>
         internal void DisconnectChatGpt()
         {
             this.CancelChatGptSignIn();
-
-            var refreshToken = this.GetSetting<string>("ChatGptRefreshToken");
-            var clientId = this.GetSetting<string>("ChatGptClientId");
-            if (!string.IsNullOrWhiteSpace(refreshToken) && !string.IsNullOrWhiteSpace(clientId))
+            lock (this.connectionStateLock)
             {
-                _ = Task.Run(() => ChatGptOAuth.TryRevokeAsync(refreshToken, clientId));
-            }
+                var refreshToken = this.GetSetting<string>("ChatGptRefreshToken");
+                var clientId = this.GetSetting<string>("ChatGptClientId");
+                if (!string.IsNullOrWhiteSpace(refreshToken) && !string.IsNullOrWhiteSpace(clientId))
+                {
+                    _ = Task.Run(() => this.OAuthRevokeAsync(refreshToken, clientId, CancellationToken.None));
+                }
 
-            this.ClearGrantTokens();
-            this.SetConnectionStatus("Not connected", "none");
+                this.ClearGrantTokens();
+                this.SetConnectionStatus("Not connected");
+            }
         }
     }
 }

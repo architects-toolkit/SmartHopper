@@ -1,14 +1,14 @@
 <#
 .SYNOPSIS
-  Updates InternalsVisibleTo entries in SmartHopper.Infrastructure.csproj with the public key from signing.snk.
+  Updates InternalsVisibleTo entries in Directory.Build.props with the public key from signing.snk.
 .DESCRIPTION
   Extracts the public key from the strong-name key file (signing.snk) and updates the
-  SmartHopperPublicKey property in SmartHopper.Infrastructure.csproj.
+  SmartHopperPublicKey property in Directory.Build.props.
   This ensures InternalsVisibleTo attributes are generated at build time with the correct key.
 .PARAMETER SnkPath
   Path to the signing.snk file. Defaults to signing.snk in the solution root.
 .PARAMETER CsprojPath
-  Path to the .csproj file to update. Defaults to SmartHopper.Infrastructure.csproj.
+  Path to the project/props file to update. Defaults to Directory.Build.props.
 .PARAMETER Help
   Displays this help message.
 .EXAMPLE
@@ -31,7 +31,7 @@ function Show-Help {
     Write-Host ""
     Write-Host "Options:"
     Write-Host "  -SnkPath <path>     Path to signing.snk file (default: solution root)"
-    Write-Host "  -CsprojPath <path>  Path to .csproj file to update"
+    Write-Host "  -CsprojPath <path>  Path to project/props file to update"
     Write-Host "  -Help               Displays this help message"
 }
 
@@ -45,31 +45,19 @@ $scriptDir = Split-Path -Parent $PSScriptRoot
 if (-not $SnkPath) {
     $SnkPath = Join-Path $scriptDir "signing.snk"
 }
-
-# Resolve target csproj files: an explicit -CsprojPath updates only that file; otherwise
-# every project under src that declares a SmartHopperPublicKey property is updated.
-if ($CsprojPath) {
-    if (-not (Test-Path $CsprojPath)) {
-        Write-Error ".csproj not found at: $CsprojPath"
-        exit 1
-    }
-    $CsprojPaths = @($CsprojPath)
-} else {
-    $srcDir = Join-Path $scriptDir "src"
-    $CsprojPaths = @(Get-ChildItem -Path $srcDir -Filter "*.csproj" -Recurse -File |
-        Where-Object { Select-String -Path $_.FullName -Pattern '<SmartHopperPublicKey>' -Quiet } |
-        ForEach-Object { $_.FullName })
-    if ($CsprojPaths.Count -eq 0) {
-        Write-Error "No .csproj containing a SmartHopperPublicKey element found under: $srcDir"
-        exit 1
-    }
-    Write-Host "Found $($CsprojPaths.Count) project(s) with SmartHopperPublicKey:" -ForegroundColor Cyan
-    $CsprojPaths | ForEach-Object { Write-Host "  $_" }
+if (-not $CsprojPath) {
+    $CsprojPath = Join-Path $scriptDir "Directory.Build.props"
 }
 
 # Validate SNK exists
 if (-not (Test-Path $SnkPath)) {
     Write-Error "signing.snk not found at: $SnkPath"
+    exit 1
+}
+
+# Validate target file exists
+if (-not (Test-Path $CsprojPath)) {
+    Write-Error "Target file not found at: $CsprojPath"
     exit 1
 }
 
@@ -188,29 +176,27 @@ try {
     }
 }
 
-# Update the .csproj files
-$pattern = '(<SmartHopperPublicKey>)[^<]*(</SmartHopperPublicKey>)'
-foreach ($path in $CsprojPaths) {
-    Write-Host "Updating: $path" -ForegroundColor Cyan
+# Update the .csproj file
+Write-Host "Updating: $CsprojPath" -ForegroundColor Cyan
 
-    $content = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+$content = [System.IO.File]::ReadAllText($CsprojPath, [System.Text.Encoding]::UTF8)
 
-    # Replace the SmartHopperPublicKey value using regex.
-    # This avoids XmlDocument.LoadXml() which fails when the file starts with a
-    # license comment (<!-- ... -->) before the <Project> element.
-    try {
-        if ($content -match $pattern) {
-            $content = $content -replace $pattern, "`${1}$publicKeyHex`${2}"
-            [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
-            Write-Host "Successfully updated SmartHopperPublicKey in $path" -ForegroundColor Green
-        } else {
-            Write-Error "Could not find SmartHopperPublicKey element in $path"
-            exit 1
-        }
-    } catch {
-        Write-Error "Failed to update .csproj: $_"
+# Replace the SmartHopperPublicKey value using regex.
+# This avoids XmlDocument.LoadXml() which fails when the file starts with a
+# license comment (<!-- ... -->) before the <Project> element.
+try {
+    $pattern = '(<SmartHopperPublicKey>)[^<]*(</SmartHopperPublicKey>)'
+    if ($content -match $pattern) {
+        $content = $content -replace $pattern, "`${1}$publicKeyHex`${2}"
+        [System.IO.File]::WriteAllText($CsprojPath, $content, $utf8NoBom)
+        Write-Host "Successfully updated SmartHopperPublicKey in $CsprojPath" -ForegroundColor Green
+    } else {
+        Write-Error "Could not find SmartHopperPublicKey element in $CsprojPath"
         exit 1
     }
+} catch {
+    Write-Error "Failed to update .csproj: $_"
+    exit 1
 }
 
 Write-Host "Done." -ForegroundColor Green

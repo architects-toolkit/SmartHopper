@@ -643,13 +643,17 @@ namespace SmartHopper.Providers.OpenAI
             }
 
             var expiresInToken = tokenJson["expires_in"];
-            var expiresIn = expiresInToken != null && int.TryParse(
-                expiresInToken.ToString(Newtonsoft.Json.Formatting.None),
-                NumberStyles.None,
-                CultureInfo.InvariantCulture,
-                out var parsed)
-                ? parsed
-                : (int?)null;
+            if (expiresInToken == null
+                || expiresInToken.Type != JTokenType.Integer
+                || !int.TryParse(
+                    expiresInToken.ToString(Newtonsoft.Json.Formatting.None),
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out var expiresIn)
+                || expiresIn <= 0)
+            {
+                throw new InvalidOperationException($"{responseName} did not include a positive expires_in.");
+            }
 
             var grant = new ChatGptGrant
             {

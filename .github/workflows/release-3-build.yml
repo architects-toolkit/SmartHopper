@@ -168,6 +168,7 @@ jobs:
         name: preprocessed-source-release
         path: |
           src/**/*.csproj
+          Directory.Build.props
           signing.snk
         retention-days: 1
 

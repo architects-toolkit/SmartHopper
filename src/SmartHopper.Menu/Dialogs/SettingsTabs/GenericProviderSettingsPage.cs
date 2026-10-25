@@ -307,23 +307,12 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// <returns>Created control</returns>
         private Control CreateStringControl(SettingDescriptor descriptor)
         {
-            // If descriptor has allowed values, render a dropdown
-            if (descriptor.AllowedValues != null && descriptor.AllowedValues.Any())
+            // If descriptor has allowed values, render a dropdown (possibly empty;
+            // items are repopulated on refresh when the list changes).
+            if (descriptor.AllowedValues != null)
             {
                 var dropdown = new DropDown();
-                foreach (var val in descriptor.AllowedValues)
-                {
-                    if (val is SettingOption option)
-                    {
-                        dropdown.Items.Add(new ListItem { Text = option.Label, Key = option.Value?.ToString() });
-                    }
-                    else
-                    {
-                        var value = val.ToString();
-                        dropdown.Items.Add(new ListItem { Text = value, Key = value });
-                    }
-                }
-
+                SyncDropDownItems(descriptor, dropdown);
                 return dropdown;
             }
 
@@ -375,26 +364,28 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// <returns>Created control</returns>
         private Control CreateButtonControl(SettingDescriptor descriptor)
         {
-            var buttonParams = descriptor.ControlParams as ButtonSettingDescriptorControl;
             var button = new Button
             {
-                Text = !string.IsNullOrWhiteSpace(buttonParams?.Text)
-                    ? buttonParams.Text
-                    : (!string.IsNullOrEmpty(descriptor.DisplayName) ? descriptor.DisplayName : descriptor.Name),
+                Text = ButtonText(descriptor),
             };
 
-            button.Click += (sender, e) =>
-            {
-                var updatedSettings = this.CollectSettings();
-                if (updatedSettings != null)
-                {
-                    updatedSettings[descriptor.Name] = true;
-                    Infrastructure.AIProviders.ProviderManager.Instance.UpdateProviderSettings(this._provider.Name, updatedSettings);
-                    this.ReloadProviderSettings();
-                }
-            };
-
+            button.Click += (sender, e) => this.RunButtonAction(descriptor.Name);
             return button;
+        }
+
+        /// <summary>
+        /// Validates and saves the provider settings with the given one-shot action
+        /// set to true, then refreshes all rendered values.
+        /// </summary>
+        private void RunButtonAction(string settingName)
+        {
+            var updatedSettings = this.CollectSettings();
+            if (updatedSettings != null)
+            {
+                updatedSettings[settingName] = true;
+                Infrastructure.AIProviders.ProviderManager.Instance.UpdateProviderSettings(this._provider.Name, updatedSettings);
+                this.ReloadProviderSettings();
+            }
         }
 
         /// <summary>
@@ -457,27 +448,11 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     break;
 
                 case DropDown dropDown:
-                    for (int i = 0; i < dropDown.Items.Count; i++)
-                    {
-                        if (dropDown.Items[i].Key == stringValue)
-                        {
-                            dropDown.SelectedIndex = i;
-                            break;
-                        }
-                    }
-
-                    // If no match found and there's a default value, try that
+                    SyncDropDownItems(descriptor, dropDown);
+                    dropDown.SelectedIndex = IndexOfDropDownKey(dropDown, stringValue);
                     if (dropDown.SelectedIndex < 0 && descriptor.DefaultValue != null)
                     {
-                        var defaultStr = descriptor.DefaultValue.ToString();
-                        for (int i = 0; i < dropDown.Items.Count; i++)
-                        {
-                            if (dropDown.Items[i].Key == defaultStr)
-                            {
-                                dropDown.SelectedIndex = i;
-                                break;
-                            }
-                        }
+                        dropDown.SelectedIndex = IndexOfDropDownKey(dropDown, descriptor.DefaultValue.ToString());
                     }
 
                     break;
@@ -608,16 +583,70 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 {
                     control.Enabled = descriptor.Enabled;
 
-                    if (control is Button button)
+                    switch (control)
                     {
-                        button.Text = ButtonText(descriptor);
-                    }
-                    else
-                    {
-                        this.LoadSettingValue(descriptor, control, providerSettings);
+                        case Button button:
+                            button.Text = ButtonText(descriptor);
+                            break;
+                        case Label statusLabel:
+                            this.LoadSettingValue(descriptor, statusLabel, providerSettings);
+                            break;
+                        case DropDown dropDown:
+                            // Repopulate changed option lists without disturbing the user's selection.
+                            SyncDropDownItems(descriptor, dropDown);
+                            if (dropDown.SelectedIndex < 0 && descriptor.DefaultValue != null)
+                            {
+                                dropDown.SelectedIndex = IndexOfDropDownKey(dropDown, descriptor.DefaultValue.ToString());
+                            }
+
+                            break;
+                        default:
+                            this.LoadSettingValue(descriptor, control, providerSettings);
+                            break;
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Replaces a dropdown's items when the descriptor's allowed values changed,
+        /// preserving the current selection when its key still exists.
+        /// </summary>
+        private static void SyncDropDownItems(SettingDescriptor descriptor, DropDown dropDown)
+        {
+            var options = (descriptor.AllowedValues ?? Enumerable.Empty<object>())
+                .Select(value => value is SettingOption option
+                    ? (Key: option.Value?.ToString() ?? string.Empty, Label: option.Label)
+                    : (Key: value?.ToString() ?? string.Empty, Label: value?.ToString() ?? string.Empty))
+                .ToList();
+
+            if (dropDown.Items.Select(item => item.Key).SequenceEqual(options.Select(option => option.Key)))
+            {
+                return;
+            }
+
+            var selectedKey = dropDown.SelectedIndex >= 0 ? dropDown.Items[dropDown.SelectedIndex].Key : null;
+            dropDown.Items.Clear();
+            foreach (var option in options)
+            {
+                dropDown.Items.Add(new ListItem { Text = option.Label, Key = option.Key });
+            }
+
+            dropDown.SelectedIndex = IndexOfDropDownKey(dropDown, selectedKey);
+        }
+
+        /// <summary>Finds a dropdown item index by key, or -1 when absent.</summary>
+        private static int IndexOfDropDownKey(DropDown dropDown, string? key)
+        {
+            for (var i = 0; i < dropDown.Items.Count; i++)
+            {
+                if (dropDown.Items[i].Key == key)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
 
         private static string ButtonText(SettingDescriptor descriptor)
