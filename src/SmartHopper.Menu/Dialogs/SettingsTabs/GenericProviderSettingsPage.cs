@@ -69,7 +69,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         {
             // Use DynamicLayout for better control over sizing
             var layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
-            var descriptors = this._provider.GetSettingDescriptors().ToList();
+            var descriptors = ProviderSettingDescriptors.Visible(this._provider.GetSettingDescriptors());
 
             // Add provider title with logo
             var titleLayout = new StackLayout
@@ -191,6 +191,11 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// <returns>Created control or null if type not supported</returns>
         private Control CreateControlForDescriptor(SettingDescriptor descriptor)
         {
+            if (descriptor.ControlParams is ButtonSettingDescriptorControl)
+            {
+                return this.CreateButtonControl(descriptor);
+            }
+
             if (this._controlFactories.ContainsKey(descriptor.Type))
             {
                 return this._controlFactories[descriptor.Type](descriptor);
@@ -212,7 +217,15 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 var dropdown = new DropDown();
                 foreach (var val in descriptor.AllowedValues)
                 {
-                    dropdown.Items.Add(new ListItem { Text = val.ToString() });
+                    if (val is SettingOption option)
+                    {
+                        dropdown.Items.Add(new ListItem { Text = option.Label, Key = option.Value?.ToString() });
+                    }
+                    else
+                    {
+                        var value = val.ToString();
+                        dropdown.Items.Add(new ListItem { Text = value, Key = value });
+                    }
                 }
 
                 return dropdown;
@@ -256,6 +269,36 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             {
                 Text = !string.IsNullOrEmpty(descriptor.DisplayName) ? descriptor.DisplayName : descriptor.Name,
             };
+        }
+
+        /// <summary>
+        /// Creates a button control that immediately validates and saves the provider
+        /// settings with the associated setting set to true.
+        /// </summary>
+        /// <param name="descriptor">Setting descriptor</param>
+        /// <returns>Created control</returns>
+        private Control CreateButtonControl(SettingDescriptor descriptor)
+        {
+            var buttonParams = descriptor.ControlParams as ButtonSettingDescriptorControl;
+            var button = new Button
+            {
+                Text = !string.IsNullOrWhiteSpace(buttonParams?.Text)
+                    ? buttonParams.Text
+                    : (!string.IsNullOrEmpty(descriptor.DisplayName) ? descriptor.DisplayName : descriptor.Name),
+            };
+
+            button.Click += (sender, e) =>
+            {
+                var updatedSettings = this.CollectSettings();
+                if (updatedSettings != null)
+                {
+                    updatedSettings[descriptor.Name] = true;
+                    Infrastructure.AIProviders.ProviderManager.Instance.UpdateProviderSettings(this._provider.Name, updatedSettings);
+                    this.ReloadProviderSettings();
+                }
+            };
+
+            return button;
         }
 
         /// <summary>
@@ -320,7 +363,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 case DropDown dropDown:
                     for (int i = 0; i < dropDown.Items.Count; i++)
                     {
-                        if (dropDown.Items[i].Text == stringValue)
+                        if (dropDown.Items[i].Key == stringValue)
                         {
                             dropDown.SelectedIndex = i;
                             break;
@@ -333,7 +376,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                         var defaultStr = descriptor.DefaultValue.ToString();
                         for (int i = 0; i < dropDown.Items.Count; i++)
                         {
-                            if (dropDown.Items[i].Text == defaultStr)
+                            if (dropDown.Items[i].Key == defaultStr)
                             {
                                 dropDown.SelectedIndex = i;
                                 break;
@@ -346,12 +389,13 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         }
 
         /// <summary>
-        /// Saves the current UI control values back to the provider settings
+        /// Collects the current UI control values into a settings dictionary.
         /// </summary>
-        public void SaveSettings()
+        /// <returns>A dictionary of setting values from the UI controls.</returns>
+        private Dictionary<string, object> CollectSettings()
         {
             var updatedSettings = new Dictionary<string, object>();
-            var descriptors = this._provider.GetSettingDescriptors().ToList();
+            var descriptors = ProviderSettingDescriptors.Visible(this._provider.GetSettingDescriptors());
 
             foreach (var descriptor in descriptors)
             {
@@ -388,10 +432,12 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     case DropDown dropDown:
                         if (dropDown.SelectedIndex >= 0)
                         {
-                            newValue = dropDown.Items[dropDown.SelectedIndex].Text;
+                            newValue = dropDown.Items[dropDown.SelectedIndex].Key;
                         }
 
                         break;
+                    case Button _:
+                        continue;
                 }
 
                 if (newValue != null)
@@ -400,10 +446,38 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 }
             }
 
+            return updatedSettings;
+        }
+
+        /// <summary>
+        /// Saves the current UI control values back to the provider settings
+        /// </summary>
+        public void SaveSettings()
+        {
+            var updatedSettings = this.CollectSettings();
+
             // Update provider settings via ProviderManager
             if (updatedSettings.Any())
             {
                 Infrastructure.AIProviders.ProviderManager.Instance.UpdateProviderSettings(this._provider.Name, updatedSettings);
+            }
+        }
+
+        /// <summary>
+        /// Reloads the UI control values from the currently persisted provider settings.
+        /// Useful after a one-shot action (e.g. OAuth login) updates values such as status.
+        /// </summary>
+        private void ReloadProviderSettings()
+        {
+            var providerSettings = SmartHopper.Infrastructure.Settings.SmartHopperSettings.Instance.GetProviderSettings(this._provider.Name);
+            var descriptors = ProviderSettingDescriptors.Visible(this._provider.GetSettingDescriptors());
+
+            foreach (var descriptor in descriptors)
+            {
+                if (this._controls.TryGetValue(descriptor.Name, out var control))
+                {
+                    this.LoadSettingValue(descriptor, control, providerSettings);
+                }
             }
         }
     }

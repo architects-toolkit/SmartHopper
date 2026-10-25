@@ -58,6 +58,11 @@ namespace SmartHopper.ProviderSdk.AIProviders
         bool IsConfigured { get; }
 
         /// <summary>
+        /// Gets an optional plain-text message from the provider's own code, shown instead of the generic text and server body for HTTP 401 responses.
+        /// </summary>
+        string? AuthenticationErrorMessage { get; }
+
+        /// <summary>
         /// Gets the models manager for this provider.
         /// Provides access to model-related operations including capability management.
         /// </summary>
@@ -101,8 +106,9 @@ namespace SmartHopper.ProviderSdk.AIProviders
         /// Gets the pre-call request for the provider.
         /// </summary>
         /// <param name="request">The request to prepare before the provider call.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The possibly modified request to use for the provider call.</returns>
-        AIRequestCall PreCall(AIRequestCall request);
+        Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Gets the task processing the Call with the provider.

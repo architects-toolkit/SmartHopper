@@ -107,7 +107,7 @@ namespace SmartHopper.Components.Test.Providers
                     var responsesCall = new AIRequestCall();
                     responsesCall.Body = body;
                     responsesCall.Initialize("OpenAI", "gpt-5.4-mini", responsesCall.Body, "/responses", AICapability.Text2Text);
-                    responsesCall = provider.PreCall(responsesCall);
+                    responsesCall = await provider.PreCallAsync(responsesCall, token).ConfigureAwait(false);
 
                     var responsesEncoded = provider.Encode(responsesCall);
                     if (string.IsNullOrEmpty(responsesEncoded))
@@ -138,7 +138,7 @@ namespace SmartHopper.Components.Test.Providers
                     var ccCall = new AIRequestCall();
                     ccCall.Body = body;
                     ccCall.Initialize("OpenAI", "gpt-5.4-mini", ccCall.Body, "/chat/completions", AICapability.Text2Text);
-                    ccCall = provider.PreCall(ccCall);
+                    ccCall = await provider.PreCallAsync(ccCall, token).ConfigureAwait(false);
 
                     var ccEncoded = provider.Encode(ccCall);
                     if (string.IsNullOrEmpty(ccEncoded))

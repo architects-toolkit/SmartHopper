@@ -25,7 +25,7 @@ This document defines the core `IAIProvider` interface that all AI providers in 
 
 - Are implementing a new AI provider for SmartHopper
 - Want to understand the lifecycle and methods available on every provider
-- Need to customize provider behavior through `PreCall`, `Call`, or `PostCall`
+- Need to customize provider behavior through `PreCallAsync`, `Call`, or `PostCall`
 - Are working with provider settings, model selection, or encoding/decoding logic
 
 ---
@@ -42,7 +42,7 @@ Provide a stable interface so components and tools can call any provider in a pr
 - Use `SelectModel(requiredCapability, requestedModel)` to resolve the concrete, API-ready model for a request.
 - Use `GetDefaultModel(...)` only for fallback/default display purposes.
 - Implement `Encode/Decode` to translate between SmartHopper models and the provider API schema.
-- Use `PreCall/Call/PostCall` to customize end-to-end request handling.
+- Use `PreCallAsync/Call/PostCall` to customize end-to-end request handling.
 
 ---
 
@@ -54,6 +54,7 @@ Provide a stable interface so components and tools can call any provider in a pr
   - `Name: string`
   - `Icon: Image` (16x16 recommended)
   - `IsEnabled: bool`
+  - `AuthenticationErrorMessage: string?` — optional plain-text authentication message supplied by provider code.
   - `Models: IAIProviderModels`
 - Lifecycle
   - `Task InitializeProviderAsync()`
@@ -63,7 +64,7 @@ Provide a stable interface so components and tools can call any provider in a pr
   - `string Encode(List<IAIInteraction> interactions)`
   - `List<IAIInteraction> Decode(string response)`
 - Call pipeline
-  - `AIRequestCall PreCall(AIRequestCall request)`
+  - `Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)`
   - `Task<IAIReturn> Call(AIRequestCall request)`
   - `IAIReturn PostCall(IAIReturn response)`
 - Model selection
@@ -82,11 +83,14 @@ public class MyCustomProvider : AIProvider
 {
     public override string Name => "MyCustom";
 
-    public override AIRequestCall PreCall(AIRequestCall request)
+    public override async Task<AIRequestCall> PreCallAsync(
+        AIRequestCall request,
+        CancellationToken cancellationToken = default)
     {
         // Customize request before sending
         request.Authentication = "bearer";
-        return base.PreCall(request);
+        request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
+        return request;
     }
 
     public override async Task<IAIReturn> Call(AIRequestCall request)
@@ -142,6 +146,8 @@ public async Task<string> ResolveModel(IAIProvider provider)
 
 - Trust and signature verification are enforced by `ProviderManager` during discovery.
 - Secrets are persisted via `SmartHopperSettings` and surfaced to providers through descriptors.
+- For HTTP 401, `AIProvider.ClassifyHttpError(..., IAIProvider)` uses `AuthenticationErrorMessage` instead of generic text and the server body when the message passes safety checks. HTTP 403 uses the existing provider-name classification. Providers implementing `IAIProvider` directly must provide this property.
+- The message is trimmed and limited to 1–300 characters; control and Unicode format characters, URL markers (`://`, `www.`, `mailto:`, `javascript:`, `data:`), email addresses, and domain names are rejected. It is plain text, not clickable, and never includes or appends the server body.
 
 ---
 
@@ -150,11 +156,11 @@ public async Task<string> ResolveModel(IAIProvider provider)
 The `IAIProvider` interface sits at the center of SmartHopper's provider architecture. It defines a clear contract with three major phases:
 
 1. **Initialization**: `InitializeProviderAsync()` sets up models, settings, and internal state.
-2. **Request Lifecycle**: `PreCall` → `Call` → `PostCall` forms a pipeline where each stage can inspect and modify requests/responses.
+2. **Request Lifecycle**: `PreCallAsync` → `Call` → `PostCall` forms a pipeline where each stage can inspect and modify requests/responses.
 3. **Translation**: `Encode/Decode` methods bridge SmartHopper's generic interaction model with provider-specific API formats.
 
 This design enables:
 
 - **Provider Agnosticism**: Tools and components interact only with `IAIProvider`, never with provider-specific APIs directly.
-- **Composability**: `PreCall` and `PostCall` allow cross-cutting concerns (auth, logging, retries) to be layered without changing core call logic.
+- **Composability**: `PreCallAsync` and `PostCall` allow cross-cutting concerns (auth, logging, retries) to be layered without changing core call logic.
 - **Testability**: The interface can be mocked for unit testing tools and components that depend on AI providers.

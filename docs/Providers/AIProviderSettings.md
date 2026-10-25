@@ -50,6 +50,7 @@ Provide a convenient base that keeps a reference to the provider and centralizes
 ### Notes
 
 - Secret settings are handled via `SmartHopperSettings` encryption; descriptors mark secrets.
+- Set `SettingDescriptor.IsHidden` for stored settings that should never appear in the settings UI. Hidden settings retain their defaults, and `IsSecret` continues to control encryption.
 - Providers should expose an `EnableStreaming` boolean descriptor (typically default `true`). The base class will surface the effective value via this property.
 
 ---

@@ -115,12 +115,12 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.OpenRouter
         }
 
         /// <summary>
-        /// <see cref="OpenRouterProvider.PreCall(AIRequestCall)"/> must strip the
+        /// <see cref="OpenRouterProvider.PreCallAsync(AIRequestCall, CancellationToken)"/> must strip the
         /// <c>:batch</c> suffix from the model slug so the same model works for both
         /// chat and batch endpoints.
         /// </summary>
         [Fact]
-        public void PreCall_StripsBatchSuffix()
+        public async Task PreCallAsync_StripsBatchSuffix()
         {
             var provider = OpenRouterProvider.Instance;
             var request = new AIRequestCall
@@ -130,7 +130,7 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.OpenRouter
                 Capability = SmartHopper.ProviderSdk.AIModels.AICapability.None,
             };
 
-            var prepared = provider.PreCall(request);
+            var prepared = await provider.PreCallAsync(request).ConfigureAwait(false);
 
             Assert.Equal("openai/gpt-5.6-luna", prepared.Model);
         }

@@ -94,9 +94,9 @@ namespace SmartHopper.Providers.Anthropic
         }
 
         /// <inheritdoc/>
-        public override AIRequestCall PreCall(AIRequestCall request)
+        public override async Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
         {
-            request = base.PreCall(request);
+            request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
 
             switch (request.Endpoint)
             {
@@ -1025,7 +1025,7 @@ namespace SmartHopper.Providers.Anthropic
                     yield break;
                 }
 
-                request = this.Prepare(request);
+                request = await this.PrepareAsync(request, cancellationToken).ConfigureAwait(false);
 
                 if (!string.Equals(request.Endpoint, "/messages", StringComparison.Ordinal))
                 {
@@ -1100,7 +1100,7 @@ namespace SmartHopper.Providers.Anthropic
                 if (!responseMsg.IsSuccessStatusCode)
                 {
                     var content = await responseMsg.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                    var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)responseMsg.StatusCode, responseMsg.ReasonPhrase, content, this.Provider.Name);
+                    var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)responseMsg.StatusCode, responseMsg.ReasonPhrase, content, this.Provider);
                     var err = new AIReturn();
                     if (isNetworkLike)
                     {
@@ -1454,7 +1454,7 @@ namespace SmartHopper.Providers.Anthropic
 
             foreach (var (customId, request) in items)
             {
-                var preparedRequest = this.PreCall(request);
+                var preparedRequest = await this.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
                 var encodedBody = this.Encode(preparedRequest);
                 if (firstEncodedBody == null)
                 {

@@ -48,7 +48,7 @@ Implementations should expose an `EnableStreaming` setting descriptor (type `boo
 
 ### Interface Members
 
-- `IEnumerable<SettingDescriptor> GetSettingDescriptors()` — name, description, default, secret flag, allowed values, etc.
+- `IEnumerable<SettingDescriptor> GetSettingDescriptors()` — name, description, default, secret flag, hidden flag, allowed values, etc. `SettingDescriptor.IsHidden` keeps a setting stored (and encrypted when `IsSecret`) while omitting it from the settings UI and preserving it when visible settings are saved.
 - `bool ValidateSettings(Dictionary<string, object> settings)` — enforce required/allowed values and sanitization.
 - `bool EnableStreaming { get; }` — provider-level toggle to allow/disable streaming responses.
 

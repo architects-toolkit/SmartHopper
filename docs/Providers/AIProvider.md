@@ -53,8 +53,9 @@ Offer a template-method style pipeline for providers: register models, load sett
   - `SelectModel(requiredCapability, requestedModel)` resolves the concrete API-ready model.
   - Default implementation delegates to centralized `AIModelCapabilityRegistry.SelectBestModel` to keep policy consistent while hiding the singleton behind the provider interface. Providers may override.
 - HTTP/API orchestration
-  - `Call(request)` handles PreCall, validation, `CallApi`, metrics, PostCall.
+  - `Call(request)` handles PreCallAsync, validation, `CallApi`, metrics, PostCall.
   - `CallApi` supports GET, POST, DELETE, PATCH, Bearer auth, JSON content. Request content is built by the virtual `BuildRequestContent(request)` hook — the default wraps `EncodedRequestBody` as `StringContent`; providers override it for non-JSON payloads such as `multipart/form-data` uploads. Successful `audio/*` responses (and `/audio/speech` responses with a non-textual media type) are read as bytes and normalized into an `{"audio_data","mime_type"}` JSON envelope so `Decode` implementations can surface them as `AIInteractionAudio`.
+  - `AuthenticationErrorMessage` optionally supplies provider-owned plain text for HTTP 401. `ClassifyHttpError(..., IAIProvider)` uses it in place of generic authentication text and the server body.
 - Batch API support
   - Providers can implement `IAIBatchProvider` to expose multi-item submission, status polling, cancellation, result download, and JSONL parsing.
 - Tools formatting
@@ -71,12 +72,13 @@ Offer a template-method style pipeline for providers: register models, load sett
 
 ### Extending
 
-Override `Encode/Decode/PreCall/PostCall` and set `DefaultServerUrl`.
+Override `Encode/Decode/PreCallAsync/PostCall` and set `DefaultServerUrl`.
 Use `SelectModel(...)` for model resolution in requests/components. Use `Models` to implement provider-specific retrieval/capabilities.
 
 ### Security & reliability
 
 - Bearer token pulled from settings (`ApiKey`) with clear error if missing.
+- A safe authentication message is trimmed, 1–300 characters, and contains no control or Unicode format characters, URL markers (`://`, `www.`, `mailto:`, `javascript:`, `data:`), email addresses, or domain names. Unsafe messages fall back to the name-based classifier; the override is not clickable and replaces rather than appends the server body.
 - Exceptions are wrapped with provider context for easier diagnostics.
 - Metrics include provider name, model, completion time.
 
@@ -119,10 +121,13 @@ public class MySingletonProvider : AIProvider<MySingletonProvider>
     // Access via MySingletonProvider.Instance anywhere in the provider assembly
     public override string Name => "mysingleton";
 
-    protected override async Task PreCall(AIRequestCall request)
+    public override async Task<AIRequestCall> PreCallAsync(
+        AIRequestCall request,
+        CancellationToken cancellationToken = default)
     {
         // Add custom headers or logging before the API call
-        await base.PreCall(request);
+        request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
+        return request;
     }
 
     protected override async Task PostCall(AIRequestCall request, AIReturn<string> response)
@@ -142,7 +147,7 @@ public class MySingletonProvider : AIProvider<MySingletonProvider>
 
 The lifecycle is:
 
-1. **PreCall** — provider-specific request preparation
+1. **PreCallAsync** — provider-specific request preparation
 2. **Encode** — convert `AIRequestCall` into provider-specific JSON/body
 3. **CallApi** — HTTP call with Bearer auth, retry, and timeout handling
 4. **PostCall** — provider-specific response cleanup or logging

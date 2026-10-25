@@ -22,6 +22,8 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Core;
@@ -112,10 +114,10 @@ namespace SmartHopper.Providers.LocalAI
         public override Image Icon => this.LoadIconFromResources(Properties.Resources.localai_icon);
 
         /// <inheritdoc/>
-        public override AIRequestCall PreCall(AIRequestCall request)
+        public override async Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
         {
-            // First do the base PreCall
-            request = base.PreCall(request);
+            // First do the base PreCall.
+            request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
 
             // Setup HTTP method, content type, and authentication.
             request.HttpMethod = "POST";

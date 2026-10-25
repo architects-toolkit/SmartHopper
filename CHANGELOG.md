@@ -74,6 +74,9 @@ Many thanks to the following contributors to this release:
 - Catalogue refresh now verifies the discovery manifest too: when the server provides `manifest.sig`, the detached ES256 signature is checked against trusted keys before `latest_version`/`key_id`/artefact paths are trusted — an invalid signature fails closed; a missing one is tolerated during rollout (the manifest then acts as an unauthenticated hint and the catalogue signature still gates what is applied).
 - Added a persisted anti-downgrade floor (`models-catalogue.floor`): the highest accepted `catalogue_version` is ratcheted on disk, so a replayed older-but-genuine release is rejected even after the cached artefact is deleted or corrupted. The floor never moves down and is restored from the verified cache when its file is lost.
 - Added opt-in LAN access to the MCP server via a new `Allow External Connections` (`AX`) component input (`McpServerOptions.AllowExternalConnections`, default off). When enabled the server binds all IPv4 interfaces (`0.0.0.0`) and the component's `Url` output reports the LAN-reachable `http://<machine-ip>:<port>/mcp` — the OS may prompt for firewall permission on first use. The server refuses to start without a bearer token, so unauthenticated remote access is impossible, and the `Host`-header guard then requires the request to name this machine (loopback, `localhost`, hostname, or one of its own interface IPs).
+- Added `SettingOption` so settings dropdowns can separate readable labels from stored values.
+- Added `SettingDescriptor.IsHidden` for settings that remain stored and encrypted according to `IsSecret` but are never shown in provider settings UI and are preserved when visible settings are saved.
+- Added `IAIProvider.AuthenticationErrorMessage` and the default `AIProvider.AuthenticationErrorMessage` property, plus `ClassifyHttpError(..., IAIProvider)`. A trimmed plain-text message of 1-300 characters with no control or Unicode format characters, URL markers, email addresses, or domain names replaces the server body on HTTP 401; providers implementing `IAIProvider` directly must add the property.
 
 ### Changed
 
@@ -137,6 +140,7 @@ Many thanks to the following contributors to this release:
 - Catalogue fetches are no longer single-shot: network errors, timeouts, and 408/429/5xx responses are retried up to 3 attempts with exponential backoff, so a transient blip at Grasshopper startup no longer leaves model metadata stale for the whole session.
 - The model catalogue is now the source of truth for the providers it covers: after applying entries verbatim, registry models keyed under a catalogue-declared alias are folded into the canonical model and remaining registry models absent from the document are removed outright — a model that left the API is treated as unknown rather than deprecated-and-callable. Providers the document does not cover (Ollama, LocalAI, ...) keep their own tables.
 - `SmartHopperInitializer.Reinitialize` (the "Refresh Providers" menu action) re-runs the catalogue refresh with `force: true` after provider re-registration so the verified document keeps authority over entries providers repopulate from seed tables.
+- **Breaking (Provider SDK):** `IAIProvider.PreCall`/`AIProvider.PreCall` are replaced by `Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)`, awaited by `Call`, the streaming adapters and the batch paths. Out-of-tree providers must override `PreCallAsync` and await `base.PreCallAsync` instead of overriding `PreCall`.
 
 ### Removed
 

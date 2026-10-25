@@ -64,6 +64,14 @@ namespace SmartHopper.Infrastructure.Settings
         [JsonProperty]
         internal Dictionary<string, Dictionary<string, object>> ProviderSettings { get; set; }
 
+        [JsonIgnore]
+        internal Func<string, IEnumerable<SettingDescriptor>> DescriptorSource { get; set; } =
+            providerName => ProviderManager.Instance.GetProviderSettings(providerName)?.GetSettingDescriptors()
+                ?? Enumerable.Empty<SettingDescriptor>();
+
+        [JsonIgnore]
+        internal Func<byte[]?> EncryptionKeySource { get; set; } = GetOrCreateEncryptionKey;
+
         /// <summary>
         /// Gets or sets the debounce time in milliseconds used for UI/state transitions.
         /// </summary>
@@ -205,7 +213,7 @@ namespace SmartHopper.Infrastructure.Settings
                 if (this.ProviderSettings.TryGetValue(providerName, out var settings) &&
                     settings.TryGetValue(settingName, out var value))
                 {
-                    var descriptors = GetProviderDescriptors(providerName);
+                    var descriptors = this.GetProviderDescriptors(providerName);
                     var descriptor = descriptors.FirstOrDefault(d => d.Name == settingName);
 
                     if (descriptor?.IsSecret == true && value != null)
@@ -217,7 +225,7 @@ namespace SmartHopper.Infrastructure.Settings
                         }
 
                         Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage (secret)");
-                        return Decrypt(encrypted);
+                        return this.Decrypt(encrypted);
                     }
 
                     Debug.WriteLine($"[Settings] Found {providerName}.{settingName} in storage = {value}");
@@ -225,12 +233,12 @@ namespace SmartHopper.Infrastructure.Settings
                 }
 
                 // If setting doesn't exist, try to get default value from descriptor
-                var allDescriptors = GetProviderDescriptors(providerName);
+                var allDescriptors = this.GetProviderDescriptors(providerName);
                 var missingDescriptor = allDescriptors.FirstOrDefault(d => d.Name == settingName);
 
                 if (missingDescriptor?.DefaultValue != null)
                 {
-                    Debug.WriteLine($"[Settings] Using default for {providerName}.{settingName} = {missingDescriptor.DefaultValue}");
+                    Debug.WriteLine($"[Settings] Using default for {providerName}.{settingName} = {(missingDescriptor.IsSecret ? "<secret>" : missingDescriptor.DefaultValue)}");
                     return missingDescriptor.DefaultValue;
                 }
 
@@ -257,7 +265,7 @@ namespace SmartHopper.Infrastructure.Settings
                 this.ProviderSettings[providerName] = settingsValue;
             }
 
-            var descriptors = GetProviderDescriptors(providerName);
+            var descriptors = this.GetProviderDescriptors(providerName);
             var descriptor = descriptors.FirstOrDefault(d => d.Name == settingName);
 
             if (descriptor?.IsSecret == true && value != null)
@@ -272,7 +280,7 @@ namespace SmartHopper.Infrastructure.Settings
                     Debug.WriteLine($"[Settings] Storing encrypted secret for {providerName}.{settingName}");
                     try
                     {
-                        settingsValue[settingName] = Encrypt(secret);
+                        settingsValue[settingName] = this.Encrypt(secret);
                     }
                     catch (Exception ex)
                     {
@@ -286,6 +294,28 @@ namespace SmartHopper.Infrastructure.Settings
             {
                 Debug.WriteLine($"[Settings] Storing value for {providerName}.{settingName} = {value}");
                 settingsValue[settingName] = value;
+            }
+        }
+
+        internal void ApplyProviderSettingUpdates(string providerName, IReadOnlyDictionary<string, object> updates)
+        {
+            var descriptors = this.GetProviderDescriptors(providerName);
+
+            foreach (var setting in updates)
+            {
+                var isSecret = descriptors
+                    .FirstOrDefault(descriptor => descriptor.Name == setting.Key)?.IsSecret ?? false;
+
+                if (string.IsNullOrWhiteSpace(setting.Value?.ToString()))
+                {
+                    Debug.WriteLine($"[ProviderManager] Removing {providerName}.{setting.Key}");
+                    this.RemoveSetting(providerName, setting.Key);
+                }
+                else
+                {
+                    Debug.WriteLine($"[ProviderManager] Updating {providerName}.{setting.Key} = {(isSecret ? "<secret>" : setting.Value)}");
+                    this.SetSetting(providerName, setting.Key, setting.Value);
+                }
             }
         }
 
@@ -310,7 +340,7 @@ namespace SmartHopper.Infrastructure.Settings
         public Dictionary<string, object> GetProviderSettings(string providerName)
         {
             var settingsDict = new Dictionary<string, object>();
-            var descriptors = GetProviderDescriptors(providerName);
+            var descriptors = this.GetProviderDescriptors(providerName);
             foreach (var descriptor in descriptors)
             {
                 var value = this.GetSetting(providerName, descriptor.Name);
@@ -342,7 +372,7 @@ namespace SmartHopper.Infrastructure.Settings
 
             foreach (var provider in this.ProviderSettings.Keys.ToList())
             {
-                var descriptors = GetProviderDescriptors(provider);
+                var descriptors = this.GetProviderDescriptors(provider);
                 if (descriptors == null || !descriptors.Any())
                 {
                     continue;
@@ -465,14 +495,14 @@ namespace SmartHopper.Infrastructure.Settings
         /// <param name="plainText">The plain text to encrypt.</param>
         /// <returns>The encrypted string, or the original value if it is null or empty.</returns>
         /// <exception cref="InvalidOperationException">Thrown when the OS secure store is unavailable or encryption fails.</exception>
-        private static string Encrypt(string plainText)
+        private string Encrypt(string plainText)
         {
             if (string.IsNullOrEmpty(plainText))
             {
                 return plainText;
             }
 
-            var key = GetOrCreateEncryptionKey();
+            var key = this.EncryptionKeySource();
             if (key == null)
             {
                 throw new InvalidOperationException("Cannot encrypt setting: OS secure store is unavailable.");
@@ -495,7 +525,7 @@ namespace SmartHopper.Infrastructure.Settings
         /// </summary>
         /// <param name="encryptedText">The encrypted text.</param>
         /// <returns>The decrypted string, or <c>null</c> if decryption fails or the format is unrecognized.</returns>
-        private static string? Decrypt(string encryptedText)
+        private string? Decrypt(string encryptedText)
         {
             if (string.IsNullOrEmpty(encryptedText))
             {
@@ -513,7 +543,7 @@ namespace SmartHopper.Infrastructure.Settings
 
                 if (isGcm || isCbc)
                 {
-                    var key = GetOrCreateEncryptionKey();
+                    var key = this.EncryptionKeySource();
                     if (key != null)
                     {
                         var payload = encryptedText.Substring(SecurePrefix.Length);
@@ -818,7 +848,7 @@ namespace SmartHopper.Infrastructure.Settings
                     continue;
                 }
 
-                var descriptors = GetProviderDescriptors(providerName);
+                var descriptors = this.GetProviderDescriptors(providerName);
 
                 foreach (var settingKvp in settings.ToList())
                 {
@@ -926,15 +956,9 @@ namespace SmartHopper.Infrastructure.Settings
             this.EncryptionVersion = CurrentEncryptionVersion;
         }
 
-        private static IEnumerable<SettingDescriptor> GetProviderDescriptors(string providerName)
+        private IEnumerable<SettingDescriptor> GetProviderDescriptors(string providerName)
         {
-            var ui = ProviderManager.Instance.GetProviderSettings(providerName);
-            if (ui == null)
-            {
-                return Enumerable.Empty<SettingDescriptor>();
-            }
-
-            return ui.GetSettingDescriptors();
+            return this.DescriptorSource(providerName) ?? Enumerable.Empty<SettingDescriptor>();
         }
 
         /// <summary>
@@ -1044,7 +1068,7 @@ namespace SmartHopper.Infrastructure.Settings
                             foreach (var settingKvp in providerKvp.Value)
                             {
                                 // Don't log the actual values of secrets
-                                var isSecret = GetProviderDescriptors(providerKvp.Key)
+                                var isSecret = this.GetProviderDescriptors(providerKvp.Key)
                                     .FirstOrDefault(d => d.Name == settingKvp.Key)?.IsSecret ?? false;
 
                                 Debug.WriteLine($"[Settings]   - {settingKvp.Key} = {(isSecret ? "<secret>" : settingKvp.Value)}");

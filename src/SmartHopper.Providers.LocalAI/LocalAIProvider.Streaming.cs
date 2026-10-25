@@ -71,7 +71,7 @@ namespace SmartHopper.Providers.LocalAI
                     yield break;
                 }
 
-                request = this.Prepare(request);
+                request = await this.PrepareAsync(request, cancellationToken).ConfigureAwait(false);
 
                 if (!string.Equals(request.Endpoint, "/chat/completions", StringComparison.Ordinal))
                 {
@@ -138,7 +138,7 @@ namespace SmartHopper.Providers.LocalAI
                 if (!response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                    var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, content, this.Provider.Name);
+                    var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, content, this.Provider);
                     var err = new AIReturn();
                     if (isNetworkLike)
                     {

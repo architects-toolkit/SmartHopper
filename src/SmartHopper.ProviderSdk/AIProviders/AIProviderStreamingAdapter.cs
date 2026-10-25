@@ -51,13 +51,14 @@ namespace SmartHopper.ProviderSdk.AIProviders
         }
 
         /// <summary>
-        /// Runs the provider's PreCall pipeline for the request.
+        /// Runs the provider's asynchronous pre-call pipeline for the request.
         /// </summary>
         /// <param name="request">The request to prepare.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The prepared request.</returns>
-        protected AIRequestCall Prepare(AIRequestCall request)
+        protected Task<AIRequestCall> PrepareAsync(AIRequestCall request, CancellationToken cancellationToken)
         {
-            return this.Provider.PreCall(request);
+            return this.Provider.PreCallAsync(request, cancellationToken);
         }
 
         /// <summary>
@@ -189,7 +190,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
             if (!response.IsSuccessStatusCode)
             {
                 string error = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, error, this.Provider?.Name ?? "provider");
+                var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, error, this.Provider);
                 throw new ProviderHttpStatusException((int)response.StatusCode, isNetworkLike, message);
             }
 

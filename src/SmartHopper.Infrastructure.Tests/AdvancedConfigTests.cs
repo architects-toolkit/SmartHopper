@@ -45,6 +45,8 @@ namespace SmartHopper.Infrastructure.Tests
 
             public bool IsConfigured => true;
 
+            public string? AuthenticationErrorMessage => null;
+
             public System.Drawing.Image Icon => null;
 
             public IAIProviderModels Models { get; private set; } = new DummyProviderModels();
@@ -75,7 +77,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             public List<IAIInteraction> Decode(JObject response) => new List<IAIInteraction>();
 
-            public AIRequestCall PreCall(AIRequestCall request) => request;
+            public Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default) => Task.FromResult(request);
 
             public async Task<IAIReturn> Call(AIRequestCall request, CancellationToken cancellationToken = default)
             {

@@ -26,6 +26,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Providers.Gemini.Properties;
@@ -121,8 +122,9 @@ namespace SmartHopper.Providers.Gemini
         }
 
         /// <inheritdoc/>
-        public override AIRequestCall PreCall(AIRequestCall request)
+        public override async Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
         {
+            request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
             request.Authentication = "x-goog-api-key";
 
             if (string.Equals(request.Endpoint, "/models", StringComparison.Ordinal))

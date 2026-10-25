@@ -87,10 +87,10 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <inheritdoc/>
-        public override AIRequestCall PreCall(AIRequestCall request)
+        public override async Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
         {
-            // First do the base PreCall
-            request = base.PreCall(request);
+            // First do the base PreCall.
+            request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
 
             switch (request.Endpoint)
             {
@@ -870,7 +870,7 @@ namespace SmartHopper.Providers.MistralAI
                 }
 
                 // Prepare through provider pipeline (sets endpoint/method/auth)
-                request = this.Prepare(request);
+                request = await this.PrepareAsync(request, cancellationToken).ConfigureAwait(false);
 
                 // Support chat completions endpoint only
                 if (!string.Equals(request.Endpoint, "/chat/completions", StringComparison.Ordinal))
@@ -946,7 +946,7 @@ namespace SmartHopper.Providers.MistralAI
                 if (!response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                    var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, content, this.Provider.Name);
+                    var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, content, this.Provider);
                     var err = new AIReturn();
                     if (isNetworkLike)
                     {
@@ -1410,7 +1410,7 @@ namespace SmartHopper.Providers.MistralAI
 
             foreach (var (customId, request) in items)
             {
-                var preparedRequest = this.PreCall(request);
+                var preparedRequest = await this.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
                 var encodedBody = this.Encode(preparedRequest);
                 if (firstEncodedBody == null) firstEncodedBody = encodedBody;
                 var bodyObj = JObject.Parse(encodedBody);

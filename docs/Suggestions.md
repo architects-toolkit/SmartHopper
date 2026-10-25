@@ -42,7 +42,7 @@ Breaking changes are acceptable; this is a forward-looking plan.
 
 ### Current Strengths (to Keep)
 
-- Template-method provider pipeline (`PreCall → FormatRequestBody → CallApi → PostCall`) in `AIProvider`.
+- Template-method provider pipeline (`PreCallAsync → FormatRequestBody → CallApi → PostCall`) in `AIProvider`.
 - Central capability registry and model resolution (`AIModelCapabilityRegistry`).
 - Context injection at request level (`AIBody`), component base classes, and secure provider loading.
 
