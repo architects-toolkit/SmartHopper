@@ -39,53 +39,59 @@ if ($Help) {
     exit 0
 }
 
-# Purpose: Resolve default paths relative to the repository root.
+# Purpose: Resolve default paths relative to the repository root. An explicit -CsprojPath
+# updates only that file; otherwise every project under src declaring SmartHopperPublicKey
+# is anonymized.
 $scriptDir = Split-Path -Parent $PSScriptRoot
-if (-not $CsprojPath) {
-    $CsprojPath = Join-Path $scriptDir "src\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj"
-}
-
-# Purpose: Ensure the target .csproj exists before attempting modifications.
-if (-not (Test-Path $CsprojPath)) {
-    Write-Error ".csproj not found at: $CsprojPath"
-    exit 1
-}
-
-Write-Host "Anonymizing SmartHopperPublicKey in: $CsprojPath"
-
-# Purpose: Load the csproj as XML to safely update the property.
-try {
-    $content = Get-Content $CsprojPath -Raw
-    $xml = [xml]$content
-    $keyElement = $xml.SelectSingleNode("//SmartHopperPublicKey")
-    if (-not $keyElement) {
-        Write-Error "Could not find SmartHopperPublicKey element in $CsprojPath"
+if ($CsprojPath) {
+    if (-not (Test-Path $CsprojPath)) {
+        Write-Error ".csproj not found at: $CsprojPath"
         exit 1
     }
-
-    if ([string]::IsNullOrWhiteSpace($PlaceholderKey)) {
-        $PlaceholderKey = "This value is automatically replaced by the build tooling before official builds."
+    $CsprojPaths = @($CsprojPath)
+} else {
+    $srcDir = Join-Path $scriptDir "src"
+    $CsprojPaths = @(Get-ChildItem -Path $srcDir -Filter "*.csproj" -Recurse -File |
+        Where-Object { Select-String -Path $_.FullName -Pattern '<SmartHopperPublicKey>' -Quiet } |
+        ForEach-Object { $_.FullName })
+    if ($CsprojPaths.Count -eq 0) {
+        Write-Error "No .csproj containing a SmartHopperPublicKey element found under: $srcDir"
+        exit 1
     }
+}
 
-    $existingKey = $keyElement.InnerText
-    if ($existingKey -eq $PlaceholderKey) {
-        Write-Host "SmartHopperPublicKey is already the placeholder. No anonymization needed."
-        exit 0
+if ([string]::IsNullOrWhiteSpace($PlaceholderKey)) {
+    $PlaceholderKey = "This value is automatically replaced by the build tooling before official builds."
+}
+
+$pattern = '(<SmartHopperPublicKey>)[^<]*(</SmartHopperPublicKey>)'
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
+foreach ($path in $CsprojPaths) {
+    Write-Host "Anonymizing SmartHopperPublicKey in: $path"
+
+    try {
+        $content = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+        $match = [System.Text.RegularExpressions.Regex]::Match($content, $pattern)
+        if (-not $match.Success) {
+            Write-Error "Could not find SmartHopperPublicKey element in $path"
+            exit 1
+        }
+
+        $existingKey = $match.Groups[0].Value -replace '</?SmartHopperPublicKey>', ''
+        if ($existingKey -eq $PlaceholderKey) {
+            Write-Host "SmartHopperPublicKey is already the placeholder in $path. Skipping."
+            continue
+        }
+
+        Write-Host "Replacing key (length $($existingKey.Length)) with placeholder (length $($PlaceholderKey.Length))."
+        $content = $content -replace $pattern, "`${1}$PlaceholderKey`${2}"
+        [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
+        Write-Host "Successfully anonymized SmartHopperPublicKey in $path."
+    } catch {
+        Write-Error "Failed to update .csproj: $_"
+        exit 1
     }
-
-    Write-Host "Replacing key (length $($existingKey.Length)) with placeholder (length $($PlaceholderKey.Length))."
-    $keyElement.InnerText = $PlaceholderKey
-    $settings = New-Object System.Xml.XmlWriterSettings
-    $settings.Encoding = [System.Text.UTF8Encoding]::new($false)
-    $settings.Indent = $true
-    $settings.OmitXmlDeclaration = $true
-    $writer = [System.Xml.XmlWriter]::Create($CsprojPath, $settings)
-    $xml.Save($writer)
-    $writer.Close()
-    Write-Host "Successfully anonymized SmartHopperPublicKey."
-} catch {
-    Write-Error "Failed to update .csproj: $_"
-    exit 1
 }
 
 Write-Host "Done."
