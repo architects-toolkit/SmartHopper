@@ -418,26 +418,26 @@ namespace SmartHopper.Providers.MistralAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "Mistral OCR 3.0",
+                    Model = "mistral-ocr-2512",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.ImageOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
                     Rank = -35,
-                    Aliases = new List<string> { "mistral-ocr-3-0", "mistral-ocr-3", "mistral-ocr-2512" },
+                    Aliases = new List<string> { "mistral-ocr-3-0", "mistral-ocr-3", "Mistral OCR 3.0" },
                     DiscouragedForTools = new List<string> { "*" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "Mistral OCR 4.1",
+                    Model = "mistral-ocr-4-1",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.ImageOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
                     Rank = -40,
-                    Aliases = new List<string> { "mistral-ocr-4", "mistral-ocr-4-1", "mistral-ocr-latest" },
+                    Aliases = new List<string> { "mistral-ocr-4", "mistral-ocr-latest", "Mistral OCR 4.1" },
                 },
 
                 new AIModelCapabilities
@@ -563,7 +563,7 @@ namespace SmartHopper.Providers.MistralAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "Voxtral Mini Transcribe",
+                    Model = "voxtral-mini-transcribe-2602",
                     Capabilities = AICapability.SpeechInput | AICapability.AudioInput | AICapability.TextOutput,
                     Default = AICapability.Speech2Text,
                     SupportsStreaming = false,
@@ -571,33 +571,33 @@ namespace SmartHopper.Providers.MistralAI
                     Deprecated = true,
                     Rank = -90,
                     ContextLimit = 32000,
-                    Aliases = new List<string> { "voxtral-mini-transcribe-2602", "voxtral-mini-latest", "voxtral-mini-2602" },
+                    Aliases = new List<string> { "voxtral-mini-latest", "voxtral-mini-2602", "Voxtral Mini Transcribe" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "Voxtral Mini TTS",
+                    Model = "voxtral-mini-tts-2603",
                     Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.SpeechOutput,
                     Default = AICapability.Text2Speech,
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
                     Rank = -95,
-                    Aliases = new List<string> { "voxtral-mini-tts-latest", "voxtral-mini-tts-2603" },
+                    Aliases = new List<string> { "voxtral-mini-tts-latest", "Voxtral Mini TTS" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "Voxtral Small Transcribe",
+                    Model = "voxtral-small-2507",
                     Capabilities = AICapability.SpeechInput | AICapability.AudioInput | AICapability.TextOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
                     Rank = -100,
                     ContextLimit = 32000,
-                    Aliases = new List<string> { "voxtral-small-latest", "voxtral-small-2507" },
+                    Aliases = new List<string> { "voxtral-small-latest", "Voxtral Small Transcribe" },
                 },
 
                 new AIModelCapabilities
