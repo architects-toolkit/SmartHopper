@@ -56,10 +56,15 @@ namespace SmartHopper.Providers.Gemini
                 StreamingOptions options,
                 CancellationToken cancellationToken = default)
             {
+                if (request == null)
+                {
+                    yield break;
+                }
+
                 // Normalize the request (endpoint selection, auth, content type) before
                 // consuming its fields; callers may pass a request that has not been
                 // through the provider pipeline yet.
-                request = this.provider.PreCall(request);
+                request = await this.provider.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
 
                 string endpoint = request.Endpoint;
                 string httpMethod = request.HttpMethod;
@@ -185,7 +190,7 @@ namespace SmartHopper.Providers.Gemini
                         if (!response.IsSuccessStatusCode)
                         {
                             var errorBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                            var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, errorBody, this.provider.Name);
+                            var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, errorBody, this.provider);
                             responseError = new AIReturn();
                             if (isNetworkLike)
                             {

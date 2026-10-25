@@ -216,6 +216,11 @@ namespace SmartHopper.ProviderSdk.Settings
         public bool IsSecret { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether the setting is stored but never shown in settings UI. Hidden settings keep their defaults and IsSecret encryption.
+        /// </summary>
+        public bool IsHidden { get; set; }
+
+        /// <summary>
         /// Gets or sets the display name shown in the UI.
         /// </summary>
         public string DisplayName { get; set; } = string.Empty;

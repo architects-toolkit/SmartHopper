@@ -111,7 +111,7 @@ Use an `IConversationObserver` implementation to update UI consistently:
 ### Implementing a provider adapter
 
 - Expose a parameterless `GetStreamingAdapter()` method on the provider returning an implementation of `IStreamingAdapter`.
-- Use provider's `PreCall(...)` to set endpoint/method/auth; add `stream=true` or equivalent as required by the API.
+- Use provider's `PreCallAsync(...)` to set endpoint/method/auth; add `stream=true` or equivalent as required by the API.
 - Parse streaming protocol:
   - OpenAI: SSE from `/v1/chat/completions` with `choices[].delta.content`.
   - MistralAI: chunked JSON with `chunk` entries.

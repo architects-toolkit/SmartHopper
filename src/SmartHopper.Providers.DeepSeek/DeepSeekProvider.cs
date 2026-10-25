@@ -110,10 +110,10 @@ namespace SmartHopper.Providers.DeepSeek
         public override Image Icon => this.LoadIconFromResources(Properties.Resources.deepseek_icon);
 
         /// <inheritdoc/>
-        public override AIRequestCall PreCall(AIRequestCall request)
+        public override async Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
         {
-            // First do the base PreCall
-            request = base.PreCall(request);
+            // First do the base PreCall.
+            request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
 
             // Setup proper httpmethod, content type, and authentication
             request.HttpMethod = "POST";
@@ -817,7 +817,7 @@ namespace SmartHopper.Providers.DeepSeek
                 }
 
                 // Prepare request via provider (sets endpoint, method, auth kind)
-                request = this.Prepare(request);
+                request = await this.PrepareAsync(request, cancellationToken).ConfigureAwait(false);
 
                 // Only chat completions are supported for streaming
                 if (!string.Equals(request.Endpoint, "/chat/completions", StringComparison.Ordinal))
@@ -888,7 +888,7 @@ namespace SmartHopper.Providers.DeepSeek
                 if (!response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                    var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, content, this.Provider.Name);
+                    var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, content, this.Provider);
                     var err = new AIReturn();
                     if (isNetworkLike)
                     {

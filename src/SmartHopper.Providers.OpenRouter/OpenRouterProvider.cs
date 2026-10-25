@@ -83,8 +83,10 @@ namespace SmartHopper.Providers.OpenRouter
         public override Image Icon => this.LoadIconFromResources(Properties.Resources.openrouter_icon);
 
         /// <inheritdoc/>
-        public override AIRequestCall PreCall(AIRequestCall request)
+        public override async Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
         {
+            request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
+
             // Normalize :batch aliases to the base model slug before any further processing.
             if (request == null)
             {
@@ -92,9 +94,6 @@ namespace SmartHopper.Providers.OpenRouter
             }
 
             request.Model = StripBatchSuffix(request.Model);
-
-            // Base pipeline first
-            request = base.PreCall(request);
 
             // Common settings
             request.ContentType = "application/json";
@@ -720,7 +719,7 @@ namespace SmartHopper.Providers.OpenRouter
                 }
 
                 // Prepare request via provider (sets endpoint, method, auth kind)
-                request = this.Prepare(request);
+                request = await this.PrepareAsync(request, cancellationToken).ConfigureAwait(false);
 
                 // Only chat completions are supported for streaming
                 if (!string.Equals(request.Endpoint, "/chat/completions", StringComparison.Ordinal))
@@ -795,7 +794,7 @@ namespace SmartHopper.Providers.OpenRouter
                 if (!response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                    var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, content, this.Provider.Name);
+                    var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, content, this.Provider);
                     var err = new AIReturn();
                     if (isNetworkLike)
                     {

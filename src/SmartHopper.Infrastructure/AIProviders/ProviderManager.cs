@@ -770,8 +770,6 @@ namespace SmartHopper.Infrastructure.AIProviders
             }
 
             var ui = ProviderManager.Instance.GetProviderSettings(providerName);
-            var descriptors = ui?.GetSettingDescriptors();
-
             // Validate settings
             if (!ui.ValidateSettings(settings))
             {
@@ -779,28 +777,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 return;
             }
 
-            // Log what's being updated
-            foreach (var setting in settings)
-            {
-                // Check if it's a secret to avoid logging sensitive data
-                var isSecret = descriptors
-                    .FirstOrDefault(d => d.Name == setting.Key)?.IsSecret ?? false;
-
-                // If value is empty, remove it
-                if (string.IsNullOrWhiteSpace(setting.Value?.ToString()))
-                {
-                    Debug.WriteLine($"[ProviderManager] Removing {providerName}.{setting.Key}");
-
-                    SmartHopperSettings.Instance.RemoveSetting(providerName, setting.Key);
-                }
-                else
-                {
-                    // Else, set it
-                    Debug.WriteLine($"[ProviderManager] Updating {providerName}.{setting.Key} = {(isSecret ? "<secret>" : setting.Value)}");
-
-                    SmartHopperSettings.Instance.SetSetting(providerName, setting.Key, setting.Value);
-                }
-            }
+            SmartHopperSettings.Instance.ApplyProviderSettingUpdates(providerName, settings);
 
             // Save settings to disk
             Debug.WriteLine($"[ProviderManager] Saving settings to disk");

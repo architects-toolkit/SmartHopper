@@ -96,7 +96,7 @@ public interface IAIProvider
     Task InitializeProviderAsync();
     void RefreshCachedSettings();
 
-    AIBody PreCall(AIBody body);
+    Task<AIBody> PreCallAsync(AIBody body, CancellationToken cancellationToken = default);
     Task<AIReturn> Call(AIBody body, CancellationToken ct);
     AIReturn PostCall(AIReturn result);
 }
@@ -162,7 +162,7 @@ Context is injected into AI prompts via `IAIContextProvider` implementations:
 
 ```text
 1) Run triggered → 2) Provider + Model resolved → 3) Context aggregated
-→ 4) PolicyPipeline: request policies → 5) Provider.PreCall()
+→ 4) PolicyPipeline: request policies → 5) Provider.PreCallAsync()
 → 6) Provider.Call() (HTTP) → 7) Provider.PostCall()
 → 8) PolicyPipeline: response policies → 9) Metrics recorded → 10) Outputs emitted
 

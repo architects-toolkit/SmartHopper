@@ -27,8 +27,10 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -154,6 +156,9 @@ namespace SmartHopper.ProviderSdk.AIProviders
 
         /// <inheritdoc/>
         public abstract bool IsConfigured { get; }
+
+        /// <inheritdoc/>
+        public virtual string? AuthenticationErrorMessage => null;
 
         /// <summary>
         /// Gets the default server URL for the provider.
@@ -358,16 +363,23 @@ namespace SmartHopper.ProviderSdk.AIProviders
         /// <inheritdoc/>
         public abstract List<IAIInteraction> Decode(JObject response);
 
-        /// <inheritdoc/>
-        public virtual AIRequestCall PreCall(AIRequestCall request)
+        /// <summary>
+        /// Runs the provider's pre-call pipeline asynchronously.
+        /// </summary>
+        /// <param name="request">The request to prepare before the provider call.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>The possibly modified request to use for the provider call.</returns>
+        public virtual Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
         {
-            // Ensure provider is attached if missing so callers can simply do provider.Call(request)
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Ensure provider is attached if missing so callers can simply do provider.Call(request).
             if (request != null && string.IsNullOrWhiteSpace(request.Provider))
             {
                 request.Provider = this.Name;
             }
 
-            return request;
+            return Task.FromResult(request);
         }
 
         /// <inheritdoc/>
@@ -378,7 +390,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
             stopwatch.Start();
 
             // Execute PreCall
-            request = this.PreCall(request);
+            request = await this.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
 
             // Ensure the provider is configured before attempting any API call.
             // This is computed from the persisted settings, so it stays in sync with the current environment.
@@ -562,10 +574,10 @@ namespace SmartHopper.ProviderSdk.AIProviders
         }
 
         /// <summary>
-        /// Gets the provider's configured API key from settings.
+        /// Gets the credential used for request authentication.
         /// </summary>
-        /// <returns>The API key string, or <see cref="string.Empty"/> if not configured.</returns>
-        protected string GetApiKey()
+        /// <returns>The credential string, or <see cref="string.Empty"/> if not configured.</returns>
+        protected virtual string GetApiKey()
         {
             return this.GetSetting<string>("ApiKey") ?? string.Empty;
         }
@@ -871,51 +883,163 @@ namespace SmartHopper.ProviderSdk.AIProviders
         /// <returns>Tuple of (enriched message, isNetworkLike). Network-like covers 5xx, 408 and 429.</returns>
         public static (string Message, bool IsNetworkLike) ClassifyHttpError(int statusCode, string reasonPhrase, string content, string providerName)
         {
+            var hasJsonErrorDetail = TryGetJsonErrorDetail(content, out var jsonErrorDetail);
+            var responseDetail = hasJsonErrorDetail ? jsonErrorDetail : $"Response: {content}";
             string message;
             bool isNetworkLike;
             switch (statusCode)
             {
                 case 401:
                 case 403:
-                    message = $"HTTP {statusCode}: Authentication failed for {providerName}. Check your API key. Response: {content}";
+                    message = $"HTTP {statusCode}: Authentication failed for {providerName}. Check your API key. {responseDetail}";
                     isNetworkLike = false;
                     break;
                 case 408:
-                    message = $"HTTP 408 Request Timeout: The request to {providerName} took too long. Try increasing the HTTP request timeout in SmartHopper settings. Response: {content}";
+                    message = $"HTTP 408 Request Timeout: The request to {providerName} took too long. Try increasing the HTTP request timeout in SmartHopper settings. {responseDetail}";
                     isNetworkLike = true;
                     break;
                 case 413:
-                    message = $"HTTP 413 Payload Too Large: The request to {providerName} exceeds size limits. Try reducing input length or batch size. Response: {content}";
+                    message = $"HTTP 413 Payload Too Large: The request to {providerName} exceeds size limits. Try reducing input length or batch size. {responseDetail}";
                     isNetworkLike = false;
                     break;
                 case 429:
-                    message = $"HTTP 429 Too Many Requests: Rate limit exceeded for {providerName}. Please retry after a delay. Response: {content}";
+                    message = $"HTTP 429 Too Many Requests: Rate limit exceeded for {providerName}. Please retry after a delay. {responseDetail}";
                     isNetworkLike = true;
                     break;
                 case 500:
-                    message = $"HTTP 500 Internal Server Error: {providerName} encountered an internal error. Retry after a brief delay. Response: {content}";
+                    message = $"HTTP 500 Internal Server Error: {providerName} encountered an internal error. Retry after a brief delay. {responseDetail}";
                     isNetworkLike = true;
                     break;
                 case 502:
-                    message = $"HTTP 502 Bad Gateway: {providerName} gateway error. The upstream server returned an invalid response. Response: {content}";
+                    message = $"HTTP 502 Bad Gateway: {providerName} gateway error. The upstream server returned an invalid response. {responseDetail}";
                     isNetworkLike = true;
                     break;
                 case 503:
-                    message = $"HTTP 503 Service Unavailable: The {providerName} API is at capacity. If using Flex tier, try again later or switch to Standard tier. Response: {content}";
+                    message = $"HTTP 503 Service Unavailable: The {providerName} API is at capacity. If using Flex tier, try again later or switch to Standard tier. {responseDetail}";
                     isNetworkLike = true;
                     break;
                 case 504:
-                    message = $"HTTP 504 Gateway Timeout: {providerName} upstream timeout. The server took too long to respond. Try increasing the HTTP request timeout in SmartHopper settings. Response: {content}";
+                    message = $"HTTP 504 Gateway Timeout: {providerName} upstream timeout. The server took too long to respond. Try increasing the HTTP request timeout in SmartHopper settings. {responseDetail}";
                     isNetworkLike = true;
                     break;
                 default:
-                    message = $"HTTP {statusCode} {reasonPhrase}: {content}";
+                    message = hasJsonErrorDetail
+                        ? $"HTTP {statusCode} {reasonPhrase}: {jsonErrorDetail}"
+                        : $"HTTP {statusCode} {reasonPhrase}: {content}";
                     // Treat any unspecified 5xx as network-like; everything else as provider error.
                     isNetworkLike = statusCode >= 500 && statusCode < 600;
                     break;
             }
 
             return (message, isNetworkLike);
+        }
+
+        /// <summary>
+        /// Classifies an HTTP error, allowing a safe provider-owned message to replace the server details for HTTP 401 responses.
+        /// </summary>
+        /// <param name="statusCode">HTTP status code.</param>
+        /// <param name="reasonPhrase">HTTP reason phrase or status enum name.</param>
+        /// <param name="content">Raw response body for context.</param>
+        /// <param name="provider">Provider whose compiled code may supply an authentication error message.</param>
+        /// <returns>Tuple of (enriched message, isNetworkLike).</returns>
+        public static (string Message, bool IsNetworkLike) ClassifyHttpError(int statusCode, string reasonPhrase, string content, IAIProvider? provider)
+        {
+            // The override is plain text from the provider's compiled code (never settings, server responses, GhJSON or extras).
+            // It isn't clickable and, for HTTP 401, replaces rather than appends the server body, so a lookalike server can't inject sign-in instructions.
+            if (statusCode == 401
+                && TryGetSafeAuthenticationErrorMessage(provider?.AuthenticationErrorMessage, out var safeMessage))
+            {
+                return ($"HTTP {statusCode}: {safeMessage}", false);
+            }
+
+            return ClassifyHttpError(statusCode, reasonPhrase, content, provider?.Name ?? "provider");
+        }
+
+        /// <summary>Checks whether a provider-owned authentication error message is safe to display.</summary>
+        internal static bool TryGetSafeAuthenticationErrorMessage(string? message, out string safeMessage)
+        {
+            safeMessage = string.Empty;
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return false;
+            }
+
+            var trimmed = message.Trim();
+            if (trimmed.Length < 1 || trimmed.Length > 300)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < trimmed.Length; index++)
+            {
+                if (char.IsControl(trimmed[index])
+                    || CharUnicodeInfo.GetUnicodeCategory(trimmed, index) == UnicodeCategory.Format)
+                {
+                    return false;
+                }
+            }
+
+            string[] unsafeMarkers = { "://", "www.", "mailto:", "javascript:", "data:" };
+            if (unsafeMarkers.Any(marker => trimmed.IndexOf(marker, StringComparison.OrdinalIgnoreCase) >= 0)
+                || Regex.IsMatch(trimmed, @"@\s*[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+", RegexOptions.CultureInvariant)
+                || Regex.IsMatch(
+                    trimmed,
+                    @"(?<![\w@])[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}(?![\w])",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            {
+                return false;
+            }
+
+            safeMessage = trimmed;
+            return true;
+        }
+
+        private static bool TryGetJsonErrorDetail(string? content, out string detail)
+        {
+            detail = string.Empty;
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return false;
+            }
+
+            JObject root;
+            try
+            {
+                root = JObject.Parse(content);
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+
+            if (root["error"] is not JObject error
+                || error["message"]?.Type != JTokenType.String)
+            {
+                return false;
+            }
+
+            detail = error["message"]!.Value<string>()!;
+            var code = error["code"]?.Type == JTokenType.String
+                ? error["code"]!.Value<string>()
+                : error["type"]?.Type == JTokenType.String
+                    ? error["type"]!.Value<string>()
+                    : null;
+            if (code != null)
+            {
+                detail += $" ({code})";
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Lets providers inspect HTTP response headers on the non-streaming call path before the
+        /// response is disposed. Implementations may attach messages to <paramref name="result"/>.
+        /// </summary>
+        /// <param name="response">The HTTP response; its headers are still readable.</param>
+        /// <param name="result">The result produced for this call.</param>
+        protected virtual void ProcessResponseHeaders(HttpResponseMessage response, AIReturn result)
+        {
         }
 
         /// <summary>
@@ -1032,7 +1156,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
 
                         // Create AIReturn with structured error instead of throwing
                         var errorReturn = new AIReturn();
-                        var (errorMessage, isNetworkLike) = ClassifyHttpError((int)response.StatusCode, response.StatusCode.ToString(), content, this.Name);
+                        var (errorMessage, isNetworkLike) = ClassifyHttpError((int)response.StatusCode, response.StatusCode.ToString(), content, this);
 
                         if (isNetworkLike)
                         {
@@ -1044,6 +1168,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                         }
 
                         errorReturn.Status = AICallStatus.Finished;
+                        this.ProcessResponseHeaders(response, errorReturn);
 
                         return errorReturn;
                     }
@@ -1093,6 +1218,8 @@ namespace SmartHopper.ProviderSdk.AIProviders
                     aiReturn.CreateSuccess(
                         raw: rawJObject,
                         request: request);
+
+                    this.ProcessResponseHeaders(response, aiReturn);
 
                     return aiReturn;
                 }

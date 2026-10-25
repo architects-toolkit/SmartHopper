@@ -61,6 +61,14 @@ namespace SmartHopper.ProviderSdk.Tests.TestHelpers
         /// <inheritdoc />
         public override bool IsEnabled => true;
 
+        /// <summary>
+        /// Gets or sets the authentication error message used by classifier tests.
+        /// </summary>
+        public string? AuthenticationErrorMessageOverride { get; set; }
+
+        /// <inheritdoc />
+        public override string? AuthenticationErrorMessage => this.AuthenticationErrorMessageOverride;
+
         /// <inheritdoc />
         public override bool IsConfigured => !string.IsNullOrEmpty(this.GetApiKey());
 

@@ -898,6 +898,8 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
 
             public bool IsConfigured => true;
 
+            public string? AuthenticationErrorMessage => null;
+
             public IAIProviderModels Models => null!;
 
             public Task InitializeProviderAsync() => Task.CompletedTask;
@@ -910,7 +912,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
 
             public List<IAIInteraction> Decode(JObject response) => new List<IAIInteraction>();
 
-            public AIRequestCall PreCall(AIRequestCall request) => request;
+            public Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default) => Task.FromResult(request);
 
             public Task<IAIReturn> Call(AIRequestCall request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 

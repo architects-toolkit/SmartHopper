@@ -39,4 +39,17 @@ namespace SmartHopper.ProviderSdk.Settings
 
         public int Step { get; set; } = 1;
     }
+
+    /// <summary>
+    /// Control parameters that render a button instead of the default editor for a setting.
+    /// When the user clicks the button, the provider settings are immediately validated
+    /// with this setting's value set to true, allowing one-shot actions such as OAuth login.
+    /// </summary>
+    public class ButtonSettingDescriptorControl : SettingDescriptorControl
+    {
+        /// <summary>
+        /// Optional text shown on the button. When empty, the descriptor display name is used.
+        /// </summary>
+        public string Text { get; set; } = string.Empty;
+    }
 }

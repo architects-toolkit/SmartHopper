@@ -34,7 +34,7 @@ This document describes how SmartHopper handles authentication across providers 
 
 ### Overview
 
-Authentication is configured per request for behavior, while API keys are resolved internally by providers. Providers set the auth scheme and any non‑secret headers in `PreCall(...)`. The base `AIProvider.CallApi(...)` and `AIProviderStreamingAdapter` apply authentication just‑in‑time using provider‑internal API keys. Extra non‑secret headers are applied via the shared `HttpHeadersHelper.ApplyExtraHeaders(...)`. Secrets must NOT be placed on `AIRequestCall`.
+Authentication is configured per request for behavior, while API keys are resolved internally by providers. Providers set the auth scheme and any non‑secret headers in `PreCallAsync(...)`. The base `AIProvider.CallApi(...)` and `AIProviderStreamingAdapter` apply authentication just‑in‑time using provider‑internal API keys. Extra non‑secret headers are applied via the shared `HttpHeadersHelper.ApplyExtraHeaders(...)`. Secrets must NOT be placed on `AIRequestCall`.
 
 Benefits:
 
@@ -50,31 +50,35 @@ Benefits:
 
 Validation: when `Authentication == "bearer"` or `Authentication == "x-api-key"`, the provider's internal API key is applied.
 
+For HTTP 401 responses, a provider may expose a plain-text `AuthenticationErrorMessage`; `AIProvider.ClassifyHttpError(..., IAIProvider)` uses it instead of generic text and the server body only when it passes the length, control- and Unicode-format-character, URL-marker, email-address, and domain-name checks. Unsafe or missing messages use the existing provider-name classification. HTTP 403 responses always use the existing provider-name classification.
+
 ### Migration Guide
 
 - Remove overrides of `CustomizeHttpClientHeaders` used for auth.
-- In `PreCall(...)`, set `Authentication` and any non‑secret provider‑specific headers. Do not attach API keys to `Headers`.
+- In `PreCallAsync(...)`, set `Authentication` and any non‑secret provider‑specific headers. Do not attach API keys to `Headers`.
 - Ensure streaming adapters resolve the API key from provider internals and call `ApplyAuthentication(...)`. Use `ApplyExtraHeaders(...)` for the rest.
 - Update validation/tests:
   - Assert that no secrets are present on `AIRequestCall` or in logs/returns.
 
 ### Notes
 
-- Additional auth schemes can be added; keep scheme selection in `PreCall(...)` and let providers apply secrets internally.
+- Additional auth schemes can be added; keep scheme selection in `PreCallAsync(...)` and let providers apply secrets internally.
 - Do not store secrets in source or pass them through request objects; retrieve from secure storage at runtime and apply only inside provider internals.
 
 ---
 
 ## Developer Reference
 
-### Provider Pattern (PreCall)
+### Provider Pattern (PreCallAsync)
 
 Set auth on the request object. Examples:
 
 **Bearer token:**
 
 ```csharp
-public override AIRequestCall PreCall(AIRequestCall request)
+public override async Task<AIRequestCall> PreCallAsync(
+    AIRequestCall request,
+    CancellationToken cancellationToken = default)
 {
     // Select the scheme. Do NOT attach secrets to the request.
     request.Authentication = "bearer";
@@ -82,7 +86,8 @@ public override AIRequestCall PreCall(AIRequestCall request)
     // Optional non‑secret headers
     request.Headers["OpenAI-Beta"] = "assistants=v2";
 
-    return base.PreCall(request);
+    request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
+    return request;
 }
 
 ```
@@ -90,7 +95,9 @@ public override AIRequestCall PreCall(AIRequestCall request)
 **Provider‑applied API key header (e.g., Anthropic x-api-key):**
 
 ```csharp
-public override AIRequestCall PreCall(AIRequestCall request)
+public override async Task<AIRequestCall> PreCallAsync(
+    AIRequestCall request,
+    CancellationToken cancellationToken = default)
 {
     // Select the scheme. The actual API key is applied internally.
     request.Authentication = "x-api-key";
@@ -98,7 +105,8 @@ public override AIRequestCall PreCall(AIRequestCall request)
     // Optional non‑secret headers
     request.Headers["anthropic-version"] = "2023-06-01";
 
-    return base.PreCall(request);
+    request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
+    return request;
 }
 
 ```
@@ -143,7 +151,7 @@ Location:
 
 The authentication architecture follows a clear separation of concerns:
 
-1. **Scheme Selection**: The provider's `PreCall(...)` method selects the authentication scheme and adds non-secret headers to the request.
+1. **Scheme Selection**: The provider's `PreCallAsync(...)` method selects the authentication scheme and adds non-secret headers to the request.
 2. **Secret Resolution**: API keys and tokens are resolved from provider-internal secure storage at runtime.
 3. **Just-In-Time Application**: The base `AIProvider.CallApi(...)` or streaming adapter applies the secret immediately before the HTTP call, ensuring it never appears in request logs or serialized request objects.
 4. **Shared Helpers**: `HttpHeadersHelper.ApplyExtraHeaders(...)` centralizes header application logic for both streaming and non-streaming paths.

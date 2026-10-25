@@ -29,7 +29,6 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Batch;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
-using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Providers.OpenRouter
 {
@@ -75,7 +74,7 @@ namespace SmartHopper.Providers.OpenRouter
         /// Maps an internal request endpoint to the shape expected by the
         /// OpenRouter batch API. The batch endpoint must start with <c>/v1/</c>.
         /// </summary>
-        /// <param name="endpoint">The endpoint from <see cref="PreCall(AIRequestCall)"/>.</param>
+        /// <param name="endpoint">The endpoint from <see cref="PreCallAsync(AIRequestCall, CancellationToken)"/>.</param>
         /// <returns>The batch-level endpoint string.</returns>
         private static string ToBatchEndpoint(string endpoint)
         {
@@ -178,7 +177,7 @@ namespace SmartHopper.Providers.OpenRouter
                 // Normalize :batch alias to the base model slug before encoding.
                 request.Model = StripBatchSuffix(request.Model);
 
-                var preparedRequest = this.PreCall(request);
+                var preparedRequest = await this.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
                 var encodedBody = this.Encode(preparedRequest);
                 if (firstEncodedBody == null)
                 {
@@ -372,18 +371,7 @@ namespace SmartHopper.Providers.OpenRouter
                 return new AIBatchStatus(batchId, AIBatchState.Failed, "No batch result contents provided.");
             }
 
-            var merged = new Dictionary<string, JObject>();
-            var messages = new List<SHRuntimeMessage>();
-
-            foreach (var content in fileContents)
-            {
-                AIBatchStatusMerge.MergeInto(ParseSingleBatchResultFile(content, batchId), merged, messages);
-            }
-
-            return new AIBatchStatus(
-                batchId,
-                new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(merged),
-                messages.AsReadOnly());
+            return AIBatchResultParser.ParseResultContents(fileContents, batchId);
         }
 
         /// <summary>
@@ -411,102 +399,6 @@ namespace SmartHopper.Providers.OpenRouter
             }
 
             return JObject.Parse(content);
-        }
-
-        /// <summary>
-        /// Parses a single OpenRouter batch result payload. The payload can be the
-        /// inline <c>results</c> array returned by the status endpoint, or a
-        /// previously saved JSON array of result items.
-        /// </summary>
-        /// <param name="content">JSON content containing the results array (or a batch object with a <c>results</c> property).</param>
-        /// <param name="batchId">Optional batch id for diagnostics.</param>
-        /// <returns>A parsed <see cref="AIBatchStatus"/> for the single file.</returns>
-        private static AIBatchStatus ParseSingleBatchResultFile(string content, string batchId)
-        {
-            var results = new Dictionary<string, JObject>();
-            var messages = new List<SHRuntimeMessage>();
-
-            if (string.IsNullOrWhiteSpace(content))
-            {
-                return new AIBatchStatus(batchId, results, messages);
-            }
-
-            JArray resultArray;
-            var token = JToken.Parse(content);
-            if (token is JArray array)
-            {
-                resultArray = array;
-            }
-            else if (token is JObject obj && obj["results"] is JArray nested)
-            {
-                resultArray = nested;
-            }
-            else
-            {
-                messages.Add(new SHRuntimeMessage(
-                    SHRuntimeMessageSeverity.Error,
-                    SHRuntimeMessageOrigin.Provider,
-                    SHMessageCode.BatchItemError,
-                    "Batch result payload is not a results array or a batch object with a results array."));
-                return new AIBatchStatus(batchId, results, messages);
-            }
-
-            foreach (var item in resultArray.OfType<JObject>())
-            {
-                var customId = item["custom_id"]?.ToString();
-                if (string.IsNullOrWhiteSpace(customId))
-                {
-                    continue;
-                }
-
-                var error = item["error"];
-                if (error != null)
-                {
-                    var errorMsg = error["message"]?.ToString() ?? error.ToString();
-                    messages.Add(new SHRuntimeMessage(
-                        SHRuntimeMessageSeverity.Error,
-                        SHRuntimeMessageOrigin.Provider,
-                        SHMessageCode.BatchItemError,
-                        $"Batch item {customId}: {errorMsg}"));
-                    continue;
-                }
-
-                var responseObj = item["response"] as JObject;
-                var statusCode = responseObj?["status_code"]?.Value<int>() ?? 0;
-                var responseBody = responseObj?["body"] as JObject;
-
-                if (statusCode >= 200 && statusCode < 300 && responseBody != null)
-                {
-                    results[customId] = responseBody;
-
-                    // Surface non-standard finish reasons as warnings.
-                    var choices = responseBody["choices"] as JArray;
-                    var firstChoice = choices?.FirstOrDefault() as JObject;
-                    var finishReason = firstChoice?["finish_reason"]?.ToString()
-                        ?? responseBody["status"]?.ToString();
-
-                    if (!string.IsNullOrEmpty(finishReason) && finishReason != "stop")
-                    {
-                        messages.Add(new SHRuntimeMessage(
-                            SHRuntimeMessageSeverity.Warning,
-                            SHRuntimeMessageOrigin.Provider,
-                            SHMessageCode.BatchItemFinishReason,
-                            $"Batch item {customId}: completed with finish_reason='{finishReason}'"));
-                    }
-                }
-                else
-                {
-                    var errorText = responseBody?["error"]?.ToString()
-                        ?? (statusCode > 0 ? $"HTTP {statusCode}" : "Unknown batch item error");
-                    messages.Add(new SHRuntimeMessage(
-                        SHRuntimeMessageSeverity.Error,
-                        SHRuntimeMessageOrigin.Provider,
-                        SHMessageCode.BatchItemError,
-                        $"Batch item {customId}: {errorText}"));
-                }
-            }
-
-            return new AIBatchStatus(batchId, results, messages);
         }
     }
 }
