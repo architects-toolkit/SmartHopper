@@ -87,6 +87,15 @@ namespace SmartHopper.Infrastructure.Mcp
         public bool AllowExternalTools { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether the server binds to every network
+        /// interface instead of loopback only, making it reachable from other machines
+        /// on the network. Requires <see cref="BearerToken"/> — the server refuses to
+        /// start when external connections are allowed without authentication.
+        /// Defaults to <c>false</c>.
+        /// </summary>
+        public bool AllowExternalConnections { get; set; }
+
+        /// <summary>
         /// Gets or sets the server identifier reported during MCP <c>initialize</c>.
         /// </summary>
         public string ServerName { get; set; } = "smarthopper";
@@ -111,6 +120,7 @@ namespace SmartHopper.Infrastructure.Mcp
                 BypassMutationsApproval = this.BypassMutationsApproval,
                 AllowViewControl = this.AllowViewControl,
                 AllowExternalTools = this.AllowExternalTools,
+                AllowExternalConnections = this.AllowExternalConnections,
                 ServerName = this.ServerName,
                 ServerVersion = this.ServerVersion,
             };

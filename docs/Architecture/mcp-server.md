@@ -45,8 +45,9 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
   - `Bypass Edition Validation` (`BV`) — when true, canvas mutations requested through this server are applied without showing the review dialog. Undo is still recorded. Defaults to false.
   - `Allow View Control` (`AV`) — when true, tools in the `Canvas.ViewControl` category (`canvas_view`) are exposed so clients can move the canvas viewport. Defaults to false.
   - `Allow External Tools` (`ET`) — when true, tools annotated `openWorldHint` (local file reads/writes, URL fetches, AI provider calls) are exposed. Defaults to false.
+  - `Allow External Connections` (`AX`) — when true, the server binds all network interfaces so other machines on the LAN can reach it. Requires a bearer token — the server refuses to start without one — and the OS may show a firewall prompt on first use. Defaults to false.
 - Outputs:
-  - `Url` — the MCP endpoint when the server is running.
+  - `Url` — the MCP endpoint when the server is running: the loopback URL, or the LAN IP URL (e.g. `http://192.168.1.42:26929/mcp`) while external connections are allowed.
   - `Status` — a short status string.
 
 ### Default Configuration
@@ -60,15 +61,19 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 | Bypass edition validation (`BypassMutationsApproval`) | `false` | Opt-in per server instance; skips the review dialog for mutations requested through that server. |
 | Allow view control (`AllowViewControl`) | `false` | `Canvas.ViewControl`-category tools (`canvas_view`) stay hidden unless explicitly allowed. |
 | Allow external tools (`AllowExternalTools`) | `false` | `openWorldHint`-annotated tools stay hidden unless explicitly allowed. |
+| Allow external connections (`AllowExternalConnections`) | `false` | Off: binds `127.0.0.1` only. On: binds all interfaces (IPv4) and requires a bearer token. |
 | Server name | `smarthopper` | Reported during MCP `initialize`. |
 | Server version | assembly informational version fallback | Can be overridden from options. |
-| Bind address | loopback only | `127.0.0.1` only in phase 1. IPv6 loopback is not registered. |
+| Bind address | loopback only | `127.0.0.1` while external connections are off. With `AllowExternalConnections`, binds `0.0.0.0` (IPv4 only); loopback requests still work. |
 
 ### Security Posture
 
-- **Loopback only.** The server binds to `127.0.0.1` only.
-- **Loopback peer guard.** Requests from non-loopback IP addresses are rejected (defence in depth even though the listener is already bound to loopback).
-- **Bearer token optional.** If a token is configured, requests without `Authorization: Bearer ...` are rejected with HTTP 401.
+- **Loopback by default.** The server binds to `127.0.0.1` only via a raw `TcpListener` — no `HttpListener`, so it shares no process-wide http.sys request-queue state with other in-process listeners and needs no URL ACL or elevation.
+- **External access is opt-in and fail-closed.** `AllowExternalConnections` binds all interfaces, but the server refuses to start without a `BearerToken` — unauthenticated remote access is impossible by construction. Remote peers then face the same 401 bearer check as local ones; mutating/view-control tool gates are unchanged.
+- **Loopback peer guard.** In loopback mode, requests from non-loopback IP addresses are rejected (defence in depth even though the listener is already bound to loopback).
+- **Loopback `Host` guard.** A `Host` header pointing at a non-loopback name is rejected, which blocks DNS-rebinding attempts. With external connections on, `Host` must instead name this machine — a loopback address, `localhost`, the machine hostname, or one of its own interface IPs — so LAN clients can reach `http://<machine-ip>:<port>/mcp` but foreign Hosts stay rejected.
+- **Cross-origin guard.** Requests carrying a non-loopback `Origin` or `Referer` header are rejected. Browsers always attach `Origin` to `fetch()` POSTs, so a website cannot drive the tool surface even when no bearer token is configured; MCP clients send neither header.
+- **Bearer token optional.** If a token is configured, requests without `Authorization: Bearer ...` are rejected with HTTP 401. When no token is set, the component's `Status` output explicitly warns that any local process can call the server.
 - **Read-only by default.** Tools that alter the canvas are hidden unless `Allow Editing` (`ExposeMutatingTools`) is enabled.
 - **Viewport control is opt-in.** `Canvas.ViewControl`-category tools such as `canvas_view` are hidden unless `Allow View Control` (`AllowViewControl`) is enabled, even though they do not mutate the document.
 - **External interaction is opt-in.** Tools annotated `openWorldHint` — local file reads/writes (`file2md`, `rhino_read_3dm`, `rhino_get_geometry_3dm`, `gh_document_open`, `gh_document_save`), arbitrary URL fetches (`web2md`, Discourse tools), and AI provider calls (`gh_generate`, `script_generate`, `script_edit`, `script_review`, `img2text`, `providers_models`) — are hidden unless `Allow External Tools` (`AllowExternalTools`) is enabled, so an unauthenticated loopback client cannot read arbitrary files, reach the network, or spend provider credits. Canvas-scoped reads such as `gh_get` or the screenshot tools are unaffected because they only expose the document the server already owns.
@@ -234,7 +239,9 @@ finally
 - `McpServerOptions.EnabledTools` is an allow-list; when non-empty, it overrides the mutating-tool policy but not the `Enabled` flag.
 - Mutating-tool gating comes from `AITool.MutatesCanvas`, not from tool-name prefixes.
 - `ParseSchema()` falls back to a minimal `{"type":"object"}` schema when a tool's `ParametersSchema` is missing or invalid.
-- `McpServer` rejects request bodies larger than 256 KiB.
+- `McpServer` enforces request limits during the read, not after: headers are capped at 16 KiB, `POST /mcp` requires an explicit `Content-Length` (411 otherwise) of at most 256 KiB (413 above), and every socket read/write is bounded by a 15 s timeout so stalled clients cannot hold connections open.
+- At most 16 requests run concurrently; extra connections get HTTP 503 and are closed.
+- The accept loop applies backoff after transient errors and stops cleanly — setting `IsRunning` to `false` — after 20 consecutive failures, so a dead server never reports itself as running.
 
 ### Representative API Usage
 
@@ -277,7 +284,7 @@ The main design goals are:
 
 Phase 1 is implemented under `src/SmartHopper.Infrastructure/Mcp/` rather than a separate project.
 
-- `McpServer.cs` — loopback HTTP transport, loopback peer guard, bearer-token auth, request limits
+- `McpServer.cs` — loopback HTTP transport over a raw `TcpListener`, loopback peer/Host/Origin guards, bearer-token auth, request limits, concurrency cap, per-request I/O timeouts
 - `JsonRpcDispatcher.cs` — MCP method dispatch and result shaping
 - `AIToolMcpAdapter.cs` — projects `AIToolManager` into MCP descriptors and calls
 - `McpServerOptions.cs` — port, token, allow-list, mutating-tool, auto-approve, and view-control settings
@@ -302,7 +309,7 @@ The component entry point lives in `src/SmartHopper.Components/Mcp/SmartHopperMc
 | 1 | Transport and tool bridge | Loopback server, `tools/list`, `tools/call`, read-only tools by default. |
 | 2 | Resources | `resources/list`, `resources/read`, embedded docs. |
 | 3 | Prompts | `prompts/list`, `prompts/get`. |
-| 4 | LAN exposure and stronger auth | Opt-in networking and stricter security. |
+| 4 | LAN exposure and stronger auth | Opt-in `AllowExternalConnections` binding all IPv4 interfaces, gated by a required bearer token, with the component reporting the LAN URL. |
 | 5 | Streamable HTTP / SSE | Long-running streaming transport support. |
 
 Phases 2 and 3 are implemented as static providers sourced from existing AITools and `/docs` Markdown.
