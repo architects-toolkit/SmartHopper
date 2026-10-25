@@ -49,7 +49,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Show or hide component geometry preview in the Rhino viewport. Hiding preview improves performance for complex definitions. Only affects components that generate geometry. Requires component GUIDs from gh_get.",
-                category: "Components",
+                category: "Canvas.ComponentControl",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -74,7 +74,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "gh_component_hide_preview_selected",
                 description: "Hide geometry preview for currently selected components. Quick way to hide preview for selected items without needing to specify GUIDs manually. Improves performance for complex definitions.",
-                category: "Components",
+                category: "Canvas.ComponentControl",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {}
@@ -88,7 +88,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "gh_component_show_preview_selected",
                 description: "Show geometry preview for currently selected components. Quick way to enable preview for selected items without needing to specify GUIDs manually.",
-                category: "Components",
+                category: "Canvas.ComponentControl",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {}

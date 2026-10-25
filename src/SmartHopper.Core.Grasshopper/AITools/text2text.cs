@@ -67,7 +67,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Generates text based on a prompt and optional instructions. Example: text2text({ prompt: 'Name three pavilion forms', instructions: 'use architectural terms' }).",
-                category: "DataProcessing",
+                category: "Data.Text",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

@@ -108,7 +108,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         {
             var tools = BuildCatalogWithCategory(
                 ("gh_get", "Test", ReadOnlySchema, false),
-                ("canvas_view", "ViewControl", ReadOnlySchema, false));
+                ("canvas_view", "Canvas.ViewControl", ReadOnlySchema, false));
             var adapter = new AIToolMcpAdapter(new McpServerOptions(), () => tools, _ => Task.FromResult(new AIReturn()));
 
             var descriptors = adapter.BuildDescriptors();
@@ -123,7 +123,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         {
             var tools = BuildCatalogWithCategory(
                 ("gh_get", "Test", ReadOnlySchema, false),
-                ("canvas_view", "ViewControl", ReadOnlySchema, false));
+                ("canvas_view", "Canvas.ViewControl", ReadOnlySchema, false));
             var adapter = new AIToolMcpAdapter(
                 new McpServerOptions { AllowViewControl = true },
                 () => tools,
@@ -138,7 +138,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         [Fact]
         public void BuildDescriptors_AllowListOverridesViewControlFilter()
         {
-            var tools = BuildCatalogWithCategory(("canvas_view", "ViewControl", ReadOnlySchema, false));
+            var tools = BuildCatalogWithCategory(("canvas_view", "Canvas.ViewControl", ReadOnlySchema, false));
             var adapter = new AIToolMcpAdapter(
                 new McpServerOptions { EnabledTools = new[] { "canvas_view" } },
                 () => tools,
@@ -336,7 +336,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             var control = new AITool(
                 "plan_propose",
                 "Plan",
-                "Planning",
+                "AgentPlanning",
                 ReadOnlySchema,
                 _ => Task.FromResult(new AIReturn()),
                 mutatesCanvas: false,

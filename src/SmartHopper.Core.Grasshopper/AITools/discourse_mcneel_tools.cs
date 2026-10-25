@@ -33,5 +33,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
         /// <inheritdoc/>
         protected override string ToolPrefix => "mcneel";
+
+        /// <inheritdoc/>
+        protected override string ToolCategory => "Knowledge.McNeelForum";
     }
 }

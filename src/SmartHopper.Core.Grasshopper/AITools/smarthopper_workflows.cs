@@ -41,7 +41,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: ToolName,
                 description: "Returns canonical SmartHopper tool workflows. Pass `workflow` for detailed steps or omit it to list all workflows. Workflows include inspection, definition design, data-tree diagnosis, scripting, placement, performance review, validation, research, comparison, and patching.",
-                category: "Instructions",
+                category: "Knowledge.SmartHopper",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

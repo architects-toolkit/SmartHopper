@@ -48,7 +48,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Apply a `.ghpatch` patch document to a base GhJSON document. Components are matched by instanceGuid, then id, then structural fingerprint. New components and groups in `components.add` / `groups.add` must NOT include `instanceGuid` (it is generated on placement). By default, the patch's recorded base checksum is verified against the supplied base document — on mismatch, the apply is refused (no partial application). Conflicts (match not found, connection already present, dangling group members, ...) are recorded in the result.",
-                category: "Components",
+                category: "GhJSON.Tools",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

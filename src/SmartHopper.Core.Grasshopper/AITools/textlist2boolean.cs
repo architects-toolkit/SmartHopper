@@ -77,7 +77,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Evaluates a list based on a natural language question with optional fallback value. Example: textlist2boolean({ list: ['steel', 'concrete', 'timber'], question: 'Are all items structural materials?', fallback: false }).",
-                category: "DataProcessing",
+                category: "Data.Lists",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

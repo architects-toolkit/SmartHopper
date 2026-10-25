@@ -54,7 +54,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: ToolName,
                 description: "Points the user's attention at something on the Grasshopper canvas: pans and zooms the viewport to the target and draws a border highlight for a few seconds. Provide component instance GUIDs and/or a canvas region (x, y, width, height) as the target. The 'message' is shown in chat next to a button that replays the pan/zoom/highlight. Use it to refer the user to a specific component or area, e.g. 'this is the component you are struggling with'. It never changes the document.",
-                category: "ViewControl",
+                category: "Canvas.ViewControl",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

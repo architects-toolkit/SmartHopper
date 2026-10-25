@@ -41,7 +41,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_document_list",
                 description: "List the Grasshopper documents open in Rhino with their documentId, name, filePath, isActive, isModified and objectCount. Use the documentId with gh_get, gh_document_switch or gh_document_save to work with a document that is not active.",
-                category: "Document",
+                category: "Canvas.Documents",
                 parametersSchema: @"{ ""type"": ""object"", ""properties"": {} }",
                 execute: ListAsync,
                 mutatesCanvas: false,

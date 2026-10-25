@@ -35,9 +35,10 @@ This page documents how tool calls are represented, executed, and orchestrated w
 
 - A tool call is proposed by the model as an interaction of type `AIInteractionToolCall`.
 - Executing a tool produces an `AIInteractionToolResult` interaction with a `Result` payload (JSON) and any structured runtime messages.
-- Tool availability is controlled by `AIBody.ToolFilter`:
+- Tool availability is controlled by `AIBody.ToolFilter`, which matches tool **category paths** (`Group.Subgroup`):
   - Default is `-*` (disable all tools)
-  - Set to `*` to allow all registered tools, or to a glob pattern to allow a subset (e.g., `script_*`).
+  - `*` allows all registered tools
+  - A group token allows a whole branch (e.g., `Canvas` covers `Canvas.Query`, `Canvas.Modifications`, …); a leaf token allows one subgroup (`Canvas.Query`); `-Group` excludes a branch (`-Rhino`); `Group.*` is equivalent to `Group`.
 - For single provider calls, `AIRequestCall.Exec()` does not execute tools. Use `ConversationSession` to orchestrate multi-turn flows and tool passes.
 
 ### Safety and capability notes

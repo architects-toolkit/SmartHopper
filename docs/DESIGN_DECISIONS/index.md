@@ -84,7 +84,7 @@ var body = AIBodyBuilder.Create()
     .AddText(AIAgent.System, "You are an expert parametric designer.")
     .AddUser("Design a parametric roof.")
     .WithContextFilter("canvas")
-    .WithToolFilter("-script_*")
+    .WithToolFilter("-Scripting")
     .WithJsonOutputSchema("{ \"type\": \"object\", \"properties\": { \"description\": { \"type\": \"string\" } } }")
     .Build();
 ```

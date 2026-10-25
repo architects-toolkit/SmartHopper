@@ -72,7 +72,7 @@ namespace SmartHopper.ProviderSdk.Utils
                     new HashSet<string>(StringComparer.OrdinalIgnoreCase));
             }
 
-            var includes = parts.Where(p => !p.StartsWith("-")).ToList();
+            var includes = parts.Where(p => !p.StartsWith("-")).Select(p => p.StartsWith("+") ? p.Substring(1) : p).ToList();
             var excludes = parts.Where(p => p.StartsWith("-")).Select(p => p.Substring(1)).Where(p => p != "*").ToList();
 
             bool includeAll = includes.Contains("*") || includes.Count == 0;
@@ -105,6 +105,61 @@ namespace SmartHopper.ProviderSdk.Utils
             }
 
             return this.IncludeSet.Contains(key);
+        }
+
+        /// <summary>
+        /// Return true if a dot-separated hierarchical path (e.g. "Canvas.Query")
+        /// passes include/exclude rules. A token matches the path when it equals
+        /// the path itself or any of its ancestor segments: token "Canvas"
+        /// matches "Canvas.Query"; token "Canvas.Query" matches only that leaf.
+        /// </summary>
+        public bool ShouldIncludePath(string path)
+        {
+            if (this.ExcludeAll)
+            {
+                return false;
+            }
+
+            if (PathMatchesAny(path, this.ExcludeSet))
+            {
+                return false;
+            }
+
+            if (this.IncludeAll)
+            {
+                return true;
+            }
+
+            return PathMatchesAny(path, this.IncludeSet);
+        }
+
+        private static bool PathMatchesAny(string path, IReadOnlySet<string> tokens)
+        {
+            foreach (var token in tokens)
+            {
+                var t = token;
+                if (t.EndsWith(".*", StringComparison.Ordinal))
+                {
+                    t = t.Substring(0, t.Length - 2);
+                }
+                else if (t.EndsWith("*", StringComparison.Ordinal))
+                {
+                    t = t.Substring(0, t.Length - 1);
+                }
+
+                if (t.Length == 0)
+                {
+                    continue;
+                }
+
+                if (string.Equals(path, t, StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWith(t + ".", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 

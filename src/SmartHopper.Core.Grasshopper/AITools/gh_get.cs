@@ -99,7 +99,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return new AITool(
                 name: name,
                 description: description,
-                category: "Components",
+                category: "Canvas.Query",
                 parametersSchema: schema,
                 execute: execute,
                 mutatesCanvas: false,

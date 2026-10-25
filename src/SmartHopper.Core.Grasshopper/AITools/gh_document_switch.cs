@@ -41,7 +41,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_document_switch",
                 description: "Show another open Grasshopper document in the canvas, making it the active document for all canvas tools. Get documentId values from gh_document_list.",
-                category: "ViewControl",
+                category: "Canvas.ViewControl",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

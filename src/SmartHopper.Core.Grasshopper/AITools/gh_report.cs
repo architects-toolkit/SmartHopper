@@ -33,6 +33,7 @@ using GhJSON.Grasshopper.Serialization;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
@@ -66,7 +67,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Generate a comprehensive status report of the current Grasshopper canvas. Returns a structured markdown summary including object counts by type/topology, unique component names, group titles, scribble texts, viewport contents, file metadata, and all errors/warnings. Optionally includes an AI-generated summary of the file purpose.",
-                category: "Components",
+                category: "Canvas.Query",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -337,11 +338,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
             }
 
-            // File metadata via GhJSON serialization
+            // File metadata via GhJSON serialization (whole document, but only
+            // schema + metadata are emitted — the components array is redundant
+            // with the in-view extract and bloats the report).
             try
             {
-                var metaObjects = allObjects.Take(1).ToList();
-                if (metaObjects.Count > 0)
+                if (allObjects.Count > 0)
                 {
                     var metaOptions = new SerializationOptions
                     {
@@ -354,10 +356,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         IncludeMetadata = true,
                     };
 
-                    var metaDoc = GhJsonGrasshopper.Serialize(metaObjects, metaOptions);
+                    var metaDoc = GhJsonGrasshopper.Serialize(allObjects, metaOptions);
                     if (metaDoc.Metadata != null)
                     {
-                        data.MetadataJson = GhJson.ToJson(metaDoc, new WriteOptions { Indented = false });
+                        var metaJson = new JObject
+                        {
+                            ["schema"] = metaDoc.Schema,
+                            ["metadata"] = JToken.FromObject(metaDoc.Metadata),
+                        };
+                        data.MetadataJson = metaJson.ToString(Formatting.None);
                     }
                 }
             }

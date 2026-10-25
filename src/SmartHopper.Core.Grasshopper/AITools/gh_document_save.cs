@@ -47,7 +47,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Save a Grasshopper document. Defaults to the active document; pass documentId (from gh_document_list) to save another open document. If no filePath is provided, the document is saved to its existing location. Provide an absolute .gh or .ghx file path to save a copy or an unsaved document.",
-                category: "Document",
+                category: "Canvas.Documents",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

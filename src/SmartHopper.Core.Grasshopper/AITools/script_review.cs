@@ -117,7 +117,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Return a code review for the script component specified by its GUID. Example: script_review({ guid: '...', question: 'Are there performance issues?' }). See also: gh_get_by_guid, gh_get_selected.",
-                category: "Scripting",
+                category: "Scripting.Code",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

@@ -167,7 +167,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
             Assert.True(hiRes.Annotations.ReadOnlyHint);
             Assert.False(hiRes.Annotations.DestructiveHint);
             Assert.Contains("vision", hiRes.Tags);
-            Assert.Equal("Vision", tools["canvas_hi-res_screenshot"].Category);
+            Assert.Equal("Canvas.Vision", tools["canvas_hi-res_screenshot"].Category);
             Assert.Equal(2.0, (double?)hiRes.InputSchema["properties"]?["scale"]?["default"]);
         }
 

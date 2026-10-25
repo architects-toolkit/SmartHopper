@@ -51,7 +51,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Search for available Grasshopper components by category or name to find what the user can use. Returns component details including inputs/outputs. IMPORTANT: Use includeDetails parameter to request only needed fields (e.g., ['name','description','inputs','outputs']) to avoid token waste. Use maxResults to limit output.",
-                category: "ComponentsRetrieval",
+                category: "Canvas.Query",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

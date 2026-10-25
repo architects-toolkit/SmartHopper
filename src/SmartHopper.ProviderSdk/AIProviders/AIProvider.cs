@@ -828,7 +828,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                         continue;
                     }
 
-                    if (!toolFilterObj.ShouldInclude(tool.Value.Category))
+                    if (!toolFilterObj.ShouldIncludePath(tool.Value.Category))
                     {
                         // Skip tools that don't match the filter
                         continue;

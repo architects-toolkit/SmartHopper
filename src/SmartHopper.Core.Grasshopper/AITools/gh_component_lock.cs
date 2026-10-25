@@ -50,7 +50,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Lock (disable) or unlock (enable) components. Locked components don't execute and show as grayed out. Use this to temporarily disable parts of a definition without deleting them. Requires component GUIDs from gh_get.",
-                category: "Components",
+                category: "Canvas.ComponentControl",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -75,7 +75,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "gh_component_lock_selected",
                 description: "Lock (disable) currently selected components. Quick way to disable selected items without needing to specify GUIDs manually. Locked components don't execute and show as grayed out. IMPORTANT: This tool will not affect the enabled SmartHopper MCP Server component or any component directly wired to it.",
-                category: "Components",
+                category: "Canvas.ComponentControl",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {}
@@ -89,7 +89,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "gh_component_unlock_selected",
                 description: "Unlock (enable) currently selected components. Quick way to enable selected items without needing to specify GUIDs manually. Unlocked components will execute normally. IMPORTANT: This tool will not affect the enabled SmartHopper MCP Server component or any component directly wired to it.",
-                category: "Components",
+                category: "Canvas.ComponentControl",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {}

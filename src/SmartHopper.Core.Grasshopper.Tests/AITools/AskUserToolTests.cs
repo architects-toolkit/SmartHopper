@@ -38,12 +38,12 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
     public class AskUserToolTests
     {
         [Fact]
-        public void GetTools_ExposesAskUserOnlyToChatInPlanningCategory()
+        public void GetTools_ExposesAskUserOnlyToChatInAgentPlanningCategory()
         {
             var tool = new ask_user().GetTools().Single();
 
             Assert.Equal("ask_user", tool.Name);
-            Assert.Equal("Planning", tool.Category);
+            Assert.Equal("AgentPlanning", tool.Category);
             Assert.Equal(AIToolSurface.Chat, tool.Surfaces);
             Assert.False(tool.MutatesCanvas);
         }

@@ -50,7 +50,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Stage component moves at absolute coordinates or relative offsets, show target positions on the live canvas, and move only components accepted by the user. Useful for organizing layouts. Requires component GUIDs from gh_get.",
-                category: "Components",
+                category: "Canvas.Modifications",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

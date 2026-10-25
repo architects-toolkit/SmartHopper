@@ -40,7 +40,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: ToolName,
                 description: "Returns focused Grasshopper and SmartHopper guidance. Pass `topic` with one of: foundations, data-trees, definition-design, geometry, debugging, performance, canvas, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, providers, ghjson, sources, mcneel-forum, ladybug-forum, discourse-forum, research, web.",
-                category: "Instructions",
+                category: "Knowledge.SmartHopper",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

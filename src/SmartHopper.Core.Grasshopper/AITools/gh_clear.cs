@@ -51,7 +51,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Stage removal of all components from the Grasshopper canvas and let the user visually review and select removals before applying them. Optionally keep locked components. Protected components (and their direct neighbors) are always preserved. Supports undo (Ctrl+Z).",
-                category: "Components",
+                category: "Canvas.Modifications",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

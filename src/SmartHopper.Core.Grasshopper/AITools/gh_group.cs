@@ -53,7 +53,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Stage a visual group around components, show the user an in-canvas review, and create it only after acceptance. Use this to organize or annotate related components. Requires component GUIDs from gh_get.",
-                category: "Components",
+                category: "Canvas.Modifications",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -82,7 +82,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "gh_group_selected",
                 description: "Stage a group around currently selected components and show the user an in-canvas review before creation. Quick way to organize selected items without specifying GUIDs manually.",
-                category: "Components",
+                category: "Canvas.Modifications",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

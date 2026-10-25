@@ -45,7 +45,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 "plan_tasks",
                 "Create or update the visible task plan for multi-step work. Send the complete task list on every call and reuse the returned planId to update the same plan. Keep at most one task in_progress, mark finished work completed, and leave upcoming work pending.",
-                "Planning",
+                "AgentPlanning",
                 @"{
                     ""type"": ""object"",
                     ""properties"": {

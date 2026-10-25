@@ -111,7 +111,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Generates a list of items based on a prompt, count and type. Example: text2textlist({ prompt: 'Common structural materials', count: 5, type: 'text' }).",
-                category: "DataProcessing",
+                category: "Data.Lists",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

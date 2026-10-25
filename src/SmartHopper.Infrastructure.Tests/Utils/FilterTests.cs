@@ -160,5 +160,59 @@ namespace SmartHopper.Infrastructure.Tests.Utils
         }
 
         #endregion
+
+        #region ShouldIncludePath
+
+#if NET7_WINDOWS
+        [Theory(DisplayName = "Filter.ShouldIncludePath group token matches descendants [Windows]")]
+#else
+        [Theory(DisplayName = "Filter.ShouldIncludePath group token matches descendants [Core]")]
+#endif
+        [InlineData("Canvas", "Canvas.Modifications", true)]
+        [InlineData("Canvas", "Canvas.Query", true)]
+        [InlineData("Canvas", "Knowledge.Web", false)]
+        [InlineData("Canvas.Query", "Canvas.Query", true)]
+        [InlineData("Canvas.Query", "Canvas.Modifications", false)]
+        [InlineData("Canvas.Query", "Canvas", false)]
+        public void ShouldIncludePath_GroupTokenMatchesDescendants(string filter, string path, bool expected)
+        {
+            var f = Filter.Parse(filter);
+            Assert.Equal(expected, f.ShouldIncludePath(path));
+        }
+
+#if NET7_WINDOWS
+        [Theory(DisplayName = "Filter.ShouldIncludePath exclude subtree blocks descendants [Windows]")]
+#else
+        [Theory(DisplayName = "Filter.ShouldIncludePath exclude subtree blocks descendants [Core]")]
+#endif
+        [InlineData("* -Rhino", "Rhino.Geometry", false)]
+        [InlineData("* -Rhino", "Canvas.Query", true)]
+        [InlineData("Canvas -Canvas.ViewControl", "Canvas.ViewControl", false)]
+        [InlineData("Canvas -Canvas.ViewControl", "Canvas.Query", true)]
+        public void ShouldIncludePath_ExcludeSubtreeBlocksDescendants(string filter, string path, bool expected)
+        {
+            var f = Filter.Parse(filter);
+            Assert.Equal(expected, f.ShouldIncludePath(path));
+        }
+
+#if NET7_WINDOWS
+        [Theory(DisplayName = "Filter.ShouldIncludePath special and flat filters unchanged [Windows]")]
+#else
+        [Theory(DisplayName = "Filter.ShouldIncludePath special and flat filters unchanged [Core]")]
+#endif
+        [InlineData("-*", "Canvas.Query", false)]
+        [InlineData("", "Canvas.Query", true)]
+        [InlineData("*", "Canvas.Query", true)]
+        [InlineData("Canvas", "canvas.modifications", true)]
+        [InlineData("+Canvas", "Canvas.Query", true)]
+        [InlineData("Canvas.*", "Canvas.Query", true)]
+        [InlineData("Canvas.*", "Knowledge.Web", false)]
+        public void ShouldIncludePath_SpecialAndFlatFiltersUnchanged(string filter, string path, bool expected)
+        {
+            var f = Filter.Parse(filter);
+            Assert.Equal(expected, f.ShouldIncludePath(path));
+        }
+
+        #endregion
     }
 }

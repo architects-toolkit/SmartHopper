@@ -46,7 +46,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Merge two GhJSON documents into one. The target document takes priority on conflicts (duplicate components by GUID are skipped from source). Connections and groups from both documents are combined with proper ID remapping and deduplication.",
-                category: "Components",
+                category: "GhJSON.Tools",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

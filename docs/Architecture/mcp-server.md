@@ -43,7 +43,7 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
   - `BearerToken` — optional static bearer token.
   - `Allow Editing` (`AE`) — whether tools marked as mutating may be exposed.
   - `Bypass Edition Validation` (`BV`) — when true, canvas mutations requested through this server are applied without showing the review dialog. Undo is still recorded. Defaults to false.
-  - `Allow View Control` (`AV`) — when true, tools in the `ViewControl` category (`canvas_view`) are exposed so clients can move the canvas viewport. Defaults to false.
+  - `Allow View Control` (`AV`) — when true, tools in the `Canvas.ViewControl` category (`canvas_view`) are exposed so clients can move the canvas viewport. Defaults to false.
   - `Allow External Tools` (`ET`) — when true, tools annotated `openWorldHint` (local file reads/writes, URL fetches, AI provider calls) are exposed. Defaults to false.
 - Outputs:
   - `Url` — the MCP endpoint when the server is running.
@@ -58,7 +58,7 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 | Enabled tools | `null` | Null or empty means the full read-only surface is eligible. |
 | Allow editing (`ExposeMutatingTools`) | `false` | Mutating tools stay hidden unless explicitly allowed. |
 | Bypass edition validation (`BypassMutationsApproval`) | `false` | Opt-in per server instance; skips the review dialog for mutations requested through that server. |
-| Allow view control (`AllowViewControl`) | `false` | `ViewControl`-category tools (`canvas_view`) stay hidden unless explicitly allowed. |
+| Allow view control (`AllowViewControl`) | `false` | `Canvas.ViewControl`-category tools (`canvas_view`) stay hidden unless explicitly allowed. |
 | Allow external tools (`AllowExternalTools`) | `false` | `openWorldHint`-annotated tools stay hidden unless explicitly allowed. |
 | Server name | `smarthopper` | Reported during MCP `initialize`. |
 | Server version | assembly informational version fallback | Can be overridden from options. |
@@ -70,7 +70,7 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 - **Loopback peer guard.** Requests from non-loopback IP addresses are rejected (defence in depth even though the listener is already bound to loopback).
 - **Bearer token optional.** If a token is configured, requests without `Authorization: Bearer ...` are rejected with HTTP 401.
 - **Read-only by default.** Tools that alter the canvas are hidden unless `Allow Editing` (`ExposeMutatingTools`) is enabled.
-- **Viewport control is opt-in.** `ViewControl`-category tools such as `canvas_view` are hidden unless `Allow View Control` (`AllowViewControl`) is enabled, even though they do not mutate the document.
+- **Viewport control is opt-in.** `Canvas.ViewControl`-category tools such as `canvas_view` are hidden unless `Allow View Control` (`AllowViewControl`) is enabled, even though they do not mutate the document.
 - **External interaction is opt-in.** Tools annotated `openWorldHint` — local file reads/writes (`file2md`, `rhino_read_3dm`, `rhino_get_geometry_3dm`, `gh_document_open`, `gh_document_save`), arbitrary URL fetches (`web2md`, Discourse tools), and AI provider calls (`gh_generate`, `script_generate`, `script_edit`, `script_review`, `img2text`, `providers_models`) — are hidden unless `Allow External Tools` (`AllowExternalTools`) is enabled, so an unauthenticated loopback client cannot read arbitrary files, reach the network, or spend provider credits. Canvas-scoped reads such as `gh_get` or the screenshot tools are unaffected because they only expose the document the server already owns.
 - **Disabled tools are never exposed.** If `AITool.Enabled` is `false`, the tool is hidden from MCP regardless of the allow-list or mutating-tool policy.
 - **Tool surfaces are enforced.** Tools without `AIToolSurface.Mcp`, including WebChat control tools such as `plan_propose` and internal-only component-backing tools (`text2text`, `text2boolean`, `text2json`, `textlist2boolean`, `list_filter`, `text2img`, `speech_generate`), remain hidden even when named in an MCP allow-list.
@@ -87,7 +87,7 @@ A tool is considered mutating when its `AITool.MutatesCanvas` flag is `true`.
 - Read-only, query, validation, and transformation tools should set `mutatesCanvas: false`.
 - MCP exposure uses the flag instead of name-prefix heuristics.
 
-That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `gh_diff`, `gh_patch_validate`, `canvas_screenshot`, and `viewport_screenshot` stay visible by default, while canvas-changing tools remain hidden unless explicitly enabled. Separately, `ViewControl`-category tools (`canvas_view`) are hidden by default because they move the user's viewport — they require `AllowViewControl` even though `MutatesCanvas` is `false` — and `openWorldHint` tools that interact with the local file system, the network, or AI providers (`file2md`, `web2md`, `gh_document_open`, `gh_document_save`, `script_review`, `img2text`, `providers_models`, the Discourse readers) require `AllowExternalTools`.
+That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `gh_diff`, `gh_patch_validate`, `canvas_screenshot`, and `viewport_screenshot` stay visible by default, while canvas-changing tools remain hidden unless explicitly enabled. Separately, `Canvas.ViewControl`-category tools (`canvas_view`) are hidden by default because they move the user's viewport — they require `AllowViewControl` even though `MutatesCanvas` is `false` — and `openWorldHint` tools that interact with the local file system, the network, or AI providers (`file2md`, `web2md`, `gh_document_open`, `gh_document_save`, `script_review`, `img2text`, `providers_models`, the Discourse readers) require `AllowExternalTools`.
 
 ### What Enabled Means
 
@@ -312,7 +312,7 @@ Phases 2 and 3 are implemented as static providers sourced from existing AITools
 - **Project placement.** Phase 1 ships under Infrastructure, not as a separate `SmartHopper.Mcp` project.
 - **Default port.** `26929` is kept for parity with Cordyceps.
 - **Mutating tools off by default.** `McpServerOptions.ExposeMutatingTools = false` and `AITool.MutatesCanvas` control exposure.
-- **View-control tools off by default.** `McpServerOptions.AllowViewControl = false` and `AITool.Category == "ViewControl"` gate viewport-control tools such as `canvas_view`.
+- **View-control tools off by default.** `McpServerOptions.AllowViewControl = false` and `AITool.Category == "Canvas.ViewControl"` gate viewport-control tools such as `canvas_view`.
 - **Component path.** The component lives at `SmartHopper.Components/Mcp/SmartHopperMcpServerComponent.cs`.
 - **Component-name aliasing.** The orchestration layer already handles aliasing through `ComponentNameAliases` in `SmartHopper.Core.Grasshopper.Utils.Canvas`; no extra MCP-side alias layer is introduced.
 - **Shared agent knowledge.** `AgentKnowledgeCatalog` owns stable embedded guidance and workflow parsing. MCP resources, in-process instruction tools, and WebChat prompt composition consume that catalog instead of maintaining separate copies. The GhJSON spec remains linked from the existing `SmartHopper.Core.Grasshopper` snapshot. MCP prompts stay pure and refer clients to resources/tools for focused content.

@@ -85,7 +85,7 @@ When registering `smarthopper_readme` in the tool manager, it is typically expos
 var body = AIBodyBuilder.Create()
     .AddText(AIAgent.System, "You are a helpful assistant.")
     .AddUser("Help me inspect the Grasshopper canvas.")
-    .WithToolFilter("smarthopper_readme")
+    .WithToolFilter("Knowledge.SmartHopper")
     .Build();
 
 var req = new AIRequestCall();

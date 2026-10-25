@@ -54,7 +54,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: ToolName,
                 description: "Updates the Grasshopper canvas selection. Modes: 'set' replaces the selection with the given GUIDs; 'add' keeps the current selection and adds the given GUIDs; 'remove' deselects the given GUIDs; 'clear' deselects everything.",
-                category: "Components",
+                category: "Canvas.Modifications",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

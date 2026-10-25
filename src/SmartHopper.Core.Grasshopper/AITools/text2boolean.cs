@@ -74,7 +74,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Evaluates a text against a true/false question with optional fallback value. Example: text2boolean({ text: 'The building is 30m tall', question: 'Is the building taller than 25m?', fallback: true }).",
-                category: "DataProcessing",
+                category: "Data.Text",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

@@ -73,7 +73,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Generates a JSON object from a prompt, conforming strictly to a provided JSON Schema. Example: text2json({ prompt: 'Describe a chair', jsonSchema: '{\"type\":\"object\",\"properties\":{\"material\":{\"type\":\"string\"}}}' }).",
-                category: "DataProcessing",
+                category: "Data.Text",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

@@ -57,7 +57,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Generate a GhJSON document from natural language instructions. Returns a valid GhJSON string describing Grasshopper components, positions, state, and connections. Pass the result to gh_put to place it on the canvas. Example: gh_generate({ instructions: 'Create a number slider connected to a panel' }).",
-                category: "Components",
+                category: "GhJSON.Generation",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -83,7 +83,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.wrapperToolName,
                 description: "Generate a GhJSON document from instructions and immediately place it on the canvas. This wraps gh_generate followed by gh_put with editMode=false. Example: gh_generate_and_place_on_canvas({ instructions: 'Create a number slider connected to a panel' }).",
-                category: "Components",
+                category: "GhJSON.Generation",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

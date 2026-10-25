@@ -93,7 +93,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Manipulates a list based on natural language criteria: filter, sort, reorder, select, shuffle, expand, or rearrange items. Example: list_filter({ list: ['beam', 'column', 'slab'], criteria: 'select structural elements only' }).",
-                category: "DataProcessing",
+                category: "Data.Lists",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

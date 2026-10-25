@@ -41,7 +41,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_document_new",
                 description: "Create a new blank Grasshopper document and make it the active document. Use gh_document_save with a filePath to save it to disk.",
-                category: "Document",
+                category: "Canvas.Documents",
                 parametersSchema: @"{ ""type"": ""object"", ""properties"": {} }",
                 execute: NewAsync,
                 mutatesCanvas: false,
