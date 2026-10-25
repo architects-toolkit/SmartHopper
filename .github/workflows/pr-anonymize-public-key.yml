@@ -1,11 +1,11 @@
 name: Anonymize Public Key
 
 # Description: This workflow automatically anonymizes the SmartHopperPublicKey
-# in SmartHopper.Infrastructure.csproj when changes are pushed to protected branches.
+# in Directory.Build.props when changes are pushed to protected branches.
 # It creates a PR with the anonymized key since direct commits to protected branches are blocked.
 #
 # Triggers:
-# - Automatically when SmartHopper.Infrastructure.csproj file is modified in protected branches
+# - Automatically when Directory.Build.props file is modified in protected branches
 # - Manually via workflow_dispatch
 #
 # Permissions:
@@ -19,7 +19,7 @@ on:
       - 'hotfix/**'
       - 'release/**'
     paths:
-      - 'src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj'
+      - 'Directory.Build.props'
   workflow_dispatch:
 
 permissions:
@@ -73,7 +73,7 @@ jobs:
         run: |
           $repoRoot = "${{ github.workspace }}"
           $anonymizeScript = Join-Path $repoRoot "tools\Anonymize-SmartHopperPublicKey.ps1"
-          $csprojPath = Join-Path $repoRoot "src\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj"
+          $propsPath = Join-Path $repoRoot "Directory.Build.props"
 
           if (-not (Test-Path $anonymizeScript)) {
             Write-Error "Anonymize script not found at $anonymizeScript"
@@ -81,7 +81,7 @@ jobs:
           }
 
           # Run anonymization
-          & $anonymizeScript -CsprojPath $csprojPath
+          & $anonymizeScript -CsprojPath $propsPath
           $exitCode = $LASTEXITCODE
 
           # Handle cases where LASTEXITCODE might be null or undefined
@@ -95,9 +95,9 @@ jobs:
           }
 
           # Check if file was modified
-          $gitStatus = git status --porcelain $csprojPath
+          $gitStatus = git status --porcelain $propsPath
           if ($gitStatus) {
-            Write-Host "Changes detected in $csprojPath"
+            Write-Host "Changes detected in $propsPath"
             echo "changes_made=true" >> $env:GITHUB_OUTPUT
           } else {
             Write-Host "No changes needed - file already anonymized"
@@ -113,7 +113,7 @@ jobs:
           commit-message: "chore: anonymize SmartHopperPublicKey"
           title: "chore: anonymize SmartHopperPublicKey for ${{ steps.set-branches.outputs.target_branch }}"
           body: |
-            This PR anonymizes the SmartHopperPublicKey in SmartHopper.Infrastructure.csproj to replace any real public key with a harmless placeholder.
+            This PR anonymizes the SmartHopperPublicKey in Directory.Build.props to replace any real public key with a harmless placeholder.
 
             This ensures the repository remains safe to share without exposing internal strong-name signing keys.
 

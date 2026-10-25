@@ -95,9 +95,9 @@ namespace SmartHopper.Providers.OpenAI
 
         /// <summary>
         /// Gets a value indicating whether this provider is configured in the current environment.
-        /// OpenAI requires a non-empty API key.
+        /// OpenAI requires either a non-empty API key or a "Continue with ChatGPT" sign-in.
         /// </summary>
-        public override bool IsConfigured => this.IsSettingConfigured("ApiKey");
+        public override bool IsConfigured => this.IsSettingConfigured("ApiKey") || this.IsChatGptConnected;
 
         /// <summary>
         /// Gets the provider's icon.
@@ -167,6 +167,9 @@ namespace SmartHopper.Providers.OpenAI
                 request.Endpoint = "/responses";
             }
 
+            // ChatGPT sign-in: resolve/refresh the OAuth grant and flag requests it serves.
+            request = await this.PrepareChatGptAuthAsync(request, cancellationToken).ConfigureAwait(false);
+
             return request;
         }
 
@@ -193,7 +196,9 @@ namespace SmartHopper.Providers.OpenAI
             }
             else if (request.Endpoint.Contains("/responses"))
             {
-                var input = this.BuildResponsesInput(request.Body.Interactions);
+                var useChatGptCredential = string.Equals(
+                    request.ResolvedCredentialTag, ChatGptCredentialTag, StringComparison.Ordinal);
+                var input = this.BuildResponsesInput(request.Body.Interactions, useChatGptCredential);
                 return this.FormatResponsesApiRequestBody(request, input);
             }
             else if (request.Endpoint.Contains("/chat/completions"))
@@ -210,7 +215,7 @@ namespace SmartHopper.Providers.OpenAI
         /// <inheritdoc/>
         public override string Encode(IAIInteraction interaction)
         {
-            var messageObj = this.EncodeToJToken(interaction, OpenAIRequestFormat.Responses);
+            var messageObj = this.EncodeToJToken(interaction, OpenAIRequestFormat.Responses, useChatGptCredential: false);
             return messageObj?.ToString();
         }
 
@@ -223,8 +228,17 @@ namespace SmartHopper.Providers.OpenAI
             Responses,
         }
 
-        /// <inheritdoc/>
-        private JToken? EncodeToJToken(IAIInteraction interaction, OpenAIRequestFormat format)
+        /// <summary>
+        /// Encodes a single interaction to the wire format of the selected OpenAI API.
+        /// </summary>
+        /// <param name="interaction">The interaction to encode.</param>
+        /// <param name="format">The target API format.</param>
+        /// <param name="useChatGptCredential">
+        /// True when the request is authenticated with a ChatGPT sign-in token; the
+        /// sign-in route rejects explicit "system" message items, so they are emitted
+        /// as developer messages instead.
+        /// </param>
+        private JToken? EncodeToJToken(IAIInteraction interaction, OpenAIRequestFormat format, bool useChatGptCredential)
         {
             // Skip UI-only diagnostics
             if (interaction is AIInteractionRuntimeMessage)
@@ -285,6 +299,16 @@ namespace SmartHopper.Providers.OpenAI
             }
 
             var role = OpenAICompatibleRoleMapper.MapRoleOrThrow(interaction.Agent, this.Name);
+
+            if (format == OpenAIRequestFormat.Responses
+                && useChatGptCredential
+                && string.Equals(role, "system", StringComparison.Ordinal))
+            {
+                // The ChatGPT sign-in route rejects explicit "system" message items;
+                // developer messages carry the same semantics.
+                role = "developer";
+            }
+
             var messageObj = new JObject { ["role"] = role };
 
             // Handle different interaction types
@@ -423,21 +447,21 @@ namespace SmartHopper.Providers.OpenAI
         /// </summary>
         private JArray BuildChatCompletionMessages(IReadOnlyList<IAIInteraction> interactions)
         {
-            return this.BuildFormattedMessages(interactions, OpenAIRequestFormat.ChatCompletions);
+            return this.BuildFormattedMessages(interactions, OpenAIRequestFormat.ChatCompletions, useChatGptCredential: false);
         }
 
         /// <summary>
         /// Builds the OpenAI <c>input</c> array for the Responses API.
         /// </summary>
-        private JArray BuildResponsesInput(IReadOnlyList<IAIInteraction> interactions)
+        private JArray BuildResponsesInput(IReadOnlyList<IAIInteraction> interactions, bool useChatGptCredential)
         {
-            return this.BuildFormattedMessages(interactions, OpenAIRequestFormat.Responses);
+            return this.BuildFormattedMessages(interactions, OpenAIRequestFormat.Responses, useChatGptCredential);
         }
 
         /// <summary>
         /// Builds the formatted message/input array from SmartHopper interactions.
         /// </summary>
-        private JArray BuildFormattedMessages(IReadOnlyList<IAIInteraction> interactions, OpenAIRequestFormat format)
+        private JArray BuildFormattedMessages(IReadOnlyList<IAIInteraction> interactions, OpenAIRequestFormat format, bool useChatGptCredential)
         {
             var messages = new JArray();
             string formatName = format == OpenAIRequestFormat.Responses ? "Responses" : "ChatCompletions";
@@ -478,7 +502,7 @@ namespace SmartHopper.Providers.OpenAI
 
             foreach (var interaction in mergedInteractions)
             {
-                var token = this.EncodeToJToken(interaction, format);
+                var token = this.EncodeToJToken(interaction, format, useChatGptCredential);
                 if (token is JArray tokenArray)
                 {
                     // A single interaction may expand to multiple messages (e.g. a tool result
@@ -859,12 +883,25 @@ namespace SmartHopper.Providers.OpenAI
             string? toolFilter = request.Body.ToolFilter;
             bool hasTools = !string.IsNullOrWhiteSpace(toolFilter);
 
+            var useChatGptCredential = string.Equals(
+                request.ResolvedCredentialTag, ChatGptCredentialTag, StringComparison.Ordinal);
+
             var requestBody = new JObject
             {
                 ["model"] = request.Model,
                 ["input"] = input,
-                ["max_output_tokens"] = maxTokens,
             };
+
+            if (useChatGptCredential)
+            {
+                // The ChatGPT sign-in route requires responses to be non-persisted;
+                // the streaming adapter adds "stream": true for the SSE transport.
+                requestBody["store"] = false;
+            }
+            else
+            {
+                requestBody["max_output_tokens"] = maxTokens;
+            }
 
             // Reasoning configuration is only supported by o-series and GPT-5 models on the Responses API.
             // Sending "reasoning" to other models (e.g. gpt-4o-mini) produces an unsupported_parameter error.
@@ -880,7 +917,8 @@ namespace SmartHopper.Providers.OpenAI
             }
 
             // Apply optional parameters from extras
-            if (p?.Extras != null)
+            // (skipped on the ChatGPT sign-in route, which rejects these fields)
+            if (p?.Extras != null && !useChatGptCredential)
             {
                 if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
                 {
@@ -1669,7 +1707,9 @@ namespace SmartHopper.Providers.OpenAI
                 AIReturn? authError = null;
                 try
                 {
-                    var apiKey = ((OpenAIProvider)this.Provider).GetApiKey();
+                    var apiKey = !string.IsNullOrWhiteSpace(request.ResolvedCredential)
+                        ? request.ResolvedCredential
+                        : ((OpenAIProvider)this.Provider).GetApiKey();
                     this.ApplyAuthentication(httpClient, request.Authentication, apiKey);
                 }
                 catch (Exception ex)
@@ -1703,6 +1743,41 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     yield return sendError;
                     yield break;
+                }
+
+                // When the sign-in credential is rejected, retry once with the fallback
+                // credential (a direct API key) before surfacing the error.
+                var statusCode = (int)response.StatusCode;
+                if (!response.IsSuccessStatusCode
+                    && (statusCode == 401 || statusCode == 403)
+                    && string.Equals(request.Authentication?.Trim(), "bearer", StringComparison.OrdinalIgnoreCase))
+                {
+                    var fallbackCredential = this.provider.GetAuthFallbackCredential(request);
+                    if (!string.IsNullOrWhiteSpace(fallbackCredential))
+                    {
+                        Debug.WriteLine($"[OpenAI] Sign-in credential rejected ({statusCode}); retrying once with the API key");
+                        response.Dispose();
+                        httpClient.DefaultRequestHeaders.Authorization =
+                            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", fallbackCredential);
+                        using var retryRequest = this.CreateSsePost(fullUrl, body.ToString(), "application/json");
+                        AIReturn? retryError = null;
+                        try
+                        {
+                            response = await this.SendForStreamAsync(httpClient, retryRequest, cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            retryError = new AIReturn();
+                            retryError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
+                            response = null!;
+                        }
+
+                        if (retryError != null)
+                        {
+                            yield return retryError;
+                            yield break;
+                        }
+                    }
                 }
 
                 if (!response.IsSuccessStatusCode)

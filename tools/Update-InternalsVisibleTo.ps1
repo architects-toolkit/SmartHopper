@@ -1,14 +1,14 @@
 <#
 .SYNOPSIS
-  Updates InternalsVisibleTo entries in SmartHopper.Infrastructure.csproj with the public key from signing.snk.
+  Updates InternalsVisibleTo entries in Directory.Build.props with the public key from signing.snk.
 .DESCRIPTION
   Extracts the public key from the strong-name key file (signing.snk) and updates the
-  SmartHopperPublicKey property in SmartHopper.Infrastructure.csproj.
+  SmartHopperPublicKey property in Directory.Build.props.
   This ensures InternalsVisibleTo attributes are generated at build time with the correct key.
 .PARAMETER SnkPath
   Path to the signing.snk file. Defaults to signing.snk in the solution root.
 .PARAMETER CsprojPath
-  Path to the .csproj file to update. Defaults to SmartHopper.Infrastructure.csproj.
+  Path to the project/props file to update. Defaults to Directory.Build.props.
 .PARAMETER Help
   Displays this help message.
 .EXAMPLE
@@ -31,7 +31,7 @@ function Show-Help {
     Write-Host ""
     Write-Host "Options:"
     Write-Host "  -SnkPath <path>     Path to signing.snk file (default: solution root)"
-    Write-Host "  -CsprojPath <path>  Path to .csproj file to update"
+    Write-Host "  -CsprojPath <path>  Path to project/props file to update"
     Write-Host "  -Help               Displays this help message"
 }
 
@@ -46,7 +46,7 @@ if (-not $SnkPath) {
     $SnkPath = Join-Path $scriptDir "signing.snk"
 }
 if (-not $CsprojPath) {
-    $CsprojPath = Join-Path $scriptDir "src\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj"
+    $CsprojPath = Join-Path $scriptDir "Directory.Build.props"
 }
 
 # Validate SNK exists
@@ -55,9 +55,9 @@ if (-not (Test-Path $SnkPath)) {
     exit 1
 }
 
-# Validate csproj exists
+# Validate target file exists
 if (-not (Test-Path $CsprojPath)) {
-    Write-Error ".csproj not found at: $CsprojPath"
+    Write-Error "Target file not found at: $CsprojPath"
     exit 1
 }
 

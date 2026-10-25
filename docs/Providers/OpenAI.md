@@ -58,11 +58,23 @@ Get your API key from [OpenAI Platform](https://platform.openai.com/):
 
 #### Settings
 
-- **API Key**: Your OpenAI API key (required)
+- **API Key**: Your OpenAI API key (optional when signed in with ChatGPT)
 - **Model**: Select from available OpenAI models (default resolved from registry)
 - **Enable Streaming**: Allow streaming responses (default: enabled)
 - **Max Tokens**: Maximum output tokens (default: 2000, range: 1–100000)
 - **Temperature**: Controls randomness (0.0–2.0, default: 0.5)
+
+#### Continue with ChatGPT
+
+As an alternative to an API key, the OpenAI provider can use a paid ChatGPT plan directly through OpenAI's token-sharing flow for open-source clients:
+
+1. Click **Continue with ChatGPT** in the provider settings — a browser opens OpenAI's sign-in page.
+2. Authorize SmartHopper; the redirect returns to a local loopback listener and the grant is stored encrypted in the provider settings store.
+3. The provider is then considered configured even without an API key.
+
+Credential precedence: the ChatGPT access token is used first for eligible endpoints (`/responses` and `/models`); if OpenAI rejects it with HTTP 401/403, the call retries once with the configured API key. With no ChatGPT grant the API key is used directly; with no API key the ChatGPT token is used alone.
+
+Constraints of plan usage: only the Responses API is supported (legacy endpoints such as `/images/generations` and audio always require an API key), requests are forced to `stream: true` + `store: false`, `max_output_tokens`/`temperature`/`top_p` are omitted, and system messages are sent as `developer` role. Tokens refresh automatically before expiry; **Disconnect** clears the stored grant.
 
 ### JSON Schema Support
 
