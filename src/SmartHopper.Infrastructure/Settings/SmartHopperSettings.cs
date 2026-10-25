@@ -42,11 +42,17 @@ namespace SmartHopper.Infrastructure.Settings
             "Grasshopper",
             "SmartHopper.json");
 
-        // Prefix for the current OS secure store encrypted format.
-        private const string SecurePrefix = "SH03:";
+        // Prefix for the current OS secure store encrypted format (AES-256-GCM).
+        private const string SecurePrefix = "SH04:";
 
-        // Legacy prefix used by earlier releases (still accepted on decrypt for backward compatibility).
+        // Legacy prefixes used by earlier releases (AES-256-CBC). Still accepted on decrypt for
+        // backward compatibility; stored values are re-encrypted to the current format on startup.
+        private const string LegacyCbcSecurePrefix = "SH03:";
         private const string LegacySecurePrefix = "SH02:";
+
+        // AES-GCM envelope layout: [nonce][tag][ciphertext].
+        private const int GcmNonceSize = 12;
+        private const int GcmTagSize = 16;
 
         // Recursion guard to prevent infinite loops during settings access
         [ThreadStatic]
@@ -139,10 +145,16 @@ namespace SmartHopper.Infrastructure.Settings
         public event EventHandler? SettingsSaved;
 
         /// <summary>
-        /// Gets or sets version of the encryption method used. 3 = OS secure store (SH03:).
+        /// Gets the highest encryption envelope this runtime can write: 4 = AES-256-GCM (SH04:),
+        /// 3 = AES-256-CBC (SH03:) where <see cref="AesGcm"/> is unsupported (net7.0 on macOS).
+        /// </summary>
+        private static int CurrentEncryptionVersion => AesGcm.IsSupported ? 4 : 3;
+
+        /// <summary>
+        /// Gets or sets version of the encryption method used. 4 = OS secure store (SH04:, AES-256-GCM).
         /// </summary>
         [JsonProperty]
-        public int EncryptionVersion { get; set; } = 3;
+        public int EncryptionVersion { get; set; } = CurrentEncryptionVersion;
 
         private static SmartHopperSettings? instance;
 
@@ -162,7 +174,7 @@ namespace SmartHopper.Infrastructure.Settings
             this.TrustedProviders = new Dictionary<string, bool>();
             this.ProviderIntegrityCheckMode = ProviderIntegrityCheckMode.Soft; // Default to soft verification
             this.SmartHopperAssistant = new SmartHopperAssistantSettings();
-            this.EncryptionVersion = 3;
+            this.EncryptionVersion = CurrentEncryptionVersion;
         }
 
         /// <summary>
@@ -466,6 +478,15 @@ namespace SmartHopper.Infrastructure.Settings
                 throw new InvalidOperationException("Cannot encrypt setting: OS secure store is unavailable.");
             }
 
+            // AesGcm throws PlatformNotSupportedException where the runtime lacks it
+            // (net7.0 on macOS). Those platforms keep writing the previous SH03: CBC
+            // envelope — still authenticated by the OS-store key, and readable via the
+            // legacy decrypt path — rather than crashing or silently storing plaintext.
+            if (!AesGcm.IsSupported)
+            {
+                return EncryptCbcWithSecureKey(plainText, key);
+            }
+
             return EncryptWithSecureKey(plainText, key);
         }
 
@@ -483,14 +504,22 @@ namespace SmartHopper.Infrastructure.Settings
 
             try
             {
-                // Accept the current secure prefix (SH03:) and the legacy prefix (SH02:) for backward compatibility.
-                if (encryptedText.StartsWith(SecurePrefix, StringComparison.Ordinal) ||
-                    encryptedText.StartsWith(LegacySecurePrefix, StringComparison.Ordinal))
+                // Accept the current secure prefix (SH04:, AES-GCM) and the legacy CBC prefixes
+                // (SH03:, SH02:) for backward compatibility.
+                var isGcm = encryptedText.StartsWith(SecurePrefix, StringComparison.Ordinal);
+                var isCbc =
+                    encryptedText.StartsWith(LegacyCbcSecurePrefix, StringComparison.Ordinal) ||
+                    encryptedText.StartsWith(LegacySecurePrefix, StringComparison.Ordinal);
+
+                if (isGcm || isCbc)
                 {
                     var key = GetOrCreateEncryptionKey();
                     if (key != null)
                     {
-                        return DecryptWithSecureKey(encryptedText.Substring(SecurePrefix.Length), key);
+                        var payload = encryptedText.Substring(SecurePrefix.Length);
+                        return isGcm
+                            ? DecryptGcmWithSecureKey(payload, key)
+                            : DecryptCbcWithSecureKey(payload, key);
                     }
                     else
                     {
@@ -556,19 +585,49 @@ namespace SmartHopper.Infrastructure.Settings
         }
 
         /// <summary>
-        /// Encrypts data using AES with the OS secure store protected key.
+        /// Encrypts data using AES-256-GCM with the OS secure store protected key.
+        /// </summary>
+        /// <param name="plainText">The plain text to encrypt.</param>
+        /// <param name="key">The encryption key from OS secure store.</param>
+        /// <returns>The encrypted string with SH04: prefix.</returns>
+        private static string EncryptWithSecureKey(string plainText, byte[] key)
+        {
+            var nonce = new byte[GcmNonceSize];
+            RandomNumberGenerator.Fill(nonce);
+
+            var plainBytes = Encoding.UTF8.GetBytes(plainText);
+            var cipherData = new byte[plainBytes.Length];
+            var tag = new byte[GcmTagSize];
+
+            using (var aes = new AesGcm(key))
+            {
+                aes.Encrypt(nonce, plainBytes, cipherData, tag);
+            }
+
+            // Combine: [nonce][tag][ciphertext]
+            var result = new List<byte>();
+            result.AddRange(nonce);
+            result.AddRange(tag);
+            result.AddRange(cipherData);
+
+            return SecurePrefix + Convert.ToBase64String(result.ToArray());
+        }
+
+        /// <summary>
+        /// Encrypts data using AES-256-CBC with the OS secure store protected key.
+        /// Retained for platforms where <see cref="AesGcm"/> is unsupported (net7.0 on
+        /// macOS): they keep writing the SH03: envelope they can still read back.
         /// </summary>
         /// <param name="plainText">The plain text to encrypt.</param>
         /// <param name="key">The encryption key from OS secure store.</param>
         /// <returns>The encrypted string with SH03: prefix.</returns>
-        private static string EncryptWithSecureKey(string plainText, byte[] key)
+        private static string EncryptCbcWithSecureKey(string plainText, byte[] key)
         {
             using (var aes = Aes.Create())
             {
                 aes.Key = key;
                 aes.GenerateIV();
 
-                // Encrypt data with AES
                 byte[] encryptedData;
                 using (var encryptor = aes.CreateEncryptor())
                 using (var msEncrypt = new MemoryStream())
@@ -580,22 +639,55 @@ namespace SmartHopper.Infrastructure.Settings
                     encryptedData = msEncrypt.ToArray();
                 }
 
-                // Combine: [iv][encrypted_data]
+                // Combine: [iv][encrypted_data] — matches the legacy decrypt layout.
                 var result = new List<byte>();
                 result.AddRange(aes.IV);
                 result.AddRange(encryptedData);
 
-                return SecurePrefix + Convert.ToBase64String(result.ToArray());
+                return LegacyCbcSecurePrefix + Convert.ToBase64String(result.ToArray());
             }
         }
 
         /// <summary>
-        /// Decrypts data using AES with the OS secure store protected key.
+        /// Decrypts an AES-256-GCM envelope with the OS secure store protected key.
         /// </summary>
-        /// <param name="encryptedData">The encrypted data (without SH02: prefix).</param>
+        /// <param name="encryptedData">The encrypted data (without SH04: prefix).</param>
         /// <param name="key">The encryption key from OS secure store.</param>
         /// <returns>The decrypted string.</returns>
-        private static string DecryptWithSecureKey(string encryptedData, byte[] key)
+        private static string DecryptGcmWithSecureKey(string encryptedData, byte[] key)
+        {
+            byte[] envelope = Convert.FromBase64String(encryptedData);
+            if (envelope.Length < GcmNonceSize + GcmTagSize)
+            {
+                throw new CryptographicException("Encrypted payload is too short to contain a GCM envelope.");
+            }
+
+            // Extract components: [nonce][tag][ciphertext]
+            byte[] nonce = new byte[GcmNonceSize];
+            Array.Copy(envelope, 0, nonce, 0, GcmNonceSize);
+
+            byte[] tag = new byte[GcmTagSize];
+            Array.Copy(envelope, GcmNonceSize, tag, 0, GcmTagSize);
+
+            byte[] cipherData = new byte[envelope.Length - GcmNonceSize - GcmTagSize];
+            Array.Copy(envelope, GcmNonceSize + GcmTagSize, cipherData, 0, cipherData.Length);
+
+            var plainBytes = new byte[cipherData.Length];
+            using (var aes = new AesGcm(key))
+            {
+                aes.Decrypt(nonce, cipherData, tag, plainBytes);
+            }
+
+            return Encoding.UTF8.GetString(plainBytes);
+        }
+
+        /// <summary>
+        /// Decrypts a legacy AES-256-CBC envelope with the OS secure store protected key.
+        /// </summary>
+        /// <param name="encryptedData">The encrypted data (without SH02:/SH03: prefix).</param>
+        /// <param name="key">The encryption key from OS secure store.</param>
+        /// <returns>The decrypted string.</returns>
+        private static string DecryptCbcWithSecureKey(string encryptedData, byte[] key)
         {
             byte[] envelope = Convert.FromBase64String(encryptedData);
 
@@ -695,18 +787,15 @@ namespace SmartHopper.Infrastructure.Settings
         }
 
         /// <summary>
-        /// Migrates Windows secrets from the legacy SH02: prefix to the current SH03: prefix.
-        /// The encryption key is unchanged, so this is a safe, lossless prefix rename.
-        /// macOS is intentionally skipped because the old file-based master key cannot be recovered reliably.
+        /// Migrates secrets stored with the legacy AES-CBC prefixes (SH02:, SH03:) to the current
+        /// SH04: AES-GCM format. The encryption key is unchanged, so this is a safe, lossless
+        /// re-encryption. Skipped entirely where <see cref="AesGcm"/> is unsupported (net7.0 on
+        /// macOS): producing SH04: envelopes there would make secrets unreadable locally, while
+        /// SH02:/SH03: values remain decryptable and are still handled by the warning flow.
         /// </summary>
-        internal void MigrateWindowsSH02ToSH03()
+        internal void MigrateLegacySecretsToSH04()
         {
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                return;
-            }
-
-            if (this.ProviderSettings == null)
+            if (!AesGcm.IsSupported || this.ProviderSettings == null)
             {
                 return;
             }
@@ -714,7 +803,7 @@ namespace SmartHopper.Infrastructure.Settings
             var key = GetOrCreateEncryptionKey();
             if (key == null)
             {
-                Debug.WriteLine("[Migration] Cannot migrate SH02: to SH03: Windows secure store key unavailable.");
+                Debug.WriteLine("[Migration] Cannot migrate legacy secrets to SH04: secure store key unavailable.");
                 return;
             }
 
@@ -737,7 +826,8 @@ namespace SmartHopper.Infrastructure.Settings
                     var encryptedValue = settingKvp.Value?.ToString();
 
                     if (string.IsNullOrWhiteSpace(encryptedValue) ||
-                        !encryptedValue.StartsWith(LegacySecurePrefix, StringComparison.Ordinal))
+                        (!encryptedValue.StartsWith(LegacySecurePrefix, StringComparison.Ordinal) &&
+                         !encryptedValue.StartsWith(LegacyCbcSecurePrefix, StringComparison.Ordinal)))
                     {
                         continue;
                     }
@@ -750,7 +840,7 @@ namespace SmartHopper.Infrastructure.Settings
 
                     try
                     {
-                        var plainText = DecryptWithSecureKey(encryptedValue.Substring(LegacySecurePrefix.Length), key);
+                        var plainText = DecryptCbcWithSecureKey(encryptedValue.Substring(LegacySecurePrefix.Length), key);
                         if (string.IsNullOrWhiteSpace(plainText))
                         {
                             continue;
@@ -758,7 +848,7 @@ namespace SmartHopper.Infrastructure.Settings
 
                         settings[settingName] = EncryptWithSecureKey(plainText, key);
                         migratedAny = true;
-                        Debug.WriteLine($"[Migration] Migrated {providerName}.{settingName} from SH02: to SH03:.");
+                        Debug.WriteLine($"[Migration] Migrated {providerName}.{settingName} to SH04: AES-GCM.");
                     }
                     catch (Exception ex)
                     {
@@ -769,9 +859,9 @@ namespace SmartHopper.Infrastructure.Settings
 
             if (migratedAny)
             {
-                this.EncryptionVersion = 3;
+                this.EncryptionVersion = CurrentEncryptionVersion;
                 this.Save();
-                Debug.WriteLine("[Migration] Windows SH02: to SH03: migration completed and saved.");
+                Debug.WriteLine("[Migration] Legacy secrets to SH04: migration completed and saved.");
             }
         }
 
@@ -833,7 +923,7 @@ namespace SmartHopper.Infrastructure.Settings
                 }
             }
 
-            this.EncryptionVersion = 3;
+            this.EncryptionVersion = CurrentEncryptionVersion;
         }
 
         private static IEnumerable<SettingDescriptor> GetProviderDescriptors(string providerName)

@@ -103,10 +103,12 @@ namespace SmartHopper.Infrastructure.Initialization
                             // background task and never throws — failures degrade to the seed lists.
                             await ModelCatalogueService.Instance.RefreshAsync().ConfigureAwait(false);
 
-                            // Step 4: On Windows, migrate any remaining SH02: prefixed secrets to the current SH03: prefix.
-                            // macOS is skipped because the old file-based master key cannot be recovered reliably.
-                            settings.MigrateWindowsSH02ToSH03();
-                            Debug.WriteLine("[SmartHopperInitializer] Windows SH02: to SH03: migration check completed");
+                            // Step 4: Migrate any secrets still stored with the legacy AES-CBC
+                            // prefixes (SH02:, SH03:) to the current SH04: AES-GCM format. Runs on
+                            // every platform; on macOS an unrecoverable SH02: value simply fails to
+                            // decrypt, stays in place, and is still cleared by the menu warning flow.
+                            settings.MigrateLegacySecretsToSH04();
+                            Debug.WriteLine("[SmartHopperInitializer] Legacy secrets to SH04: migration check completed");
 
                             // Step 5: Now that both settings and providers are fully initialized, run integrity check
                             // Run integrity check on UI thread as it may interact with Rhino/Grasshopper
