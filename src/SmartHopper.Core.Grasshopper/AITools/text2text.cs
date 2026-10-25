@@ -88,7 +88,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "text", "data-processing", "read-only", "ai-generation" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""string"", ""description"": ""Generated text response."" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true),
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
                 surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
         }
 

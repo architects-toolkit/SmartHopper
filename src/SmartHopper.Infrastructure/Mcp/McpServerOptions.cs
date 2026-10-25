@@ -73,6 +73,20 @@ namespace SmartHopper.Infrastructure.Mcp
         public bool AllowViewControl { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether tools marked with the
+        /// <see cref="SmartHopper.Infrastructure.AITools.AIToolAnnotations.OpenWorldHint"/>
+        /// annotation are exposed. Open-world tools interact with entities beyond the
+        /// Grasshopper document — they read or write local files (file2md, rhino_*_3dm,
+        /// gh_document_open/save), capture the screen (screenshots), fetch arbitrary URLs
+        /// (web2md, Discourse tools) or spend AI provider credits (text2*, script_*,
+        /// gh_generate, img2text, speech_generate, providers_models). Defaults to
+        /// <c>false</c> so an unauthenticated loopback client cannot exfiltrate local data
+        /// or consume paid provider calls. An explicit <see cref="EnabledTools"/> allow-list
+        /// overrides this filter.
+        /// </summary>
+        public bool AllowExternalTools { get; set; }
+
+        /// <summary>
         /// Gets or sets the server identifier reported during MCP <c>initialize</c>.
         /// </summary>
         public string ServerName { get; set; } = "smarthopper";
@@ -96,6 +110,7 @@ namespace SmartHopper.Infrastructure.Mcp
                 ExposeMutatingTools = this.ExposeMutatingTools,
                 BypassMutationsApproval = this.BypassMutationsApproval,
                 AllowViewControl = this.AllowViewControl,
+                AllowExternalTools = this.AllowExternalTools,
                 ServerName = this.ServerName,
                 ServerVersion = this.ServerVersion,
             };

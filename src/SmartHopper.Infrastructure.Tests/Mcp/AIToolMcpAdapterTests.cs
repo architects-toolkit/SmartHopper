@@ -151,6 +151,53 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         }
 
         [Fact]
+        public void BuildDescriptors_OmitsExternalToolsByDefault()
+        {
+            var tools = BuildCatalogWithAnnotations(
+                ("gh_get", ReadOnlySchema, false, false),
+                ("file2md", ReadOnlySchema, false, true));
+            var adapter = new AIToolMcpAdapter(new McpServerOptions(), () => tools, _ => Task.FromResult(new AIReturn()));
+
+            var descriptors = adapter.BuildDescriptors();
+
+            Assert.Single(descriptors);
+            Assert.Equal("gh_get", descriptors[0].Name);
+            Assert.False(adapter.IsExposed("file2md"));
+        }
+
+        [Fact]
+        public void BuildDescriptors_IncludesExternalToolsWhenOptedIn()
+        {
+            var tools = BuildCatalogWithAnnotations(
+                ("gh_get", ReadOnlySchema, false, false),
+                ("file2md", ReadOnlySchema, false, true));
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { AllowExternalTools = true },
+                () => tools,
+                _ => Task.FromResult(new AIReturn()));
+
+            var descriptors = adapter.BuildDescriptors();
+
+            Assert.Equal(2, descriptors.Count);
+            Assert.Contains(descriptors, d => d.Name == "file2md");
+        }
+
+        [Fact]
+        public void BuildDescriptors_AllowListOverridesExternalFilter()
+        {
+            var tools = BuildCatalogWithAnnotations(("file2md", ReadOnlySchema, false, true));
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { EnabledTools = new[] { "file2md" } },
+                () => tools,
+                _ => Task.FromResult(new AIReturn()));
+
+            var descriptors = adapter.BuildDescriptors();
+
+            Assert.Single(descriptors);
+            Assert.Equal("file2md", descriptors[0].Name);
+        }
+
+        [Fact]
         public void BuildDescriptors_ParsesParametersSchemaIntoJObject()
         {
             var tools = BuildCatalog(("gh_get", ReadOnlySchema, false));
@@ -572,6 +619,28 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
                     execute: _ => Task.FromResult(new AIReturn()),
                     mutatesCanvas: mutatesCanvas,
                     enabled: true);
+            }
+
+            return dict;
+        }
+
+        private static IReadOnlyDictionary<string, AITool> BuildCatalogWithAnnotations(params (string name, string schema, bool mutatesCanvas, bool openWorld)[] entries)
+        {
+            var dict = new Dictionary<string, AITool>();
+            foreach (var (name, schema, mutatesCanvas, openWorld) in entries)
+            {
+                dict[name] = new AITool(
+                    name: name,
+                    description: $"Test tool {name}",
+                    category: "Test",
+                    parametersSchema: schema,
+                    execute: _ => Task.FromResult(new AIReturn()),
+                    mutatesCanvas: mutatesCanvas,
+                    enabled: true,
+                    annotations: new AIToolAnnotations(
+                        readOnlyHint: !mutatesCanvas,
+                        destructiveHint: mutatesCanvas,
+                        openWorldHint: openWorld));
             }
 
             return dict;

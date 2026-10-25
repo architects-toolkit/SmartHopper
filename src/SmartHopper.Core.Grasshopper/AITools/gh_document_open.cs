@@ -53,7 +53,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "document", "open", "file" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""alreadyOpen"": { ""type"": ""boolean"" }, ""document"": { ""type"": ""object"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: false),
+                annotations: new AIToolAnnotations(readOnlyHint: false, openWorldHint: true),
                 surfaces: GhDocumentTools.InteractiveSurfaces);
         }
 

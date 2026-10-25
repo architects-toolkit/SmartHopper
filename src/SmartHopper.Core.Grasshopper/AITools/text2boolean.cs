@@ -90,7 +90,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "text", "boolean", "data-processing", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""boolean"", ""description"": ""Boolean evaluation result or fallback value."" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true),
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
                 surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
         }
 

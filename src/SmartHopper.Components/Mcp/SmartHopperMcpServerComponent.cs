@@ -44,6 +44,7 @@ namespace SmartHopper.Components.Mcp
         private bool lastExposeMutating;
         private bool lastAutoApprove;
         private bool lastAllowViewControl;
+        private bool lastAllowExternalTools;
         private string? lastStatus;
 
         /// <summary>
@@ -117,6 +118,13 @@ namespace SmartHopper.Components.Mcp
                 GH_ParamAccess.item,
                 false);
             pManager[5].Optional = true;
+            pManager.AddBooleanParameter(
+                "Allow External Tools",
+                "ET",
+                "When true, tools that reach outside the Grasshopper document (openWorldHint) are exposed: local file reads/writes (file2md, rhino_*_3dm, gh_document_open/save), screen captures, URL fetches (web2md, Discourse) and AI provider calls (text2*, script_*, gh_generate, img2text, speech_generate, providers_models). Defaults to false so unauthenticated clients cannot read local files, fetch arbitrary URLs or spend provider credits.",
+                GH_ParamAccess.item,
+                false);
+            pManager[6].Optional = true;
         }
 
         /// <inheritdoc/>
@@ -135,6 +143,7 @@ namespace SmartHopper.Components.Mcp
             bool exposeMutating = false;
             bool autoApprove = false;
             bool allowViewControl = false;
+            bool allowExternalTools = false;
 
             DA.GetData(0, ref enable);
             this.lastEnable = enable;
@@ -143,10 +152,11 @@ namespace SmartHopper.Components.Mcp
             DA.GetData(3, ref exposeMutating);
             DA.GetData(4, ref autoApprove);
             DA.GetData(5, ref allowViewControl);
+            DA.GetData(6, ref allowExternalTools);
 
             try
             {
-                this.ApplyToggle(enable, port, token, exposeMutating, autoApprove, allowViewControl);
+                this.ApplyToggle(enable, port, token, exposeMutating, autoApprove, allowViewControl, allowExternalTools);
             }
             catch (Exception ex)
             {
@@ -178,7 +188,7 @@ namespace SmartHopper.Components.Mcp
             base.DocumentContextChanged(document, context);
         }
 
-        private void ApplyToggle(bool enable, int port, string token, bool exposeMutating, bool autoApprove, bool allowViewControl)
+        private void ApplyToggle(bool enable, int port, string token, bool exposeMutating, bool autoApprove, bool allowViewControl, bool allowExternalTools)
         {
             string? normalizedToken = string.IsNullOrWhiteSpace(token) ? null : token;
 
@@ -194,7 +204,8 @@ namespace SmartHopper.Components.Mcp
                 this.lastToken == normalizedToken &&
                 this.lastExposeMutating == exposeMutating &&
                 this.lastAutoApprove == autoApprove &&
-                this.lastAllowViewControl == allowViewControl)
+                this.lastAllowViewControl == allowViewControl &&
+                this.lastAllowExternalTools == allowExternalTools)
             {
                 this.lastStatus = $"Running on {McpServerLifecycle.Find(port)?.Url}";
                 return;
@@ -211,6 +222,7 @@ namespace SmartHopper.Components.Mcp
                 ExposeMutatingTools = exposeMutating,
                 BypassMutationsApproval = autoApprove,
                 AllowViewControl = allowViewControl,
+                AllowExternalTools = allowExternalTools,
             };
             var server = McpServerLifecycle.Acquire(this, options);
             this.acquired = true;
@@ -219,6 +231,7 @@ namespace SmartHopper.Components.Mcp
             this.lastExposeMutating = exposeMutating;
             this.lastAutoApprove = autoApprove;
             this.lastAllowViewControl = allowViewControl;
+            this.lastAllowExternalTools = allowExternalTools;
             this.lastStatus = $"Running on {server.Url}";
         }
 

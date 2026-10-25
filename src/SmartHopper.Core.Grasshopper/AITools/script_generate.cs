@@ -146,7 +146,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "scripting", "script", "ghjson", "read-only", "ai-generation" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON string representing the generated script component."" }, ""language"": { ""type"": ""string"" }, ""nickname"": { ""type"": ""string"" }, ""summary"": { ""type"": ""string"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
 
             // Wrapper tool that generates and places the component on canvas in one call.
             yield return new AITool(
@@ -173,7 +173,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: true,
                 tags: new[] { "scripting", "script", "canvas", "mutating", "ghjson" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON of the placed component."" }, ""instanceGuid"": { ""type"": ""string"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false),
+                annotations: new AIToolAnnotations(destructiveHint: false, openWorldHint: true),
                 surfaces: SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp);
         }
 

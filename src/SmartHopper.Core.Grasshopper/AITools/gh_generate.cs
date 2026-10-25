@@ -78,7 +78,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "canvas", "components", "ghjson", "read-only", "ai-generation" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""ghjson"": { ""type"": ""string"", ""description"": ""Generated GhJSON document as a compact string."" }, ""componentCount"": { ""type"": ""integer"" }, ""message"": { ""type"": ""string"" } }, ""required"": [""success""] }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
 
             yield return new AITool(
                 name: this.wrapperToolName,
@@ -109,7 +109,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "ghjson", "mutating", "ai-generation" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""ghjson"": { ""type"": [""string"", ""null""] }, ""instanceGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""components"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""message"": { ""type"": ""string"" } }, ""required"": [""success""] }",
-                annotations: new AIToolAnnotations(destructiveHint: false),
+                annotations: new AIToolAnnotations(destructiveHint: false, openWorldHint: true),
                 surfaces: SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp);
         }
 

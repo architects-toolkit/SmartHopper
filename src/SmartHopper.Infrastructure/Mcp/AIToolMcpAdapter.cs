@@ -148,6 +148,11 @@ namespace SmartHopper.Infrastructure.Mcp
                 return false;
             }
 
+            if (!this.options.AllowExternalTools && tool.Annotations?.OpenWorldHint == true)
+            {
+                return false;
+            }
+
             return true;
         }
 

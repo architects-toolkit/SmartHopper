@@ -141,7 +141,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "scripting", "script", "ghjson", "read-only", "ai-generation" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Updated GhJSON string representing the edited script component."" }, ""changesSummary"": { ""type"": ""string"" }, ""nickname"": { ""type"": ""string"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
 
             // Wrapper tool that edits and replaces the component on canvas in one call.
             // Uses instanceGuid to automatically retrieve GhJSON, call script_edit, and then gh_put.
@@ -168,7 +168,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: true,
                 tags: new[] { "scripting", "script", "canvas", "mutating", "ghjson" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON of the updated component."" }, ""instanceGuid"": { ""type"": ""string"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false),
+                annotations: new AIToolAnnotations(destructiveHint: false, openWorldHint: true),
                 surfaces: SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp);
         }
 
