@@ -85,11 +85,8 @@ namespace SmartHopper.Infrastructure.Tests
             settings.SetSetting("Provider", "Token", "hidden-token");
 
             var storedValue = settings.ProviderSettings["Provider"]["Token"].ToString();
-#if NET7_WINDOWS
-            Assert.StartsWith("SH04:", storedValue, System.StringComparison.Ordinal);
-#else
-            Assert.StartsWith("SH03:", storedValue, System.StringComparison.Ordinal);
-#endif
+            var expectedPrefix = System.Security.Cryptography.AesGcm.IsSupported ? "SH04:" : "SH03:";
+            Assert.StartsWith(expectedPrefix, storedValue, System.StringComparison.Ordinal);
             Assert.DoesNotContain("hidden-token", storedValue, System.StringComparison.Ordinal);
             Assert.Equal("hidden-token", settings.GetSetting("Provider", "Token"));
 
