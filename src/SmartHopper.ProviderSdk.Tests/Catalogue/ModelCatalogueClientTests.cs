@@ -176,11 +176,11 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
         [Fact]
         public void MapsWireProviderIdsToPluginNames()
         {
-            var bytes = Encoding.UTF8.GetBytes(CatalogueJson(provider: "smarthoppercloud", modelId: "openai/gpt-5.6-terra"));
+            var bytes = Encoding.UTF8.GetBytes(CatalogueJson(provider: "openai", modelId: "openai/gpt-5.6-terra"));
             var doc = CatalogueWire.ParseDocument(bytes);
             var mapped = CatalogueWire.ToRegistryEntries(doc);
-            Assert.True(mapped.ContainsKey("smarthopper cloud"));
-            Assert.Equal("smarthopper cloud", mapped["smarthopper cloud"][0].Provider);
+            Assert.True(mapped.ContainsKey("openai"));
+            Assert.Equal("openai", mapped["openai"][0].Provider);
         }
 
         [Fact]
