@@ -427,8 +427,18 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 return result;
             }
 
-            // Execute CallApi
-            var response = await this.CallApi(request, cancellationToken).ConfigureAwait(false);
+            // Execute CallApi — through the streaming adapter when the request declares
+            // streaming intent (set by the caller or by the provider in PreCallAsync).
+            IAIReturn response;
+            var streamingAdapter = request.WantsStreaming ? this.GetStreamingAdapter() : null;
+            if (streamingAdapter != null)
+            {
+                response = await this.CallApiStreaming(request, streamingAdapter, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                response = await this.CallApi(request, cancellationToken).ConfigureAwait(false);
+            }
 
             // For backoffice/admin-style calls, return raw without chat decoding or timestamping
             if (request?.RequestKind == AIRequestKind.Backoffice)
@@ -580,6 +590,20 @@ namespace SmartHopper.ProviderSdk.AIProviders
         protected virtual string GetApiKey()
         {
             return this.GetSetting<string>("ApiKey") ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Returns an alternate credential for a single retry when a bearer-authenticated
+        /// request is rejected with HTTP 401 or 403. Providers holding more than one
+        /// credential type (for example a signed-in OAuth token plus a direct API key)
+        /// can use this to fall back when the primary credential fails. The default
+        /// returns <c>null</c>, which disables the retry.
+        /// </summary>
+        /// <param name="request">The request whose primary credential was rejected.</param>
+        /// <returns>The alternate credential to retry with, or <c>null</c> for no retry.</returns>
+        protected virtual string? GetAuthFallbackCredential(AIRequestCall request)
+        {
+            return null;
         }
 
         /// <summary>
@@ -1073,8 +1097,11 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 // Set up authentication from request
                 var auth = authentication?.Trim().ToLowerInvariant();
 
-                // Centralized API key handling: fetch from provider settings
-                var apiKey = this.GetApiKey();
+                // Centralized API key handling: fetch from provider settings.
+                // A credential resolved by the provider during PreCallAsync takes precedence.
+                var apiKey = !string.IsNullOrWhiteSpace(request?.ResolvedCredential)
+                    ? request!.ResolvedCredential!
+                    : this.GetApiKey();
 
                 if (string.IsNullOrWhiteSpace(auth) || auth == "none")
                 {
@@ -1123,22 +1150,40 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 HttpResponseMessage response = null;
                 try
                 {
-                    switch (httpMethod.ToUpper(CultureInfo.InvariantCulture))
+                    Task<HttpResponseMessage> SendAsync()
                     {
-                        case "GET":
-                            response = await httpClient.GetAsync(fullUri, cancellationToken).ConfigureAwait(false);
-                            break;
-                        case "POST":
-                            response = await httpClient.PostAsync(fullUri, this.BuildRequestContent(request), cancellationToken).ConfigureAwait(false);
-                            break;
-                        case "DELETE":
-                            response = await httpClient.DeleteAsync(fullUri, cancellationToken).ConfigureAwait(false);
-                            break;
-                        case "PATCH":
-                            response = await httpClient.PatchAsync(fullUri, this.BuildRequestContent(request), cancellationToken).ConfigureAwait(false);
-                            break;
-                        default:
-                            throw new NotSupportedException($"HTTP method '{httpMethod}' is not supported. Supported methods: GET, POST, DELETE, PATCH");
+                        switch (httpMethod.ToUpper(CultureInfo.InvariantCulture))
+                        {
+                            case "GET":
+                                return httpClient.GetAsync(fullUri, cancellationToken);
+                            case "POST":
+                                return httpClient.PostAsync(fullUri, this.BuildRequestContent(request), cancellationToken);
+                            case "DELETE":
+                                return httpClient.DeleteAsync(fullUri, cancellationToken);
+                            case "PATCH":
+                                return httpClient.PatchAsync(fullUri, this.BuildRequestContent(request), cancellationToken);
+                            default:
+                                throw new NotSupportedException($"HTTP method '{httpMethod}' is not supported. Supported methods: GET, POST, DELETE, PATCH");
+                        }
+                    }
+
+                    response = await SendAsync().ConfigureAwait(false);
+
+                    // When a bearer credential is rejected, providers may offer an alternate
+                    // credential for exactly one retry (for example a sign-in token followed
+                    // by a direct API key).
+                    if (!response.IsSuccessStatusCode
+                        && string.Equals(auth, "bearer", StringComparison.Ordinal)
+                        && ((int)response.StatusCode == 401 || (int)response.StatusCode == 403))
+                    {
+                        var fallbackCredential = this.GetAuthFallbackCredential(request);
+                        if (!string.IsNullOrWhiteSpace(fallbackCredential) && !string.Equals(fallbackCredential, apiKey, StringComparison.Ordinal))
+                        {
+                            Debug.WriteLine($"[{this.Name}] Call - Primary credential rejected ({(int)response.StatusCode}); retrying once with the fallback credential");
+                            response.Dispose();
+                            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", fallbackCredential);
+                            response = await SendAsync().ConfigureAwait(false);
+                        }
                     }
 
                     // Detect binary audio payloads (e.g. /audio/speech returning audio/mpeg) before
@@ -1241,6 +1286,59 @@ namespace SmartHopper.ProviderSdk.AIProviders
                     response?.Dispose();
                 }
             }
+        }
+
+        /// <summary>
+        /// Executes the request through the provider's streaming adapter and returns the
+        /// last delta as the aggregated result. Used when a request declares
+        /// <see cref="AIRequestBase.WantsStreaming"/> inside the <see cref="Call"/> pipeline.
+        /// </summary>
+        /// <param name="request">The prepared request to execute.</param>
+        /// <param name="adapter">The provider's streaming adapter.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>The final aggregated <see cref="AIReturn"/>.</returns>
+        private async Task<IAIReturn> CallApiStreaming(AIRequestCall request, IStreamingAdapter adapter, CancellationToken cancellationToken)
+        {
+            var finalReturn = new AIReturn();
+            var streamingOptions = new StreamingOptions
+            {
+                CoalesceTokens = true,
+                CoalesceDelayMs = 40,
+                PreferredChunkSize = 24,
+            };
+
+            try
+            {
+                await foreach (var delta in adapter.StreamAsync(request, streamingOptions, cancellationToken).ConfigureAwait(false))
+                {
+                    if (delta == null)
+                    {
+                        continue;
+                    }
+
+                    finalReturn = delta;
+                    if (delta.Body?.GetNewInteractions()?.Any() == true)
+                    {
+                        var lastInteraction = delta.Body.GetNewInteractions().LastOrDefault();
+                        if (lastInteraction is AIInteractionText textInteraction && !string.IsNullOrEmpty(textInteraction.Content))
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine($"[{this.Name}] Call - Streaming cancelled");
+                finalReturn.CreateProviderError("Streaming cancelled", request);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{this.Name}] Call - Streaming failed: {ex.Message}");
+                finalReturn.CreateProviderError($"Streaming failed: {ex.Message}", request);
+            }
+
+            return finalReturn;
         }
 
         /// <summary>

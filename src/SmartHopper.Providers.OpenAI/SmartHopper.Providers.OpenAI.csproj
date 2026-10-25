@@ -39,6 +39,20 @@
     <ProjectReference Include="..\SmartHopper.ProviderSdk\SmartHopper.ProviderSdk.csproj" />
   </ItemGroup>
 
+  <!--
+    Generate InternalsVisibleTo attributes at build time.
+    The PublicKey is updated by tools/Update-InternalsVisibleTo.ps1 which extracts it from signing.snk.
+    Run that script after generating or updating the signing key.
+  -->
+  <PropertyGroup>
+    <SmartHopperPublicKey>This value is automatically replaced by the build tooling before official builds.</SmartHopperPublicKey>
+    <!-- Only emit a strong-name public key for InternalsVisibleTo when the assembly is actually signed. -->
+    <SmartHopperPublicKeyForIvt Condition="'$(SignAssembly)' != 'false'">$(SmartHopperPublicKey)</SmartHopperPublicKeyForIvt>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SmartHopper.ProviderSdk.Tests" Key="$(SmartHopperPublicKeyForIvt)" />
+  </ItemGroup>
+
   <!-- For Windows only builds -->
   <PropertyGroup Condition="$(TargetFramework.Contains('-windows')) or $(TargetFramework.StartsWith('net4'))">
     <UseWindowsForms>true</UseWindowsForms>

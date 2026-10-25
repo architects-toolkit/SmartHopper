@@ -18,12 +18,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Settings;
@@ -39,6 +41,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         private readonly Dictionary<string, Control> _controls;
         private readonly Dictionary<string, string> _originalValues;
         private readonly Dictionary<Type, Func<SettingDescriptor, Control>> _controlFactories;
+        private UITimer? _refreshTimer;
 
         // Bound each control's preferred width: drop-downs size to their longest
         // item, and inside the Scrollable every scaled row stretches to the
@@ -67,6 +70,13 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             };
 
             this.CreateLayout();
+
+            // Periodically re-read persisted provider settings so controls that change
+            // asynchronously (one-shot action buttons, status labels) stay live while
+            // the settings page is open.
+            this._refreshTimer = new UITimer { Interval = 2 };
+            this._refreshTimer.Elapsed += (sender, e) => this.SafeReloadProviderSettings();
+            this._refreshTimer.Start();
         }
 
         /// <summary>
@@ -208,12 +218,86 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 return this.CreateButtonControl(descriptor);
             }
 
+            if (descriptor.ControlParams is StatusSettingDescriptorControl)
+            {
+                return this.CreateStatusControl(descriptor);
+            }
+
+            if (descriptor.ControlParams is LinkSettingDescriptorControl)
+            {
+                return this.CreateLinkControl(descriptor);
+            }
+
             if (this._controlFactories.ContainsKey(descriptor.Type))
             {
                 return this._controlFactories[descriptor.Type](descriptor);
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Creates a read-only status label whose colour follows a sibling level
+        /// setting ("ok", "busy", "error", anything else = neutral).
+        /// </summary>
+        private Control CreateStatusControl(SettingDescriptor descriptor)
+        {
+            return new Label
+            {
+                Wrap = WrapMode.Word,
+                Font = new Font(SystemFont.Bold),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+        }
+
+        /// <summary>
+        /// Applies the status colour mapped from the sibling level setting.
+        /// </summary>
+        private void ApplyStatusColor(SettingDescriptor descriptor, Label statusLabel, Dictionary<string, object> providerSettings)
+        {
+            var level = string.Empty;
+            if (descriptor.ControlParams is StatusSettingDescriptorControl statusParams
+                && !string.IsNullOrWhiteSpace(statusParams.LevelSettingName)
+                && providerSettings.TryGetValue(statusParams.LevelSettingName, out var levelValue))
+            {
+                level = levelValue?.ToString() ?? string.Empty;
+            }
+
+            statusLabel.TextColor = level switch
+            {
+                "ok" => Colors.Green,
+                "busy" => Colors.Orange,
+                "error" => Colors.Red,
+                _ => Colors.Gray,
+            };
+        }
+
+        /// <summary>
+        /// Creates a hyperlink that opens the configured URL in the browser.
+        /// </summary>
+        private Control CreateLinkControl(SettingDescriptor descriptor)
+        {
+            var linkParams = (LinkSettingDescriptorControl)descriptor.ControlParams!;
+            var link = new LinkButton
+            {
+                Text = !string.IsNullOrWhiteSpace(linkParams.Text) ? linkParams.Text : linkParams.Url,
+            };
+            link.Click += (sender, e) =>
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = linkParams.Url,
+                        UseShellExecute = true,
+                    });
+                }
+                catch (Exception ex)
+                {
+                    StyledMessageDialog.ShowError($"Failed to open URL: {ex.Message}", "Error");
+                }
+            };
+            return link;
         }
 
         /// <summary>
@@ -397,6 +481,15 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     }
 
                     break;
+
+                case Label label:
+                    label.Text = stringValue;
+                    break;
+            }
+
+            if (control is Label statusLabel && descriptor.ControlParams is StatusSettingDescriptorControl)
+            {
+                this.ApplyStatusColor(descriptor, statusLabel, providerSettings);
             }
         }
 
@@ -417,6 +510,12 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 }
 
                 var control = this._controls[descriptor.Name];
+                if (!control.Enabled)
+                {
+                    // Disabled controls are read-only and do not submit values.
+                    continue;
+                }
+
                 object newValue = null;
 
                 switch (control)
@@ -449,6 +548,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
                         break;
                     case Button _:
+                    case Label _:
+                    case LinkButton _:
                         continue;
                 }
 
@@ -476,8 +577,25 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         }
 
         /// <summary>
+        /// Timer entry point that keeps the periodic refresh alive even when a single
+        /// reload fails; failures are logged instead of surfacing on the UI thread.
+        /// </summary>
+        private void SafeReloadProviderSettings()
+        {
+            try
+            {
+                this.ReloadProviderSettings();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[SettingsPage] Periodic settings reload failed for {this._provider?.Name}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Reloads the UI control values from the currently persisted provider settings.
-        /// Useful after a one-shot action (e.g. OAuth login) updates values such as status.
+        /// Also re-applies descriptor-level enabled flags, button texts and status
+        /// colours so dynamic descriptors stay live while the page is open.
         /// </summary>
         private void ReloadProviderSettings()
         {
@@ -488,9 +606,26 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             {
                 if (this._controls.TryGetValue(descriptor.Name, out var control))
                 {
-                    this.LoadSettingValue(descriptor, control, providerSettings);
+                    control.Enabled = descriptor.Enabled;
+
+                    if (control is Button button)
+                    {
+                        button.Text = ButtonText(descriptor);
+                    }
+                    else
+                    {
+                        this.LoadSettingValue(descriptor, control, providerSettings);
+                    }
                 }
             }
+        }
+
+        private static string ButtonText(SettingDescriptor descriptor)
+        {
+            var buttonParams = descriptor.ControlParams as ButtonSettingDescriptorControl;
+            return !string.IsNullOrWhiteSpace(buttonParams?.Text)
+                ? buttonParams.Text
+                : (!string.IsNullOrEmpty(descriptor.DisplayName) ? descriptor.DisplayName : descriptor.Name);
         }
     }
 }
