@@ -163,12 +163,12 @@ The following review suggestions have been implemented since the review was writ
 - **[Certain (remediated)]** `ProviderTrustPolicy` is evaluated by `AIRequestCall.IsValid()` (line 117) and `AIRequestCall.Exec()` (line 280) and blocks the call in `ProviderTrustVerdict.Block` before the provider executes; warnings are still allowed in `Soft` mode.
 - **[Suspicious]** `SmartHopperSettings.SetSetting` catches encryption exceptions and silently removes the secret (`src/SmartHopper.Infrastructure/Settings/SmartHopperSettings.cs`, lines 261-270); `Decrypt` returns `null` on any failure (`src/SmartHopper.Infrastructure/Settings/SmartHopperSettings.cs`, lines 477-510). Users could lose configured secrets without notice.
 - **[Suspicious]** The settings file at `%AppData%/Grasshopper/SmartHopper.json` is unencrypted; only individual secret values are encrypted inside it.
-- **[Question]** Is there a centralized authorization decision point for `SmartHopperCloud` settings sync, or does the OAuth bearer token alone govern all `/context/settings` access?
+- **[Question]** Is there a centralized authorization decision point for provider settings sync, or does the OAuth bearer token alone govern all `/context/settings` access?
 
 ### 9. API contracts and client/server alignment
 
 - **[Certain]** `IAIProvider` is a clear contract: `Encode/Decode`, `Call`, `PreCall/PostCall`, `SelectModel`, `GetDefaultModel`, `GetStreamingAdapter`, at `src/SmartHopper.ProviderSdk/AIProviders/IAIProvider.cs`.
-- **[Certain]** `AIRequestCall`/`AIReturn` are the central request/response DTOs, and providers adapt to/from them. `SmartHopperCloudProvider.PreCall` sets the `X-Smarthopper-Environment` header.
+- **[Certain]** `AIRequestCall`/`AIReturn` are the central request/response DTOs, and providers adapt to/from them. A provider can set outbound headers such as `X-Smarthopper-Environment` in `PreCall`.
 - **[Suspicious]** `IAIProvider` has no version. A breaking change to `Encode`/`Decode` signatures requires coordinated updates to all 9+ providers.
 - **[Certain (remediated)]** Automated provider contract / round-trip `Encode/Decode` tests now exist in `AIProviderCallTests` using `FakeAIProvider` and the in-memory HTTP client factory, covering text and tool-call interactions.
 - **[Suspicious]** `SchemaAttachRequestPolicy` and `SchemaValidateRequestPolicy` are separate; it is not documented which providers support which or why both exist.

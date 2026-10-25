@@ -299,7 +299,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
         /// <summary>
         /// Maps a validated wire document into registry-ready
         /// <see cref="AIModelCapabilities"/> entries, keyed by plugin provider
-        /// name (e.g. wire <c>smarthoppercloud</c> → plugin <c>smarthopper cloud</c>).
+        /// name (e.g. wire <c>openai</c> → plugin <c>openai</c>).
         /// Unknown providers and capability tokens are skipped (forward compatibility).
         /// </summary>
         public static Dictionary<string, List<AIModelCapabilities>> ToRegistryEntries(CatalogueDocument document)

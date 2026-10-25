@@ -52,7 +52,6 @@ namespace SmartHopper.ProviderSdk.Catalogue
         private static readonly IReadOnlyDictionary<string, string> PluginProviderNames =
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
-                ["smarthoppercloud"] = "smarthopper cloud",
                 ["openai"] = "openai",
                 ["anthropic"] = "anthropic",
                 ["mistralai"] = "mistralai",
@@ -77,9 +76,9 @@ namespace SmartHopper.ProviderSdk.Catalogue
         }
 
         /// <summary>
-        /// Short capability tokens accepted on the wire (same set the SmartHopper
-        /// Cloud <c>/v1/models</c> wire emits). Canonical <see cref="AICapability"/>
-        /// names are also accepted by the parser; unknown tokens are ignored.
+        /// Short capability tokens accepted on the wire. Canonical
+        /// <see cref="AICapability"/> names are also accepted by the parser;
+        /// unknown tokens are ignored.
         /// </summary>
         internal static readonly IReadOnlyDictionary<string, AICapability> ShortTokenCapabilities =
             new Dictionary<string, AICapability>(StringComparer.Ordinal)
