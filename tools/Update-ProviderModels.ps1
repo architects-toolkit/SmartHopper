@@ -1112,12 +1112,16 @@ if (-not [string]::IsNullOrWhiteSpace($ProviderApiKey) -and $ProviderApis.Contai
 # Build provider-API alias + deprecation maps.
 #
 # Grouping strategy per provider:
-#   MistralAI  - Group by the "name" field (authoritative canonical). Every
-#                API entry whose .name == N belongs to the same logical model;
-#                the canonical id is N itself. The per-entry "aliases" array
-#                is merged in as a supplement (it is sometimes incomplete).
-#                "deprecation" != null on any group member marks the canonical
-#                as deprecated.
+#   MistralAI  - Group by the "name" field. Every API entry whose .name == N
+#                belongs to the same logical model, but .name is only the
+#                grouping key: it is a human-readable display name (e.g.
+#                "Voxtral Mini TTS"), not a wire id, so the canonical id is
+#                chosen from the group's API ids instead — newest YYMM-dated
+#                id first, then the longest non-rolling id, then -latest.
+#                The display name itself is kept as an alias. The per-entry
+#                "aliases" array is merged in as a supplement (it is sometimes
+#                incomplete). "deprecation" != null on any group member marks
+#                the canonical as deprecated.
 #   OpenAI/Anthropic - No "aliases" field in the API; instead, dated suffixes
 #                in the id encode the alias relationship. Group by stripping
 #                the suffix (-YYYY-MM-DD / -YYYYMMDD / -latest) to get a base
@@ -1147,12 +1151,37 @@ if ($providerApiQueried) {
             [void]$groups[$grpKey].Add($pmId)
         }
 
+        # Mistral ids encode releases as -YYMM (e.g. voxtral-mini-tts-2603).
+        $mistralDateRx   = [regex]::new('-(\d{4})$')
+        $mistralLatestRx = [regex]::new('-latest$')
+
         foreach ($kvp in $groups.GetEnumerator()) {
-            $canonical = $kvp.Key
+            $grpName = $kvp.Key
+            $ids = @($kvp.Value)
+
+            # Canonical must be a provider API id (the slug sent on the wire),
+            # never the display name. Prefer the newest dated id, then the
+            # longest non-rolling id, then -latest, then the first id.
+            $dated = @($ids | Where-Object { $mistralDateRx.IsMatch($_) })
+            if ($dated.Count -gt 0) {
+                $canonical = @($dated | Sort-Object -Property `
+                    @{ Expression = { $mistralDateRx.Match($_).Groups[1].Value }; Descending = $true }, `
+                    @{ Expression = { $_.Length }; Descending = $true }, `
+                    @{ Expression = { $_ } } | Select-Object -First 1)[0]
+            }
+            else {
+                $nonLatest = @($ids | Where-Object { -not $mistralLatestRx.IsMatch($_) })
+                $canonical = if ($nonLatest.Count -gt 0) {
+                    @($nonLatest | Sort-Object -Property `
+                        @{ Expression = { $_.Length }; Descending = $true }, `
+                        @{ Expression = { $_ } } | Select-Object -First 1)[0]
+                } else { $ids[0] }
+            }
+
             $aliasSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
             $aliasList = [System.Collections.Generic.List[string]]::new()
 
-            foreach ($id in $kvp.Value) {
+            foreach ($id in $ids) {
                 if (-not [string]::Equals($id, $canonical, 'OrdinalIgnoreCase') -and $aliasSet.Add($id)) {
                     [void]$aliasList.Add($id)
                 }
@@ -1167,6 +1196,12 @@ if ($providerApiQueried) {
                 if ($null -ne $pm.deprecation) {
                     [void]$apiDeprecatedCanonicals.Add($canonical)
                 }
+            }
+
+            # Keep the display name resolvable: it folds existing name-keyed
+            # entries back onto the slug canonical on the next run.
+            if (-not [string]::Equals($grpName, $canonical, 'OrdinalIgnoreCase') -and $aliasSet.Add($grpName)) {
+                [void]$aliasList.Add($grpName)
             }
 
             $apiAliasesByCanonical[$canonical] = $aliasList.ToArray()
