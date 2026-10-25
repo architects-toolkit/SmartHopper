@@ -184,7 +184,7 @@ namespace SmartHopper.Providers.OpenAI
                 return false;
             }
 
-            Debug.WriteLine($"Validating OpenAI settings: API Key: {apiKey}, Model: {model}, Reasoning Effort: {reasoningEffort}");
+            Debug.WriteLine($"Validating OpenAI settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}, Reasoning Effort: {reasoningEffort}");
 
             return true;
         }
