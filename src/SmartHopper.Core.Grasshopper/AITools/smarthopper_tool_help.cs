@@ -41,7 +41,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: ToolName,
                 description: "Returns metadata, usage guidance, and relationship hints for a SmartHopper tool. Pass `tool_name` to look up a specific tool. Use this when you need to understand a tool's inputs, outputs, or how it chains with other tools.",
-                category: "Instructions",
+                category: "Knowledge.SmartHopper",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

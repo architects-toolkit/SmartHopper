@@ -45,7 +45,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Structurally validate a `.ghpatch` document. Checks the patch kind, that components/groups in remove/modify ops carry at least one identity field, that new components/groups in add ops do NOT specify instanceGuid, and that connections have valid endpoints.",
-                category: "Components",
+                category: "GhJSON.Tools",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

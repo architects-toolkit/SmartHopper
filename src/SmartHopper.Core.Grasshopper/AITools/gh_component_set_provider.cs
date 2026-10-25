@@ -54,7 +54,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Set the AI provider for a single component that implements IProviderComponent (component-scoped, not global). If a provider is supplied, the component's AI provider selection is updated. If a model is supplied, a new Panel containing the model name is created and wired to the component's Settings input. Use providers_list / providers_models to discover valid names.",
-                category: "Components",
+                category: "AIProviders",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

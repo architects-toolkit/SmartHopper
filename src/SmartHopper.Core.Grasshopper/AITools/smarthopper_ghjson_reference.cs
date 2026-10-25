@@ -41,7 +41,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: ToolName,
                 description: "Returns GhJSON and GhPatch format reference documentation. Pass `topic` to retrieve the full specification or a focused section. Use this whenever you need to generate, edit, or validate GhJSON/GhPatch documents instead of relying on internalized format knowledge.",
-                category: "Instructions",
+                category: "Knowledge.SmartHopper",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

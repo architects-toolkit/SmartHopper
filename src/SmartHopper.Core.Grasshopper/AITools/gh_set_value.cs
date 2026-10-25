@@ -53,7 +53,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Set the value of an existing canvas object in place: panel or scribble text, a boolean toggle, a number slider (clamped to its range), a value list selection (by index, name or item value), or a standalone persistent parameter (e.g. Number, Text, Integer, Boolean). When 'param' is supplied and the target is a component, the matching input parameter's persistent default is set instead (name, nickname, or zero-based index). The value is applied in place and the downstream solution is re-scheduled. Requires GUIDs from gh_get.",
-                category: "Components",
+                category: "Canvas.Modifications",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

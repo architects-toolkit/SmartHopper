@@ -161,7 +161,7 @@ using SmartHopper.ProviderSdk.AIModels;
 var body = AIBodyBuilder.Create()
     .AddText(AIAgent.System, "You are a helpful assistant.")
     .AddUser("Give me the canvas operational guidance.")
-    .WithToolFilter("+smarthopper_readme")
+    .WithToolFilter("Knowledge.SmartHopper")
     .Build();
 
 var request = new AIRequestCall

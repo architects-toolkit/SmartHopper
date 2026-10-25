@@ -59,6 +59,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
         protected abstract string ToolPrefix { get; }
 
         /// <summary>
+        /// Gets the tool category these Discourse tools register under
+        /// (e.g., "Knowledge.McNeelForum"). Defaults to the generic
+        /// Discourse-forums subgroup.
+        /// </summary>
+        protected virtual string ToolCategory => "Knowledge.Discourse";
+
+        /// <summary>
         /// Gets a value indicating whether base_url is required as a parameter.
         /// </summary>
         protected bool RequiresBaseUrlParameter => this.PresetBaseUrl == null;
@@ -100,7 +107,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: getPostToolName,
                 description: $"Retrieve a filtered {this.ForumName} forum post by ID (username, date, title, raw markdown).",
-                category: "Knowledge",
+                category: this.ToolCategory,
                 parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"id\": {{ \"type\": \"integer\", \"description\": \"ID of the forum post to fetch.\" }} }}, \"required\": [{baseUrlRequired}\"id\"] }}",
                 execute: this.GetPostAsync,
                 mutatesCanvas: false,
@@ -111,7 +118,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: summarizePostToolName,
                 description: $"Generate a concise summary of one or more {this.ForumName} forum posts by ID.",
-                category: "Knowledge",
+                category: this.ToolCategory,
                 parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"ids\": {{ \"type\": \"array\", \"items\": {{ \"type\": \"integer\" }}, \"description\": \"ID or list of forum post IDs to summarize.\" }}, \"instructions\": {{ \"type\": \"string\", \"description\": \"Optional targeted summary instructions to focus on a specific question, target, or concern.\" }} }}, \"required\": [{baseUrlRequired}\"ids\"] }}",
                 execute: this.SummarizePostAsync,
                 requiredCapabilities: this.SummarizeCapabilityRequirements,
@@ -123,7 +130,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: getTopicToolName,
                 description: $"Retrieve all posts in a {this.ForumName} forum topic by topic ID (title, URL, posts array).",
-                category: "Knowledge",
+                category: this.ToolCategory,
                 parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"topic_id\": {{ \"type\": \"integer\", \"description\": \"ID of the forum topic to fetch.\" }}, \"max_posts\": {{ \"type\": \"integer\", \"description\": \"Optional maximum number of posts to return. If omitted, all available posts are returned up to the server limit.\" }} }}, \"required\": [{baseUrlRequired}\"topic_id\"] }}",
                 execute: this.GetTopicAsync,
                 mutatesCanvas: false,
@@ -134,7 +141,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: summarizeTopicToolName,
                 description: $"Generate a concise summary of a {this.ForumName} forum topic by ID, based on its posts.",
-                category: "Knowledge",
+                category: this.ToolCategory,
                 parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"topic_id\": {{ \"type\": \"integer\", \"description\": \"ID of the forum topic to summarize.\" }}, \"max_posts\": {{ \"type\": \"integer\", \"description\": \"Optional maximum number of posts to include in the summary input (default: 50).\" }}, \"instructions\": {{ \"type\": \"string\", \"description\": \"Optional targeted summary instructions to focus on a specific question, target, or concern.\" }} }}, \"required\": [{baseUrlRequired}\"topic_id\"] }}",
                 execute: this.SummarizeTopicAsync,
                 requiredCapabilities: this.SummarizeCapabilityRequirements,
@@ -146,7 +153,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: searchToolName,
                 description: $"Search {this.ForumName} forum posts by query and return matching results.",
-                category: "Knowledge",
+                category: this.ToolCategory,
                 parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"query\": {{ \"type\": \"string\", \"description\": \"Search query for the forum.\" }} }}, \"required\": [{baseUrlRequired}\"query\"] }}",
                 execute: this.SearchAsync,
                 mutatesCanvas: false,

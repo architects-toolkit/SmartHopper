@@ -200,7 +200,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: CanvasToolName,
                 description: "Captures the currently visible Grasshopper canvas viewport as a base64-encoded PNG. The image is resized to fit within maxWidth and maxHeight while preserving its aspect ratio.",
-                category: "Vision",
+                category: "Canvas.Vision",
                 parametersSchema: CanvasParametersSchema,
                 execute: this.CaptureCanvasAsync,
                 mutatesCanvas: false,
@@ -216,7 +216,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: ViewportToolName,
                 description: "Captures the active or named Rhino 3D viewport as a base64-encoded PNG. The image is resized to fit within width and height while preserving its aspect ratio.",
-                category: "Vision",
+                category: "Canvas.Vision",
                 parametersSchema: ViewportParametersSchema,
                 execute: this.CaptureViewportAsync,
                 mutatesCanvas: false,
@@ -232,7 +232,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: HiResToolName,
                 description: "Renders a region of the Grasshopper canvas to a high-resolution PNG for publishing or printing, independent of the visible viewport. Use 'scope' to capture the whole document, the current selection, specific components by GUID, or an explicit bounds rectangle; 'scale' controls resolution (default 2.0; 1.0 matches on-screen size); 'background' supports transparency. This tool is meant for presentable output, not for AI agent vision of the canvas: it can produce very large images that would consume too many unnecessary tokens. Use canvas_screenshot for agent vision instead.",
-                category: "Vision",
+                category: "Canvas.Vision",
                 parametersSchema: HiResParametersSchema,
                 execute: this.CaptureHiResCanvasAsync,
                 mutatesCanvas: false,

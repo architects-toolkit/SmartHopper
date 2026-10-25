@@ -148,7 +148,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.wrapperToolName,
                 description: "Edit an existing Grasshopper script component by instance GUID and replace it on the canvas. This wrapper automatically retrieves the component GhJSON (gh_get_by_guid), calls script_edit, and then gh_put with editMode=true. Example: script_edit_and_replace_on_canvas({ instanceGuid: '...', instructions: 'Add error handling' }).",
-                category: "Scripting",
+                category: "Scripting.Code",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

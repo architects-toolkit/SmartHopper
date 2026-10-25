@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         public TestDeepSeekVisionComponent()
-            : base("Test DeepSeek Vision", "TEST-DEEPSEEK-VISION", "Tests DeepSeek vision API call with image input", "SmartHopper", "Test/Providers")
+            : base("Test DeepSeek Vision", "TEST-DEEPSEEK-VISION", "Tests DeepSeek vision API call with image input")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {

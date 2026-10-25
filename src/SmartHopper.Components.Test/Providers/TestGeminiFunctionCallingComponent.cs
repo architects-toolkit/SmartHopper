@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public TestGeminiFunctionCallingComponent()
-            : base("Test Gemini Function Calling", "TEST-GEMINI-FUNC", "Tests Gemini function calling and response parsing", "SmartHopper", "Test/Providers")
+            : base("Test Gemini Function Calling", "TEST-GEMINI-FUNC", "Tests Gemini function calling and response parsing")
         {
         }       protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {

@@ -152,7 +152,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.wrapperToolName,
                 description: "Generate a new Grasshopper script component from natural language instructions and place it on the canvas. This wrapper combines script_generate and gh_put into a single operation. Example: script_generate_and_place_on_canvas({ instructions: 'Create a circle from a radius' }).",
-                category: "Scripting",
+                category: "Scripting.Code",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

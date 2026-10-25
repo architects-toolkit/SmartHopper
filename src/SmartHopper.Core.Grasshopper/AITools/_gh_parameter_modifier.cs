@@ -50,7 +50,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "gh_parameter_data_mapping_flatten",
                 description: "Set a parameter's data mapping to Flatten",
-                category: "NotTested",
+                category: "Canvas.ComponentControl",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -70,7 +70,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "gh_parameter_data_mapping_graft",
                 description: "Set a parameter's data mapping to Graft",
-                category: "NotTested",
+                category: "Canvas.ComponentControl",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -90,7 +90,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "gh_parameter_data_mapping_none",
                 description: "Set a parameter's data mapping to None",
-                category: "NotTested",
+                category: "Canvas.ComponentControl",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -110,7 +110,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "gh_parameter_reverse",
                 description: "Reverse the order of items in a parameter",
-                category: "NotTested",
+                category: "Canvas.ComponentControl",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -131,7 +131,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "gh_parameter_simplify",
                 description: "Simplify geometry in a parameter (removes redundant control points)",
-                category: "NotTested",
+                category: "Canvas.ComponentControl",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

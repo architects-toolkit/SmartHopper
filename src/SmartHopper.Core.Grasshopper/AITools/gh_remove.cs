@@ -49,7 +49,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Stage component removals by instance GUID, show the user an in-canvas visual review, and remove only accepted objects. The operation records an undo event so the user can reverse it with Ctrl+Z. Use GUIDs from gh_get or similar tools.",
-                category: "Components",
+                category: "Canvas.Modifications",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

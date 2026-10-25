@@ -44,7 +44,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 "plan_propose",
                 "Propose a user-reviewable plan before a non-trivial multi-step task. Call only when planning materially improves clarity. Approval permits continuing with the approach but never pre-approves later canvas changes.",
-                "Planning",
+                "AgentPlanning",
                 @"{
                     ""type"": ""object"",
                     ""properties"": {

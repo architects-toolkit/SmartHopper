@@ -44,7 +44,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Retrieve the list of available models for a given AI provider. Uses live provider APIs when possible and falls back to the static model list.",
-                category: "Providers",
+                category: "AIProviders",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

@@ -100,7 +100,7 @@ This page documents the core data types that carry conversation state, performan
 
 #### Filter and Schema Configuration
 
-- `WithToolFilter(string filter)` — set the tool filter expression (e.g., `-*` = disable all, `+gh_*` = enable Grasshopper tools)
+- `WithToolFilter(string filter)` — set the tool filter expression (e.g., `-*` = disable all, `Canvas` or `+Canvas.*` = enable all canvas-category tools)
 - `WithContextFilter(string filter)` — set the context filter expression for provider injection
 - `WithJsonOutputSchema(string jsonSchema)` — set the JSON Schema to instruct providers to produce structured output
 

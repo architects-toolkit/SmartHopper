@@ -89,7 +89,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "AI-powered smart connection tool. Given a set of component GUIDs and a purpose description, retrieves their structure via gh_get, asks an AI model to suggest optimal connections, and executes them via gh_connect. Returns the connection results and the AI reasoning.",
-                category: "Components",
+                category: "Canvas.Modifications",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

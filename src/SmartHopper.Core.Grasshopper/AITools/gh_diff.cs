@@ -47,7 +47,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Diff two GhJSON documents and produce a structured `.ghpatch` document describing the differences (added/removed/modified components, connections, groups, and metadata). Components are matched by instanceGuid, then id, then structural fingerprint (componentGuid + name + optional pivot). Connections are matched by their endpoints (paramName preferred, paramIndex fallback). By default, runtime messages, metadata counters and metadata timestamps are ignored.",
-                category: "Components",
+                category: "GhJSON.Tools",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

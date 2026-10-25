@@ -49,7 +49,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Simulate a momentary click on Grasshopper Buttons (not Boolean Toggles). The button is pressed for 100 ms, then released. Provide the instance GUIDs of the buttons.",
-                category: "Components",
+                category: "Canvas.Modifications",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

@@ -45,7 +45,7 @@ Returns a JSON object containing:
 - `tool_name` (string)
 - `found` (boolean)
 - `description` (string)
-- `category` (string)
+- `category` (string, `Group.Subgroup` path — e.g. `Canvas.Query`)
 - `tags` (array of strings)
 - `mutates_canvas` (boolean)
 - `annotations` (object with MCP hints)

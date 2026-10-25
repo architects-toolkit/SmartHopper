@@ -60,7 +60,7 @@ The pipeline runs **6 request policies** and **2 response policies** in sequence
 | `RequestTimeoutPolicy` | `Request/RequestTimeoutPolicy.cs` | Request | Normalizes the per-request timeout on `AIRequestBase` derivatives. Applies defaults when unset and clamps to safe range (min/max from `TimeoutDefaults`). Adds lightweight diagnostic as system interaction when adjustments are made. |
 | `SchemaAttachRequestPolicy` | `Request/SchemaAttachRequestPolicy.cs` | Request | Attaches JSON output schema to the request when `AIBody.JsonOutputSchema` is set. Passes schema to provider encoding layer for structured output inference. |
 | `SchemaValidateRequestPolicy` | `Request/SchemaValidateRequestPolicy.cs` | Request | Validates JSON output schema syntax and compatibility with the selected model's capabilities. Emits validation errors as structured messages; may auto-add schema if required by capability. |
-| `ToolFilterNormalizationRequestPolicy` | `Request/ToolFilterNormalizationRequestPolicy.cs` | Request | Normalizes and validates tool filter expressions (e.g., `+*`, `-*`, `+tool1`, `-tool2`). Ensures filter syntax is valid; emits warnings for invalid patterns. |
+| `ToolFilterNormalizationRequestPolicy` | `Request/ToolFilterNormalizationRequestPolicy.cs` | Request | Normalizes and validates tool filter expressions (e.g., `*`, `-*`, `Canvas`, `-Rhino`). Ensures filter syntax is valid; emits warnings for invalid patterns. |
 
 ### Response Policies (in order)
 

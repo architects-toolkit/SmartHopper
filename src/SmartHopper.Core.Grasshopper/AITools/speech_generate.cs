@@ -61,7 +61,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Generates speech audio from text input. Example: speech_generate({ text: 'The pavilion is 12 meters wide.', voice: 'nova', speed: '1.0' }).",
-                category: "Speech",
+                category: "Data.Media",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

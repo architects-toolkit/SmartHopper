@@ -143,7 +143,7 @@ namespace SmartHopper.Infrastructure.Mcp
             }
 
             if (!this.options.AllowViewControl
-                && string.Equals(tool.Category, "ViewControl", StringComparison.OrdinalIgnoreCase))
+                && string.Equals(tool.Category, "Canvas.ViewControl", StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }

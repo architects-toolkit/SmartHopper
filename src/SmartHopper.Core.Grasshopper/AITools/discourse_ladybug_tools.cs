@@ -33,5 +33,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
         /// <inheritdoc/>
         protected override string ToolPrefix => "ladybug";
+
+        /// <inheritdoc/>
+        protected override string ToolCategory => "Knowledge.LadybugForum";
     }
 }

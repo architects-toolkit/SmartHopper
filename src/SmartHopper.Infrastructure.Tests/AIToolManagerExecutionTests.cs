@@ -328,7 +328,7 @@ namespace SmartHopper.Infrastructure.Tests
             var tool = new AITool(
                 "chat_only",
                 "Chat only",
-                "Planning",
+                "AgentPlanning",
                 "{}",
                 _ =>
                 {

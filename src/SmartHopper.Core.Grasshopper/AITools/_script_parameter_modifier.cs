@@ -49,7 +49,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "script_parameter_add_input",
                 description: "Add a new input parameter to a script component",
-                category: "NotTested",
+                category: "Scripting.Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -72,7 +72,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "script_parameter_add_output",
                 description: "Add a new output parameter to a script component",
-                category: "NotTested",
+                category: "Scripting.Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -93,7 +93,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "script_parameter_remove_input",
                 description: "Remove an input parameter from a script component",
-                category: "NotTested",
+                category: "Scripting.Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -112,7 +112,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "script_parameter_remove_output",
                 description: "Remove an output parameter from a script component",
-                category: "NotTested",
+                category: "Scripting.Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -131,7 +131,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "script_parameter_set_type_input",
                 description: "Set the type hint for a script component input parameter",
-                category: "NotTested",
+                category: "Scripting.Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -151,7 +151,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "script_parameter_set_type_output",
                 description: "Set the type hint for a script component output parameter",
-                category: "NotTested",
+                category: "Scripting.Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -171,7 +171,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "script_parameter_set_access",
                 description: "Set how an input parameter receives data (item/list/tree)",
-                category: "NotTested",
+                category: "Scripting.Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -191,7 +191,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "script_toggle_std_output",
                 description: "Show or hide the standard output parameter ('out') in a script component",
-                category: "NotTested",
+                category: "Scripting.Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -210,7 +210,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "script_set_principal_input",
                 description: "Set which input parameter drives the component's iteration",
-                category: "NotTested",
+                category: "Scripting.Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -229,7 +229,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: "script_parameter_set_optional",
                 description: "Set whether a script input parameter is required or optional",
-                category: "NotTested",
+                category: "Scripting.Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

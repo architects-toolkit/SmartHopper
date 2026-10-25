@@ -48,7 +48,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 "ask_user",
                 "Ask the user a question and wait for the answer. Provide between 2 and 4 predefined answer options; the chat always adds a free-text field so the user can also type their own answer. The call blocks until the user answers or the run is cancelled. Use it for genuine decisions or missing information you cannot resolve yourself — not for confirmations you could assume.",
-                "Planning",
+                "AgentPlanning",
                 @"{
                     ""type"": ""object"",
                     ""properties"": {

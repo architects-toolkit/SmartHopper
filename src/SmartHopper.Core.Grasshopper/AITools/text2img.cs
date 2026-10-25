@@ -56,7 +56,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Generates an image based on a text prompt using AI image generation models. Example: text2img({ prompt: 'A minimalist timber pavilion in a forest', size: '1024x1024' }).",
-                category: "ImageProcessing",
+                category: "Data.Media",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

@@ -63,7 +63,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Convert a web page (URL) to Markdown text. Supports Wikipedia/Wikimedia, Discourse forums, GitHub/GitLab files, Stack Exchange questions, and generic webpages. Respects robots.txt. Use this when you know the URL and need to retrieve knowledge from the web or read the contents of a web page. Example: web2md({ url: 'https://en.wikipedia.org/wiki/Tensile_structure' }).",
-                category: "Knowledge",
+                category: "Knowledge.Web",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

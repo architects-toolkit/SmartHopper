@@ -62,7 +62,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Describes or analyzes an image using a vision AI model. Provide a public image URL, a local file path, or base64-encoded image data. Returns a text description of the image content. Example: img2text({ imageUrl: 'https://example.com/facade.jpg', prompt: 'List architectural materials' }).",
-                category: "Img",
+                category: "Data.Media",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

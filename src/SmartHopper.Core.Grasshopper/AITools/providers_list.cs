@@ -45,7 +45,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Retrieve the list of AI providers registered in SmartHopper with per-provider status flags: enabled (registered for use), configured (all required settings such as API key or endpoint present in the current environment), and isDefault (currently selected default). Includes the top-level defaultProvider name.",
-                category: "Providers",
+                category: "AIProviders",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {},

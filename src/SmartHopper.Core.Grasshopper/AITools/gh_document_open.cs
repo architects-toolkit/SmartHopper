@@ -41,7 +41,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_document_open",
                 description: "Open a Grasshopper document (.gh or .ghx) from an absolute file path and make it the active document. If the file is already open, it is activated instead of opened twice.",
-                category: "Document",
+                category: "Canvas.Documents",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

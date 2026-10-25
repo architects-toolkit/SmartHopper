@@ -42,7 +42,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
             var tool = new canvas_point().GetTools().Single();
 
             Assert.Equal("canvas_point", tool.Name);
-            Assert.Equal("ViewControl", tool.Category);
+            Assert.Equal("Canvas.ViewControl", tool.Category);
             Assert.False(tool.MutatesCanvas);
             Assert.True(tool.Annotations.ReadOnlyHint == true);
         }

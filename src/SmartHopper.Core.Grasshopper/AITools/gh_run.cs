@@ -51,7 +51,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AIMutatingTool(
                 name: this.toolName,
                 description: "Re-run (recompute) components by pulsing their lock state: each target is disabled then re-enabled on the UI thread so Grasshopper schedules a normal solution. Safer than expiring components directly — the call is refused while a solution is in progress. Locked objects are skipped. Provide component GUIDs from gh_get.",
-                category: "Components",
+                category: "Canvas.Modifications",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

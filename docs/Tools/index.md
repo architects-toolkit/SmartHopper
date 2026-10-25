@@ -210,14 +210,28 @@ Component → AIToolRequest → ToolManager → Provider formatting → AI Model
 
 ### Tool Categories
 
+Every tool declares a hierarchical `Category` in `Group.Subgroup` form. Filters such as `AIBody.ToolFilter` match the full path or any ancestor segment — `Canvas` selects every canvas tool, `Canvas.Query` only the query subgroup.
+
 | Category | Tools |
 | --- | --- |
-| Instruction & Knowledge | `smarthopper_readme`, `smarthopper_workflows`, `smarthopper_tool_help`, `smarthopper_ghjson_reference`, `file2md`, `web2md`, `mcneel_forum_search`, `mcneel_forum_topic`, `mcneel_forum_post` |
-| Text Generation | `text2text`, `text2boolean`, `text2textlist`, `text2json`, `list_filter`, `textlist2boolean` |
-| Image Processing | `img2text`, `text2img`, `canvas_screenshot`, `viewport_screenshot` |
-| Grasshopper Canvas | `gh_get`, `gh_put`, `gh_move`, `gh_merge`, `gh_group`, `gh_tidy_up`, `gh_list_categories`, `gh_list_components`, `gh_component_preview`, `gh_component_lock`, `gh_connect`, `gh_disconnect`, `gh_select`, `canvas_view` |
-| Scripting | `script_generate`, `script_edit`, `script_review` |
-| Documents | `gh_document_list`, `gh_document_switch`, `gh_document_new`, `gh_document_open`, `gh_document_save` (see [Document Tools](./gh_document.md)) |
+| `Canvas.Modifications` | `button_click`, `gh_clear`, `gh_connect`, `gh_disconnect`, `gh_group`, `gh_move`, `gh_remove`, `gh_run`, `gh_select`, `gh_set_value`, `gh_smart_connect`, `gh_tidy_up` |
+| `Canvas.Query` | `gh_get`, `gh_list_categories`, `gh_list_components`, `gh_report` |
+| `Canvas.ComponentControl` | `gh_component_lock`, `gh_component_preview`, `gh_parameter_*` (experimental) |
+| `Canvas.Vision` | `canvas_screenshot`, `canvas_hi-res_screenshot`, `viewport_screenshot` |
+| `Canvas.ViewControl` | `canvas_point`, `canvas_view`, `gh_document_switch` |
+| `Canvas.Documents` | `gh_document_list`, `gh_document_new`, `gh_document_open`, `gh_document_save` (see [Document Tools](./gh_document.md)) |
+| `GhJSON.Generation` | `gh_generate` |
+| `GhJSON.Tools` | `gh_put`, `gh_diff`, `gh_merge`, `gh_patch_apply`, `gh_patch_validate` |
+| `Knowledge.SmartHopper` | `smarthopper_readme`, `smarthopper_workflows`, `smarthopper_tool_help`, `smarthopper_ghjson_reference` |
+| `Knowledge.McNeelForum` / `Knowledge.LadybugForum` / `Knowledge.Discourse` | `mcneel_*`, `ladybug_*`, `discourse_*` forum readers |
+| `Knowledge.Web` / `Knowledge.Files` | `web2md`, `file2md` |
+| `AgentPlanning` | `ask_user`, `plan_propose`, `plan_tasks` |
+| `Scripting.Code` | `script_generate`, `script_edit`, `script_review` |
+| `Scripting.Parameters` | `script_parameter_*` (experimental) |
+| `AIProviders` | `providers_list`, `providers_models`, `gh_component_set_provider` |
+| `Data.Text` / `Data.Lists` / `Data.Media` | `text2text`, `text2boolean`, `text2json`, `list_filter`, `text2textlist`, `textlist2boolean`, `img2text`, `text2img`, `speech_generate` |
+| `Rhino.Geometry` / `Rhino.Read3dm` | `rhino_get_geometry_3dm`, `rhino_read_3dm` (experimental) |
+| `Hidden` | Internal component-backing tools; never exposed to the model |
 
 ### Related Documentation
 

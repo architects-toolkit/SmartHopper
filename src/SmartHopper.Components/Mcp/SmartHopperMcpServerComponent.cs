@@ -114,7 +114,7 @@ namespace SmartHopper.Components.Mcp
             pManager.AddBooleanParameter(
                 "Allow View Control",
                 "AV",
-                "When true, tools in the 'ViewControl' category (canvas_view) are exposed so clients can move the canvas viewport. Defaults to false.",
+                "When true, tools in the 'Canvas.ViewControl' category (canvas_view) are exposed so clients can move the canvas viewport. Defaults to false.",
                 GH_ParamAccess.item,
                 false);
             pManager[5].Optional = true;
