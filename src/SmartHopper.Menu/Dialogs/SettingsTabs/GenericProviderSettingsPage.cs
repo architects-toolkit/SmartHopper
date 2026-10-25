@@ -40,6 +40,13 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         private readonly Dictionary<string, string> _originalValues;
         private readonly Dictionary<Type, Func<SettingDescriptor, Control>> _controlFactories;
 
+        // Bound each control's preferred width: drop-downs size to their longest
+        // item, and inside the Scrollable every scaled row stretches to the
+        // widest row — pushing buttons and pickers past the dialog edge and
+        // forcing a horizontal scrollbar. The column keeps a fixed width,
+        // matching the fixed 150px label and 500px descriptions.
+        private const int ControlWidth = 370;
+
         /// <summary>
         /// Initializes a new instance of the GenericProviderSettingsPage class
         /// </summary>
@@ -135,6 +142,11 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     {
                         // Honor descriptor-level enable/disable flag
                         control.Enabled = descriptor.Enabled;
+
+                        // Bound the preferred width: drop-downs size to their longest
+                        // item and inside the Scrollable every scaled row stretches
+                        // to the widest row, pushing controls past the dialog edge.
+                        control.Width = ControlWidth;
 
                         this._controls[descriptor.Name] = control;
 

@@ -39,6 +39,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
     {
         private readonly Dictionary<string, CheckBox> _providerCheckBoxes;
         private readonly IAIProvider[] _providers;
+        private readonly Action<IAIProvider> _configureProvider;
         private readonly DropDown _integrityCheckModeDropDown;
         private readonly NumericStepper _httpTimeoutStepper;
 
@@ -46,9 +47,11 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// Initializes a new instance of the ProvidersSettingsPage class
         /// </summary>
         /// <param name="providers">Available AI providers</param>
-        public ProvidersSettingsPage(IAIProvider[] providers)
+        /// <param name="configureProvider">Callback invoked when the user asks to configure a provider.</param>
+        public ProvidersSettingsPage(IAIProvider[] providers, Action<IAIProvider> configureProvider)
         {
             this._providers = providers;
+            this._configureProvider = configureProvider;
             this._providerCheckBoxes = new Dictionary<string, CheckBox>();
 
             // Create layout
@@ -73,30 +76,14 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Add spacing
             layout.Add(new Panel { Height = 10 });
 
-            // Add provider checkboxes in two vertical columns (fill first, then second)
-            var sortedProviders = this._providers.OrderBy(p => p.Name).ToArray();
-            int mid = (sortedProviders.Length + 1) / 2; // Round up for first column
-            var firstColumn = sortedProviders.Take(mid);
-            var secondColumn = sortedProviders.Skip(mid);
-
-            var leftStack = new StackLayout { Orientation = Orientation.Vertical, Spacing = 8 };
-            var rightStack = new StackLayout { Orientation = Orientation.Vertical, Spacing = 8, Padding = new Padding(20, 0, 0, 0) };
-
-            foreach (var provider in firstColumn)
+            // Add provider rows in a single column: icon + trust checkbox + Configure button
+            var providersColumn = new StackLayout { Orientation = Orientation.Vertical, Spacing = 8 };
+            foreach (var provider in this._providers.OrderBy(p => p.Name))
             {
-                leftStack.Items.Add(this.CreateProviderCell(provider));
+                providersColumn.Items.Add(this.CreateProviderCell(provider));
             }
 
-            foreach (var provider in secondColumn)
-            {
-                rightStack.Items.Add(this.CreateProviderCell(provider));
-            }
-
-            layout.Add(new StackLayout
-            {
-                Orientation = Orientation.Horizontal,
-                Items = { leftStack, rightStack },
-            });
+            layout.Add(providersColumn);
 
             // Add spacing
             layout.Add(new Panel { Height = 20 });
@@ -301,11 +288,12 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         }
 
         /// <summary>
-        /// Creates a StackLayout containing the provider icon and checkbox
+        /// Creates a row containing the provider icon, trust checkbox and a Configure
+        /// button that navigates to the provider's settings view.
         /// </summary>
         /// <param name="provider">The AI provider</param>
-        /// <returns>StackLayout with icon and checkbox</returns>
-        private StackLayout CreateProviderCell(IAIProvider provider)
+        /// <returns>StackLayout row with icon, checkbox and configure button</returns>
+        private Control CreateProviderCell(IAIProvider provider)
         {
             var providerLayout = new StackLayout
             {
@@ -345,7 +333,12 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 }
             }
 
-            providerLayout.Items.Add(checkbox);
+            providerLayout.Items.Add(new StackLayoutItem(checkbox, true));
+
+            var configureButton = new Button { Text = "Configure" };
+            configureButton.Click += (sender, e) => this._configureProvider?.Invoke(provider);
+            providerLayout.Items.Add(configureButton);
+
             return providerLayout;
         }
     }
