@@ -51,7 +51,8 @@ namespace SmartHopper.ProviderSdk.Catalogue
     /// Durable local cache for the signed catalogue under
     /// <c>%APPDATA%/Grasshopper/SmartHopper</c> — the same folder used by the
     /// rest of the plugin's persisted state:
-    /// <c>models-catalogue.json</c>, <c>.sig</c> and <c>.meta</c>. The cache is
+    /// <c>models-catalogue.json</c>, <c>.sig</c>, <c>.meta</c> and
+    /// <c>.floor</c> (the persisted version ratchet). The cache is
     /// kept indefinitely — a months-old signed artefact stays valid until
     /// atomically replaced by a newer one. Corrupt or partial files are ignored,
     /// never repaired in place.
@@ -81,6 +82,8 @@ namespace SmartHopper.ProviderSdk.Catalogue
         private string SignaturePath => Path.Combine(this._directory, "models-catalogue.sig");
 
         private string MetaPath => Path.Combine(this._directory, "models-catalogue.meta");
+
+        private string FloorPath => Path.Combine(this._directory, "models-catalogue.floor");
 
         /// <summary>
         /// Reads the cached artefact if all three files exist and the metadata is
@@ -163,10 +166,56 @@ namespace SmartHopper.ProviderSdk.Catalogue
                 this.WriteAtomic(this.CataloguePath, catalogueBytes);
                 this.WriteAtomic(this.SignaturePath, System.Text.Encoding.ASCII.GetBytes(signatureBase64 + "\n"));
                 this.WriteAtomic(this.MetaPath, System.Text.Encoding.UTF8.GetBytes(meta.ToString()));
+                this.WriteFloor(version);
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[ModelCatalogueCache] cache write failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Reads the persisted catalogue-version floor: the highest version ever
+        /// accepted by this installation. Unlike the cached artefact it is kept
+        /// separately so cache deletion or corruption cannot reset the
+        /// anti-rollback ratchet. Returns 0 when absent or unreadable.
+        /// </summary>
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A corrupt floor file must never break the plugin")]
+        public int ReadFloor()
+        {
+            try
+            {
+                return File.Exists(this.FloorPath) && int.TryParse(File.ReadAllText(this.FloorPath).Trim(), out var floor) && floor > 0
+                    ? floor
+                    : 0;
+            }
+            catch (Exception)
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Ratchets the version floor upward. Monotonic: a lower or equal
+        /// version is ignored, so the floor can never be used to downgrade.
+        /// </summary>
+        /// <param name="version">Catalogue version that was accepted.</param>
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A failing floor write must never break the plugin")]
+        public void WriteFloor(int version)
+        {
+            try
+            {
+                if (version <= this.ReadFloor())
+                {
+                    return;
+                }
+
+                Directory.CreateDirectory(this._directory);
+                this.WriteAtomic(this.FloorPath, System.Text.Encoding.ASCII.GetBytes(version + "\n"));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ModelCatalogueCache] floor write failed: {ex.Message}");
             }
         }
 

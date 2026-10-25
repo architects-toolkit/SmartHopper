@@ -155,6 +155,11 @@ namespace SmartHopper.Infrastructure.Initialization
                     // Refresh providers asynchronously
                     await providerManager.RefreshProvidersAsync().ConfigureAwait(false);
 
+                    // Provider re-registration repopulates the registry from embedded
+                    // seed tables — force-apply the verified catalogue so it keeps
+                    // authority over covered providers (works offline via the cache).
+                    await ModelCatalogueService.Instance.RefreshAsync(force: true).ConfigureAwait(false);
+
                     // Apply settings to providers on UI thread
                     RhinoApp.InvokeOnUiThread(() =>
                     {

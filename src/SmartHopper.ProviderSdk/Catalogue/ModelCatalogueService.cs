@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Threading;
@@ -53,8 +54,10 @@ namespace SmartHopper.ProviderSdk.Catalogue
     public sealed class ModelCatalogueService
     {
         private const string ProviderName = "modelscatalogue";
+        private const int MaxFetchAttempts = 3;
 
         private static readonly TimeSpan HttpTimeout = TimeSpan.FromSeconds(15);
+        private static readonly TimeSpan RetryBaseDelay = TimeSpan.FromMilliseconds(750);
 
         private static readonly Lazy<ModelCatalogueService> _instance =
             new Lazy<ModelCatalogueService>(() => new ModelCatalogueService());
@@ -64,6 +67,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
         private readonly IProviderHttpClientFactory _httpFactory;
         private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
         private readonly Dictionary<string, string> _trustedKeys;
+        private int _floor;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ModelCatalogueService"/> class.
@@ -84,11 +88,25 @@ namespace SmartHopper.ProviderSdk.Catalogue
             this._trustedKeys = new Dictionary<string, string>(trustedKeys ?? ModelCatalogueTrust.EmbeddedKeys, StringComparer.Ordinal);
         }
 
+        /// <summary>
+        /// Raised for every progress line the service emits ("Info: applied
+        /// remote catalogue v3", "Warn: GET /api/v1/manifest → 503 — retrying").
+        /// Raised on the refreshing thread — UI subscribers must marshal.
+        /// </summary>
+        public event EventHandler<ModelCatalogueLogEventArgs>? RefreshLog;
+
         /// <summary>Gets the process-wide singleton used by the plugin host.</summary>
         public static ModelCatalogueService Instance => _instance.Value;
 
         /// <summary>Gets the catalogue version currently applied to the registry (0 = none).</summary>
         public int AppliedVersion { get; private set; }
+
+        /// <summary>
+        /// Gets the anti-downgrade ratchet: the highest catalogue version this
+        /// installation has ever accepted, persisted across sessions. New remote
+        /// documents at or below it are rejected even when nothing is cached.
+        /// </summary>
+        public int AppliedFloor => this._floor;
 
         /// <summary>Gets where the applied catalogue came from.</summary>
         public ModelCatalogueSource Source { get; private set; } = ModelCatalogueSource.None;
@@ -101,8 +119,18 @@ namespace SmartHopper.ProviderSdk.Catalogue
         /// update when a newer signed version exists. Safe to call repeatedly;
         /// concurrent calls collapse onto a single refresh.
         /// </summary>
+        /// <inheritdoc cref="RefreshAsync(bool, CancellationToken)"/>
+        public Task RefreshAsync(CancellationToken cancellationToken = default) =>
+            this.RefreshAsync(false, cancellationToken);
+
+        /// <summary>
+        /// Refreshes the catalogue. When <paramref name="force"/> is true the
+        /// verified cache is re-applied even when its version is already
+        /// applied — needed after providers re-register and clobber
+        /// catalogue-managed entries with their seed tables.
+        /// </summary>
         [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Catalogue refresh must never break plugin startup or AI calls")]
-        public async Task RefreshAsync(CancellationToken cancellationToken = default)
+        public async Task RefreshAsync(bool force, CancellationToken cancellationToken = default)
         {
             if (!await this._gate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
             {
@@ -111,7 +139,18 @@ namespace SmartHopper.ProviderSdk.Catalogue
 
             try
             {
-                this.LoadTrustedCache();
+                this.Log(ProviderLogLevel.Info, "starting catalogue refresh");
+
+                // Seed the anti-rollback floor from disk before anything remote
+                // is evaluated: the ratchet survives cache deletion/corruption.
+                var floor = this._cache.ReadFloor();
+                if (floor > this._floor)
+                {
+                    this._floor = floor;
+                    this.Log(ProviderLogLevel.Info, $"persisted catalogue floor: v{floor}");
+                }
+
+                this.LoadTrustedCache(force);
                 await this.RefreshFromRemoteAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -125,13 +164,33 @@ namespace SmartHopper.ProviderSdk.Catalogue
             }
         }
 
+        private static bool IsRetryableStatus(int status) =>
+            status == 408 || status == 429 || status >= 500;
+
+        private static bool IsRetryableException(Exception ex, CancellationToken cancellationToken) =>
+            !cancellationToken.IsCancellationRequested &&
+            (ex is HttpRequestException || ex is IOException || ex is System.Net.Sockets.SocketException ||
+             ex is TaskCanceledException || ex is OperationCanceledException);
+
         /// <summary>
         /// Applies the signed local cache when it is valid and newer than what
         /// is already applied.
         /// </summary>
-        private void LoadTrustedCache()
+        private void LoadTrustedCache(bool force = false)
         {
-            if (!this._cache.TryLoad(out var cached) || cached.Version <= this.AppliedVersion)
+            if (!this._cache.TryLoad(out var cached))
+            {
+                return;
+            }
+
+            if (cached.Version < this._floor)
+            {
+                // A genuine but older cache cannot undo the ratchet.
+                this.Log(ProviderLogLevel.Warning, $"cached catalogue v{cached.Version} is below the persisted floor v{this._floor} — ignoring");
+                return;
+            }
+
+            if (!force && cached.Version <= this.AppliedVersion)
             {
                 return;
             }
@@ -142,6 +201,11 @@ namespace SmartHopper.ProviderSdk.Catalogue
                 var applied = this.MergeIntoRegistry(document);
                 this.AppliedVersion = document.Version;
                 this.Source = ModelCatalogueSource.Cache;
+                this._floor = Math.Max(this._floor, document.Version);
+
+                // Re-establish the ratchet when the floor file was lost but the
+                // cached artefact survived — the applied version is authentic.
+                this._cache.WriteFloor(document.Version);
                 this.Log(ProviderLogLevel.Info, $"applied cached catalogue v{document.Version} ({applied} models)");
             }
             catch (Exception ex)
@@ -168,8 +232,15 @@ namespace SmartHopper.ProviderSdk.Catalogue
             using (var client = factory.CreateClient(ProviderName, HttpTimeout))
             {
                 manifest = await this.GetManifestAsync(client, cancellationToken).ConfigureAwait(false);
-                if (manifest == null || manifest.LatestVersion <= this.AppliedVersion)
+                if (manifest == null)
                 {
+                    this.Log(ProviderLogLevel.Warning, "catalogue manifest unreachable — keeping applied metadata");
+                    return;
+                }
+
+                if (manifest.LatestVersion <= this._floor)
+                {
+                    this.Log(ProviderLogLevel.Info, $"catalogue already up to date (floor v{this._floor}, remote latest v{manifest.LatestVersion})");
                     return;
                 }
 
@@ -194,8 +265,15 @@ namespace SmartHopper.ProviderSdk.Catalogue
                     throw new CatalogueProtocolException($"catalogue_version {document.Version} exceeds manifest {manifest.LatestVersion}");
                 }
 
+                if (document.Version <= this._floor)
+                {
+                    // A genuine but older release cannot undo the ratchet.
+                    throw new CatalogueProtocolException($"catalogue_version {document.Version} is not newer than the persisted floor v{this._floor}");
+                }
+
                 var applied = this.MergeIntoRegistry(document);
                 this.AppliedVersion = document.Version;
+                this._floor = document.Version;
                 this.Source = ModelCatalogueSource.Remote;
                 this.LastError = null;
 
@@ -237,7 +315,9 @@ namespace SmartHopper.ProviderSdk.Catalogue
 
         /// <summary>
         /// Verifies the signature over the exact bytes, then strictly parses and
-        /// validates the document. Both steps are fail-closed.
+        /// validates the document. Both steps are fail-closed. Version/floor
+        /// policy belongs to the callers — the cache path re-applies equal
+        /// versions on force while the remote path must reject replay.
         /// </summary>
         private CatalogueDocument VerifyAndParse(byte[] bytes, string signatureBase64, string keyId)
         {
@@ -252,11 +332,6 @@ namespace SmartHopper.ProviderSdk.Catalogue
                 throw new CatalogueProtocolException($"catalogue requires client protocol {document.MinClientProtocol}");
             }
 
-            if (document.Version <= this.AppliedVersion)
-            {
-                throw new CatalogueProtocolException($"catalogue_version {document.Version} is not newer than applied {this.AppliedVersion}");
-            }
-
             return document;
         }
 
@@ -265,46 +340,161 @@ namespace SmartHopper.ProviderSdk.Catalogue
         /// wins over the embedded seed for the same provider/model key — it is
         /// the fresher, human-validated source.
         /// </summary>
+        /// <summary>
+        /// The catalogue is the source of truth for the providers it covers:
+        /// entries are applied verbatim (including their <c>deprecated</c> flag),
+        /// and every registry model absent from the document is removed —
+        /// whether it shadowed a catalogue-declared alias or was dropped from
+        /// the catalogue by human review. Removal is the honest signal: a model
+        /// that left the API is treated as unknown, not flagged-and-callable.
+        /// Providers the document does not cover are untouched — local
+        /// providers keep their own tables.
+        /// </summary>
         private int MergeIntoRegistry(CatalogueDocument document)
         {
+            var entries = CatalogueWire.ToRegistryEntries(document);
+            var docModels = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            foreach (var kv in entries)
+            {
+                var models = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var model in kv.Value)
+                {
+                    models.Add(model.Model);
+                }
+
+                docModels[kv.Key] = models;
+            }
+
+            var registry = AIModelCapabilityRegistry.Instance;
             var count = 0;
-            foreach (var kv in CatalogueWire.ToRegistryEntries(document))
+            foreach (var kv in entries)
             {
                 foreach (var model in kv.Value)
                 {
-                    AIModelCapabilityRegistry.Instance.SetCapabilities(model);
+                    registry.SetCapabilities(model);
                     count++;
                 }
+            }
+
+            var removed = 0;
+            foreach (var provider in docModels.Keys)
+            {
+                foreach (var existing in registry.GetProviderModels(provider))
+                {
+                    if (!docModels[provider].Contains(existing.Model) &&
+                        registry.Models.TryRemove(existing.GetKey(), out _))
+                    {
+                        removed++;
+                    }
+                }
+            }
+
+            if (removed > 0)
+            {
+                this.Log(ProviderLogLevel.Info, $"catalogue source-of-truth pass: removed {removed} model(s) absent from the document");
             }
 
             return count;
         }
 
+        /// <summary>
+        /// Fetches the discovery manifest and authenticates it: when the server
+        /// provides <c>manifest.sig</c>, the detached signature is verified
+        /// against trusted keys before any manifest field is trusted — an
+        /// invalid signature fails closed. A <em>missing</em> signature is
+        /// tolerated during rollout (pre-signing servers): the manifest is then
+        /// used only as an update hint and the catalogue signature still gates
+        /// what gets applied.
+        /// </summary>
         private async Task<CatalogueManifest> GetManifestAsync(HttpClient client, CancellationToken cancellationToken)
         {
-            var json = await this.GetTextAsync(client, "/api/v1/manifest", cancellationToken).ConfigureAwait(false);
-            return json == null ? null : CatalogueWire.ParseManifest(json);
+            var bytes = await this.GetBytesAsync(client, "/api/v1/manifest", cancellationToken).ConfigureAwait(false);
+            if (bytes == null)
+            {
+                return null;
+            }
+
+            // Fields are untrusted until the signature verifies, but the parsed
+            // key id may legitimately name a rotated key we have not adopted —
+            // the keyset artefact verifies independently against trusted keys.
+            var manifest = CatalogueWire.ParseManifest(System.Text.Encoding.UTF8.GetString(bytes));
+            if (!this._trustedKeys.ContainsKey(manifest.KeyId))
+            {
+                await this.RefreshTrustedKeysAsync(client, cancellationToken).ConfigureAwait(false);
+            }
+
+            var signature = await this.GetTextAsync(client, "/api/v1/manifest.sig", cancellationToken).ConfigureAwait(false);
+            if (signature == null)
+            {
+                this.Log(ProviderLogLevel.Info, "manifest served unsigned — treating it as an unauthenticated hint (pre-sig server)");
+            }
+            else if (!CatalogueSignature.VerifyWithTrustedKeys(bytes, signature, null, this._trustedKeys))
+            {
+                throw new CatalogueProtocolException("manifest signature verification failed");
+            }
+            else
+            {
+                this.Log(ProviderLogLevel.Info, "verified manifest signature");
+            }
+
+            return manifest;
         }
 
+        /// <summary>
+        /// Fetches an artefact with bounded retries: transient failures (network
+        /// errors, timeouts, 408/429/5xx) are retried up to
+        /// <see cref="MaxFetchAttempts"/> times with exponential backoff; other
+        /// HTTP statuses and content problems fail immediately. Returns null on
+        /// exhaustion — callers treat it as "unreachable", never as valid data.
+        /// </summary>
         private async Task<byte[]> GetBytesAsync(HttpClient client, string path, CancellationToken cancellationToken)
         {
-            using (var response = await client.GetAsync(this._baseUrl + path, cancellationToken).ConfigureAwait(false))
+            for (var attempt = 1; ; attempt++)
             {
-                if (!response.IsSuccessStatusCode)
+                try
                 {
-                    this.Log(ProviderLogLevel.Warning, $"GET {path} → {(int)response.StatusCode}");
+                    using (var response = await client.GetAsync(this._baseUrl + path, cancellationToken).ConfigureAwait(false))
+                    {
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            var status = (int)response.StatusCode;
+                            if (attempt < MaxFetchAttempts && IsRetryableStatus(status))
+                            {
+                                await this.DelayBeforeRetryAsync(path, $"HTTP {status}", attempt, cancellationToken).ConfigureAwait(false);
+                                continue;
+                            }
+
+                            this.Log(ProviderLogLevel.Warning, $"GET {path} → {status}");
+                            return null;
+                        }
+
+                        if (response.Content.Headers.ContentLength > CatalogueWire.MaxDocumentBytes)
+                        {
+                            this.Log(ProviderLogLevel.Warning, $"GET {path} exceeded {CatalogueWire.MaxDocumentBytes} bytes");
+                            return null;
+                        }
+
+                        var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+                        return bytes.Length > CatalogueWire.MaxDocumentBytes ? null : bytes;
+                    }
+                }
+                catch (Exception ex) when (IsRetryableException(ex, cancellationToken) && attempt < MaxFetchAttempts)
+                {
+                    await this.DelayBeforeRetryAsync(path, ex.GetType().Name, attempt, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (IsRetryableException(ex, cancellationToken))
+                {
+                    this.Log(ProviderLogLevel.Warning, $"GET {path} failed after {MaxFetchAttempts} attempts: {ex.Message}");
                     return null;
                 }
-
-                if (response.Content.Headers.ContentLength > CatalogueWire.MaxDocumentBytes)
-                {
-                    this.Log(ProviderLogLevel.Warning, $"GET {path} exceeded {CatalogueWire.MaxDocumentBytes} bytes");
-                    return null;
-                }
-
-                var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-                return bytes.Length > CatalogueWire.MaxDocumentBytes ? null : bytes;
             }
+        }
+
+        private async Task DelayBeforeRetryAsync(string path, string reason, int attempt, CancellationToken cancellationToken)
+        {
+            var delay = TimeSpan.FromMilliseconds(RetryBaseDelay.TotalMilliseconds * Math.Pow(2, attempt - 1));
+            this.Log(ProviderLogLevel.Info, $"GET {path}: {reason} — retrying ({attempt + 1}/{MaxFetchAttempts}) in {delay.TotalMilliseconds:0}ms");
+            await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
         }
 
         private async Task<string> GetTextAsync(HttpClient client, string path, CancellationToken cancellationToken)
@@ -313,9 +503,36 @@ namespace SmartHopper.ProviderSdk.Catalogue
             return bytes == null ? null : System.Text.Encoding.UTF8.GetString(bytes);
         }
 
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A misbehaving log listener must never break catalogue refresh")]
         private void Log(ProviderLogLevel level, string message)
         {
             ProviderSdkHost.Logger?.Log(level, ProviderName, message);
+            try
+            {
+                this.RefreshLog?.Invoke(this, new ModelCatalogueLogEventArgs($"{level}: {message}"));
+            }
+            catch (Exception)
+            {
+            }
         }
+    }
+
+    /// <summary>
+    /// Carries a single human-readable progress line emitted by
+    /// <see cref="ModelCatalogueService.RefreshLog"/>.
+    /// </summary>
+    public sealed class ModelCatalogueLogEventArgs : EventArgs
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ModelCatalogueLogEventArgs"/> class.
+        /// </summary>
+        /// <param name="message">The log line.</param>
+        public ModelCatalogueLogEventArgs(string message)
+        {
+            this.Message = message;
+        }
+
+        /// <summary>Gets the log line.</summary>
+        public string Message { get; }
     }
 }
