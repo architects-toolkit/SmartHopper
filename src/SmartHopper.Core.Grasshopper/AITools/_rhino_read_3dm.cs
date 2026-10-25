@@ -80,7 +80,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 enabled: false,
                 tags: new[] { "not-tested", "rhino", "3dm", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""summary"": { ""type"": ""string"" }, ""layers"": { ""type"": ""array"" }, ""objects"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
         }
 
         /// <summary>

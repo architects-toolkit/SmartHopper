@@ -107,7 +107,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "list", "text", "data-processing", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""array"", ""items"": { ""type"": ""integer"" }, ""description"": ""Zero-based indices of selected or reordered items."" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true),
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
                 surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
         }
 

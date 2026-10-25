@@ -83,7 +83,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 enabled: false,
                 tags: new[] { "not-tested", "rhino", "geometry", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""objects"": { ""type"": ""array"", ""description"": ""Extracted geometry objects."" }, ""count"": { ""type"": ""integer"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
         }
 
         /// <summary>

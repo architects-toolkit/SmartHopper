@@ -44,6 +44,7 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
   - `Allow Editing` (`AE`) — whether tools marked as mutating may be exposed.
   - `Bypass Edition Validation` (`BV`) — when true, canvas mutations requested through this server are applied without showing the review dialog. Undo is still recorded. Defaults to false.
   - `Allow View Control` (`AV`) — when true, tools in the `ViewControl` category (`canvas_view`) are exposed so clients can move the canvas viewport. Defaults to false.
+  - `Allow External Tools` (`ET`) — when true, tools annotated `openWorldHint` (local file reads/writes, URL fetches, AI provider calls) are exposed. Defaults to false.
 - Outputs:
   - `Url` — the MCP endpoint when the server is running.
   - `Status` — a short status string.
@@ -58,6 +59,7 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 | Allow editing (`ExposeMutatingTools`) | `false` | Mutating tools stay hidden unless explicitly allowed. |
 | Bypass edition validation (`BypassMutationsApproval`) | `false` | Opt-in per server instance; skips the review dialog for mutations requested through that server. |
 | Allow view control (`AllowViewControl`) | `false` | `ViewControl`-category tools (`canvas_view`) stay hidden unless explicitly allowed. |
+| Allow external tools (`AllowExternalTools`) | `false` | `openWorldHint`-annotated tools stay hidden unless explicitly allowed. |
 | Server name | `smarthopper` | Reported during MCP `initialize`. |
 | Server version | assembly informational version fallback | Can be overridden from options. |
 | Bind address | loopback only | `127.0.0.1` only in phase 1. IPv6 loopback is not registered. |
@@ -69,9 +71,10 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 - **Bearer token optional.** If a token is configured, requests without `Authorization: Bearer ...` are rejected with HTTP 401.
 - **Read-only by default.** Tools that alter the canvas are hidden unless `Allow Editing` (`ExposeMutatingTools`) is enabled.
 - **Viewport control is opt-in.** `ViewControl`-category tools such as `canvas_view` are hidden unless `Allow View Control` (`AllowViewControl`) is enabled, even though they do not mutate the document.
+- **External interaction is opt-in.** Tools annotated `openWorldHint` — local file reads/writes (`file2md`, `rhino_read_3dm`, `rhino_get_geometry_3dm`, `gh_document_open`, `gh_document_save`), arbitrary URL fetches (`web2md`, Discourse tools), and AI provider calls (`gh_generate`, `script_generate`, `script_edit`, `script_review`, `img2text`, `providers_models`) — are hidden unless `Allow External Tools` (`AllowExternalTools`) is enabled, so an unauthenticated loopback client cannot read arbitrary files, reach the network, or spend provider credits. Canvas-scoped reads such as `gh_get` or the screenshot tools are unaffected because they only expose the document the server already owns.
 - **Disabled tools are never exposed.** If `AITool.Enabled` is `false`, the tool is hidden from MCP regardless of the allow-list or mutating-tool policy.
 - **Tool surfaces are enforced.** Tools without `AIToolSurface.Mcp`, including WebChat control tools such as `plan_propose` and internal-only component-backing tools (`text2text`, `text2boolean`, `text2json`, `textlist2boolean`, `list_filter`, `text2img`, `speech_generate`), remain hidden even when named in an MCP allow-list.
-- **Allow-list overrides the mutating and view-control filters.** If `EnabledTools` is set, only those tools are exposed; this overrides `ExposeMutatingTools` and `AllowViewControl` but not the `Enabled` flag.
+- **Allow-list overrides the mutating, view-control, and external-tool filters.** If `EnabledTools` is set, only those tools are exposed; this overrides `ExposeMutatingTools`, `AllowViewControl`, and `AllowExternalTools` but not the `Enabled` flag.
 - **No file-system or shell access.** MCP only exposes existing `IAIToolProvider` tools.
 - **No payload logging.** Requests are logged without GhJSON payload contents.
 - **Review-by-default for mutations.** Even with `Allow Editing` on, every canvas mutation still goes through the consent review unless the serving component explicitly sets `Bypass Edition Validation`.
@@ -84,7 +87,7 @@ A tool is considered mutating when its `AITool.MutatesCanvas` flag is `true`.
 - Read-only, query, validation, and transformation tools should set `mutatesCanvas: false`.
 - MCP exposure uses the flag instead of name-prefix heuristics.
 
-That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `gh_diff`, `gh_patch_validate`, `script_review`, `img2text`, `canvas_screenshot`, `viewport_screenshot`, `web2md`, and the Discourse readers stay visible by default, while canvas-changing tools remain hidden unless explicitly enabled. Separately, `ViewControl`-category tools (`canvas_view`) are hidden by default because they move the user's viewport — they require `AllowViewControl` even though `MutatesCanvas` is `false`.
+That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `gh_diff`, `gh_patch_validate`, `canvas_screenshot`, and `viewport_screenshot` stay visible by default, while canvas-changing tools remain hidden unless explicitly enabled. Separately, `ViewControl`-category tools (`canvas_view`) are hidden by default because they move the user's viewport — they require `AllowViewControl` even though `MutatesCanvas` is `false` — and `openWorldHint` tools that interact with the local file system, the network, or AI providers (`file2md`, `web2md`, `gh_document_open`, `gh_document_save`, `script_review`, `img2text`, `providers_models`, the Discourse readers) require `AllowExternalTools`.
 
 ### What Enabled Means
 
