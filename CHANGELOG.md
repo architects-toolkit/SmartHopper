@@ -70,6 +70,7 @@ Many thanks to the following contributors to this release:
 ### Changed
 
 - `gh_document_save` now only accepts absolute `.gh`/`.ghx` target paths.
+- `gh_document_save` is now marked as a mutating tool (`MutatesCanvas`), so it is hidden from MCP servers unless `Allow Editing` is enabled and is presented to models with the mutating-tool prefix and destructive annotation.
 - `gh_set_value` now applies persistent parameter values through the upstream `GhJsonGrasshopper.ApplyParamData` API, replacing the duplicated `GH_PersistentParam<T>`/`GH_Structure<T>` reflection recipe in `ComponentManipulation`.
 - OpenAI-compatible providers now share request tool-choice formatting, JSON-schema wrapping, and token-usage decoding in `OpenAICompatibleProvider<T>` in `SmartHopper.ProviderSdk.AIProviders`, keeping cached and reasoning-token accounting consistent across streaming and non-streaming responses.
 - Autonomous assistant runs are now bounded by time and token budgets instead of interaction counts. `SessionOptions.MaxTurns`/`MaxToolPasses` are replaced by `MaxAutonomousTime` (`TimeSpan`, default 10 minutes) and `MaxAutonomousTokens` (default 300 000 provider-reported input+output tokens); a value of `0` or less disables that limit. `ConversationSession` checks the budgets before each provider turn, each tool pass, and each tool execution, closing pending tool calls with an explicit budget-exhausted result. `ConversationSession.GetAutonomyUsage()` exposes a live `AutonomyUsage` snapshot (elapsed/limit seconds, consumed/limit tokens, running/exhausted flags).

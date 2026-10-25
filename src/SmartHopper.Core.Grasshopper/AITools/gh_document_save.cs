@@ -62,10 +62,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }",
                 execute: this.GhDocumentSaveToolAsync,
-                mutatesCanvas: false,
+                mutatesCanvas: true,
                 tags: new[] { "document", "save", "file" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""filePath"": { ""type"": [""string"", ""null""] }, ""saved"": { ""type"": ""boolean"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: false));
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""filePath"": { ""type"": [""string"", ""null""] }, ""saved"": { ""type"": ""boolean"" } } }");
         }
 
         private Task<AIReturn> GhDocumentSaveToolAsync(AIToolCall toolCall)
