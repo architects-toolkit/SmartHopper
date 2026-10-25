@@ -64,6 +64,10 @@ namespace SmartHopper.Infrastructure.Mcp
                     slot = new ServerSlot(server);
                     Slots[options.Port] = slot;
                 }
+                else if (OptionsDiffer(slot.Server.Options, options))
+                {
+                    Debug.WriteLine($"[Mcp] Port {options.Port} is already served with different options; the running configuration stays in effect for every holder.");
+                }
 
                 slot.Holders.Add(key);
                 return slot.Server;
@@ -116,6 +120,27 @@ namespace SmartHopper.Infrastructure.Mcp
             {
                 return Slots.TryGetValue(port, out var slot) ? slot.Server : null;
             }
+        }
+
+        /// <summary>
+        /// Whether the options a caller asked for differ from the running server's
+        /// actual options. Slots are keyed by port only, so a second component on the
+        /// same port would silently inherit the first configuration without this check.
+        /// </summary>
+        private static bool OptionsDiffer(McpServerOptions running, McpServerOptions requested)
+        {
+            if (!string.Equals(running.BearerToken ?? string.Empty, requested.BearerToken ?? string.Empty, StringComparison.Ordinal)
+                || running.ExposeMutatingTools != requested.ExposeMutatingTools
+                || running.BypassMutationsApproval != requested.BypassMutationsApproval
+                || running.AllowViewControl != requested.AllowViewControl
+                || running.AllowExternalConnections != requested.AllowExternalConnections)
+            {
+                return true;
+            }
+
+            var runningTools = running.EnabledTools == null ? string.Empty : string.Join("|", running.EnabledTools);
+            var requestedTools = requested.EnabledTools == null ? string.Empty : string.Join("|", requested.EnabledTools);
+            return !string.Equals(runningTools, requestedTools, StringComparison.OrdinalIgnoreCase);
         }
 
         private sealed class ServerSlot
