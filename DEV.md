@@ -244,7 +244,6 @@ Notes:
 | Gemini | `gemini-2.5-flash` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, SpeechInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-pro` | ⭐ | ✅ | - | - | TextInput, ImageInput, SpeechInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| MistralAI | `voxtral-mini-tts-2603` | - | - | - | Text2Speech | TextInput, AudioInput, SpeechOutput |
 | OpenAI | `gpt-5.4-mini-2026-03-17` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | OpenAI | `gpt-audio-mini-2025-12-15` | - | - | - | Audio2Text | TextInput, AudioInput, TextOutput, AudioOutput, FunctionCalling |
 | OpenAI | `gpt-5-mini-2025-08-07` | ⭐ | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
@@ -267,7 +266,7 @@ Some models are still supported but **not recommended** for script-oriented tool
   - `claude-3-haiku-20240307`/`claude-3-haiku`/`claude-3-haiku-latest` -> discouraged for: `script_generate`, `script_edit`
 - **MistralAI**
   - `mistral-small-2603`/`mistral-small`/`mistral-small-latest`/`magistral-small-latest`/`mistral-vibe-cli-fast`/`mistral-small-2603:batch` -> discouraged for: `script_generate`, `script_edit`
-  - `Mistral OCR 3.0`/`mistral-ocr-3-0`/`mistral-ocr-3`/`mistral-ocr-2512` -> discouraged for: any tool
+  - `mistral-ocr-2512`/`mistral-ocr-3-0`/`mistral-ocr-3`/`Mistral OCR 3.0` -> discouraged for: any tool
   - `mistral-ocr-2505` -> discouraged for: any tool
 - **OpenAI**
   - `gpt-live-1` -> discouraged for: any tool
