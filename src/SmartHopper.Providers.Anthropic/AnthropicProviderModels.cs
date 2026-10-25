@@ -125,41 +125,11 @@ namespace SmartHopper.Providers.Anthropic
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-opus-5",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9985,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 7, 24),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.000005m,
-                        Completion = 0.000025m,
-                        InputCacheRead = 0.0000005m,
-                        InputCacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000025m,
-                        Completion = 0.0000125m,
-                        InputCacheRead = 0.00000025m,
-                        InputCacheWrite = 0.000003125m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "claude-opus-5:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
                     Model = "claude-fable-5-1",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9980,
+                    Rank = 9985,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 1),
                     Pricing = new AIModelPricing
@@ -185,7 +155,7 @@ namespace SmartHopper.Providers.Anthropic
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9975,
+                    Rank = 9980,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 30),
                     Pricing = new AIModelPricing
@@ -205,6 +175,36 @@ namespace SmartHopper.Providers.Anthropic
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-sonnet-5:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-opus-5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9975,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 7, 24),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000005m,
+                        Completion = 0.000025m,
+                        InputCacheRead = 0.0000005m,
+                        InputCacheWrite = 0.00000625m,
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000025m,
+                        Completion = 0.0000125m,
+                        InputCacheRead = 0.00000025m,
+                        InputCacheWrite = 0.000003125m,
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "claude-opus-5:batch" },
                 },
 
                 new AIModelCapabilities
