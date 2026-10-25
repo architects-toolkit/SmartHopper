@@ -168,7 +168,7 @@ namespace SmartHopper.Providers.MistralAI
                 }
             }
 
-            Debug.WriteLine($"Validating MistralAI settings: API Key: {apiKey}, Model: {model}");
+            Debug.WriteLine($"Validating MistralAI settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
 
             return true;
         }

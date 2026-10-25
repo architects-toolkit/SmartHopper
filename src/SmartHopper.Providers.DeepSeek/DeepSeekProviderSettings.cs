@@ -205,7 +205,7 @@ namespace SmartHopper.Providers.DeepSeek
                 }
             }
 
-            Debug.WriteLine($"Validating DeepSeek settings: API Key: {apiKey}, Model: {model}");
+            Debug.WriteLine($"Validating DeepSeek settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
 
             return true;
         }
