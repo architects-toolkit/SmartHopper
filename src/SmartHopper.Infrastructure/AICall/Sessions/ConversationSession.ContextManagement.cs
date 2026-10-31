@@ -40,8 +40,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     {
         /// <summary>
         /// Context usage threshold (0.0 to 1.0) at which automatic summarization is triggered.
+        /// Kept at 0.95 — late compaction preserves raw context (and avoids
+        /// summarization-call token spend) until the window is nearly full.
         /// </summary>
-        private const double ContextSummarizeThreshold = 0.80;
+        private const double ContextSummarizeThreshold = 0.95;
 
         /// <summary>
         /// Read-only snapshot tools whose earlier results go stale once a newer call
