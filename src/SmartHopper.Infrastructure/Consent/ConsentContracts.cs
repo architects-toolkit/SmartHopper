@@ -146,6 +146,14 @@ namespace SmartHopper.Infrastructure.Consent
         /// <summary>Gets or sets an invocation-specific user question presenter.</summary>
         public IUserQuestionPresenter? UserQuestionPresenter { get; set; }
 
+        /// <summary>
+        /// Gets or sets the tool filter that scoped the originating request's
+        /// inline tool set. Discovery tools (search_tools) re-resolve it to
+        /// keep their catalogue inside the same eligible scope the request
+        /// was built with. Null means unscoped (all registered tools).
+        /// </summary>
+        public string? ToolScopeFilter { get; set; }
+ (feat(tools): progressive tool loading via search_tools)
         /// <summary>Creates a defensive copy for one tool call.</summary>
         public MutationInvocationContext ForTool(string? toolCallId, string? toolName)
         {
@@ -162,6 +170,7 @@ namespace SmartHopper.Infrastructure.Consent
                 TaskPlanPresenter = this.TaskPlanPresenter,
                 CanvasPointerPresenter = this.CanvasPointerPresenter,
                 UserQuestionPresenter = this.UserQuestionPresenter,
+                ToolScopeFilter = this.ToolScopeFilter, (feat(tools): progressive tool loading via search_tools)
             };
         }
     }
