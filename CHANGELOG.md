@@ -87,6 +87,7 @@ Many thanks to the following contributors to this release:
 - Added `IAIProvider.AuthenticationErrorMessage` and the default `AIProvider.AuthenticationErrorMessage` property, plus `ClassifyHttpError(..., IAIProvider)`. A trimmed plain-text message of 1-300 characters with no control or Unicode format characters, URL markers, email addresses, or domain names replaces the server body on HTTP 401; providers implementing `IAIProvider` directly must add the property.
 
 ### Changed
+- Context editing now runs before every provider call: older `AIInteractionToolResult` bodies superseded by a newer result of the same snapshot tool with the same arguments (`gh_get` family, canvas/document reads, forum search, registry reads) are replaced with a short re-fetch pointer. The newest occurrence always survives; stale dumps stop consuming window without a summarization call.
 
 - Replaced `Debug.WriteLine` diagnostics across all projects with the structured `Logger` facade (`Logger.For<T>()` in instance classes, the static `Logger` facade in static classes), routed through the PII-scrubbing local sinks.
 - Replaced the `IProviderLogger` contract with the richer `ILogger` facade; `ProviderSdkHost.Logger` now defaults to `DebugLogger` and the SmartHopper host installs `SmartHopperLogger` at startup.

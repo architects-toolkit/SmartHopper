@@ -153,7 +153,7 @@ namespace SmartHopper.Infrastructure.Consent
         /// was built with. Null means unscoped (all registered tools).
         /// </summary>
         public string? ToolScopeFilter { get; set; }
- (feat(tools): progressive tool loading via search_tools)
+
         /// <summary>Creates a defensive copy for one tool call.</summary>
         public MutationInvocationContext ForTool(string? toolCallId, string? toolName)
         {
@@ -170,7 +170,7 @@ namespace SmartHopper.Infrastructure.Consent
                 TaskPlanPresenter = this.TaskPlanPresenter,
                 CanvasPointerPresenter = this.CanvasPointerPresenter,
                 UserQuestionPresenter = this.UserQuestionPresenter,
-                ToolScopeFilter = this.ToolScopeFilter, (feat(tools): progressive tool loading via search_tools)
+                ToolScopeFilter = this.ToolScopeFilter,
             };
         }
     }
