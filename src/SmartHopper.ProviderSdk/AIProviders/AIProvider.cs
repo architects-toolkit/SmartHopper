@@ -875,29 +875,59 @@ namespace SmartHopper.ProviderSdk.AIProviders
                     return null;
                 }
 
-                var toolsArray = new JArray();
                 var toolFilterObj = Filtering.Parse(toolFilter);
-                foreach (var tool in tools)
+                var eligible = new List<ProviderToolDefinition>();
+                foreach (var tool in tools.Values)
                 {
-                    if (!tool.Value.Enabled || (tool.Value.Surfaces & surface) == 0)
+                    if (!tool.Enabled || (tool.Surfaces & surface) == 0)
                     {
                         continue;
                     }
 
-                    if (!toolFilterObj.ShouldIncludePath(tool.Value.Category))
+                    if (!toolFilterObj.ShouldIncludePath(tool.Category))
                     {
                         // Skip tools that don't match the filter
                         continue;
                     }
 
+                    eligible.Add(tool);
+                }
+
+                // Progressive tool loading: a large eligible set goes on demand —
+                // the core categories stay inline plus search_tools, and the
+                // model discovers the rest through it. search_tools is appended
+                // even when its own category sits outside the filter scope:
+                // discovery must work regardless of the request's include set.
+                if (eligible.Count > ProgressiveToolLoading.InlineThreshold
+                    && tools.TryGetValue(ProgressiveToolLoading.SearchToolName, out var searchTool)
+                    && searchTool.Enabled
+                    && (searchTool.Surfaces & surface) != 0)
+                {
+                    var collapsed = eligible
+                        .Where(t => ProgressiveToolLoading.CoreCategories.Contains(t.Category)
+                            || string.Equals(t.Name, ProgressiveToolLoading.SearchToolName, StringComparison.Ordinal))
+                        .ToList();
+
+                    if (collapsed.All(t => !string.Equals(t.Name, searchTool.Name, StringComparison.Ordinal)))
+                    {
+                        collapsed.Add(searchTool);
+                    }
+
+                    Logger.For<AIProvider>().Trace($"[GetFormattedTools] progressive loading: {eligible.Count} eligible → {collapsed.Count} inline");
+                    eligible = collapsed;
+                }
+
+                var toolsArray = new JArray();
+                foreach (var tool in eligible)
+                {
                     var toolObject = new JObject
                     {
                         ["type"] = "function",
                         ["function"] = new JObject
                         {
-                            ["name"] = tool.Value.Name,
-                            ["description"] = tool.Value.RichDescription,
-                            ["parameters"] = JObject.Parse(tool.Value.ParametersSchema),
+                            ["name"] = tool.Name,
+                            ["description"] = tool.RichDescription,
+                            ["parameters"] = JObject.Parse(tool.ParametersSchema),
                         },
                     };
 

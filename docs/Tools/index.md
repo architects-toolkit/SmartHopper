@@ -231,7 +231,14 @@ Every tool declares a hierarchical `Category` in `Group.Subgroup` form. Filters 
 | `AIProviders` | `providers_list`, `providers_models`, `gh_component_set_provider` |
 | `Data.Text` / `Data.Lists` / `Data.Media` | `text2text`, `text2boolean`, `text2json`, `list_filter`, `text2textlist`, `textlist2boolean`, `img2text`, `text2img`, `speech_generate` |
 | `Rhino.Geometry` / `Rhino.Read3dm` | `rhino_get_geometry_3dm`, `rhino_read_3dm` (experimental) |
-| `Hidden` | Internal component-backing tools; never exposed to the model |
+| `Assistant.Meta` | `search_tools` — progressive tool discovery |
+| `Hidden` | Internal component-backing tools; never exposed to the model | (feat(tools): progressive tool loading via search_tools)
+
+### Progressive tool loading
+
+When the eligible tool set exceeds `ProgressiveToolLoading.InlineThreshold` (12), `AIProvider.GetFormattedTools` only sends the core categories (`Canvas.Query`, `Canvas.Modifications`, `GhJSON.Generation`) plus `search_tools` inline. The model calls `search_tools(query)` to retrieve the full schemas of matching tools — including tools outside its current inline set — then invokes them by name. Execution is name-dispatched through the registry, so a discovered tool runs without having been inline.
+
+`search_tools` honors the request's scope: the original `AIBody.ToolFilter` travels on `MutationInvocationContext.ToolScopeFilter` (populated in `ConversationSessionHelpers`), so a narrowed request (`Canvas`, `Knowledge.*`, `-Scripting`) only ever discovers tools inside that scope. Surface eligibility (`AIToolSurface`) is applied identically.
 
 ### Related Documentation
 
