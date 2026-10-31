@@ -281,7 +281,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     TaskPlanPresenter = this.TaskPlanPresenter,
                     CanvasPointerPresenter = this.CanvasPointerPresenter,
                     UserQuestionPresenter = this.UserQuestionPresenter,
-                    ToolScopeFilter = this.Request.Body?.ToolFilter, (feat(tools): progressive tool loading via search_tools)
+                    ToolScopeFilter = this.Request.Body?.ToolFilter,
                 },
             };
             toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);

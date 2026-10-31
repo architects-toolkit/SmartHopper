@@ -24,6 +24,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
+    using Newtonsoft.Json;
+    using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns;
     using SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns.BuiltIn;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -40,6 +42,29 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// Context usage threshold (0.0 to 1.0) at which automatic summarization is triggered.
         /// </summary>
         private const double ContextSummarizeThreshold = 0.80;
+
+        /// <summary>
+        /// Read-only snapshot tools whose earlier results go stale once a newer call
+        /// with the same arguments completes: canvas/document reads return
+        /// point-in-time state, forum searches go out of date, and registry reads
+        /// reflect the provider/model configuration at call time. Keyed on
+        /// tool-name-plus-arguments so distinct reads always survive.
+        /// </summary>
+        private static readonly HashSet<string> ContextEditableTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "gh_get", "gh_get_selected", "gh_get_by_guid", "gh_get_errors",
+            "gh_document_list", "gh_component_preview", "canvas_view",
+            "gh_list_categories", "gh_list_components",
+            "search_forum", "fetch_forum_topic",
+            "search_rhino_forum", "search_ladybug_forum",
+            "get_available_models", "get_available_providers",
+        };
+
+        /// <summary>
+        /// Tool results smaller than this are left alone — a stub would not save
+        /// meaningful tokens and only adds noise.
+        /// </summary>
+        private const int ContextEditMinResultLength = 400;
 
         /// <summary>
         /// Tracks whether a summarization has already been attempted for the current turn.
@@ -181,6 +206,76 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession.ContextManagement] Error during summarization: {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Context editing: stubs older <see cref="AIInteractionToolResult"/> bodies that
+        /// have been superseded by a newer result of the same snapshot tool with the
+        /// same arguments. The newest occurrence is always kept, so the model retains
+        /// current state while stale dumps stop consuming tokens — they get a short
+        /// re-fetch pointer instead. Runs before every provider call and mutates the
+        /// session body permanently (that is the point of context editing); the stub
+        /// itself stays under <see cref="ContextEditMinResultLength"/> so it is never
+        /// re-stubbed.
+        /// </summary>
+        private void ApplyContextEditing()
+        {
+            var body = this.Request?.Body;
+            var interactions = body?.Interactions;
+            if (interactions == null || interactions.Count < 4)
+            {
+                return;
+            }
+
+            static bool IsEditable(IAIInteraction i) =>
+                i is AIInteractionToolResult r && ContextEditableTools.Contains(r.Name ?? string.Empty);
+
+            static string KeyOf(AIInteractionToolResult r) =>
+                $"{r.Name}\n{r.Arguments?.ToString(Formatting.None) ?? string.Empty}";
+
+            // Index of the newest result per (tool, arguments).
+            var newest = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (var i = 0; i < interactions.Count; i++)
+            {
+                if (IsEditable(interactions[i]))
+                {
+                    newest[KeyOf((AIInteractionToolResult)interactions[i])] = i;
+                }
+            }
+
+            List<IAIInteraction>? edited = null;
+            var stubbed = 0;
+            for (var i = 0; i < interactions.Count; i++)
+            {
+                if (!IsEditable(interactions[i]) || newest[KeyOf((AIInteractionToolResult)interactions[i])] == i)
+                {
+                    continue;
+                }
+
+                var result = (AIInteractionToolResult)interactions[i];
+                var size = result.Result?.ToString(Formatting.None)?.Length ?? 0;
+                if (size < ContextEditMinResultLength)
+                {
+                    continue;
+                }
+
+                edited ??= new List<IAIInteraction>(interactions);
+                edited[i] = result with
+                {
+                    Result = new JObject
+                    {
+                        ["superseded"] = true,
+                        ["hint"] = $"A newer {result.Name} result with the same arguments exists later in this conversation — re-run the tool for current values.",
+                    },
+                };
+                stubbed++;
+            }
+
+            if (edited != null)
+            {
+                this.Request.Body = body with { Interactions = edited };
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.ContextManagement] Context editing stubbed {stubbed} superseded tool result(s)");
             }
         }
 
