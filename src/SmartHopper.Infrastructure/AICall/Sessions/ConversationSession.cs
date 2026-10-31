@@ -976,6 +976,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             ct.ThrowIfCancellationRequested();
 
+            this.ApplyContextEditing();
+
             var stopwatch = Stopwatch.StartNew();
             var res = await this.Request.Exec(stream: false).ConfigureAwait(false);
             stopwatch.Stop();
@@ -1054,6 +1056,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             try
             {
+                this.ApplyContextEditing();
+
                 // Ensure request policies are applied for streaming calls as well.
                 // Streaming adapters can bypass AIRequestCall.Exec(), so policies like ContextInjectionRequestPolicy
                 // must be applied explicitly to keep context up-to-date on every provider call.
