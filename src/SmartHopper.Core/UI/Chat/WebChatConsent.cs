@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -86,6 +87,92 @@ namespace SmartHopper.Core.UI.Chat
                 AcceptedItemKeys = approved ? new[] { requestId } : Array.Empty<string>(),
                 Reason = approved ? null : "The user rejected the proposed plan.",
             });
+        }
+
+        /// <summary>
+        /// Resolves the autonomy-continue consent shown when a run stops on the
+        /// autonomous time/token budgets. The card always freezes; on approval the
+        /// authorization is appended to session history as a real user message
+        /// (<see cref="AutonomyContinueMarker"/>) and the conversation re-runs as a
+        /// normal turn — <c>ConversationSession</c> starts every run with the full
+        /// configured budget, so each approval grants one more window.
+        /// </summary>
+        private void ResolveAutonomyConsent(string requestId, bool approved)
+        {
+            if (string.IsNullOrEmpty(requestId))
+            {
+                return;
+            }
+
+            this.RunWhenWebViewReady(() => this.ExecuteScript(
+                $"resolveAutonomyContinue({JsonConvert.SerializeObject(requestId)});"));
+
+            if (!string.Equals(this._pendingAutonomyConsentId, requestId, StringComparison.Ordinal))
+            {
+                // Stale or superseded card — the freeze above is all it gets.
+                return;
+            }
+
+            this._pendingAutonomyConsentId = null;
+            if (!approved)
+            {
+                return;
+            }
+
+            this.SendMessage(AutonomyContinueMarker);
+        }
+
+        /// <summary>
+        /// Called after each run finishes: when the session stopped on an autonomy
+        /// budget, pushes the autonomy-continue approval card. Skipped while a run
+        /// is still live, after a normal stop/cancel, and once the dialog is closed.
+        /// </summary>
+        private void MaybePromptAutonomyContinue()
+        {
+            if (this._dialogClosed)
+            {
+                return;
+            }
+
+            var usage = this._currentSession?.GetAutonomyUsage();
+            if (usage == null || usage.IsRunning || !usage.IsExhausted)
+            {
+                return;
+            }
+
+            var reached = new List<string>();
+            if (usage.MaxSeconds > 0 && usage.ElapsedSeconds >= usage.MaxSeconds)
+            {
+                reached.Add($"the {TimeSpan.FromSeconds(usage.MaxSeconds):mm\\:ss} time limit");
+            }
+
+            if (usage.MaxTokens > 0 && usage.Tokens >= usage.MaxTokens)
+            {
+                reached.Add($"the {usage.MaxTokens:N0}-token limit");
+            }
+
+            var detail = reached.Count > 0 ? string.Join(" and ", reached) : "the configured limits";
+            if (this._pendingAutonomyConsentId != null)
+            {
+                // A still-pending card from an earlier stop freezes — at most one
+                // continue prompt is actionable at a time.
+                var supersededId = this._pendingAutonomyConsentId;
+                this.RunWhenWebViewReady(() => this.ExecuteScript(
+                    $"resolveAutonomyContinue({JsonConvert.SerializeObject(supersededId)});"));
+            }
+
+            var id = $"autonomy-{Interlocked.Increment(ref this._autonomyConsentSeq)}";
+            this._pendingAutonomyConsentId = id;
+            var payload = new
+            {
+                id,
+                title = "Autonomous run limit reached",
+                description = $"The agent stopped because it reached {detail} for autonomous runs. Approve to let it continue working — a fresh run starts with the same limits.",
+                approveLabel = "Continue working",
+                rejectLabel = "Stop",
+            };
+            this.RunWhenWebViewReady(() => this.ExecuteScript(
+                $"showAutonomyContinue({JsonConvert.SerializeObject(payload)});"));
         }
 
         private sealed class WebChatPlanConsentPresenter : IConsentPresenter

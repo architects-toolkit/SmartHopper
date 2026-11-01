@@ -36,7 +36,8 @@
  *   addLoadingMessage, replaceLastMessageByRole, processCodeBlocks, processLinks,
  *   scrollToBottom, setStatus, setProcessing, setQueue, addAttachmentChip,
  *   removeAttachmentChip, clearAttachments, setAttachEnabled, updateAutonomyUsage,
- *   showPlanConsent, resolvePlanConsent, updateTaskPlan, showSuggestedPrompts,
+ *   showPlanConsent, resolvePlanConsent, showAutonomyContinue,
+ *   resolveAutonomyContinue, updateTaskPlan, showSuggestedPrompts,
  *   showCanvasPointer, showUserQuestion, resolveUserQuestion, resetMessages,
  *   getAllMessageKeys, showToast  (+ window.SH_READY readiness flag)
  *   Optional forward-compat global (no C# call site yet): setModels.
@@ -2197,6 +2198,74 @@ function resolvePlanConsent(id) {
     if (!card) return;
     card.classList.add('resolved');
     card.querySelectorAll('button').forEach(button => { button.disabled = true; });
+}
+
+// Autonomy-continue consent — pushed when a run stops on the autonomous
+// time/token budgets. Approve/Reject rides the same type=consent routing as
+// plan consent; the host tells the request apart by the 'autonomy-' id
+// prefix and re-runs the session with a fresh budget on approve.
+function showAutonomyContinue(payload) {
+    const container = document.getElementById('chat-container');
+    if (!container || !payload || !payload.id) return;
+
+    if (_view) {
+        const iid = `consent-${payload.id}`;
+        if (_pluginCards.has(iid)) return;
+        pushPluginInteraction(iid, payload.id, 'consent', 'assistant', [{
+            type: 'card',
+            kind: 'approval',
+            data: {
+                action: 'consent',
+                state: 'pending',
+                title: payload.title || 'Autonomous run limit reached',
+                description: payload.description || '',
+                approveLabel: payload.approveLabel || 'Continue working',
+                rejectLabel: payload.rejectLabel || 'Stop',
+            },
+        }]);
+        scrollToBottom();
+        return;
+    }
+
+    const existing = Array.from(document.querySelectorAll('.plan-consent-card'))
+        .find(node => node.dataset.consentId === payload.id);
+    if (existing) return;
+
+    const card = document.createElement('section');
+    card.className = 'plan-consent-card';
+    card.dataset.consentId = payload.id;
+
+    const title = document.createElement('h3');
+    title.textContent = payload.title || 'Autonomous run limit reached';
+    card.appendChild(title);
+
+    const description = document.createElement('p');
+    description.textContent = payload.description || '';
+    card.appendChild(description);
+
+    const actions = document.createElement('div');
+    actions.className = 'plan-consent-actions';
+    const reject = document.createElement('button');
+    reject.type = 'button';
+    reject.textContent = payload.rejectLabel || 'Stop';
+    reject.addEventListener('click', () => {
+        emitShEvent(`sh://event?type=consent&id=${encodeURIComponent(payload.id)}&decision=reject`);
+    });
+    const approve = document.createElement('button');
+    approve.type = 'button';
+    approve.textContent = payload.approveLabel || 'Continue working';
+    approve.addEventListener('click', () => {
+        emitShEvent(`sh://event?type=consent&id=${encodeURIComponent(payload.id)}&decision=approve`);
+    });
+    actions.appendChild(reject);
+    actions.appendChild(approve);
+    card.appendChild(actions);
+    insertAboveThinkingIfPresent(container, card);
+    scrollToBottom();
+}
+
+function resolveAutonomyContinue(id) {
+    resolvePlanConsent(id);
 }
 
 // Renders the current task plan. Toolkit shell: a card:task_plan interaction in
