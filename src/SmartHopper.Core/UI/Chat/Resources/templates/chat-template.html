@@ -10,11 +10,6 @@
     </style>
 </head>
 <body>
-    <div id="status-bar">
-        <span id="status-text">Ready</span>
-        <span id="spinner" class="spinner hidden"></span>
-    </div>
-
     <!-- Floating HUD: autonomy budget overlay (only while a run is in progress)
          with the active task-plan panel docked below it -->
     <div id="hud">
@@ -38,40 +33,28 @@
         <div id="task-plan-panel" class="hidden" role="status" aria-live="polite"></div>
     </div>
 
-    <div id='chat-container'></div>
+    <!-- Mount point for the vendored chat-ui toolkit shell (status line, message
+         list, attachment strip, composer). chat-bridge.js mounts into this node
+         and renames the toolkit message list to #chat-container. -->
+    <div id="chat-root"></div>
 
-    <!-- New messages indicator (shown when content arrives and user is not at bottom) -->
-    <div id="new-messages-indicator" class="hidden" role="status" aria-live="polite" aria-atomic="true">
-        New messages — click to jump ↓
-    </div>
-
-    <!-- Scroll to bottom floating button (shown when user is not at bottom) -->
-    <button id="scroll-bottom-btn" class="hidden" type="button" title="Scroll to bottom" aria-label="Scroll to bottom">↓</button>
-
-    <div id="input-bar">
-        <div id="suggestions-strip" class="hidden" role="list"></div>
-        <div id="attachment-strip" class="hidden"></div>
-        <textarea id="user-input" placeholder="Type a message..." rows="3"></textarea>
-        <div class="actions">
-            <div class="actions-left">
-                <button id="attach-button" type="button" title="Attach image" aria-label="Attach image">&#128206;</button>
-                {{debugActionsLeft}}
-            </div>
-            <div class="actions-right">
-                <button id="send-button" type="button">Send</button>
-                <button id="cancel-button" type="button">Cancel</button>
-            </div>
-        </div>
-    </div>
+    <!-- Plugin-owned regions relocated inside the toolkit chrome at init:
+         suggested-prompt chips sit above the composer; debug actions join the
+         composer row (empty + hidden in non-debug builds). -->
+    <div id="suggestions-strip" class="hidden" role="list"></div>
+    <div id="sh-debug-actions" class="hidden">{{debugActionsLeft}}</div>
 
     <script type="text/javascript" src="{{jsSanitizer}}"></script>
+    <script type="text/javascript">
+        {{jsVendor}}
+    </script>
     <script type="text/javascript">
         {{jsChat}}
     </script>
     <script>
         // Ensure the document is ready before executing any functions
         document.addEventListener('DOMContentLoaded', function() {
-            // Hooked in chat-script.js
+            // Hooked in chat-bridge.js
         });
     </script>
 </body>

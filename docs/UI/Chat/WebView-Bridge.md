@@ -187,7 +187,7 @@ public void RunWhenWebViewReady(Action action)
 
 ### JS ↔ Host API
 
-JavaScript functions (in `chat-script.js`):
+JavaScript functions (in `js/chat-bridge.js`, the compatibility layer that mounts the vendored `vendor/chat-ui.iife.js` toolkit — the surface below is unchanged for C# callers):
 
 - `addMessage(html)` — Append a pre-rendered HTML message bubble.
 - `upsertMessage(key, html)` — Replace existing or append new bubble identified by `data-key`.

@@ -31,7 +31,7 @@ This document describes the chat UI architecture and its interactions after migr
 
 ## End-User Guide
 
-The chat window is now a **full WebView UI** (no Eto input controls). The HTML page includes a status bar, the chat transcript, and an input bar with Send, Clear, and Cancel buttons.
+The chat window is now a **full WebView UI** (no Eto input controls). The page shell — status line, scrollable transcript, attachment strip, and composer (attach/send/cancel) — is provided by the vendored **chat-ui toolkit** (`window.ChatUI`, `Resources/vendor/chat-ui.iife.js`), while `Resources/js/chat-bridge.js` mounts it and exposes the compatibility globals the host drives.
 
 User actions originate in the WebView's JavaScript and are bridged to C# via a **custom URL scheme** handled in the host:
 
@@ -44,7 +44,7 @@ C# intercepts these URLs using `WebView.DocumentLoading` and cancels navigation,
 
 ### Clipboard
 
-`chat-script.js` uses `clipboard://copy?text=...` for code-block copy. The host intercepts it and sets system clipboard text, then shows a toast in the WebView.
+`chat-bridge.js` uses `clipboard://copy?text=...` for code-block copy. The host intercepts it and sets system clipboard text, then shows a toast in the WebView.
 
 ### Consumers
 
@@ -199,7 +199,7 @@ All UI work (including `ExecuteScript`) is marshaled via `RhinoApp.InvokeOnUiThr
 - The drain scheduling is debounced to coalesce bursts of updates into fewer WebView script injections.
 - `ExecuteScript(...)` enforces a small concurrency gate to avoid piling scripts into the WebView.
 
-On the WebView side (`chat-script.js`):
+On the WebView side (`chat-bridge.js`):
 
 - Message mutations (`addMessage`, `upsertMessage`, `upsertMessageAfter`, `replaceLastMessageByRole`) are enqueued and flushed using `requestAnimationFrame` (with a small timeout fallback).
 - Rendering work is reduced using:
@@ -220,8 +220,10 @@ These changes also mitigate issue #261 ("ui eventually freezes on opening webcha
   - Observer: `src/SmartHopper.Core/UI/Chat/WebChatObserver.cs`
   - Rendering: `src/SmartHopper.Core/UI/Chat/HtmlChatRenderer.cs`
   - Resources: `src/SmartHopper.Core/UI/Chat/Resources/`
-    - CSS: `css/chat-styles.css`
-    - JS: `js/chat-script.js`
+    - CSS: `css/chat-styles.css` (legacy bubbles/cards + a small toolkit-shell adaptation block)
+    - Vendored toolkit: `vendor/chat-ui.iife.js` (byte-for-byte upstream build; see `vendor/THIRD_PARTY_NOTICES.md`)
+    - JS: `js/chat-bridge.js` (compat globals + toolkit mount); `js/chat-script.js` is retained on disk but no longer injected
+    - Sanitizer: `js/purify.min.js` (DOMPurify, loaded as a data URI)
     - HTML templates: `templates/chat-template.html`, `templates/message-template.html`, `templates/error-template.html`
   - Conversation/session: `src/SmartHopper.Infrastructure/AICall/Sessions/ConversationSession.cs`
   - Utilities/lifecycle: `src/SmartHopper.Core/UI/Chat/WebChatUtils.cs`
@@ -237,6 +239,17 @@ Supported via `HtmlChatRenderer.RenderInteraction(...)` and CSS classes:
 - `AIInteractionError` -> styled error bubble
 
 Each message uses role classes like `.message.user`, `.message.assistant`, `.message.system`, `.message.tool`, enabling distinct styling.
+
+### chat-ui toolkit shell and the html-part bridge
+
+The transcript and composer are owned by the vendored chat-ui toolkit (`vendor/chat-ui.iife.js`, MIT — see `vendor/THIRD_PARTY_NOTICES.md`), mounted by `chat-bridge.js` into `#chat-root` via `ChatUI.createChatView(container, { transport, features, partRenderers })`:
+
+- **Shell (toolkit-native):** `.cui-status` line, `.cui-messages` scroll list with pin/jump-to-bottom handling, `.cui-attachments` staged-chip strip, `.cui-composer` (autosizing input, send/cancel, attach), `.cui-context-card` (fed by `setContextUsage`), quote chip. The queue feature is explicitly disabled (`queue: false`) — host order is authoritative.
+- **Message bodies (html-bridged):** legacy `.message` bubble HTML flows through `addInteraction`/`updateInteraction` as `{ type: 'html', html }` parts. A custom `partRenderers.html` sanitizes via DOMPurify and emits the markup raw (single-root `.message` becomes the part element; multi-root payloads get a `.cui-part-html` wrapper), stamping `data-key` from the interaction `domKey` so the keyed upsert/patch pipeline can address it. No extra bubble chrome is added around legacy markup.
+- **Bridge globals (unchanged C# contract):** every `ExecuteScript` target (`addMessage`, `upsertMessage`, `upsertMessageAfter`, `getAllMessageKeys`, `resetMessages`, cards, attachments, autonomy, status/processing, …) keeps its exact name and semantics — see [WebView <-> Host Bridge](./WebView-Bridge.md).
+- **DOM-key contract:** the toolkit's `.cui-messages` node is renamed to `#chat-container` at init, so all legacy selectors, loaders, and plugin cards (`plan-consent`, `user-question`, `canvas-pointer`, `suggestions-strip`) keep working verbatim as raw list children. Keyed inserts/upserts delegate to `addInteraction`/`updateInteraction`; `upsertMessageAfter` and patch payloads are handled at DOM level to preserve ordering and in-place patching.
+- **Transport:** `send`/`cancel`/`attach`/`detach`/`consent`/`question`/`canvas_pointer`/`regen`/`update`/`extend_autonomy` keep emitting the same `sh://event`/`clipboard://copy` URLs; attachment bytes stay host-side (toolkit chips are visual mirrors correlated by pending id inside `meta`).
+- **Deferred (later PR):** migrating `.message`/cards to toolkit-native part types (markdown/text/question/approval/task_plan/suggestions) and enabling the message queue.
 
 ### Streaming lifecycle and re-keying
 
