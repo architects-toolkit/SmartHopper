@@ -10,7 +10,7 @@ SmartHopper WebChat can propose explicit plans and all supported AI-driven canva
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Infrastructure/Consent/`, `src/SmartHopper.Infrastructure/AICall/Subagents/`, `src/SmartHopper.Core/UI/Chat/`, `src/SmartHopper.Core.Grasshopper/AITools/` |
 | **Since Version** | 2.1.0 |
-| **Last Updated** | 2026-09-13 |
+| **Last Updated** | 2026-11-01 |
 | **Documentation Maintainer** | Devin AI |
 
 ---
@@ -23,9 +23,9 @@ Read this when changing plan approval, tool exposure, graphical canvas review, o
 
 For non-trivial multi-step work, the assistant may show a plan card. Approving it permits the assistant to continue with that approach; it does not approve later canvas edits.
 
-While working, the assistant can maintain a live task plan in a persistent panel docked under the autonomy overlay, listing each task as pending, in progress, or completed with a progress indicator. The panel updates in place as work advances and keeps its final state until replaced or reset.
+While working, the assistant can maintain a live task plan as a native card in the transcript, listing each task as pending, in progress, or completed with a progress indicator. The card updates in place as work advances and keeps its final state until replaced or reset.
 
-The assistant may also ask the user a blocking question mid-run (`ask_user`), showing 2–4 answer options plus a free-text field, and may point at components or canvas regions (`canvas_point`) with a replayable highlight.
+The assistant may also ask the user a blocking question mid-run (`ask_user`), showing 2–4 answer options plus a free-text field in a question card, and may point at components or canvas regions (`canvas_point`) — a replay action on the transcript row pans, zooms and highlights the target.
 
 Each concrete canvas mutation is reviewed separately. Structural and component-state changes are painted on the live canvas and listed as selectable changes. Apply accepts the selected subset; Reject or Cancel leaves the rejected subset unchanged.
 
@@ -91,9 +91,9 @@ Every `AIMutatingTool` is wrapped by the host undo coordinator. Existing operati
 
 Consent is invocation-scoped rather than conversation-scoped because SmartHopper has several mutation callers. UI is separated through presenters: WebChat renders plan cards, while Core.Grasshopper owns GhJSON-aware canvas overlays. Low-level helpers such as `ScriptModifier`, `CanvasAccess`, and `GhJsonGrasshopper` remain apply primitives and must not open consent UI themselves.
 
-Task plan visualization rides the same invocation-context presenter seam as consent but never blocks on a decision. `plan_tasks` sends a complete `TaskPlan` snapshot on every call; the WebChat presenter renders it into the persistent `#task-plan-panel` docked under the autonomy overlay so progress is visible without scrolling the transcript. Because no consent is involved, the tool call returns immediately after the update is queued.
+Task plan visualization rides the same invocation-context presenter seam as consent but never blocks on a decision. `plan_tasks` sends a complete `TaskPlan` snapshot on every call; the WebChat presenter renders it as a native `card:task_plan` interaction (id `sh-task-plan`, upserted in place) inside the vendored chat-ui view — structured plugin surfaces travel as canonical parts/cards rather than DOM injections, so progress stays visible without leaving the transcript. Because no consent is involved, the tool call returns immediately after the update is queued.
 
-`ask_user` uses the same seam in the blocking direction: the tool awaits the presenter's `Task` until the user picks an option, submits free text, or the run's cancellation token fires. `canvas_point` is the Grasshopper-side counterpart — the tool executes the pan/zoom/highlight via `CanvasPointerService` on the Rhino UI thread, registers the request by pointer id, and the WebChat card replays it through `CanvasPointerBridge` so `SmartHopper.Core` never references Grasshopper APIs.
+`ask_user` uses the same seam in the blocking direction: the tool awaits the presenter's `Task` until the user picks an option, submits free text, or the run's cancellation token fires — the card is a native `card:question`. `canvas_point` is the Grasshopper-side counterpart — the tool executes the pan/zoom/highlight via `CanvasPointerService` on the Rhino UI thread, registers the request by pointer id, and the transcript row's `canvas_pointer` action replays it through `CanvasPointerBridge` so `SmartHopper.Core` never references Grasshopper APIs. Plan consent renders as a native `card:approval`.
 
 Subagents ride the same invocation-context channel without a presenter: `MutationInvocationContext.SubagentHost` carries the session's `ISubagentHost` into every tool call, so the conductor tools resolve their owning host the way consent proposals resolve their presenter. Each `spawn_subagent` clones the parent request (provider, model, endpoint, tool filter minus the conductor tools — a depth cap of 1) into a child `ConversationSession` that receives **no presenters and no subagent host**: consent-gated canvas mutations fail closed (`Unavailable`) and workers cannot spawn recursively. A finished run raises `SubagentHost.RunFinished`; WebChat then appends a visible evidence line and, when no turn is in flight, drives a wake turn whose transcript keeps a terse user marker while the full worker report rides as a system interaction. `wait_subagents` marks a run `Delivered` when its outcome is collected inline, which is what suppresses the automatic wake. Runs are in-memory (they do not survive a Rhino restart), bounded to `MaxSubagents`/`MaxConcurrentRuns` (8 each), and cancelled when the chat closes.
 
