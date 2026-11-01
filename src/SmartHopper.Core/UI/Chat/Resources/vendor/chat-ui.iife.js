@@ -475,12 +475,25 @@ var ChatUI = (() => {
   --cui-border: #e3e3e6;
   --cui-accent: #4f7cff;
   --cui-accent-fg: #ffffff;
+  --cui-accent-subtle: transparent;
   --cui-user-bg: #eef2ff;
   --cui-assistant-bg: #f6f6f7;
   --cui-system-bg: transparent;
   --cui-error: #d34545;
+  --cui-ok: rgb(47,158,87);
+  --cui-warn: rgb(160,122,31);
   --cui-radius: 10px;
+  --cui-border-width: 1px;
+  --cui-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  --cui-shadow-sm: none;
+  --cui-bubble-maxw: 85%;
+  --cui-gap: 10px;
+  --cui-pad: 8px 12px;
   --cui-font: inherit;
+  --cui-font-size: inherit;
+  --cui-font-size-sm: 12px;
+  --cui-font-mono: ui-monospace, monospace;
+  --cui-line-height: inherit;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -488,6 +501,8 @@ var ChatUI = (() => {
   background: var(--cui-bg);
   color: var(--cui-fg);
   font: var(--cui-font);
+  font-size: var(--cui-font-size);
+  line-height: var(--cui-line-height);
 }
 .chat-ui[data-theme='dark'] {
   --cui-bg: #16161a;
@@ -500,9 +515,9 @@ var ChatUI = (() => {
 .cui-status {
   flex: none;
   padding: 4px 12px;
-  font-size: 12px;
+  font-size: var(--cui-font-size-sm);
   color: var(--cui-muted);
-  border-bottom: 1px solid var(--cui-border);
+  border-bottom: var(--cui-border-width) solid var(--cui-border);
   min-height: 20px;
 }
 .cui-context-card {
@@ -511,12 +526,12 @@ var ChatUI = (() => {
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  font-size: 11px;
+  font-size: calc(var(--cui-font-size-sm) - 1px);
   color: var(--cui-muted);
-  border-bottom: 1px solid var(--cui-border);
+  border-bottom: var(--cui-border-width) solid var(--cui-border);
 }
 .cui-context-card.visible { display: flex; }
-.cui-context-meter { flex: 1; height: 4px; background: var(--cui-border); border-radius: 2px; overflow: hidden; }
+.cui-context-meter { flex: 1; height: 4px; background: var(--cui-border); border-radius: calc(var(--cui-radius) - 8px); overflow: hidden; }
 .cui-context-meter > i { display: block; height: 100%; background: var(--cui-accent); }
 .cui-messages {
   flex: 1 1 auto;
@@ -525,11 +540,11 @@ var ChatUI = (() => {
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--cui-gap);
 }
-.cui-msg { max-width: 85%; }
+.cui-msg { max-width: var(--cui-bubble-maxw); }
 .cui-msg .cui-bubble {
-  padding: 8px 12px;
+  padding: var(--cui-pad);
   border-radius: var(--cui-radius);
   background: var(--cui-assistant-bg);
   word-break: break-word;
@@ -537,99 +552,196 @@ var ChatUI = (() => {
 .cui-msg[data-role='user'] { align-self: flex-end; }
 .cui-msg[data-role='user'] .cui-bubble { background: var(--cui-user-bg); }
 .cui-msg[data-role='system'] { align-self: center; }
-.cui-msg[data-role='system'] .cui-bubble { background: var(--cui-system-bg); color: var(--cui-muted); font-size: 12px; }
+.cui-msg[data-role='system'] .cui-bubble { background: var(--cui-system-bg); color: var(--cui-muted); font-size: var(--cui-font-size-sm); }
 .cui-msg[data-role='tool'] { align-self: stretch; max-width: 100%; }
-.cui-msg[data-role='tool'] .cui-bubble { font-size: 12px; }
-.cui-msg[data-status='error'] .cui-bubble { outline: 1px solid var(--cui-error); }
+.cui-msg[data-role='tool'] .cui-bubble { font-size: var(--cui-font-size-sm); }
+.cui-msg[data-status='error'] .cui-bubble { outline: var(--cui-border-width) solid var(--cui-error); }
 .cui-msg pre { overflow-x: auto; }
-.cui-msg code { font-family: ui-monospace, monospace; font-size: 0.92em; }
+.cui-msg code { font-family: var(--cui-font-mono); font-size: 0.92em; }
 .cui-msg table { border-collapse: collapse; font-size: 0.92em; }
-.cui-msg th, .cui-msg td { border: 1px solid var(--cui-border); padding: 3px 8px; }
-.cui-msg blockquote { margin: 4px 0; padding-left: 10px; border-left: 3px solid var(--cui-border); color: var(--cui-muted); }
+.cui-msg th, .cui-msg td { border: var(--cui-border-width) solid var(--cui-border); padding: 3px 8px; }
+.cui-msg blockquote { margin: 4px 0; padding-left: 10px; border-left: calc(var(--cui-border-width) + 2px) solid var(--cui-border); color: var(--cui-muted); }
 .cui-part-tool_call .cui-tool-name { font-weight: 600; }
-.cui-part-tool_result { border-left: 2px solid var(--cui-border); padding-left: 8px; margin-top: 4px; white-space: pre-wrap; }
+.cui-part-tool_result { border-left: calc(var(--cui-border-width) + 1px) solid var(--cui-border); padding-left: 8px; margin-top: 4px; white-space: pre-wrap; }
 .cui-part-tool_result[data-error='true'] { border-color: var(--cui-error); color: var(--cui-error); }
 .cui-part-image img { max-width: 100%; border-radius: calc(var(--cui-radius) - 2px); display: block; }
 .cui-part-media audio, .cui-part-media video { max-width: 100%; border-radius: calc(var(--cui-radius) - 2px); }
-.cui-media-name { font-size: 11px; color: var(--cui-muted); margin-top: 2px; }
-.cui-part-quote { margin: 0; padding-left: 10px; border-left: 3px solid var(--cui-accent); }
+.cui-media-name { font-size: calc(var(--cui-font-size-sm) - 1px); color: var(--cui-muted); margin-top: 2px; }
+.cui-part-quote { margin: 0; padding-left: 10px; border-left: calc(var(--cui-border-width) + 2px) solid var(--cui-accent); }
 .cui-quote-body { white-space: pre-wrap; }
-.cui-quote-source { display: block; margin-top: 4px; font-size: 11px; color: var(--cui-muted); font-style: normal; }
-.cui-usage { display: inline-block; margin-top: 6px; padding: 2px 8px; font-size: 11px; color: var(--cui-muted); border: 1px solid var(--cui-border); border-radius: 999px; }
-.cui-evidence { display: flex; gap: 6px; font-size: 12px; color: var(--cui-muted); }
-.cui-evidence[data-level='warning'] { color: #a07a1f; }
+.cui-quote-source { display: block; margin-top: 4px; font-size: calc(var(--cui-font-size-sm) - 1px); color: var(--cui-muted); font-style: normal; }
+.cui-usage { display: inline-block; margin-top: 6px; padding: 2px 8px; font-size: calc(var(--cui-font-size-sm) - 1px); color: var(--cui-muted); background: var(--cui-accent-subtle); border: var(--cui-border-width) solid var(--cui-border); border-radius: 999px; }
+.cui-evidence { display: flex; gap: 6px; font-size: var(--cui-font-size-sm); color: var(--cui-muted); }
+.cui-evidence[data-level='warning'] { color: var(--cui-warn); }
 .cui-evidence[data-level='error'] { color: var(--cui-error); }
 .cui-evidence-body { display: flex; flex-direction: column; min-width: 0; }
-.cui-evidence-detail { font-size: 11px; opacity: 0.75; white-space: pre-wrap; }
+.cui-evidence-detail { font-size: calc(var(--cui-font-size-sm) - 1px); opacity: 0.75; white-space: pre-wrap; }
+.cui-references {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: var(--cui-border-width) solid var(--cui-border);
+  font-size: var(--cui-font-size-sm);
+}
+.cui-references-summary {
+  cursor: pointer;
+  color: var(--cui-muted);
+  font-size: calc(var(--cui-font-size-sm) - 1px);
+  font-weight: 600;
+  user-select: none;
+}
+.cui-references-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cui-reference { display: flex; gap: 6px; align-items: baseline; }
+.cui-ref-key { flex: none; color: var(--cui-muted); font-size: calc(var(--cui-font-size-sm) - 1px); }
+.cui-ref-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cui-ref-title {
+  color: var(--cui-fg);
+  font-size: var(--cui-font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+a.cui-ref-title { color: var(--cui-accent); text-decoration: none; }
+a.cui-ref-title:hover { text-decoration: underline; }
+.cui-ref-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: calc(var(--cui-font-size-sm) - 1px); color: var(--cui-muted); }
+.cui-ref-source { border: var(--cui-border-width) solid var(--cui-border); border-radius: 999px; padding: 0 6px; background: var(--cui-accent-subtle); }
+.cui-ref-verified { color: var(--cui-ok); }
+.cui-ref-snippet {
+  color: var(--cui-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .cui-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .cui-suggestion {
-  border: 1px solid var(--cui-border);
+  border: var(--cui-border-width) solid var(--cui-border);
   background: transparent;
   color: var(--cui-fg);
   border-radius: 999px;
   padding: 4px 12px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--cui-font-size-sm);
+  box-shadow: var(--cui-shadow-sm);
 }
-.cui-suggestion:hover:not(:disabled) { border-color: var(--cui-accent); color: var(--cui-accent); }
+.cui-suggestion:hover:not(:disabled) { border-color: var(--cui-accent); color: var(--cui-accent); background: var(--cui-accent-subtle); }
 .cui-suggestion:disabled { opacity: 0.55; cursor: default; }
 .cui-card {
-  border: 1px solid var(--cui-border);
+  border: var(--cui-border-width) solid var(--cui-border);
   border-radius: var(--cui-radius);
   padding: 8px 10px;
   margin: 4px 0;
-  font-size: 13px;
+  font-size: calc(var(--cui-font-size-sm) + 1px);
+  box-shadow: var(--cui-shadow-sm);
 }
 .cui-card-title { font-weight: 600; margin-bottom: 4px; }
 .cui-card-desc { color: var(--cui-muted); margin-bottom: 6px; white-space: pre-wrap; }
 .cui-card-actions { display: flex; gap: 6px; }
-.cui-approve { border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; background: var(--cui-accent); color: var(--cui-accent-fg); font-weight: 600; }
-.cui-reject { border: 1px solid var(--cui-border); border-radius: 6px; padding: 4px 12px; cursor: pointer; background: transparent; color: var(--cui-fg); }
+.cui-approve { border: none; border-radius: calc(var(--cui-radius) - 4px); padding: 4px 12px; cursor: pointer; background: var(--cui-accent); color: var(--cui-accent-fg); font-weight: 600; }
+.cui-reject { border: var(--cui-border-width) solid var(--cui-border); border-radius: calc(var(--cui-radius) - 4px); padding: 4px 12px; cursor: pointer; background: transparent; color: var(--cui-fg); }
 .cui-approve:disabled, .cui-reject:disabled { opacity: 0.55; cursor: default; }
-.cui-card[data-state='approved'] { border-color: #2f9e57; }
+.cui-card[data-state='approved'] { border-color: var(--cui-ok); }
 .cui-card[data-state='rejected'] { border-color: var(--cui-error); }
-.cui-card-state { font-size: 12px; color: var(--cui-muted); font-style: italic; }
-.cui-card-answer { margin-top: 4px; font-size: 12px; color: var(--cui-muted); font-style: italic; }
+.cui-card-state { font-size: var(--cui-font-size-sm); color: var(--cui-muted); font-style: italic; }
+.cui-card-answer { margin-top: 4px; font-size: var(--cui-font-size-sm); color: var(--cui-muted); font-style: italic; }
 .cui-card[data-answered='true'] { opacity: 0.85; }
 .cui-card-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
 .cui-card-answer-row { display: flex; gap: 6px; margin-top: 6px; }
 .cui-card-input {
   flex: 1; min-width: 0;
-  border: 1px solid var(--cui-border);
-  border-radius: 6px;
+  border: var(--cui-border-width) solid var(--cui-border);
+  border-radius: calc(var(--cui-radius) - 4px);
   padding: 4px 8px;
   font: inherit;
   color: var(--cui-fg);
   background: var(--cui-bg);
 }
 .cui-card-answer-row button {
-  border: none; border-radius: 6px; padding: 4px 10px; cursor: pointer;
+  border: none; border-radius: calc(var(--cui-radius) - 4px); padding: 4px 10px; cursor: pointer;
   background: var(--cui-accent); color: var(--cui-accent-fg);
 }
 .cui-card-answer-row button:disabled { opacity: 0.55; cursor: default; }
 .cui-card-modelrow { display: flex; align-items: center; gap: 8px; }
-.cui-card-label { color: var(--cui-muted); font-size: 12px; }
+.cui-card-label { color: var(--cui-muted); font-size: var(--cui-font-size-sm); }
 .cui-task-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
 .cui-task-step { display: flex; gap: 8px; align-items: baseline; }
 .cui-task-icon { flex: none; width: 1em; text-align: center; }
-.cui-task-step[data-status='done'] .cui-task-icon { color: #2f9e57; }
+.cui-task-step[data-status='done'] .cui-task-icon { color: var(--cui-ok); }
 .cui-task-step[data-status='active'] .cui-task-icon { color: var(--cui-accent); }
 .cui-task-step[data-status='error'] .cui-task-icon { color: var(--cui-error); }
 .cui-task-step[data-status='done'] .cui-task-label { text-decoration: line-through; color: var(--cui-muted); }
-.cui-task-detail { color: var(--cui-muted); font-size: 11px; }
+.cui-task-detail { color: var(--cui-muted); font-size: calc(var(--cui-font-size-sm) - 1px); }
+/* subagent_run card */
+.cui-subagent-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cui-subagent-badge {
+  flex: none;
+  font-size: calc(var(--cui-font-size-sm) - 2px);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: var(--cui-border-width) solid var(--cui-border);
+  border-radius: 999px;
+  padding: 1px 8px;
+  color: var(--cui-muted);
+}
+.cui-subagent-badge[data-tone='accent'] { color: var(--cui-accent); border-color: var(--cui-accent); background: var(--cui-accent-subtle); animation: cui-subagent-pulse 1.6s ease-in-out infinite; }
+.cui-subagent-badge[data-tone='ok'] { color: var(--cui-ok); border-color: var(--cui-ok); }
+.cui-subagent-badge[data-tone='err'] { color: var(--cui-error); border-color: var(--cui-error); }
+.cui-subagent-badge[data-tone='warn'] { color: var(--cui-warn); border-color: var(--cui-warn); }
+.cui-subagent-badge[data-tone='muted'] { opacity: 0.7; }
+@keyframes cui-subagent-pulse { 50% { opacity: 0.45; } }
+.cui-subagent-name { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cui-subagent-id { flex: none; color: var(--cui-muted); font-size: calc(var(--cui-font-size-sm) - 1px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cui-subagent-elapsed { flex: none; margin-left: auto; color: var(--cui-muted); font-size: calc(var(--cui-font-size-sm) - 1px); }
+.cui-subagent-cancel {
+  flex: none;
+  border: var(--cui-border-width) solid var(--cui-error);
+  background: transparent;
+  color: var(--cui-error);
+  border-radius: calc(var(--cui-radius) - 4px);
+  padding: 2px 10px;
+  cursor: pointer;
+  font-size: var(--cui-font-size-sm);
+}
+.cui-subagent-cancel:hover:not(:disabled) { background: var(--cui-error); color: var(--cui-accent-fg); }
+.cui-subagent-cancel:disabled { opacity: 0.55; cursor: default; }
+.cui-subagent-task { margin-top: 6px; }
+.cui-subagent-detail { margin-top: 2px; font-size: var(--cui-font-size-sm); color: var(--cui-muted); white-space: pre-wrap; }
+.cui-subagent-progressrow { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.cui-subagent-progress { flex: 1; height: 4px; background: var(--cui-border); border-radius: calc(var(--cui-radius) - 8px); overflow: hidden; }
+.cui-subagent-progress > i { display: block; height: 100%; background: var(--cui-accent); }
+.cui-subagent-progress-label { flex: none; font-size: calc(var(--cui-font-size-sm) - 1px); color: var(--cui-muted); }
+.cui-subagent-output { margin-top: 6px; padding-top: 4px; border-top: var(--cui-border-width) solid var(--cui-border); }
+.cui-subagent-output-summary { cursor: pointer; color: var(--cui-muted); font-size: calc(var(--cui-font-size-sm) - 1px); font-weight: 600; user-select: none; }
+.cui-subagent-output-pre {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--cui-font-size-sm);
+  color: var(--cui-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 8;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .cui-messages-wrap { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .cui-jump {
   display: none;
   position: absolute;
   right: 16px; bottom: 12px;
-  border: 1px solid var(--cui-border);
+  border: var(--cui-border-width) solid var(--cui-border);
   background: var(--cui-bg);
   color: var(--cui-fg);
   border-radius: 999px;
   padding: 4px 12px;
-  font-size: 12px;
+  font-size: var(--cui-font-size-sm);
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  box-shadow: var(--cui-shadow);
 }
 .cui-jump.visible { display: block; }
 .cui-attachments {
@@ -642,40 +754,42 @@ var ChatUI = (() => {
 .cui-attachments.visible { display: flex; }
 .cui-attachment {
   display: flex; align-items: center; gap: 6px;
-  border: 1px solid var(--cui-border);
+  border: var(--cui-border-width) solid var(--cui-border);
   border-radius: var(--cui-radius);
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: var(--cui-font-size-sm);
   max-width: 180px;
+  box-shadow: var(--cui-shadow-sm);
 }
-.cui-attachment-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 6px; }
-.cui-attachment-icon { font-size: 16px; }
+.cui-attachment-thumb { width: 32px; height: 32px; object-fit: cover; border-radius: calc(var(--cui-radius) - 4px); }
+.cui-attachment-icon { font-size: calc(var(--cui-font-size-sm) + 4px); }
 .cui-attachment-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cui-attachment-rm { border: none; background: none; color: var(--cui-muted); cursor: pointer; padding: 0 2px; }
 .cui-attachment-rm:hover { color: var(--cui-fg); }
 .cui-model {
   flex: none; max-width: 140px;
-  border: 1px solid var(--cui-border);
-  border-radius: 6px;
+  border: var(--cui-border-width) solid var(--cui-border);
+  border-radius: calc(var(--cui-radius) - 4px);
   padding: 4px 6px;
-  font: inherit; font-size: 12px;
+  font: inherit; font-size: var(--cui-font-size-sm);
   color: var(--cui-fg);
   background: var(--cui-bg);
 }
 .cui-actions { display: flex; gap: 6px; margin-top: 6px; }
 .cui-actions button {
-  border: 1px solid var(--cui-border);
+  border: var(--cui-border-width) solid var(--cui-border);
   background: transparent;
   color: var(--cui-fg);
-  border-radius: 6px;
+  border-radius: calc(var(--cui-radius) - 4px);
   padding: 3px 10px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--cui-font-size-sm);
 }
+.cui-actions button:hover { background: var(--cui-accent-subtle); }
 .cui-queue {
   display: none;
   flex: none;
-  border-top: 1px solid var(--cui-border);
+  border-top: var(--cui-border-width) solid var(--cui-border);
   max-height: 140px;
   overflow-y: auto;
 }
@@ -685,18 +799,19 @@ var ChatUI = (() => {
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  border-bottom: 1px solid var(--cui-border);
-  font-size: 13px;
+  border-bottom: var(--cui-border-width) solid var(--cui-border);
+  font-size: calc(var(--cui-font-size-sm) + 1px);
 }
 .cui-queue-item:last-child { border-bottom: none; }
 .cui-queue-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cui-queue-meta { flex: none; color: var(--cui-muted); font-size: calc(var(--cui-font-size-sm) - 1px); }
 .cui-queue-item button {
   flex: none;
   border: none;
   background: transparent;
   color: var(--cui-muted);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--cui-font-size-sm);
 }
 .cui-queue-item button:hover { color: var(--cui-fg); }
 .cui-quote {
@@ -706,10 +821,10 @@ var ChatUI = (() => {
   gap: 8px;
   margin: 8px 12px 0;
   padding: 6px 10px;
-  border-left: 3px solid var(--cui-accent);
+  border-left: calc(var(--cui-border-width) + 2px) solid var(--cui-accent);
   background: var(--cui-assistant-bg);
   border-radius: 0 var(--cui-radius) var(--cui-radius) 0;
-  font-size: 12px;
+  font-size: var(--cui-font-size-sm);
 }
 .cui-quote.visible { display: flex; }
 .cui-quote-text { flex: 1; white-space: pre-wrap; max-height: 64px; overflow: hidden; }
@@ -720,12 +835,12 @@ var ChatUI = (() => {
   align-items: flex-end;
   gap: 8px;
   padding: 10px 12px;
-  border-top: 1px solid var(--cui-border);
+  border-top: var(--cui-border-width) solid var(--cui-border);
 }
 .cui-input {
   flex: 1;
   resize: none;
-  border: 1px solid var(--cui-border);
+  border: var(--cui-border-width) solid var(--cui-border);
   border-radius: var(--cui-radius);
   padding: 8px 10px;
   font: inherit;
@@ -747,7 +862,7 @@ var ChatUI = (() => {
 .cui-cancel { display: none; background: var(--cui-error); }
 .chat-ui[data-processing='true'] .cui-send { display: none; }
 .chat-ui[data-processing='true'] .cui-cancel { display: block; }
-.cui-send:disabled { opacity: 0.5; cursor: default; }
+.cui-send:disabled, .cui-input:disabled, .cui-attach:disabled { opacity: 0.5; cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   .chat-ui *, .chat-ui *::before, .chat-ui *::after {
     animation-duration: 0.01ms !important;
@@ -776,6 +891,12 @@ var ChatUI = (() => {
     if (usage.durationMs != null) bits.push(`${(usage.durationMs / 1e3).toFixed(1)}s`);
     return bits.join(" \xB7 ");
   }
+  var formatElapsed = (ms) => {
+    if (ms < 0) ms = 0;
+    if (ms < 6e4) return `${(ms / 1e3).toFixed(1)}s`;
+    if (ms < 36e5) return `${Math.floor(ms / 6e4)}m ${Math.floor(ms % 6e4 / 1e3)}s`;
+    return `${Math.floor(ms / 36e5)}h ${Math.floor(ms % 36e5 / 6e4)}m`;
+  };
   function createChatView(container, options) {
     const doc = container.ownerDocument;
     const win = doc.defaultView;
@@ -784,12 +905,16 @@ var ChatUI = (() => {
     const transport = options.transport;
     const mdRender = (md) => (options.renderMarkdown ?? renderMarkdown)(md);
     const attachmentsEnabled = features.attachments === true && (!features.inputModes || features.inputModes.includes("attachments"));
-    if (!options.unstyled) {
+    const injectSheet = (css, slot) => {
       const style = doc.createElement("style");
-      style.textContent = DEFAULT_STYLES;
+      style.setAttribute("data-cui-styles", slot);
+      style.textContent = css;
       doc.head.appendChild(style);
-    }
+    };
+    if (!options.unstyled) injectSheet(DEFAULT_STYLES, "default");
+    if (options.extraCss) injectSheet(options.extraCss, "extra");
     const root = el(doc, "div", NS);
+    if (options.theme) root.dataset.theme = options.theme;
     root.dataset.processing = "false";
     const statusBar = el(doc, "div", "cui-status");
     const contextCard = el(doc, "div", "cui-context-card");
@@ -845,6 +970,8 @@ var ChatUI = (() => {
     let staged = [];
     let previews = [];
     let destroyed = false;
+    let composerEnabled = true;
+    let processing = false;
     let pinned = true;
     const isNearBottom = () => messages.scrollHeight - messages.clientHeight - messages.scrollTop <= NEAR_BOTTOM_PX;
     const applyScroll = (force = false) => {
@@ -865,6 +992,12 @@ var ChatUI = (() => {
       const next = Math.min(input.scrollHeight, max);
       input.style.height = `${next}px`;
       input.style.overflowY = input.scrollHeight > max ? "auto" : "hidden";
+    };
+    const applyComposerState = () => {
+      const editable = !destroyed && composerEnabled && !processing;
+      input.disabled = !editable;
+      send.disabled = !editable;
+      attach.disabled = !editable;
     };
     const revokePreviews = () => {
       for (const p of previews) {
@@ -1094,6 +1227,134 @@ var ChatUI = (() => {
       card.appendChild(row);
       return card;
     };
+    const renderReferences = (part) => {
+      const raw = part.items;
+      const items = (Array.isArray(raw) ? raw : []).filter(
+        (item) => typeof item === "object" && item !== null
+      );
+      if (items.length === 0) return null;
+      const details = el(doc, "details", "cui-references");
+      details.appendChild(el(doc, "summary", "cui-references-summary", `Sources (${items.length})`));
+      const list = el(doc, "ol", "cui-references-list");
+      items.forEach((item, index) => {
+        const li = el(doc, "li", "cui-reference");
+        const id = item.id;
+        const key = id !== void 0 && id !== null && `${id}` !== "" ? `${id}` : String(index + 1);
+        li.appendChild(el(doc, "span", "cui-ref-key", `[${key}]`));
+        const body = el(doc, "span", "cui-ref-body");
+        const title = typeof item.title === "string" ? item.title : void 0;
+        const url = typeof item.url === "string" ? item.url : void 0;
+        if (title !== void 0 || url !== void 0) {
+          const label = title ?? url ?? "";
+          if (url !== void 0 && isSafeUrl(url)) {
+            const link = doc.createElement("a");
+            link.className = "cui-ref-title";
+            link.href = url;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            link.textContent = label;
+            body.appendChild(link);
+          } else {
+            body.appendChild(el(doc, "span", "cui-ref-title", label));
+          }
+        }
+        const meta = el(doc, "span", "cui-ref-meta");
+        if (typeof item.source === "string" && item.source !== "") {
+          meta.appendChild(el(doc, "span", "cui-ref-source", item.source));
+        }
+        if (item.verified === true) {
+          meta.appendChild(el(doc, "span", "cui-ref-verified", "\u2713 verified"));
+        }
+        if (typeof item.publishedAt === "string" && item.publishedAt !== "") {
+          const time = doc.createElement("time");
+          time.className = "cui-ref-date";
+          time.dateTime = item.publishedAt;
+          time.textContent = item.publishedAt;
+          meta.appendChild(time);
+        }
+        if (meta.childElementCount > 0) body.appendChild(meta);
+        if (typeof item.snippet === "string" && item.snippet !== "") {
+          body.appendChild(el(doc, "span", "cui-ref-snippet", item.snippet));
+        }
+        li.appendChild(body);
+        list.appendChild(li);
+      });
+      details.appendChild(list);
+      return details;
+    };
+    const SUBAGENT_ACTIVE = /* @__PURE__ */ new Set(["pending", "running", "waiting"]);
+    const subagentTone = (status) => {
+      if (status === "running") return "accent";
+      if (status === "done") return "ok";
+      if (status === "failed" || status === "timeout") return "err";
+      if (status === "cancelled") return "muted";
+      if (status.startsWith("waiting")) return "warn";
+      return "neutral";
+    };
+    const renderSubagentRun = (data, message) => {
+      const card = el(doc, "div", "cui-card cui-subagent");
+      card.dataset.kind = "subagent_run";
+      const status = typeof data?.status === "string" && data.status !== "" ? data.status : "unknown";
+      card.dataset.status = status;
+      const id = typeof data?.id === "string" ? data.id : "";
+      const name = typeof data?.name === "string" && data.name !== "" ? data.name : void 0;
+      const head = el(doc, "div", "cui-subagent-head");
+      const badge = el(doc, "span", "cui-subagent-badge", status.replace(/_/g, " "));
+      badge.dataset.tone = subagentTone(status);
+      head.appendChild(badge);
+      head.appendChild(el(doc, "span", "cui-subagent-name", name ?? (id !== "" ? id : "subagent run")));
+      if (name !== void 0 && id !== "" && name !== id) {
+        head.appendChild(el(doc, "span", "cui-subagent-id", id));
+      }
+      const elapsedMs = typeof data?.elapsedMs === "number" && Number.isFinite(data.elapsedMs) ? data.elapsedMs : (() => {
+        const start = typeof data?.startedAt === "string" ? Date.parse(data.startedAt) : NaN;
+        if (Number.isNaN(start)) return void 0;
+        const end = typeof data?.finishedAt === "string" ? Date.parse(data.finishedAt) : NaN;
+        return Number.isNaN(end) ? SUBAGENT_ACTIVE.has(status) ? Date.now() - start : void 0 : end - start;
+      })();
+      if (elapsedMs !== void 0) {
+        head.appendChild(el(doc, "span", "cui-subagent-elapsed", formatElapsed(elapsedMs)));
+      }
+      if (data?.cancellable === true && SUBAGENT_ACTIVE.has(status) && interactive() && id !== "") {
+        const stop = el(doc, "button", "cui-subagent-cancel", "Cancel");
+        stop.type = "button";
+        stop.addEventListener("click", () => {
+          stop.disabled = true;
+          reportAction(message, data?.action ?? "subagent_cancel", { id, status });
+        });
+        head.appendChild(stop);
+      }
+      card.appendChild(head);
+      if (typeof data?.task === "string" && data.task !== "") {
+        card.appendChild(el(doc, "div", "cui-subagent-task", data.task));
+      }
+      if (typeof data?.detail === "string" && data.detail !== "") {
+        card.appendChild(el(doc, "div", "cui-subagent-detail", data.detail));
+      }
+      const progress = data?.progress;
+      if (typeof progress === "string" && progress !== "") {
+        card.appendChild(el(doc, "div", "cui-subagent-detail", progress));
+      } else if (typeof progress === "object" && progress !== null && typeof progress.done === "number" && typeof progress.total === "number") {
+        const row = el(doc, "div", "cui-subagent-progressrow");
+        const meter = el(doc, "div", "cui-subagent-progress");
+        const fill = el(doc, "i");
+        const pct = progress.total > 0 ? Math.max(0, Math.min(100, progress.done / progress.total * 100)) : 0;
+        fill.style.width = `${pct}%`;
+        meter.appendChild(fill);
+        row.append(meter, el(doc, "span", "cui-subagent-progress-label", `${progress.done}/${progress.total}`));
+        card.appendChild(row);
+      }
+      if (data?.usage && typeof data.usage === "object") {
+        card.appendChild(renderUsage(data.usage));
+      }
+      if (typeof data?.output === "string" && data.output !== "") {
+        const details = el(doc, "details", "cui-subagent-output");
+        details.appendChild(el(doc, "summary", "cui-subagent-output-summary", "Output"));
+        details.appendChild(el(doc, "pre", "cui-subagent-output-pre", data.output));
+        card.appendChild(details);
+      }
+      return card;
+    };
     const renderCard = (part, message) => {
       const custom = customRenderers[`card:${part.kind}`];
       if (custom) return custom(part, { message, ownerDocument: doc });
@@ -1106,6 +1367,8 @@ var ChatUI = (() => {
           return renderApproval(part.data, message);
         case "model_select":
           return renderModelSelect(part.data, message);
+        case "subagent_run":
+          return renderSubagentRun(part.data, message);
         default:
           return customRenderers["card"]?.(part, { message, ownerDocument: doc }) ?? null;
       }
@@ -1200,6 +1463,8 @@ var ChatUI = (() => {
           node.dataset.error = String(Boolean(part.isError));
           return node;
         }
+        case "references":
+          return renderReferences(part);
         case "divider":
           return el(doc, "hr");
         default:
@@ -1259,6 +1524,11 @@ var ChatUI = (() => {
         const row = el(doc, "div", "cui-queue-item");
         const text = el(doc, "span", "cui-queue-text", item.text);
         row.appendChild(text);
+        const meta = item.meta;
+        const byline = typeof meta?.["agent"] === "string" ? meta["agent"] : meta?.["author"];
+        if (typeof byline === "string" && byline !== "") {
+          row.appendChild(el(doc, "span", "cui-queue-meta", `\xB7 ${byline}`));
+        }
         const mkBtn = (label, title, onClick) => {
           const b = el(doc, "button", "", label);
           b.type = "button";
@@ -1276,6 +1546,7 @@ var ChatUI = (() => {
       }
     };
     const submit = () => {
+      if (input.disabled) return;
       const text = input.value.trim();
       if (!text && staged.length === 0) return;
       const submission = staged.length ? { text, attachments: [...staged] } : { text };
@@ -1394,9 +1665,10 @@ var ChatUI = (() => {
       setQueue(items) {
         if (features.queue) renderQueue(items);
       },
-      setProcessing(processing) {
-        root.dataset.processing = String(processing);
-        input.disabled = false;
+      setProcessing(next) {
+        processing = next;
+        root.dataset.processing = String(next);
+        applyComposerState();
       },
       setStatus(status) {
         statusBar.textContent = status;
@@ -1418,6 +1690,31 @@ var ChatUI = (() => {
         stagedQuote = null;
         quoteText.textContent = "";
         quote.classList.remove("visible");
+      },
+      getComposerText() {
+        return destroyed ? "" : input.value;
+      },
+      setComposerText(text, opts) {
+        if (destroyed) return;
+        input.value = text;
+        autosize();
+        if (opts?.focus) {
+          input.focus();
+          input.setSelectionRange(input.value.length, input.value.length);
+        }
+      },
+      focusComposer() {
+        if (destroyed) return;
+        input.focus();
+      },
+      setComposerEnabled(enabled) {
+        if (destroyed) return;
+        composerEnabled = enabled;
+        applyComposerState();
+      },
+      setPlaceholder(text) {
+        if (destroyed) return;
+        input.placeholder = text;
       },
       setModels(models, selected) {
         if (!features.modelPicker) return;
