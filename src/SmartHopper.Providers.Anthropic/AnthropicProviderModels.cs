@@ -48,7 +48,7 @@ namespace SmartHopper.Providers.Anthropic
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between July 2026 and October 2026
+                // Released between August 2026 and November 2026
 
                 new AIModelCapabilities
                 {
@@ -145,7 +145,7 @@ namespace SmartHopper.Providers.Anthropic
 
 
 
-                // Released between April 2026 and July 2026
+                // Released between May 2026 and August 2026
 
                 new AIModelCapabilities
                 {
@@ -260,7 +260,7 @@ namespace SmartHopper.Providers.Anthropic
 
 
 
-                // Released between January 2026 and April 2026
+                // Released between February 2026 and May 2026
 
                 new AIModelCapabilities
                 {
@@ -328,7 +328,7 @@ namespace SmartHopper.Providers.Anthropic
 
 
 
-                // Released between October 2025 and January 2026
+                // Released between November 2025 and February 2026
 
                 new AIModelCapabilities
                 {
@@ -353,7 +353,7 @@ namespace SmartHopper.Providers.Anthropic
 
 
 
-                // Released between July 2025 and October 2025
+                // Released between August 2025 and November 2025
 
                 new AIModelCapabilities
                 {
