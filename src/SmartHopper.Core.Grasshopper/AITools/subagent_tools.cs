@@ -155,7 +155,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var item = await host.SpawnAsync(label, brief, toolCall.CancellationToken).ConfigureAwait(false);
                 var result = ToJson(item);
-                result["note"] = "The subagent runs in the background and reports back automatically; you may end your turn. Use wait_subagents only when you need the result inside this turn.";
+                result["note"] = "The subagent runs in the background and reports back automatically; you may end your turn — if you do, tell the user it is still working and the conversation will resume when it reports. Use wait_subagents only when you need the result inside this turn.";
                 output.CreateSuccess(AIBodyBuilder.Create()
                     .AddToolResult(result, id: toolCall.GetToolCall().Id, name: SpawnName)
                     .Build(), toolCall);

@@ -217,7 +217,10 @@ namespace SmartHopper.Core.UI.Chat
             "You orchestrate background subagents through the spawn_subagent, send_to_subagent, wait_subagents, and list_subagents tools. " +
             "A spawned subagent works its own conversation and reports back automatically: when it finishes, the chat " +
             "resumes with its report even if you already ended your turn. You may therefore stop and let workers finish " +
-            "instead of polling; use wait_subagents only when you need a result inside the current turn.";
+            "instead of polling; use wait_subagents only when you need a result inside the current turn. " +
+            "Whenever you end your turn while subagents are still running, tell the user clearly which workers are " +
+            "running in the background and that the conversation will wake up automatically when they report back — " +
+            "an idle-looking chat is expected, not a stall.";
 
         internal static AIRequestCall CreateWebChatRequest(
             string providerName,
