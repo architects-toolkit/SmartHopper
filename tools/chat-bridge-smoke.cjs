@@ -35,10 +35,12 @@ const RES = path.resolve(__dirname, '..', 'src', 'SmartHopper.Core', 'UI', 'Chat
 const vendor = fs.readFileSync(path.join(RES, 'vendor', 'chat-ui.iife.js'), 'utf8');
 const bridge = fs.readFileSync(path.join(RES, 'js', 'chat-bridge.js'), 'utf8');
 const purify = fs.readFileSync(path.join(RES, 'js', 'purify.min.js'), 'utf8');
+const theme = fs.readFileSync(path.join(RES, 'css', 'chat-theme.css'), 'utf8');
 const template = fs.readFileSync(path.join(RES, 'templates', 'chat-template.html'), 'utf8');
 
 const html = template
     .replace('{{cssChat}}', '#x{}')
+    .replace('{{cssTheme}}', theme)
     .replace('<script type="text/javascript" src="{{jsSanitizer}}"></script>', `<script>${purify}</script>`)
     .replace('{{jsVendor}}', vendor)
     .replace('{{jsChat}}', bridge)
@@ -83,6 +85,8 @@ const check = (label, cond) => {
     if (missing.length) console.log('   missing:', missing.join(', '));
     check('SH_READY set', w.SH_READY === true);
     check('ChatUI global + _chatView handle', typeof w.ChatUI === 'object' && !!w._chatView);
+    check('cloud theme stamped on .chat-ui root',
+        (w.document.querySelector('.chat-ui') || { dataset: {} }).dataset.theme === 'cloud');
 
     const cc = w.document.getElementById('chat-container');
     const input = w.document.getElementById('user-input');
