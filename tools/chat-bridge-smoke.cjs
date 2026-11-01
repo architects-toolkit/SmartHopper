@@ -83,6 +83,7 @@ const check = (label, cond) => {
         'removeAttachmentChip', 'clearAttachments', 'setAttachEnabled', 'updateAutonomyUsage',
         'showUserQuestion', 'resolveUserQuestion', 'updateTaskPlan', 'showSuggestedPrompts',
         'showCanvasPointer', 'showToast', 'showPlanConsent', 'resolvePlanConsent',
+        'showAutonomyContinue', 'resolveAutonomyContinue',
         'resetMessages', 'getAllMessageKeys', 'setModels', 'setQueue',
     ];
     const missing = REQUIRED.filter((g) => typeof w[g] !== 'function');
@@ -233,6 +234,23 @@ const check = (label, cond) => {
     check('resolvePlanConsent freezes card',
         !!consentCard && consentCard.dataset.resolved === 'true'
         && Array.from(consentCard.querySelectorAll('button')).every((b) => b.disabled));
+
+    // Autonomy-continue -> card:approval with autonomy-<n> refId, same consent routing.
+    w.showAutonomyContinue({ id: 'autonomy-1', title: 'Autonomous run limit reached', description: 'The agent stopped because it reached the 10:00 time limit for autonomous runs.', approveLabel: 'Continue working', rejectLabel: 'Stop' });
+    const autoMsg = cc.querySelector('.cui-msg[data-iid="consent-autonomy-1"]');
+    const autoCard = autoMsg && autoMsg.querySelector('.cui-card[data-kind="approval"]');
+    check('autonomy-continue maps to card:approval', !!autoCard);
+    check('autonomy card carries custom labels + description',
+        !!autoCard && autoCard.textContent.includes('Continue working')
+        && autoCard.textContent.includes('10:00 time limit'));
+    const autoBtns = autoCard ? autoCard.querySelectorAll('button') : [];
+    if (autoBtns.length) autoBtns[0].click();
+    check('autonomy approve emits consent&id=autonomy-1&decision=approve',
+        (w.__nav || []).includes('sh://event?type=consent&id=autonomy-1&decision=approve'));
+    w.resolveAutonomyContinue('autonomy-1');
+    check('resolveAutonomyContinue freezes card',
+        !!autoCard && autoCard.dataset.resolved === 'true'
+        && Array.from(autoCard.querySelectorAll('button')).every((b) => b.disabled));
 
     // User question -> card:question; chip answers map back to choice index.
     w.showUserQuestion({ id: 'q1', question: 'Pick', options: ['A', 'B'] });

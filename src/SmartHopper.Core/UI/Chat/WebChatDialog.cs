@@ -206,6 +206,25 @@ namespace SmartHopper.Core.UI.Chat
 
         private const int MAX_CONCURRENT_SCRIPTS = 4;
 
+        /// <summary>
+        /// User-role marker persisted into session history when an autonomy-continue
+        /// consent is approved: records that the run stopped at the autonomous budgets
+        /// and that continuing was authorized, then retriggers processing as a normal
+        /// user turn with a fresh budget window.
+        /// </summary>
+        private const string AutonomyContinueMarker =
+            "The agent reached its autonomous run limits and stopped. The user approved continuing — resume the task.";
+
+        /// <summary>
+        /// Id of the currently pending autonomy-continue consent card (<c>autonomy-N</c>),
+        /// or null when none is awaiting a decision. Cleared when the card resolves or a
+        /// new turn supersedes it.
+        /// </summary>
+        private string? _pendingAutonomyConsentId;
+
+        /// <summary>Sequence suffix for autonomy-continue consent ids (one card per prompt).</summary>
+        private int _autonomyConsentSeq;
+
         // Status text to apply after the document is fully loaded
         private string _pendingStatusAfter = "Ready";
 
@@ -1267,6 +1286,18 @@ namespace SmartHopper.Core.UI.Chat
                     Interlocked.Exchange(ref this._subagentWakeChain, 0);
                 }
 
+                // A real user turn supersedes any autonomy-continue card still
+                // awaiting a decision — the user moved on, so the prompt resolves
+                // as dismissed. Subagent wake turns leave it pending: the consent
+                // stays actionable while automatic continuation does the work.
+                if (this._pendingAutonomyConsentId != null && !string.IsNullOrWhiteSpace(this._pendingUserMessage))
+                {
+                    var staleConsentId = this._pendingAutonomyConsentId;
+                    this._pendingAutonomyConsentId = null;
+                    this.RunWhenWebViewReady(() => this.ExecuteScript(
+                        $"resolveAutonomyContinue({JsonConvert.SerializeObject(staleConsentId)});"));
+                }
+
                 // Add the pending user message to the session
                 if (!string.IsNullOrWhiteSpace(this._pendingUserMessage))
                 {
@@ -1412,6 +1443,10 @@ namespace SmartHopper.Core.UI.Chat
 
                 // A report that arrived mid-turn gets its evidence line and wake turn now.
                 this.ScheduleSubagentDrain();
+
+                // If the run stopped on the autonomy budgets, offer the
+                // continue/stop approval card before the chat goes idle.
+                this.MaybePromptAutonomyContinue();
 
                 // Keep the session alive for reuse - do not set to null
             }
@@ -1779,7 +1814,15 @@ namespace SmartHopper.Core.UI.Chat
                                 var requestId = query.TryGetValue("id", out var id) ? id : string.Empty;
                                 var approved = query.TryGetValue("decision", out var decision) &&
                                     string.Equals(decision, "approve", StringComparison.OrdinalIgnoreCase);
-                                Application.Instance?.AsyncInvoke(() => this.ResolvePlanConsent(requestId, approved));
+                                if (requestId.StartsWith("autonomy-", StringComparison.Ordinal))
+                                {
+                                    Application.Instance?.AsyncInvoke(() => this.ResolveAutonomyConsent(requestId, approved));
+                                }
+                                else
+                                {
+                                    Application.Instance?.AsyncInvoke(() => this.ResolvePlanConsent(requestId, approved));
+                                }
+
                                 break;
                             }
 
