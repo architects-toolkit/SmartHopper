@@ -83,7 +83,7 @@ const check = (label, cond) => {
         'removeAttachmentChip', 'clearAttachments', 'setAttachEnabled', 'updateAutonomyUsage',
         'showUserQuestion', 'resolveUserQuestion', 'updateTaskPlan', 'showSuggestedPrompts',
         'showCanvasPointer', 'showToast', 'showPlanConsent', 'resolvePlanConsent',
-        'resetMessages', 'getAllMessageKeys', 'setModels',
+        'resetMessages', 'getAllMessageKeys', 'setModels', 'setQueue',
     ];
     const missing = REQUIRED.filter((g) => typeof w[g] !== 'function');
     check(`compat globals present (${REQUIRED.length})`, missing.length === 0);
@@ -303,6 +303,63 @@ const check = (label, cond) => {
     }
     check('model change emits sh://event?type=model',
         (w.__nav || []).includes('sh://event?type=model&model=m1'));
+
+    // Session queue: while a turn runs the composer stays editable (type-ahead)
+    // and the send button relabels to "Queue" — mid-turn sends travel to the
+    // host which enqueues them FIFO instead of rejecting them.
+    w.setProcessing(true);
+    await wait(20);
+    const sendBtn = w.document.getElementById('send-button');
+    const cancelBtn = w.document.getElementById('cancel-button');
+    check('busy turn keeps composer editable (queue type-ahead)',
+        input.disabled === false && sendBtn.disabled === false);
+    check('busy turn relabels send to Queue + enables cancel',
+        sendBtn.textContent === 'Queue' && cancelBtn.disabled === false
+        && w.document.querySelector('.chat-ui').dataset.processing === 'true');
+    input.value = 'mid-turn send';
+    input.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await wait(30);
+    check('busy-turn send still emits sh://event?type=send',
+        (w.__nav || []).includes('sh://event?type=send&text=mid-turn%20send'));
+
+    // The host mirrors the merged outgoing queue through setQueue; the toolkit
+    // renders one row per item with per-row actions routed to type=queue events.
+    w.setQueue([
+        { id: 'mq1', text: 'queued while busy' },
+        { id: 'mq2', text: 'agent injected', meta: { agent: '→ scraper' } },
+    ]);
+    await wait(20);
+    const queuePanel = w.document.querySelector('.cui-queue');
+    const queueRows = queuePanel ? queuePanel.querySelectorAll('.cui-queue-item') : [];
+    check('setQueue renders the queue panel rows', !!queuePanel && queueRows.length === 2);
+    const byline = queueRows[1] && queueRows[1].querySelector('.cui-queue-meta');
+    check('queue meta.agent renders as row byline',
+        !!byline && byline.textContent.includes('scraper'));
+    const rowBtns = queueRows[0] ? Array.from(queueRows[0].querySelectorAll('button')) : [];
+    check('queue row renders edit/send-now/remove actions', rowBtns.length === 3);
+    if (rowBtns[2]) rowBtns[2].click();
+    await wait(20);
+    check('queue remove emits type=queue&action=remove',
+        (w.__nav || []).includes('sh://event?type=queue&action=remove&id=mq1'));
+    const row2Btns = queueRows[1] ? Array.from(queueRows[1].querySelectorAll('button')) : [];
+    if (row2Btns[1]) row2Btns[1].click();
+    await wait(20);
+    check('queue send-now emits type=queue&action=submit-now',
+        (w.__nav || []).includes('sh://event?type=queue&action=submit-now&id=mq2'));
+    w.prompt = () => 'edited body';
+    if (row2Btns[0]) row2Btns[0].click();
+    await wait(20);
+    check('queue edit emits type=queue&action=edit with text',
+        (w.__nav || []).includes('sh://event?type=queue&action=edit&id=mq2&text=edited%20body'));
+    w.setQueue([]);
+    await wait(20);
+    check('setQueue([]) hides the queue panel',
+        !w.document.querySelector('.cui-queue.visible'));
+    w.setProcessing(false);
+    await wait(20);
+    check('idle restores Send label + editable composer',
+        sendBtn.textContent === 'Send' && input.disabled === false
+        && w.document.querySelector('.chat-ui').dataset.processing === 'false');
 
     w.resetMessages();
     check('resetMessages clears the list', cc.children.length === 0);

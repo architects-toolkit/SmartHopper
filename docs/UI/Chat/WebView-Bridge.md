@@ -40,6 +40,7 @@ The WebView sends actions to the host by navigating to custom URL schemes (navig
 - `sh://event?type=detach&id=...`
 - `sh://event?type=clear`
 - `sh://event?type=cancel`
+- `sh://event?type=queue&action=remove|edit|submit-now&id=...` (`edit` also carries `&text=...`)
 - `sh://event?type=consent&id=...&decision=approve|reject`
 - `sh://event?type=canvas_pointer&id=...`
 - `sh://event?type=question&id=...&choice=N` or `...&text=...`
@@ -61,6 +62,12 @@ The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
   - JS → host: `sh://event?type=send&text=...`
   - Host appends user bubble immediately, then schedules `ProcessAIInteraction()` on a background task.
   - Observer updates status/spinner and replaces the temporary loading bubble with streamed or final content.
+  - While a turn owns the session (or another send is already staged), `SendMessage` enqueues the message into the per-chat FIFO (`_messageQueue`) instead — nothing is dropped. Queued entries keep any staged image attachments. When the turn settles, `ProcessAIInteraction`'s `finally` promotes the head via `TryPromoteQueuedMessage()`, which stages it through the exact same `_pendingUserMessage`/`_attachmentsForNextSend` one-shot path — an idle send is byte-identical to the pre-queue behavior.
+  - The queue panel mirrors host state via `setQueue(items)`; it renders queued user sends plus agent-injected entries (per-worker `send_to_subagent` pending instructions) merged by enqueue time. `meta.agent`/`meta.author` become a muted byline on the row.
+- **queue**
+  - JS → host: `sh://event?type=queue&action=remove|edit|submit-now&id=...` (`edit` carries `&text=...` too), emitted by the toolkit queue-panel row actions (`transport.removeQueued`/`editQueued`/`sendQueuedNow`).
+  - Host `HandleQueueAction` applies the action: `remove` drops the entry, `edit` replaces its text, `submit-now` moves it to the head of the queue so it submits next (and promotes immediately when no turn is running). Ids that do not match a queued user send are routed to `ISubagentHost.TryApplyPendingAction`, which mutates the matching worker's pending-instruction list (`Remove`/`Edit`/`Promote`).
+  - The panel re-renders on every mutation (`PushQueueToView`) — host owns the queue; JS never mutates it locally.
 - **clear**
   - JS → host: `sh://event?type=clear`
   - Host cancels any run and clears transcript in place (`clearMessages()`), emits reset snapshot.
@@ -96,7 +103,7 @@ The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
 - Enter-to-send works; Shift+Enter inserts newline.
 - `send`, `clear`, `cancel` all execute when buttons are clicked or shortcuts are used.
 - Clipboard copy creates a toast and the data is in the OS clipboard.
-- While a run is in progress, spinner is visible and input is disabled.
+- While a run is in progress, spinner is visible and the composer stays editable (queue type-ahead): the send button relabels to "Queue" and sends enqueue into the panel instead of being rejected.
 - Streaming updates incrementally replace the loading bubble; fallback to non-streaming displays final answer.
 
 ---
@@ -197,7 +204,8 @@ JavaScript functions (in `js/chat-bridge.js`, the compatibility layer that mount
 - `addLoadingMessage(role, text)` / `removeThinkingMessage()` — Show/remove a persistent thinking bubble.
 - `clearMessages()` — Clear transcript area.
 - `setStatus(text)` — Update status bar text.
-- `setProcessing(isProcessing)` — Show/hide spinner and disable input.
+- `setProcessing(isProcessing)` — Show/hide spinner. With `features.queue` on, the toolkit's internal processing flag stays unset so the composer never locks: the bridge drives `[data-processing]` for the send/cancel swap, re-shows the send button relabeled "Queue" (chat-styles.css), and keeps `setComposerEnabled(true)`.
+- `setQueue(items)` — Re-render the outgoing queue panel with the host-owned queue (queued user sends + per-worker pending instructions, sorted by `createdAt`). Each item is a `QueuedMessage` `{id, text, createdAt?, meta?}`; `meta.agent` (agent-injected rows) or `meta.author` renders as a muted byline. Row actions report back through `type=queue` events.
 - `updateAutonomyUsage(usage)` — Update the floating `#autonomy-overlay` card with a serialized `AutonomyUsage` snapshot (`ElapsedSeconds`, `MaxSeconds`, `Tokens`, `MaxTokens`, `IsRunning`, `IsExhausted`). A client-side 1s ticker advances the elapsed display between pushes; a `Max*` of `0` renders as unlimited, and when both limits are `0` the overlay shows an "unbounded run" warning. The overlay appears only while a run is in progress (first paint is delayed until ~15 s elapsed or 10 produced interactions so trivial calls never flash it) and auto-hides shortly after the run ends — 6 s linger when a budget was exhausted. `setProcessing(true)` is the authoritative run-start signal: it resets the overlay and arms `_autonomyAwaitingRun`, so a not-running snapshot pushed before `BeginAutonomyRun` resets the session (a stale previous-run snapshot) is dropped instead of painting last run's values; `freezeAutonomyOverlay()` is invoked by `setProcessing(false)` (the authoritative run-end signal, since the last push can still carry `IsRunning=true`); `hideAutonomyOverlay()` resets it (called by `resetMessages` and `setProcessing(true)`).
 - `showPlanConsent(plan)` / `resolvePlanConsent(id)` — Append a `card:approval` interaction (`consent-<id>`) rendering the plan goal, summary, numbered steps, assumptions, success criteria and the scope note inside the card description. Approve/Reject reports `{decision}` through `transport.messageAction`, which the bridge maps back to `type=consent&id=<plan id>&decision=approve|reject`. `resolvePlanConsent(id)` freezes the card in place (controls disabled, `data-resolved` dimmed).
 - `updateTaskPlan(plan)` — Render the current `plan_tasks` plan as a `card:task_plan` interaction (`sh-task-plan`) in the message list — one plan at a time via same-key upsert. The card shows the goal with a `completed/total` suffix and each task's pending/active/done state (`in_progress`→`active`, `completed`→`done`); the final state stays visible until `resetMessages()` (or `hideTaskPlanPanel()`).

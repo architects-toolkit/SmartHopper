@@ -114,6 +114,24 @@ namespace SmartHopper.Infrastructure.AICall.Subagents
         public event EventHandler<SubagentRunReport>? RunFinished;
 
         /// <inheritdoc/>
+        public event EventHandler? PendingChanged;
+
+        /// <inheritdoc/>
+        public IReadOnlyList<SubagentPendingItem> PendingItems
+        {
+            get
+            {
+                lock (this.gate)
+                {
+                    return this.subagents
+                        .SelectMany(s => s.PendingInstructions)
+                        .OrderBy(i => i.EnqueuedAtUtc)
+                        .ToList();
+                }
+            }
+        }
+
+        /// <inheritdoc/>
         public int RunningCount
         {
             get
@@ -164,7 +182,7 @@ namespace SmartHopper.Infrastructure.AICall.Subagents
         }
 
         /// <inheritdoc/>
-        public Task<SubagentItem> SendAsync(string subagentId, string message, CancellationToken cancellationToken)
+        public Task<SubagentItem> SendAsync(string subagentId, string message, SubagentSendMode mode, CancellationToken cancellationToken)
         {
             if (this.cancelled)
             {
@@ -177,18 +195,108 @@ namespace SmartHopper.Infrastructure.AICall.Subagents
                 throw new ArgumentException("send_to_subagent requires a non-empty 'message'.", nameof(message));
             }
 
+            SubagentItem item;
+            var pendingChanged = false;
             lock (this.gate)
             {
                 var subagent = this.Resolve(subagentId);
                 var latest = subagent.LatestRun;
-                if (latest != null && !latest.IsTerminal)
+                if (latest == null || latest.IsTerminal)
                 {
-                    throw new InvalidOperationException($"Subagent '{subagent.Label}' is still running; wait for it to finish (or call wait_subagents) before sending new instructions.");
+                    var run = this.Launch(subagent, message);
+                    item = ToItem(subagent, run, "started");
                 }
-
-                var run = this.Launch(subagent, message);
-                return Task.FromResult(ToItem(subagent, run));
+                else if (mode == SubagentSendMode.OnTheFly && CanSteer(subagent))
+                {
+                    // On-the-fly steering: the instruction lands in the live
+                    // session and the worker reads it at its next provider call.
+                    // A steer that lands after the run's last call stays an
+                    // unaddressed user-text tail — KickNext gives it a
+                    // continuation run so it is never swallowed by history.
+                    subagent.Session.AddInteraction(message);
+                    item = ToItem(subagent, latest, "steered");
+                }
+                else
+                {
+                    // Queue mode (or an on-the-fly send that is unsafe to inject,
+                    // e.g. a pending tool call): the instruction waits FIFO in the
+                    // worker's pending list and KickNext delivers it on settle.
+                    subagent.PendingInstructions.Add(new SubagentPendingItem
+                    {
+                        SubagentId = subagent.Id,
+                        Label = subagent.Label,
+                        Text = message,
+                    });
+                    item = ToItem(subagent, latest, "queued");
+                    pendingChanged = true;
+                }
             }
+
+            if (pendingChanged)
+            {
+                this.NotifyPendingChanged();
+            }
+
+            return Task.FromResult(item);
+        }
+
+        /// <inheritdoc/>
+        public bool TryApplyPendingAction(SubagentPendingAction action, string itemId, string? text)
+        {
+            if (string.IsNullOrWhiteSpace(itemId))
+            {
+                return false;
+            }
+
+            var changed = false;
+            lock (this.gate)
+            {
+                foreach (var subagent in this.subagents)
+                {
+                    var index = subagent.PendingInstructions.FindIndex(p => string.Equals(p.Id, itemId, StringComparison.Ordinal));
+                    if (index < 0)
+                    {
+                        continue;
+                    }
+
+                    switch (action)
+                    {
+                        case SubagentPendingAction.Remove:
+                            subagent.PendingInstructions.RemoveAt(index);
+                            changed = true;
+                            break;
+                        case SubagentPendingAction.Edit:
+                            var next = Bound(text, TextBound)?.Trim();
+                            if (!string.IsNullOrWhiteSpace(next) &&
+                                !string.Equals(next, subagent.PendingInstructions[index].Text, StringComparison.Ordinal))
+                            {
+                                subagent.PendingInstructions[index].Text = next;
+                                changed = true;
+                            }
+
+                            break;
+                        case SubagentPendingAction.Promote:
+                            if (index > 0)
+                            {
+                                var pending = subagent.PendingInstructions[index];
+                                subagent.PendingInstructions.RemoveAt(index);
+                                subagent.PendingInstructions.Insert(0, pending);
+                                changed = true;
+                            }
+
+                            break;
+                    }
+
+                    break;
+                }
+            }
+
+            if (changed)
+            {
+                this.NotifyPendingChanged();
+            }
+
+            return changed;
         }
 
         /// <inheritdoc/>
@@ -262,6 +370,21 @@ namespace SmartHopper.Infrastructure.AICall.Subagents
         {
             this.cancelled = true;
             this.hostCts.Cancel();
+
+            var pendingDropped = false;
+            lock (this.gate)
+            {
+                foreach (var subagent in this.subagents)
+                {
+                    pendingDropped |= subagent.PendingInstructions.Count > 0;
+                    subagent.PendingInstructions.Clear();
+                }
+            }
+
+            if (pendingDropped)
+            {
+                this.NotifyPendingChanged();
+            }
         }
 
         /// <summary>Cancels all runs and releases the concurrency primitives.</summary>
@@ -304,8 +427,20 @@ namespace SmartHopper.Infrastructure.AICall.Subagents
             };
         }
 
+        /// <summary>
+        /// A user instruction may only be appended to a live session where no
+        /// tool call is pending — otherwise it would split a call/result pair
+        /// the provider requires adjacent. Checked under the gate; the residual
+        /// race (a tool call landing between check and append) is a bounded
+        /// provider-error risk, never a silent mutation.
+        /// </summary>
+        private static bool CanSteer(Subagent subagent)
+        {
+            return (subagent.Session.Request.Body?.PendingToolCallsCount() ?? 0) == 0;
+        }
+
         /// <summary>Projects a subagent + run to the model-facing item shape.</summary>
-        private static SubagentItem ToItem(Subagent subagent, SubagentRun? run)
+        private static SubagentItem ToItem(Subagent subagent, SubagentRun? run, string? delivery = null)
         {
             return new SubagentItem
             {
@@ -315,8 +450,10 @@ namespace SmartHopper.Infrastructure.AICall.Subagents
                 Status = run == null ? "idle" : StatusToWire(run.Status),
                 Result = run?.Result,
                 Error = run?.Error,
-                LastInstruction = run?.Instruction ?? string.Empty,
+                LastInstruction = Bound(run?.Instruction, 200) ?? string.Empty,
                 FinishedAt = run?.FinishedAt,
+                PendingCount = subagent.PendingInstructions.Count,
+                Delivery = delivery,
             };
         }
 
@@ -328,7 +465,7 @@ namespace SmartHopper.Infrastructure.AICall.Subagents
         /// </summary>
         private SubagentRun Launch(Subagent subagent, string instruction)
         {
-            var run = new SubagentRun(Bound(instruction, 200) ?? string.Empty);
+            var run = new SubagentRun(instruction ?? string.Empty);
             subagent.Runs.Add(run);
 
             run.Work = Task.Run(
@@ -392,10 +529,80 @@ namespace SmartHopper.Infrastructure.AICall.Subagents
                         }
 
                         this.Report(subagent, run);
+                        this.KickNext(subagent, run);
                     }
                 });
 
             return run;
+        }
+
+        /// <summary>
+        /// Delivers whatever the worker owes next once <paramref name="finished"/>
+        /// settles: the head of its pending queue launches as a new run. When the
+        /// queue is empty, an on-the-fly steer still gets a guaranteed delivery:
+        /// a steer injected mid-run leaves a user-text entry the run may never
+        /// have seen (it lands inside the last provider call's window), so when
+        /// the last user text in history is not the finished run's own
+        /// instruction, a continuation run answers it. The continuation is
+        /// idempotent — a steer the run did see costs one brief confirmation
+        /// turn — and self-terminating, since the continuation's own instruction
+        /// becomes the last user text.
+        /// </summary>
+        private void KickNext(Subagent subagent, SubagentRun finished)
+        {
+            if (this.cancelled)
+            {
+                return;
+            }
+
+            var pendingChanged = false;
+            lock (this.gate)
+            {
+                if (this.cancelled)
+                {
+                    return;
+                }
+
+                if (subagent.PendingInstructions.Count > 0)
+                {
+                    var pending = subagent.PendingInstructions[0];
+                    subagent.PendingInstructions.RemoveAt(0);
+                    this.Launch(subagent, pending.Text);
+                    pendingChanged = true;
+                }
+                else
+                {
+                    var lastUserText = subagent.Session.GetHistoryInteractionList()
+                        .OfType<AIInteractionText>()
+                        .LastOrDefault(i => i.Agent == AIAgent.User);
+                    if (lastUserText != null
+                        && !string.Equals(lastUserText.Content, finished.Instruction, StringComparison.Ordinal))
+                    {
+                        this.Launch(
+                            subagent,
+                            "The orchestrator sent follow-up input while you were working — address the latest user message(s) you have not answered yet; if you already covered them, reply briefly confirming.");
+                    }
+                }
+            }
+
+            if (pendingChanged)
+            {
+                this.NotifyPendingChanged();
+            }
+        }
+
+        /// <summary>Raises <see cref="PendingChanged"/>; always called outside the gate.</summary>
+        private void NotifyPendingChanged()
+        {
+            try
+            {
+                this.PendingChanged?.Invoke(this, EventArgs.Empty);
+            }
+            catch (Exception ex)
+            {
+                // A misbehaving sink must never poison the run's completion path.
+                Logger.For<SubagentHost>().Exception(ex, "[SubagentHost] PendingChanged subscriber threw");
+            }
         }
 
         /// <summary>Builds a fresh child request cloned from the parent minus conductor tools.</summary>

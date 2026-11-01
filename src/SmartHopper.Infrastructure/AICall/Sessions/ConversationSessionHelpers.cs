@@ -196,9 +196,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// </summary>
         private void SetToolFilter(string toolFilter)
         {
-            if (this.Request.Body != null)
+            lock (this._historyAppendGate)
             {
-                this.Request.Body = this.Request.Body with { ToolFilter = toolFilter };
+                if (this.Request.Body != null)
+                {
+                    this.Request.Body = this.Request.Body with { ToolFilter = toolFilter };
+                }
             }
         }
 
@@ -736,6 +739,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             this.Observer?.OnError(error);
         }
 
+        private readonly object _historyAppendGate = new object();
+
+        /// <summary>
+        /// Serializes history appends: the turn loop, observer-driven writes and
+        /// externally injected interactions (e.g. a subagent steer delivered
+        /// mid-run) all read-modify-write <see cref="AIRequestCall.Body"/>, and an
+        /// unguarded pair would silently drop one side's interaction.
+        /// </summary>
         private readonly object _historyAppendGate = new object();
 
         /// <summary>

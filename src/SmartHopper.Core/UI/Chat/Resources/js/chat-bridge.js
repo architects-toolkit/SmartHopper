@@ -34,12 +34,20 @@
  * Compatibility contract (do NOT rename; C# call sites use these exact names):
  *   addMessage, upsertMessage, upsertMessageAfter, removeThinkingMessage,
  *   addLoadingMessage, replaceLastMessageByRole, processCodeBlocks, processLinks,
- *   scrollToBottom, setStatus, setProcessing, addAttachmentChip,
+ *   scrollToBottom, setStatus, setProcessing, setQueue, addAttachmentChip,
  *   removeAttachmentChip, clearAttachments, setAttachEnabled, updateAutonomyUsage,
  *   showPlanConsent, resolvePlanConsent, updateTaskPlan, showSuggestedPrompts,
  *   showCanvasPointer, showUserQuestion, resolveUserQuestion, resetMessages,
  *   getAllMessageKeys, showToast  (+ window.SH_READY readiness flag)
  *   Optional forward-compat global (no C# call site yet): setModels.
+ *
+ * Session queue: features.queue is on and the host pushes the merged outgoing
+ * queue (queued user sends + per-worker pending instructions) through setQueue.
+ * While a turn runs the composer stays editable (type-ahead): the bridge keeps
+ * the toolkit's internal processing flag unset and drives the send/cancel swap
+ * through [data-processing] itself, relabeling Send -> Queue so mid-turn sends
+ * land in the host FIFO instead of being rejected. Queue row actions travel
+ * back as sh://event?type=queue&action=remove|edit|submit-now&id=…(&text=…).
  *
  * JS -> C# events keep the sh:// / clipboard:// scheme contract unchanged.
  */
@@ -1595,7 +1603,18 @@ function setStatus(text) {
 function setProcessing(on) {
     console.log('[JS] setProcessing called with value:', on);
     if (_view) {
-        try { _view.setProcessing(!!on); } catch (e) { console.warn('[JS] setProcessing toolkit error:', e); }
+        try {
+            if (_els.root) {
+                // Session queue (features.queue): keep the toolkit's internal
+                // processing flag unset so the composer stays editable mid-turn —
+                // sends become host-side queue entries. The send/cancel swap is
+                // driven by the root's data-processing attribute instead, and the
+                // send button stays visible relabeled "Queue" (chat-styles.css).
+                _els.root.dataset.processing = on ? 'true' : 'false';
+            } else {
+                _view.setProcessing(!!on);
+            }
+        } catch (e) { console.warn('[JS] setProcessing toolkit error:', e); }
     }
 
     const spinner = _els.spinner || document.getElementById('spinner');
@@ -1642,16 +1661,17 @@ function setProcessing(on) {
     }
 
     // Toggle controls according to processing state
-    // When processing: disable input + send, enable cancel
-    // When idle: enable input + send, disable cancel
-    // (the toolkit additionally swaps send/cancel visibility via [data-processing])
+    // When processing: queue type-ahead keeps input + send editable (relabeled
+    // "Queue") and enables cancel; when idle: send is "Send", cancel disabled.
+    // (the toolkit swaps send/cancel visibility via [data-processing]; CSS keeps
+    // the send button visible while processing so queued sends stay one click away)
     try {
         if (_view) {
-            // Composer enablement goes through the toolkit handle — no
-            // .cui-input/.cui-send DOM pokes. The processing flag already
-            // drives editable state via applyComposerState; setComposerEnabled
-            // mirrors it on the public API so both flags stay consistent.
-            _view.setComposerEnabled(!on);
+            // The composer never locks — mid-turn sends enqueue host-side. The
+            // internal processing flag is left unset (see above) so
+            // applyComposerState keeps input/send/attach editable.
+            _view.setComposerEnabled(true);
+            if (_els.send) _els.send.textContent = on ? 'Queue' : 'Send';
         } else {
             // Fallback shell: legacy raw DOM toggles.
             if (input) input.disabled = !!on;
@@ -1678,6 +1698,26 @@ function setProcessing(on) {
         });
     } catch (err) {
         console.warn('[JS] setProcessing: control toggle failed', err);
+    }
+}
+
+/**
+ * Pushes the session's outgoing queue into the toolkit queue panel
+ * (features.queue). Each item is a QueuedMessage {id, text, createdAt?, meta?};
+ * meta.agent (or meta.author) renders as a muted byline — used for
+ * agent-injected entries such as per-worker pending instructions.
+ * The host owns the queue; this only re-renders it.
+ * @param {Array<object>} items
+ */
+function setQueue(items) {
+    if (!_view) {
+        console.warn('[JS] setQueue: chat view not ready');
+        return;
+    }
+    try {
+        _view.setQueue(Array.isArray(items) ? items : []);
+    } catch (err) {
+        console.error('[JS] setQueue error:', err);
     }
 }
 
@@ -2571,6 +2611,15 @@ const bridgeTransport = {
     selectModel(modelId) {
         emitShEvent(`sh://event?type=model&model=${encodeURIComponent(modelId || '')}`);
     },
+    editQueued(id, text) {
+        emitShEvent(`sh://event?type=queue&action=edit&id=${encodeURIComponent(id)}&text=${encodeURIComponent(typeof text === 'string' ? text : '')}`);
+    },
+    sendQueuedNow(id) {
+        emitShEvent(`sh://event?type=queue&action=submit-now&id=${encodeURIComponent(id)}`);
+    },
+    removeQueued(id) {
+        emitShEvent(`sh://event?type=queue&action=remove&id=${encodeURIComponent(id)}`);
+    },
 };
 
 /**
@@ -2735,7 +2784,7 @@ function initChatUiShell() {
         placeholder: 'Type a message...',
         theme: 'cloud',            // stamps data-theme='cloud' -> css/chat-theme.css rules
         features: {
-            queue: false,            // message queue arrives in a later PR
+            queue: true,             // outgoing-message queue panel fed by setQueue
             contextCard: true,
             quoteChip: true,
             attachments: true,

@@ -316,27 +316,52 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             AIReturn result,
             string turnId)
         {
-            // First, restore the original body
-            this.Request.Body = snapshot.OriginalBody;
-
-            switch (config.PersistenceStrategy)
+            // Interactions injected after the snapshot was taken (e.g. a steer
+            // appended mid-turn) are not in OriginalBody — a plain restore (or
+            // ReplaceAbove's rebuild) would silently drop them. The whole
+            // restore+persist runs under the append gate (reentrant, so the
+            // inner history appends are fine): injected items are captured by
+            // reference identity before the restore and replayed afterwards,
+            // and no external append can interleave mid-rebuild.
+            lock (this._historyAppendGate)
             {
-                case HistoryPersistenceStrategy.PersistResult:
-                    this.PersistResultOnly(result, turnId);
-                    break;
+                var snapshotInteractions = snapshot.OriginalBody?.Interactions;
+                var injected = this.Request.Body?.Interactions?
+                    .Where(i => snapshotInteractions == null || !snapshotInteractions.Contains(i, ReferenceEqualityComparer.Instance))
+                    .ToList();
 
-                case HistoryPersistenceStrategy.PersistAll:
-                    this.PersistAll(result, config.PersistenceFilter, turnId);
-                    break;
+                // First, restore the original body
+                this.Request.Body = snapshot.OriginalBody;
 
-                case HistoryPersistenceStrategy.Ephemeral:
-                    // Don't persist anything, just restore snapshot
-                    Logger.For<ConversationSession>().Trace($"[ConversationSession.SpecialTurn] Ephemeral turn, not persisting to history");
-                    break;
+                switch (config.PersistenceStrategy)
+                {
+                    case HistoryPersistenceStrategy.PersistResult:
+                        this.PersistResultOnly(result, turnId);
+                        break;
 
-                case HistoryPersistenceStrategy.ReplaceAbove:
-                    this.ReplaceAbove(snapshot, result, config.PersistenceFilter, turnId, config.Metadata);
-                    break;
+                    case HistoryPersistenceStrategy.PersistAll:
+                        this.PersistAll(result, config.PersistenceFilter, turnId);
+                        break;
+
+                    case HistoryPersistenceStrategy.Ephemeral:
+                        // Don't persist anything, just restore snapshot
+                        Logger.For<ConversationSession>().Trace($"[ConversationSession.SpecialTurn] Ephemeral turn, not persisting to history");
+                        break;
+
+                    case HistoryPersistenceStrategy.ReplaceAbove:
+                        this.ReplaceAbove(snapshot, result, config.PersistenceFilter, turnId, config.Metadata);
+                        break;
+                }
+
+                if (injected is { Count: > 0 })
+                {
+                    foreach (var interaction in injected)
+                    {
+                        this.AppendToSessionHistory(interaction);
+                    }
+
+                    this.UpdateLastReturn();
+                }
             }
         }
 

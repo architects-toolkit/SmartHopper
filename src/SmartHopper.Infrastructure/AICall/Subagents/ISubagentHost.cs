@@ -37,8 +37,21 @@ namespace SmartHopper.Infrastructure.AICall.Subagents
         /// </summary>
         event System.EventHandler<SubagentRunReport>? RunFinished;
 
+        /// <summary>
+        /// Fired whenever any worker's pending-instruction queue changes
+        /// (enqueue, dequeue, edit, remove, promote) so the chat host can
+        /// re-render the shared outgoing queue panel.
+        /// </summary>
+        event System.EventHandler? PendingChanged;
+
         /// <summary>Gets the number of runs still in flight.</summary>
         int RunningCount { get; }
+
+        /// <summary>
+        /// Gets every worker's pending instructions, flattened and ordered by
+        /// enqueue time — the agent-injected entries of the outgoing queue panel.
+        /// </summary>
+        IReadOnlyList<SubagentPendingItem> PendingItems { get; }
 
         /// <summary>
         /// Spawns a new background subagent and starts its first run.
@@ -46,9 +59,22 @@ namespace SmartHopper.Infrastructure.AICall.Subagents
         Task<SubagentItem> SpawnAsync(string label, string brief, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Sends a follow-up instruction to an existing subagent, starting a new run.
+        /// Sends a follow-up instruction to an existing subagent. When the worker
+        /// is mid-run, <paramref name="mode"/> selects between queueing the
+        /// instruction for delivery when the run finishes and injecting it into
+        /// the live session on the fly.
         /// </summary>
-        Task<SubagentItem> SendAsync(string subagentId, string message, CancellationToken cancellationToken);
+        Task<SubagentItem> SendAsync(string subagentId, string message, SubagentSendMode mode, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Applies a queue-panel action to a pending instruction identified by
+        /// <paramref name="itemId"/>: <see cref="SubagentPendingAction.Remove"/>
+        /// drops it, <see cref="SubagentPendingAction.Edit"/> replaces its text
+        /// (<paramref name="text"/>), and <see cref="SubagentPendingAction.Promote"/>
+        /// moves it to the head of its worker's queue.
+        /// </summary>
+        /// <returns>True when a pending instruction was found and mutated.</returns>
+        bool TryApplyPendingAction(SubagentPendingAction action, string itemId, string? text);
 
         /// <summary>
         /// Blocks until the selected runs reach a terminal state or the timeout

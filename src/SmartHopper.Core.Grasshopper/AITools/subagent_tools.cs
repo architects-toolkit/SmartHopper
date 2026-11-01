@@ -67,13 +67,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             yield return new AITool(
                 SendName,
-                "Send a follow-up instruction to an existing subagent, starting a new run in its conversation. Only works when the subagent is idle (finished or not yet started).",
+                "Send a follow-up instruction to an existing subagent. Default 'queue' mode holds it until the subagent's current run finishes and delivers it automatically as the next run; 'on-the-fly' steers the live run immediately when the session can safely accept a user message (otherwise it queues).",
                 "AgentPlanning",
                 @"{
                     ""type"": ""object"",
                     ""properties"": {
                         ""subagent_id"": { ""type"": ""string"" },
-                        ""message"": { ""type"": ""string"", ""description"": ""Follow-up instruction for the subagent."" }
+                        ""message"": { ""type"": ""string"", ""description"": ""Follow-up instruction for the subagent."" },
+                        ""mode"": { ""type"": ""string"", ""enum"": [""queue"", ""on-the-fly""], ""description"": ""Delivery while the subagent is mid-run: 'queue' (default) holds the instruction until its current run finishes; 'on-the-fly' injects it into the live session immediately."" }
                     },
                     ""required"": [""subagent_id"", ""message""]
                 }",
@@ -130,7 +131,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>Serializes a subagent item to the bounded model-facing shape.</summary>
         private static JObject ToJson(SubagentItem item)
         {
-            return new JObject
+            var json = new JObject
             {
                 ["subagent_id"] = item.SubagentId,
                 ["label"] = item.Label,
@@ -140,6 +141,34 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ["error"] = item.Error,
                 ["last_instruction"] = item.LastInstruction,
                 ["finished_at"] = item.FinishedAt?.ToString("o"),
+                ["pending_count"] = item.PendingCount,
+            };
+            if (item.Delivery != null)
+            {
+                json["delivery"] = item.Delivery;
+            }
+
+            return json;
+        }
+
+        /// <summary>
+        /// Maps the tool's <c>mode</c> argument onto <see cref="SubagentSendMode"/>:
+        /// absent/empty means <see cref="SubagentSendMode.Queue"/>; on-the-fly
+        /// aliases (<c>immediate</c>, <c>steer</c>, …) normalize to the canonical value.
+        /// </summary>
+        private static SubagentSendMode ParseSendMode(string? mode)
+        {
+            if (string.IsNullOrWhiteSpace(mode))
+            {
+                return SubagentSendMode.Queue;
+            }
+
+            var normalized = mode.Trim().ToLowerInvariant().Replace("_", "-");
+            return normalized switch
+            {
+                "queue" or "queued" or "defer" => SubagentSendMode.Queue,
+                "on-the-fly" or "onthefly" or "immediate" or "steer" or "now" => SubagentSendMode.OnTheFly,
+                _ => throw new ArgumentException($"send_to_subagent: unknown mode '{mode}' (use 'queue' or 'on-the-fly')."),
             };
         }
 
@@ -178,9 +207,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var subagentId = args["subagent_id"]?.ToString() ?? string.Empty;
                 var message = args["message"]?.ToString() ?? string.Empty;
 
-                var item = await host.SendAsync(subagentId, message, toolCall.CancellationToken).ConfigureAwait(false);
+                var mode = ParseSendMode(args["mode"]?.ToString());
+                var item = await host.SendAsync(subagentId, message, mode, toolCall.CancellationToken).ConfigureAwait(false);
                 var result = ToJson(item);
-                result["note"] = "The instruction was queued as a new run; the subagent reports back when it finishes.";
+                result["note"] = item.Delivery switch
+                {
+                    "queued" => $"Queued — '{item.Label}' is mid-run; the instruction delivers automatically as its next run when it finishes.",
+                    "steered" => "Delivered into the running session — the subagent reads it at its next provider call.",
+                    _ => "The instruction started a new run; the subagent reports back when it finishes.",
+                };
                 output.CreateSuccess(AIBodyBuilder.Create()
                     .AddToolResult(result, id: toolCall.GetToolCall().Id, name: SendName)
                     .Build(), toolCall);

@@ -191,11 +191,16 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 }
 
                 // ReplaceAbove has already updated the history with system + summary
-                // Now manually append the last user message
-                var builder = AIBodyBuilder.FromImmutable(this.Request.Body)
-                    .Add(lastUserMessage, markAsNew: false);
+                // Now manually append the last user message — under the append
+                // gate so a concurrent injected interaction is not dropped.
+                lock (this._historyAppendGate)
+                {
+                    var builder = AIBodyBuilder.FromImmutable(this.Request.Body)
+                        .Add(lastUserMessage, markAsNew: false);
 
-                this.Request.Body = builder.Build();
+                    this.Request.Body = builder.Build();
+                }
+
                 this.UpdateLastReturn();
 
                 var newTokens = this.Request?.Body?.GetEffectiveTokenCount() ?? 0;
@@ -223,61 +228,67 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// </summary>
         private void ApplyContextEditing()
         {
-            var body = this.Request?.Body;
-            var interactions = body?.Interactions;
-            if (interactions == null || interactions.Count < 4)
-            {
-                return;
-            }
-
             static bool IsEditable(IAIInteraction i) =>
                 i is AIInteractionToolResult r && ContextEditableTools.Contains(r.Name ?? string.Empty);
 
             static string KeyOf(AIInteractionToolResult r) =>
                 $"{r.Name}\n{r.Arguments?.ToString(Formatting.None) ?? string.Empty}";
 
-            // Index of the newest result per (tool, arguments).
-            var newest = new Dictionary<string, int>(StringComparer.Ordinal);
-            for (var i = 0; i < interactions.Count; i++)
+            // Snapshot and rewrite must be atomic with history appends — an
+            // interaction injected mid-edit would otherwise be dropped when the
+            // pre-edit snapshot is written back.
+            lock (this._historyAppendGate)
             {
-                if (IsEditable(interactions[i]))
+                var body = this.Request?.Body;
+                var interactions = body?.Interactions;
+                if (interactions == null || interactions.Count < 4)
                 {
-                    newest[KeyOf((AIInteractionToolResult)interactions[i])] = i;
-                }
-            }
-
-            List<IAIInteraction>? edited = null;
-            var stubbed = 0;
-            for (var i = 0; i < interactions.Count; i++)
-            {
-                if (!IsEditable(interactions[i]) || newest[KeyOf((AIInteractionToolResult)interactions[i])] == i)
-                {
-                    continue;
+                    return;
                 }
 
-                var result = (AIInteractionToolResult)interactions[i];
-                var size = result.Result?.ToString(Formatting.None)?.Length ?? 0;
-                if (size < ContextEditMinResultLength)
+                // Index of the newest result per (tool, arguments).
+                var newest = new Dictionary<string, int>(StringComparer.Ordinal);
+                for (var i = 0; i < interactions.Count; i++)
                 {
-                    continue;
-                }
-
-                edited ??= new List<IAIInteraction>(interactions);
-                edited[i] = result with
-                {
-                    Result = new JObject
+                    if (IsEditable(interactions[i]))
                     {
-                        ["superseded"] = true,
-                        ["hint"] = $"A newer {result.Name} result with the same arguments exists later in this conversation — re-run the tool for current values.",
-                    },
-                };
-                stubbed++;
-            }
+                        newest[KeyOf((AIInteractionToolResult)interactions[i])] = i;
+                    }
+                }
 
-            if (edited != null)
-            {
-                this.Request.Body = body with { Interactions = edited };
-                Logger.For<ConversationSession>().Trace($"[ConversationSession.ContextManagement] Context editing stubbed {stubbed} superseded tool result(s)");
+                List<IAIInteraction>? edited = null;
+                var stubbed = 0;
+                for (var i = 0; i < interactions.Count; i++)
+                {
+                    if (!IsEditable(interactions[i]) || newest[KeyOf((AIInteractionToolResult)interactions[i])] == i)
+                    {
+                        continue;
+                    }
+
+                    var result = (AIInteractionToolResult)interactions[i];
+                    var size = result.Result?.ToString(Formatting.None)?.Length ?? 0;
+                    if (size < ContextEditMinResultLength)
+                    {
+                        continue;
+                    }
+
+                    edited ??= new List<IAIInteraction>(interactions);
+                    edited[i] = result with
+                    {
+                        Result = new JObject
+                        {
+                            ["superseded"] = true,
+                            ["hint"] = $"A newer {result.Name} result with the same arguments exists later in this conversation — re-run the tool for current values.",
+                        },
+                    };
+                    stubbed++;
+                }
+
+                if (edited != null)
+                {
+                    this.Request.Body = body with { Interactions = edited };
+                    Logger.For<ConversationSession>().Trace($"[ConversationSession.ContextManagement] Context editing stubbed {stubbed} superseded tool result(s)");
+                }
             }
         }
 
