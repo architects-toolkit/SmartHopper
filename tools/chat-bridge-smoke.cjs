@@ -6,8 +6,13 @@
  * jsdom, then asserts:
  *   - every compatibility global the C# host drives via ExecuteScript exists
  *   - the toolkit shell mounted and legacy element ids were rewired
- *   - keyed upsert/patch/ordering pipeline, loaders, cards, attachments,
+ *   - keyed upsert/patch/ordering pipeline, loaders, attachments,
  *     autonomy overlay + context card, and every sh:// event emission
+ *   - each structured legacy payload maps to its canonical chat-ui part/card:
+ *     consent -> card:approval, task plan -> card:task_plan, question ->
+ *     card:question, suggested prompts -> suggestions, canvas pointer ->
+ *     evidence + meta.actions, notice-role .message bubbles -> evidence,
+ *     metrics footer -> usage, model picker -> setModels/selectModel
  *
  * Usage (no project dependency — jsdom can live in any scratch dir):
  *   npm install jsdom --prefix %TEMP%\sh-smoke   (one time)
@@ -78,7 +83,7 @@ const check = (label, cond) => {
         'removeAttachmentChip', 'clearAttachments', 'setAttachEnabled', 'updateAutonomyUsage',
         'showUserQuestion', 'resolveUserQuestion', 'updateTaskPlan', 'showSuggestedPrompts',
         'showCanvasPointer', 'showToast', 'showPlanConsent', 'resolvePlanConsent',
-        'resetMessages', 'getAllMessageKeys',
+        'resetMessages', 'getAllMessageKeys', 'setModels',
     ];
     const missing = REQUIRED.filter((g) => typeof w[g] !== 'function');
     check(`compat globals present (${REQUIRED.length})`, missing.length === 0);
@@ -102,11 +107,16 @@ const check = (label, cond) => {
     const msg1 = cc.querySelector('.cui-msg .message.assistant');
     check('upsertMessage renders .message inside .cui-msg', !!msg1);
     check('data-key stamped from domKey', !!msg1 && msg1.dataset.key === 'k1');
+    check('.cui-msg chrome stamped with data-key + data-iid',
+        !!cc.querySelector('.cui-msg[data-key="k1"][data-iid="k1"]'));
 
     w.addMessage('<div class="message user"><div class="message-content">hi</div></div>');
     await wait(80);
     const userMsg = cc.querySelector('.cui-msg .message.user');
     check('addMessage renders anonymous bubble (unstamped)', !!userMsg && !userMsg.dataset.key);
+    check('anonymous .cui-msg gets data-iid but no data-key',
+        !!cc.querySelector('.cui-msg[data-iid] .message.user')
+        && !userMsg.closest('.cui-msg').dataset.key);
     check('getAllMessageKeys returns keyed ids only',
         JSON.stringify(w.getAllMessageKeys()) === '["k1"]');
 
@@ -115,12 +125,58 @@ const check = (label, cond) => {
     check('patch payload appends in place',
         cc.querySelector('.message.assistant .message-content').textContent.includes('tail'));
 
+    // Notice-role bubbles map to native `evidence` parts; the keyed wrapper
+    // keeps the domKey so the keyed pipeline still addresses the message.
     w.upsertMessage('k3', '<div class="message system"><div class="message-content">sys</div></div>');
     await wait(60);
+    const ev3 = cc.querySelector('.cui-msg[data-key="k3"] .cui-evidence');
+    check('short system notice maps to evidence part', !!ev3 && ev3.dataset.level === 'info');
+    check('evidence message keyed on .cui-msg (role system)',
+        !!cc.querySelector('.cui-msg[data-key="k3"][data-role="system"]'));
+
     w.upsertMessageAfter('k1', 'k2', '<div class="message assistant"><div class="message-content">between</div></div>');
     await wait(80);
-    const order = Array.from(cc.querySelectorAll('.message[data-key]')).map((m) => m.dataset.key);
-    check('upsertMessageAfter honors followKey order', JSON.stringify(order) === '["k1","k2","k3"]');
+    check('upsertMessageAfter honors followKey order',
+        JSON.stringify(w.getAllMessageKeys()) === '["k1","k2","k3"]');
+
+    // Same-key upsert refreshes the evidence text through the toolkit.
+    w.upsertMessage('k3', '<div class="message warning"><div class="message-content">now warning</div></div>');
+    await wait(80);
+    const ev3b = cc.querySelector('.cui-msg[data-key="k3"] .cui-evidence');
+    check('notice re-upsert maps warning level + swaps text',
+        !!ev3b && ev3b.dataset.level === 'warning' && ev3b.textContent.includes('now warning'));
+
+    // Long / block-structured system content keeps the collapsible .message path.
+    const longBody = 'x'.repeat(700);
+    w.upsertMessage('k4', `<div class="message system"><div class="message-content"><p>${longBody}</p></div></div>`);
+    await wait(60);
+    check('long system message stays html part',
+        !!cc.querySelector('.cui-msg[data-key="k4"] .message.system')
+        && !cc.querySelector('.cui-msg[data-key="k4"] .cui-evidence'));
+    w.upsertMessage('k5', '<div class="message system"><div class="message-content"><ul><li>a</li><li>b</li></ul></div></div>');
+    await wait(60);
+    check('block-structured system message stays html part',
+        !!cc.querySelector('.cui-msg[data-key="k5"] .message.system'));
+
+    // Metrics footer -> `usage` part; the footer chrome is stripped from the html part.
+    w.upsertMessage('k6', '<div class="message assistant"><div class="message-content"><p>r</p></div>' +
+        '<div class="message-footer"><span class="metrics-icon" data-in="1234" data-out="56" ' +
+        'data-provider="prov" data-model="m1" data-reason="stop" data-context-usage="12.3%"></span></div></div>');
+    await wait(80);
+    const usage6 = cc.querySelector('.cui-msg[data-key="k6"] .cui-usage');
+    check('metrics footer maps to usage part',
+        !!usage6 && usage6.textContent.includes('1.2k in') && usage6.textContent.includes('56 out'));
+    check('usage part label carries provider/model/ctx',
+        !!usage6 && usage6.textContent.includes('prov') && usage6.textContent.includes('m1')
+        && usage6.textContent.includes('12.3%'));
+    check('message-footer chrome stripped from html part',
+        !cc.querySelector('.cui-msg[data-key="k6"] .metrics-icon'));
+
+    w.upsertMessage('k7', '<div class="message assistant"><div class="message-content"><p>r2</p></div>' +
+        '<div class="message-footer"><span class="metrics-icon hidden" data-in="0" data-out="0"></span></div></div>');
+    await wait(80);
+    check('hidden metrics icon emits no usage part',
+        !cc.querySelector('.cui-msg[data-key="k7"] .cui-usage'));
 
     w.addLoadingMessage('assistant', 'Thinking...');
     await wait(60);
@@ -161,36 +217,100 @@ const check = (label, cond) => {
     check('context card fed with percent+elapsed',
         (w.document.querySelector('.cui-context-card') || { textContent: '' }).textContent.includes('21%'));
 
-    w.showPlanConsent({ id: 'c1', goal: 'G', steps: [{ id: 's1', description: 'd' }] });
-    const consent = cc.querySelector('.plan-consent-card');
-    check('plan consent card renders', !!consent);
-    consent.querySelectorAll('button')[1].click();
+    // Plan consent -> card:approval; approve button reports through messageAction.
+    w.showPlanConsent({ id: 'c1', goal: 'G', summary: 'S', steps: [{ id: 's1', description: 'd', tool: 't', mutatesCanvas: true }], assumptions: ['a1'], successCriteria: ['ok'] });
+    const consentMsg = cc.querySelector('.cui-msg[data-iid="consent-c1"]');
+    const consentCard = consentMsg && consentMsg.querySelector('.cui-card[data-kind="approval"]');
+    check('plan consent maps to card:approval', !!consentCard);
+    check('consent card composes steps + sections into description',
+        !!consentCard && consentCard.textContent.includes('1. d') && consentCard.textContent.includes('- a1'));
+    const consentBtns = consentCard ? consentCard.querySelectorAll('button') : [];
+    check('approval card renders approve+reject buttons', consentBtns.length === 2);
+    if (consentBtns.length) consentBtns[0].click();
     check('consent approve emits consent&id&decision=approve',
         (w.__nav || []).includes('sh://event?type=consent&id=c1&decision=approve'));
     w.resolvePlanConsent('c1');
-    check('resolvePlanConsent freezes card', consent.classList.contains('resolved'));
+    check('resolvePlanConsent freezes card',
+        !!consentCard && consentCard.dataset.resolved === 'true'
+        && Array.from(consentCard.querySelectorAll('button')).every((b) => b.disabled));
 
+    // User question -> card:question; chip answers map back to choice index.
     w.showUserQuestion({ id: 'q1', question: 'Pick', options: ['A', 'B'] });
-    cc.querySelectorAll('.user-question-option')[1].click();
-    check('question option emits question&id&choice=1',
+    const qMsg = cc.querySelector('.cui-msg[data-iid="question-q1"]');
+    const qCard = qMsg && qMsg.querySelector('.cui-card[data-kind="question"]');
+    check('user question maps to card:question', !!qCard);
+    const qOpts = qCard ? qCard.querySelectorAll('.cui-card-options .cui-suggestion') : [];
+    if (qOpts.length > 1) qOpts[1].click();
+    check('question chip emits question&id&choice=1',
         (w.__nav || []).includes('sh://event?type=question&id=q1&choice=1'));
 
+    w.showUserQuestion({ id: 'q2', question: 'Say', options: ['X'] });
+    const q2Card = cc.querySelector('.cui-msg[data-iid="question-q2"] .cui-card[data-kind="question"]');
+    const q2Input = q2Card && q2Card.querySelector('.cui-card-input');
+    const q2Send = q2Card && q2Card.querySelector('.cui-card-answer-row button');
+    check('question keeps free-text field', !!q2Input && !!q2Send);
+    if (q2Input && q2Send) {
+        q2Input.value = 'custom answer';
+        q2Send.click();
+    }
+    check('question free text emits question&id&text=',
+        (w.__nav || []).includes('sh://event?type=question&id=q2&text=custom%20answer'));
+    w.resolveUserQuestion('q2');
+    check('resolveUserQuestion freezes card',
+        !!q2Card && q2Card.dataset.resolved === 'true');
+
+    // Canvas pointer -> evidence line + meta.actions button -> same event.
     w.showCanvasPointer({ id: 'p1', message: 'look' });
-    cc.querySelector('.canvas-pointer-card button').click();
+    const ptrMsg = cc.querySelector('.cui-msg[data-iid="pointer-p1"]');
+    check('canvas pointer maps to evidence + action row',
+        !!ptrMsg && !!ptrMsg.querySelector('.cui-evidence') && !!ptrMsg.querySelector('.cui-actions button'));
+    const ptrBtn = ptrMsg && ptrMsg.querySelector('.cui-actions button');
+    if (ptrBtn) ptrBtn.click();
     check('canvas pointer emits canvas_pointer&id',
         (w.__nav || []).includes('sh://event?type=canvas_pointer&id=p1'));
 
+    // Task plan -> card:task_plan in the list (one plan at a time).
     w.updateTaskPlan({ id: 't1', goal: 'G', tasks: [{ id: 't', description: 'x', status: 'in_progress' }] });
-    check('task plan panel shown', !w.document.getElementById('task-plan-panel').classList.contains('hidden'));
+    const tpMsg = cc.querySelector('.cui-msg[data-iid="sh-task-plan"]');
+    const tpCard = tpMsg && tpMsg.querySelector('.cui-card[data-kind="task_plan"]');
+    check('task plan maps to card:task_plan', !!tpCard);
+    check('task status maps in_progress -> active',
+        !!tpCard && !!tpCard.querySelector('.cui-task-step[data-status="active"]'));
+    w.updateTaskPlan({ id: 't2', goal: 'G2', tasks: [{ id: 't', description: 'y', status: 'completed' }] });
+    check('task plan upsert keeps a single card',
+        cc.querySelectorAll('.cui-card[data-kind="task_plan"]').length === 1
+        && !!cc.querySelector('.cui-task-step[data-status="done"]'));
 
+    // Suggested prompts -> `suggestions` part; chip fills composer, never sends.
+    const navBeforeSuggest = (w.__nav || []).length;
     w.showSuggestedPrompts(['one', 'two']);
-    const chips = w.document.querySelectorAll('#suggestions-strip .suggestion-chip');
-    check('suggestion chips render', chips.length === 2);
-    chips[0].click();
-    check('chip fills composer without sending', input.value === 'one');
+    const sugMsg = cc.querySelector('.cui-msg[data-iid="sh-suggestions"]');
+    const chips = sugMsg ? sugMsg.querySelectorAll('.cui-suggestions .cui-suggestion') : [];
+    check('suggested prompts map to suggestions part', chips.length === 2);
+    if (chips.length) chips[0].click();
+    check('chip fills composer without sending',
+        input.value === 'one' && (w.__nav || []).length === navBeforeSuggest);
+
+    // Model picker -> setModels global + selectModel transport -> sh://event?type=model.
+    w.setModels([{ id: 'm1', label: 'Model One' }, 'm2'], 'm2');
+    await wait(20);
+    const modelSel = w.document.querySelector('.cui-model');
+    check('setModels reveals composer model picker',
+        !!modelSel && modelSel.hidden === false && modelSel.options.length === 2);
+    if (modelSel) {
+        modelSel.value = 'm1';
+        modelSel.dispatchEvent(new w.Event('change', { bubbles: true }));
+    }
+    check('model change emits sh://event?type=model',
+        (w.__nav || []).includes('sh://event?type=model&model=m1'));
 
     w.resetMessages();
     check('resetMessages clears the list', cc.children.length === 0);
+
+    // Plugin registry cleared with the list: a fresh consent must render again.
+    w.showPlanConsent({ id: 'c9', goal: 'after reset' });
+    check('plugin card renders after resetMessages',
+        !!cc.querySelector('.cui-msg[data-iid="consent-c9"] .cui-card[data-kind="approval"]'));
 
     const errs = events.filter((e) => !e.includes('navigation'));
     check('no console/jsdom errors', errs.length === 0);

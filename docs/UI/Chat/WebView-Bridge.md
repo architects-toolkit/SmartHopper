@@ -8,9 +8,9 @@ This document specifies the conventions used by the Chat UI WebView to communica
 
 | Property | Value |
 | --- | --- |
-| **Source Code** | `src/SmartHopper.Core.Grasshopper/UI/Chat/WebViewBridge.cs` |
+| **Source Code** | `src/SmartHopper.Core/UI/Chat/WebChatDialog.cs`, `src/SmartHopper.Core/UI/Chat/Resources/js/chat-bridge.js` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
+| **Last Updated** | 2026-11-01 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -44,6 +44,7 @@ The WebView sends actions to the host by navigating to custom URL schemes (navig
 - `sh://event?type=canvas_pointer&id=...`
 - `sh://event?type=question&id=...&choice=N` or `...&text=...`
 - `sh://event?type=extend_autonomy`
+- `sh://event?type=model&model=...` (emitted by the composer model picker once `setModels` feeds it; opt-in — the host currently logs it as an unknown event type)
 - `clipboard://copy?text=...`
 
 The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
@@ -198,10 +199,12 @@ JavaScript functions (in `js/chat-bridge.js`, the compatibility layer that mount
 - `setStatus(text)` — Update status bar text.
 - `setProcessing(isProcessing)` — Show/hide spinner and disable input.
 - `updateAutonomyUsage(usage)` — Update the floating `#autonomy-overlay` card with a serialized `AutonomyUsage` snapshot (`ElapsedSeconds`, `MaxSeconds`, `Tokens`, `MaxTokens`, `IsRunning`, `IsExhausted`). A client-side 1s ticker advances the elapsed display between pushes; a `Max*` of `0` renders as unlimited, and when both limits are `0` the overlay shows an "unbounded run" warning. The overlay appears only while a run is in progress (first paint is delayed until ~15 s elapsed or 10 produced interactions so trivial calls never flash it) and auto-hides shortly after the run ends — 6 s linger when a budget was exhausted. `setProcessing(true)` is the authoritative run-start signal: it resets the overlay and arms `_autonomyAwaitingRun`, so a not-running snapshot pushed before `BeginAutonomyRun` resets the session (a stale previous-run snapshot) is dropped instead of painting last run's values; `freezeAutonomyOverlay()` is invoked by `setProcessing(false)` (the authoritative run-end signal, since the last push can still carry `IsRunning=true`); `hideAutonomyOverlay()` resets it (called by `resetMessages` and `setProcessing(true)`).
-- `updateTaskPlan(plan)` — Render the current `plan_tasks` plan into `#task-plan-panel`, docked under `#autonomy-overlay` inside the shared `#hud` fixed column. The panel shows the plan goal, completed/total count, a progress bar, and each task's pending/in-progress/completed state; a new plan id replaces the card and the final state stays visible until `resetMessages()` calls `hideTaskPlanPanel()`.
-- `showCanvasPointer({id, message})` — Append a pointer card carrying the `canvas_point` message and a "Show on canvas" button that navigates to `sh://event?type=canvas_pointer&id=...`.
-- `showUserQuestion({id, question, options})` / `resolveUserQuestion(id)` — Append a blocking question card (2–4 option buttons plus a free-text field) and freeze it once the host resolves it. Option clicks navigate to `type=question&choice=N`; the free-text field submits `type=question&text=...`.
-- `showSuggestedPrompts(suggestions)` / `clearSuggestedPrompts()` — Render up to 3 follow-up chips in `#suggestions-strip` above the input bar. Clicking a chip fills the composer input (`#user-input`, through the toolkit `setComposerText` handle) and focuses it — it never sends automatically. Chips are cleared on send and on `resetMessages()`.
+- `showPlanConsent(plan)` / `resolvePlanConsent(id)` — Append a `card:approval` interaction (`consent-<id>`) rendering the plan goal, summary, numbered steps, assumptions, success criteria and the scope note inside the card description. Approve/Reject reports `{decision}` through `transport.messageAction`, which the bridge maps back to `type=consent&id=<plan id>&decision=approve|reject`. `resolvePlanConsent(id)` freezes the card in place (controls disabled, `data-resolved` dimmed).
+- `updateTaskPlan(plan)` — Render the current `plan_tasks` plan as a `card:task_plan` interaction (`sh-task-plan`) in the message list — one plan at a time via same-key upsert. The card shows the goal with a `completed/total` suffix and each task's pending/active/done state (`in_progress`→`active`, `completed`→`done`); the final state stays visible until `resetMessages()` (or `hideTaskPlanPanel()`).
+- `showCanvasPointer({id, message})` — Append an `evidence` line (`pointer-<id>`) carrying the `canvas_point` message plus a `meta.actions` "Show on canvas" button that reports `canvas_pointer` through `messageAction` → `sh://event?type=canvas_pointer&id=...`.
+- `showUserQuestion({id, question, options})` / `resolveUserQuestion(id)` — Append a `card:question` interaction (`question-<id>`): option chips plus an always-present free-text field. Chip clicks navigate to `type=question&choice=N` (the bridge registry maps the reported answer label back to its index); the free-text field submits `type=question&text=...`. `resolveUserQuestion(id)` freezes the card in place.
+- `showSuggestedPrompts(suggestions)` / `clearSuggestedPrompts()` — Render up to 3 follow-up chips as a `suggestions` part interaction (`sh-suggestions`) at the end of the transcript. A chip reports `suggestion` through `messageAction`, which fills the composer input (`#user-input`, through the toolkit `setComposerText` handle) and focuses it — it never sends automatically. Chips are cleared on send and on `resetMessages()`.
+- `setModels(models, selected)` — Feed the composer model picker (`features.modelPicker`); entries are `{id, label?, hint?}` objects or bare strings. Selection changes emit `sh://event?type=model&model=<id>` via `transport.selectModel`. No C# call site yet — forward-compat global.
 - `showToast(message)` — Temporary notification.
 
 Host functions (in `WebChatDialog.cs` / `WebChatObserver.cs`):
@@ -218,6 +221,18 @@ Host functions (in `WebChatDialog.cs` / `WebChatObserver.cs`):
 - Interactions implement `IAIKeyedInteraction` with:
   - `GetStreamKey()` → grouping key to coalesce streaming deltas into one bubble.
   - `GetDedupKey()` → stable identity for persisted entries and hydration.
+
+### Native part mapping (structured HTML → chat-ui parts)
+
+The bridge decomposes every incoming `.message` html payload in `partsForHtml()` before it reaches the toolkit:
+
+- **Notice roles → `evidence`.** `.message.system|summary|info|warning|error|debug` bubbles whose `.message-content` is short (≤ 600 chars) and block-free render as `{type:'evidence', level, text}` (`error`→`error`, `warning`→`warning`, others→`info`). Longer or block-structured bodies keep the collapsible `.message` html part — subagent reports and document dumps stay collapsible.
+- **Metrics footer → `usage`.** A `.message-footer .metrics-icon` without the `hidden` class maps to `{type:'usage', usage:{label, tokensIn, tokensOut}}` (`data-in`/`data-out` → tokens; `data-provider`/`data-model`/`data-reason`/`data-context-usage` compose the label). The footer chrome is stripped from the html body either way, so a `.hidden` icon yields no usage part and no leftover chrome.
+- **Everything else → `html`.** `.message.user|assistant|tool|loading` bubbles and any non-`.message` markup stay single `html` parts rendered verbatim by the custom `partRenderers.html` (sanitized, `data-key` stamped from the interaction `domKey`).
+
+Stamping contract: every toolkit `.cui-msg` gets `data-iid` (the interaction id — how `byKey` addresses it) and `data-key` when the interaction carries a `domKey`. `getAllMessageKeys()`/`findExistingMessageByKey` scan `[data-key]`, so keyed evidence/native messages remain addressable even though they contain no `.message` element; plugin cards (`consent-*`, `question-*`, `pointer-*`, `sh-task-plan`, `sh-suggestions`) only carry `data-iid` and stay out of `getAllMessageKeys`. In-place patching (`patchExistingMessage`/`applyPatchToExisting`) only runs when the payload maps to a single html part; native-part payloads re-render through `updateInteraction` while preserving slot/order.
+
+`_pluginCards` (interactionId → `{kind, refId, options}`) lets `routeMessageAction` translate the toolkit `message.id` back to the host entity id so emitted `sh://event` urls are identical to the legacy DOM cards', and lets `resolvePlanConsent`/`resolveUserQuestion`/`hideTaskPlanPanel` find and freeze/remove the rendered card.
 
 ### Payload conventions
 
