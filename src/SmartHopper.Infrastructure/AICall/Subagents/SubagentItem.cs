@@ -49,5 +49,20 @@ namespace SmartHopper.Infrastructure.AICall.Subagents
 
         /// <summary>Gets when the latest run finished, or null while running.</summary>
         public DateTime? FinishedAt { get; init; }
+
+        /// <summary>
+        /// Gets the number of instructions still queued for this subagent — they
+        /// deliver as new runs, oldest first, once the current run finishes.
+        /// </summary>
+        public int PendingCount { get; init; }
+
+        /// <summary>
+        /// Gets how the instruction that produced this item was delivered:
+        /// <c>"started"</c> (a new run launched immediately), <c>"queued"</c>
+        /// (held in the pending queue until the current run finishes), or
+        /// <c>"steered"</c> (injected into the live run on the fly). Null for
+        /// items not produced by <c>send_to_subagent</c> (list/wait calls).
+        /// </summary>
+        public string? Delivery { get; init; }
     }
 }
