@@ -53,5 +53,13 @@ namespace SmartHopper.Infrastructure.AICall.Subagents
 
         /// <summary>Gets the runs executed so far, oldest first.</summary>
         internal List<SubagentRun> Runs { get; } = new List<SubagentRun>();
+
+        /// <summary>
+        /// Gets the queued instructions waiting for the current run to finish,
+        /// oldest first. Enqueued by <c>send_to_subagent</c> while a run is in
+        /// flight; the host dequeues the head into a new run at turn settle.
+        /// Mutated only under the host gate.
+        /// </summary>
+        internal List<SubagentPendingItem> PendingInstructions { get; } = new List<SubagentPendingItem>();
     }
 }

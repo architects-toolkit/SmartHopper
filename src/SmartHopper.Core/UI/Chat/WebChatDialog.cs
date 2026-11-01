@@ -71,7 +71,7 @@ namespace SmartHopper.Core.UI.Chat
         // Tracks the active Grasshopper document and canvas changes between AI responses (null when unavailable).
         private readonly IChatDocumentTracker? _documentTracker = ChatDocumentTracking.CreateTracker();
         private System.Threading.CancellationTokenSource? _currentCts;
-        private string? _pendingUserMessage;
+        private volatile string? _pendingUserMessage;
 
         // Subagent orchestration: the host owns this session's background workers and
         // reports finished runs back so the transcript gains an evidence line and the
@@ -93,8 +93,16 @@ namespace SmartHopper.Core.UI.Chat
         // Image attachments selected via the attach button. Held C#-side (the sh:// URL
         // scheme cannot carry base64 payloads); the WebView only renders thumbnail chips.
         private readonly List<PendingImage> _pendingAttachments = new List<PendingImage>();
-        private List<PendingImage>? _attachmentsForNextSend;
+        private volatile List<PendingImage>? _attachmentsForNextSend;
         private bool _supportsImageInput = true;
+
+        // Outgoing session queue: sends that arrive while a turn owns the session
+        // (or while another send is already staged) wait FIFO instead of clobbering
+        // _pendingUserMessage. The head is promoted when the turn settles, and the
+        // WebView mirrors the merged queue — user sends plus per-worker queued
+        // instructions from the subagent host — through the toolkit's queue panel.
+        private readonly object _messageQueueGate = new object();
+        private readonly List<QueuedChatMessage> _messageQueue = new List<QueuedChatMessage>();
 
         private const int MaxAttachmentBytes = 15 * 1024 * 1024;
         private const int MaxAttachments = 4;
@@ -115,6 +123,52 @@ namespace SmartHopper.Core.UI.Chat
 
             /// <summary>Gets or sets the base64-encoded image data.</summary>
             public string ImageData { get; set; } = string.Empty;
+        }
+
+        /// <summary>
+        /// A user message held in the outgoing queue while a turn owns the session.
+        /// Attachments are staged at enqueue time so they follow the queued send.
+        /// </summary>
+        private sealed class QueuedChatMessage
+        {
+            /// <summary>Gets the stable identifier shared with the queue-panel row.</summary>
+            public string Id { get; } = Guid.NewGuid().ToString("N");
+
+            /// <summary>Gets or sets the message text.</summary>
+            public string Text { get; set; } = string.Empty;
+
+            /// <summary>Gets or sets the images staged when the message was queued.</summary>
+            public List<PendingImage>? Attachments { get; set; }
+
+            /// <summary>Gets or sets the attribution rendered as the panel byline (null for user-typed sends).</summary>
+            public string? Author { get; set; }
+
+            /// <summary>Gets the enqueue time as Unix milliseconds for the toolkit QueuedMessage.createdAt.</summary>
+            public long EnqueuedAtMs { get; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        }
+
+        /// <summary>
+        /// The serialized row pushed to the toolkit's queue panel. Agent-injected
+        /// entries carry <c>meta.agent</c> (rendered as a muted byline); user sends
+        /// may carry <c>meta.author</c> when an attribution is known.
+        /// </summary>
+        private sealed class QueuePanelItem
+        {
+            /// <summary>Gets or sets the row identifier the panel echoes back on actions.</summary>
+            [Newtonsoft.Json.JsonProperty("id")]
+            public string Id { get; set; } = string.Empty;
+
+            /// <summary>Gets or sets the text shown in the row and submitted on dequeue.</summary>
+            [Newtonsoft.Json.JsonProperty("text")]
+            public string Text { get; set; } = string.Empty;
+
+            /// <summary>Gets or sets the enqueue time in Unix milliseconds.</summary>
+            [Newtonsoft.Json.JsonProperty("createdAt")]
+            public long CreatedAt { get; set; }
+
+            /// <summary>Gets or sets the byline metadata (<c>{ agent }</c> or <c>{ author }</c>); omitted when null.</summary>
+            [Newtonsoft.Json.JsonProperty("meta", NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+            public object? Meta { get; set; }
         }
 
         // Keeps last-rendered HTML per DOM key to make upserts idempotent and avoid redundant DOM work
@@ -223,6 +277,10 @@ namespace SmartHopper.Core.UI.Chat
                 // through the session's invocation context.
                 this._subagentHost = new SubagentHost(request);
                 this._subagentHost.RunFinished += this.OnSubagentRunFinished;
+
+                // Worker-pending instructions share the outgoing queue panel —
+                // re-render whenever the host's pending lists change.
+                this._subagentHost.PendingChanged += (_, __) => this.PushQueueToView();
 
                 // Create the session after the WebView so its consent presenter can render plan cards.
                 this._currentSession = new ConversationSession(
@@ -1348,6 +1406,10 @@ namespace SmartHopper.Core.UI.Chat
                     _ = this.GenerateSuggestedPromptsAsync();
                 }
 
+                // A queued user send is promoted before the wake drain so real
+                // user input always wins over automatic continuation.
+                this.TryPromoteQueuedMessage();
+
                 // A report that arrived mid-turn gets its evidence line and wake turn now.
                 this.ScheduleSubagentDrain();
 
@@ -1428,7 +1490,7 @@ namespace SmartHopper.Core.UI.Chat
                     return;
                 }
 
-                if (!string.IsNullOrWhiteSpace(this._pendingUserMessage))
+                if (this.HasPendingUserInput)
                 {
                     return;
                 }
@@ -1452,7 +1514,7 @@ namespace SmartHopper.Core.UI.Chat
                 await this._turnGate.WaitAsync().ConfigureAwait(false);
                 try
                 {
-                    if (this._dialogClosed || !string.IsNullOrWhiteSpace(this._pendingUserMessage))
+                    if (this._dialogClosed || this.HasPendingUserInput)
                     {
                         // Requeue the batch untouched; the user turn's finally reschedules us.
                         lock (this._subagentReportsGate)
@@ -1777,6 +1839,28 @@ namespace SmartHopper.Core.UI.Chat
                                     catch (Exception ex)
                                     {
                                         DebugLog($"[WebChatDialog] Deferred ExtendAutonomyLimits error: {ex.Message}");
+                                    }
+                                });
+                                break;
+                            }
+
+                        case "queue":
+                            {
+                                var queueAction = query.TryGetValue("action", out var qa) ? qa : string.Empty;
+                                var queueId = query.TryGetValue("id", out var qid2) ? qid2 : string.Empty;
+                                var queueText = query.TryGetValue("text", out var qt) ? qt : null;
+                                DebugLog($"[WebChatDialog] Handling queue event, action: {queueAction}, id: {queueId}");
+
+                                // Defer to next UI tick to avoid executing scripts during navigation event
+                                Application.Instance?.AsyncInvoke(() =>
+                                {
+                                    try
+                                    {
+                                        this.HandleQueueAction(queueAction, queueId, queueText);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        DebugLog($"[WebChatDialog] Deferred HandleQueueAction error: {ex.Message}");
                                     }
                                 });
                                 break;
@@ -2277,14 +2361,50 @@ namespace SmartHopper.Core.UI.Chat
                     return;
                 }
 
-                // Store the user message before processing
-                // The observer will render it when AddInteraction() is called on the session
-                this._pendingUserMessage = trimmed;
-                this._attachmentsForNextSend = this._pendingAttachments.Count > 0
-                    ? new List<PendingImage>(this._pendingAttachments)
-                    : null;
-                this._pendingAttachments.Clear();
+                var enqueued = false;
+                lock (this._messageQueueGate)
+                {
+                    // While a turn owns the session (or a send is already staged for
+                    // it), the message waits FIFO in the outgoing queue instead of
+                    // clobbering the staged send — the head is promoted as soon as
+                    // the turn settles.
+                    if (this.IsSendQueueEngaged)
+                    {
+                        this._messageQueue.Add(new QueuedChatMessage
+                        {
+                            Text = trimmed,
+                            Attachments = this._pendingAttachments.Count > 0
+                                ? new List<PendingImage>(this._pendingAttachments)
+                                : null,
+                        });
+                        this._pendingAttachments.Clear();
+                        enqueued = true;
+                    }
+                    else
+                    {
+                        // Store the user message before processing
+                        // The observer will render it when AddInteraction() is called on the session
+                        this._pendingUserMessage = trimmed;
+                        this._attachmentsForNextSend = this._pendingAttachments.Count > 0
+                            ? new List<PendingImage>(this._pendingAttachments)
+                            : null;
+                        this._pendingAttachments.Clear();
+                    }
+                }
+
                 this.ExecuteScript("clearAttachments();");
+
+                if (enqueued)
+                {
+                    DebugLog("[WebChatDialog] SendMessage: turn busy, message queued");
+                    this.PushQueueToView();
+
+                    // Covers the settle race: a turn that ended between the engaged
+                    // check and the enqueue leaves nothing behind to promote the
+                    // message, so try immediately.
+                    this.TryPromoteQueuedMessage();
+                    return;
+                }
 
                 // Immediately reflect processing state in UI to disable input/send and enable cancel
                 this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(true);"));
@@ -2308,6 +2428,221 @@ namespace SmartHopper.Core.UI.Chat
             catch (Exception ex)
             {
                 DebugLog($"[WebChatDialog] SendMessage(text) error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// True while a send must wait in the outgoing queue rather than stage
+        /// directly: a turn is in flight, a send is already staged for
+        /// <see cref="ProcessAIInteraction"/>, or earlier sends are still queued
+        /// (queue FIFO order must be preserved). Call under <see cref="_messageQueueGate"/>.
+        /// </summary>
+        private bool IsSendQueueEngaged =>
+            Volatile.Read(ref this._turnInFlight) == 1
+            || !string.IsNullOrWhiteSpace(this._pendingUserMessage)
+            || this._attachmentsForNextSend != null
+            || this._messageQueue.Count > 0;
+
+        /// <summary>
+        /// True while a user send is staged (<see cref="_pendingUserMessage"/>/
+        /// <see cref="_attachmentsForNextSend"/>) or waiting in the outgoing queue —
+        /// subagent wake turns always yield to real user input.
+        /// </summary>
+        private bool HasPendingUserInput
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(this._pendingUserMessage) || this._attachmentsForNextSend != null)
+                {
+                    return true;
+                }
+
+                lock (this._messageQueueGate)
+                {
+                    return this._messageQueue.Count > 0;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Promotes the head of the outgoing queue to the staged send when no turn
+        /// owns the session, then starts <see cref="ProcessAIInteraction"/> — the
+        /// same one-shot path a direct send takes. No-ops while a turn is in
+        /// flight, a send is already staged, the queue is empty, or the dialog is
+        /// closed.
+        /// </summary>
+        /// <returns>True when a queued message was staged for submission.</returns>
+        private bool TryPromoteQueuedMessage()
+        {
+            QueuedChatMessage? next;
+            lock (this._messageQueueGate)
+            {
+                if (this._dialogClosed
+                    || Volatile.Read(ref this._turnInFlight) == 1
+                    || !string.IsNullOrWhiteSpace(this._pendingUserMessage)
+                    || this._attachmentsForNextSend != null
+                    || this._messageQueue.Count == 0)
+                {
+                    return false;
+                }
+
+                next = this._messageQueue[0];
+                this._messageQueue.RemoveAt(0);
+
+                // Stage exactly like SendMessage's one-shot path: ProcessAIInteraction
+                // consumes _pendingUserMessage/_attachmentsForNextSend on its thread.
+                this._pendingUserMessage = next.Text;
+                this._attachmentsForNextSend = next.Attachments;
+            }
+
+            DebugLog($"[WebChatDialog] Promoted queued message id={next.Id}");
+            this.PushQueueToView();
+            this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(true);"));
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await this.ProcessAIInteraction().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    DebugLog($"[WebChatDialog] Queued ProcessAIInteraction error: {ex.Message}");
+                }
+            });
+            return true;
+        }
+
+        /// <summary>
+        /// Applies a queue-panel action reported through
+        /// <c>sh://event?type=queue&amp;action=…&amp;id=…</c>: <c>remove</c> drops
+        /// the entry, <c>edit</c> replaces its text (<paramref name="text"/>), and
+        /// <c>submit-now</c> moves it to the head of the queue so it submits next.
+        /// Ids that do not match a queued user send are routed to the subagent
+        /// host's pending-instruction lists.
+        /// </summary>
+        private void HandleQueueAction(string action, string id, string? text)
+        {
+            try
+            {
+                if (this._dialogClosed || string.IsNullOrWhiteSpace(id))
+                {
+                    return;
+                }
+
+                var handled = false;
+                lock (this._messageQueueGate)
+                {
+                    var index = this._messageQueue.FindIndex(e => string.Equals(e.Id, id, StringComparison.Ordinal));
+                    if (index >= 0)
+                    {
+                        switch (action)
+                        {
+                            case "remove":
+                                this._messageQueue.RemoveAt(index);
+                                handled = true;
+                                break;
+                            case "edit":
+                                var next = text?.Trim();
+                                if (!string.IsNullOrWhiteSpace(next))
+                                {
+                                    this._messageQueue[index].Text = next;
+                                    handled = true;
+                                }
+
+                                break;
+                            case "submit-now":
+                                if (index > 0)
+                                {
+                                    var entry = this._messageQueue[index];
+                                    this._messageQueue.RemoveAt(index);
+                                    this._messageQueue.Insert(0, entry);
+                                }
+
+                                handled = true;
+                                break;
+                        }
+                    }
+                }
+
+                if (!handled && this._subagentHost != null)
+                {
+                    SubagentPendingAction? pendingAction = action switch
+                    {
+                        "remove" => SubagentPendingAction.Remove,
+                        "edit" => SubagentPendingAction.Edit,
+                        "submit-now" => SubagentPendingAction.Promote,
+                        _ => null,
+                    };
+                    if (pendingAction.HasValue)
+                    {
+                        handled = this._subagentHost.TryApplyPendingAction(pendingAction.Value, id, text);
+                    }
+                }
+
+                // The panel re-renders either way (it is host-owned state, and the
+                // host may also have changed it through PendingChanged); submit-now
+                // additionally promotes immediately when no turn owns the session.
+                this.PushQueueToView();
+                if (handled && string.Equals(action, "submit-now", StringComparison.Ordinal))
+                {
+                    this.TryPromoteQueuedMessage();
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] HandleQueueAction error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Mirrors the merged outgoing queue — user sends first, then per-worker
+        /// pending instructions flattened by enqueue time — into the toolkit's
+        /// queue panel via <c>setQueue(items)</c>. Worker items carry
+        /// <c>meta.agent</c> so the panel shows who they are for.
+        /// </summary>
+        private void PushQueueToView()
+        {
+            try
+            {
+                var items = new List<QueuePanelItem>();
+                lock (this._messageQueueGate)
+                {
+                    foreach (var entry in this._messageQueue)
+                    {
+                        items.Add(new QueuePanelItem
+                        {
+                            Id = entry.Id,
+
+                            // An attachment-only send has no text — give the row a
+                            // readable label; the submitted message stays text-free.
+                            Text = entry.Text.Length > 0 ? entry.Text : "(image attachment)",
+                            CreatedAt = entry.EnqueuedAtMs,
+                            Meta = entry.Author != null ? new { author = entry.Author } : null,
+                        });
+                    }
+                }
+
+                var pending = this._subagentHost?.PendingItems;
+                if (pending != null)
+                {
+                    foreach (var item in pending)
+                    {
+                        items.Add(new QueuePanelItem
+                        {
+                            Id = item.Id,
+                            Text = item.Text,
+                            CreatedAt = new DateTimeOffset(item.EnqueuedAtUtc).ToUnixTimeMilliseconds(),
+                            Meta = new { agent = $"→ {item.Label}" },
+                        });
+                    }
+                }
+
+                items.Sort((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
+                this.ExecuteScript($"setQueue({JsonConvert.SerializeObject(items)});");
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] PushQueueToView error: {ex.Message}");
             }
         }
 

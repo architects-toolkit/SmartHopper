@@ -1066,6 +1066,15 @@ hr {
     gap: 0;
 }
 
+/* Session queue: while a turn runs the composer stays editable and the send
+   button becomes "Queue" (host-side enqueue) — the toolkit only knows the
+   binary send/cancel swap, so the send button is re-shown here next to Stop.
+   The `body` prefix bumps specificity above the toolkit sheet, which is
+   appended to <head> at runtime after this file. */
+body .chat-ui[data-processing='true'] .cui-send {
+    display: block;
+}
+
 /* Debug actions (regen/update, DEBUG builds) join the composer row. */
 #sh-debug-actions {
     display: flex;
