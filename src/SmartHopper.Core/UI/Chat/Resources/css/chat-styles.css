@@ -1007,3 +1007,80 @@ hr {
 .suggestion-chip:hover {
     background: rgba(3, 102, 214, 0.16);
 }
+
+/* ==== chat-ui toolkit shell adaptations ====
+   The vendored chat-ui toolkit owns the shell (status line, scrollable message
+   list, attachment strip, composer) while legacy SmartHopper markup (.message
+   bubbles, plugin cards, HUD) keeps its own styling inside it. The rules below
+   only adapt the hand-off between the two; toolkit-internal styles live in its
+   DEFAULT_STYLES stylesheet injected at runtime. */
+
+/* Mount point: fills the body column so .chat-ui gets a definite height. */
+#chat-root {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#chat-root > .chat-ui {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto; /* flex sizing wins over the toolkit's height:100% */
+    border: 1px solid #e5e5e5;
+    border-radius: 6px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+/* Status line: text + spinner share the row (the bridge re-appends #spinner
+   after every setStatus textContent update). The toolkit injects its styles
+   at mount time, so overrides need the .chat-ui prefix to win on specificity. */
+.chat-ui .cui-status {
+    gap: 8px;
+}
+
+.chat-ui .cui-status #spinner {
+    flex: none;
+}
+
+/* Legacy .message bubbles render raw inside .cui-msg chrome: drop the toolkit
+   bubble padding/background so the legacy bubble keeps its own chrome, and
+   stretch the wrapper so .message align-self still positions user/assistant. */
+.chat-ui .cui-msg {
+    max-width: 100%;
+    align-self: stretch;
+}
+
+.chat-ui .cui-msg .cui-bubble {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+/* Message spacing is owned by .message margins; avoid double gaps. */
+.chat-ui .cui-messages {
+    gap: 0;
+}
+
+/* Debug actions (regen/update, DEBUG builds) join the composer row. */
+#sh-debug-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+#sh-debug-actions button {
+    border: 1px solid #ddd;
+    background: #fafafa;
+    border-radius: 4px;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+#sh-debug-actions button:hover {
+    background: #f0f0f0;
+}

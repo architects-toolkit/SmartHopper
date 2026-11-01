@@ -59,6 +59,7 @@ namespace SmartHopper.Core.UI.Chat
         private string _cachedErrorTemplate;
         private string _cachedCssContent;
         private string _cachedJsContent;
+        private string _cachedVendorContent;
         private string _cachedPurifyDataUri;
         private readonly MarkdownPipeline _markdownPipeline;
 
@@ -93,7 +94,8 @@ namespace SmartHopper.Core.UI.Chat
 
         // Resource names
         private const string CSS_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.css.chat-styles.css";
-        private const string JS_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.js.chat-script.js";
+        private const string JS_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.js.chat-bridge.js";
+        private const string VENDOR_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.vendor.chat-ui.iife.js";
         private const string PURIFY_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.js.purify.min.js";
         private const string CHAT_TEMPLATE_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.templates.chat-template.html";
         private const string MESSAGE_TEMPLATE_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.templates.message-template.html";
@@ -136,6 +138,7 @@ namespace SmartHopper.Core.UI.Chat
                 // Load all required resources
                 string cssContent = this.GetCssContent();
                 string jsContent = this.GetJsContent();
+                string vendorContent = this.GetVendorContent();
                 string purifyDataUri = this.GetPurifyDataUri();
                 string messageTemplate = this.GetMessageTemplate();
                 string chatTemplate = this.GetChatTemplate();
@@ -147,6 +150,7 @@ namespace SmartHopper.Core.UI.Chat
                 string completeHtml = chatTemplate
                     .Replace("{{cssChat}}", cssContent, StringComparison.Ordinal)
                     .Replace("{{jsSanitizer}}", purifyDataUri, StringComparison.Ordinal)
+                    .Replace("{{jsVendor}}", vendorContent, StringComparison.Ordinal)
                     .Replace("{{jsChat}}", jsContent, StringComparison.Ordinal)
                     .Replace("{{debugActionsLeft}}", this.GetDebugActionsLeftHtml(), StringComparison.Ordinal)
                     .Replace("{{messageTemplate}}", messageTemplate, StringComparison.Ordinal);
@@ -277,6 +281,25 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             return this._cachedJsContent;
+        }
+
+        /// <summary>
+        /// Gets the vendored chat-ui toolkit bundle (IIFE exposing <c>window.ChatUI</c>).
+        /// Loaded once from embedded resources and inlined before the bridge script.
+        /// </summary>
+        /// <returns>The vendored JavaScript content.</returns>
+        private string GetVendorContent()
+        {
+            Logger.For<ChatResourceManager>().Trace("[ChatResourceManager] Getting vendored chat-ui bundle");
+
+            if (string.IsNullOrEmpty(this._cachedVendorContent))
+            {
+                Logger.For<ChatResourceManager>().Trace($"[ChatResourceManager] Reading embedded resource: {VENDOR_RESOURCE}");
+                this._cachedVendorContent = this.ReadEmbeddedResource(VENDOR_RESOURCE);
+                Logger.For<ChatResourceManager>().Trace($"[ChatResourceManager] Vendored chat-ui bundle loaded, length: {this._cachedVendorContent?.Length ?? 0}");
+            }
+
+            return this._cachedVendorContent;
         }
 
         /// <summary>
