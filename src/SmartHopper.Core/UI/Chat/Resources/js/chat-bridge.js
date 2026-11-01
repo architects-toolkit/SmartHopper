@@ -1357,8 +1357,26 @@ function setProcessing(on) {
     // When idle: enable input + send, disable cancel
     // (the toolkit additionally swaps send/cancel visibility via [data-processing])
     try {
-        if (input) input.disabled = !!on;
-        if (sendBtn) sendBtn.disabled = !!on;
+        if (_view) {
+            // Composer enablement goes through the toolkit handle — no
+            // .cui-input/.cui-send DOM pokes. The processing flag already
+            // drives editable state via applyComposerState; setComposerEnabled
+            // mirrors it on the public API so both flags stay consistent.
+            _view.setComposerEnabled(!on);
+        } else {
+            // Fallback shell: legacy raw DOM toggles.
+            if (input) input.disabled = !!on;
+            if (sendBtn) sendBtn.disabled = !!on;
+            if (input) {
+                try {
+                    input.setAttribute('aria-disabled', input.disabled ? 'true' : 'false');
+                } catch {}
+            }
+        }
+
+        // The toolkit only toggles .cui-cancel visibility via [data-processing]
+        // — its disabled flag stays host-managed in both shells so a stale
+        // state can never leave the stop button dead mid-run.
         if (cancelBtn) cancelBtn.disabled = !on;
 
         // Optional: reflect disabled state via CSS class and ARIA for better a11y
@@ -1369,12 +1387,6 @@ function setProcessing(on) {
                 btn.setAttribute('aria-disabled', btn.disabled ? 'true' : 'false');
             } catch {}
         });
-
-        if (input) {
-            try {
-                input.setAttribute('aria-disabled', input.disabled ? 'true' : 'false');
-            } catch {}
-        }
     } catch (err) {
         console.warn('[JS] setProcessing: control toggle failed', err);
     }
@@ -1897,13 +1909,8 @@ function showSuggestedPrompts(suggestions) {
         chip.title = text;
         chip.setAttribute('role', 'listitem');
         chip.addEventListener('click', () => {
-            const input = document.getElementById('user-input');
-            if (input) {
-                input.value = text;
-                // Notify the toolkit composer so autosize recalculates height.
-                try { input.dispatchEvent(new Event('input', { bubbles: true })); } catch {}
-                input.focus();
-            }
+            // Same semantics as the toolkit 'suggestion' action: fill, never send.
+            fillComposerInput(text);
         });
         strip.appendChild(chip);
     });
@@ -2052,8 +2059,19 @@ function emitShEvent(url) {
 
 /** Fills the toolkit composer input without sending (suggestion-chip semantics). */
 function fillComposerInput(text) {
+    if (typeof text !== 'string') return;
+    if (_view) {
+        // Composer text goes through the toolkit handle — it sets the value,
+        // re-runs autosize and focuses with the caret at the end. No DOM poke.
+        try {
+            _view.setComposerText(text, { focus: true });
+            return;
+        } catch (err) {
+            console.warn('[JS] fillComposerInput toolkit error:', err);
+        }
+    }
     const input = _els.input || document.getElementById('user-input');
-    if (!input || typeof text !== 'string') return;
+    if (!input) return;
     input.value = text;
     try { input.dispatchEvent(new Event('input', { bubbles: true })); } catch {}
     input.focus();
@@ -2275,6 +2293,7 @@ function initChatUiShell() {
     _view = ChatUI.createChatView(rootEl, {
         transport: bridgeTransport,
         placeholder: 'Type a message...',
+        theme: 'cloud',            // stamps data-theme='cloud' -> css/chat-theme.css rules
         features: {
             queue: false,            // message queue arrives in a later PR
             contextCard: true,

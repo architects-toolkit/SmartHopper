@@ -201,7 +201,7 @@ JavaScript functions (in `js/chat-bridge.js`, the compatibility layer that mount
 - `updateTaskPlan(plan)` — Render the current `plan_tasks` plan into `#task-plan-panel`, docked under `#autonomy-overlay` inside the shared `#hud` fixed column. The panel shows the plan goal, completed/total count, a progress bar, and each task's pending/in-progress/completed state; a new plan id replaces the card and the final state stays visible until `resetMessages()` calls `hideTaskPlanPanel()`.
 - `showCanvasPointer({id, message})` — Append a pointer card carrying the `canvas_point` message and a "Show on canvas" button that navigates to `sh://event?type=canvas_pointer&id=...`.
 - `showUserQuestion({id, question, options})` / `resolveUserQuestion(id)` — Append a blocking question card (2–4 option buttons plus a free-text field) and freeze it once the host resolves it. Option clicks navigate to `type=question&choice=N`; the free-text field submits `type=question&text=...`.
-- `showSuggestedPrompts(suggestions)` / `clearSuggestedPrompts()` — Render up to 3 follow-up chips in `#suggestions-strip` above the input bar. Clicking a chip fills `#user-input` and focuses it — it never sends automatically. Chips are cleared on send and on `resetMessages()`.
+- `showSuggestedPrompts(suggestions)` / `clearSuggestedPrompts()` — Render up to 3 follow-up chips in `#suggestions-strip` above the input bar. Clicking a chip fills the composer input (`#user-input`, through the toolkit `setComposerText` handle) and focuses it — it never sends automatically. Chips are cleared on send and on `resetMessages()`.
 - `showToast(message)` — Temporary notification.
 
 Host functions (in `WebChatDialog.cs` / `WebChatObserver.cs`):

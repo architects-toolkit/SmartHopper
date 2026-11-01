@@ -58,6 +58,7 @@ namespace SmartHopper.Core.UI.Chat
         private string _cachedMessageTemplate;
         private string _cachedErrorTemplate;
         private string _cachedCssContent;
+        private string _cachedThemeCssContent;
         private string _cachedJsContent;
         private string _cachedVendorContent;
         private string _cachedPurifyDataUri;
@@ -94,6 +95,7 @@ namespace SmartHopper.Core.UI.Chat
 
         // Resource names
         private const string CSS_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.css.chat-styles.css";
+        private const string THEME_CSS_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.css.chat-theme.css";
         private const string JS_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.js.chat-bridge.js";
         private const string VENDOR_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.vendor.chat-ui.iife.js";
         private const string PURIFY_RESOURCE = "SmartHopper.Core.UI.Chat.Resources.js.purify.min.js";
@@ -137,6 +139,7 @@ namespace SmartHopper.Core.UI.Chat
             {
                 // Load all required resources
                 string cssContent = this.GetCssContent();
+                string themeCssContent = this.GetThemeCssContent();
                 string jsContent = this.GetJsContent();
                 string vendorContent = this.GetVendorContent();
                 string purifyDataUri = this.GetPurifyDataUri();
@@ -149,6 +152,7 @@ namespace SmartHopper.Core.UI.Chat
                 // Replace all placeholders with actual content
                 string completeHtml = chatTemplate
                     .Replace("{{cssChat}}", cssContent, StringComparison.Ordinal)
+                    .Replace("{{cssTheme}}", themeCssContent, StringComparison.Ordinal)
                     .Replace("{{jsSanitizer}}", purifyDataUri, StringComparison.Ordinal)
                     .Replace("{{jsVendor}}", vendorContent, StringComparison.Ordinal)
                     .Replace("{{jsChat}}", jsContent, StringComparison.Ordinal)
@@ -263,6 +267,24 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             return this._cachedCssContent;
+        }
+
+        /// <summary>
+        /// Gets the theme CSS content (cloud "Blueprint" theme layered over the base styles).
+        /// </summary>
+        /// <returns>The theme CSS content.</returns>
+        private string GetThemeCssContent()
+        {
+            Logger.For<ChatResourceManager>().Trace("[ChatResourceManager] Getting theme CSS content");
+
+            if (string.IsNullOrEmpty(this._cachedThemeCssContent))
+            {
+                Logger.For<ChatResourceManager>().Trace($"[ChatResourceManager] Reading embedded resource: {THEME_CSS_RESOURCE}");
+                this._cachedThemeCssContent = this.ReadEmbeddedResource(THEME_CSS_RESOURCE);
+                Logger.For<ChatResourceManager>().Trace($"[ChatResourceManager] Theme CSS content loaded, length: {this._cachedThemeCssContent?.Length ?? 0}");
+            }
+
+            return this._cachedThemeCssContent;
         }
 
         /// <summary>

@@ -220,7 +220,7 @@ These changes also mitigate issue #261 ("ui eventually freezes on opening webcha
   - Observer: `src/SmartHopper.Core/UI/Chat/WebChatObserver.cs`
   - Rendering: `src/SmartHopper.Core/UI/Chat/HtmlChatRenderer.cs`
   - Resources: `src/SmartHopper.Core/UI/Chat/Resources/`
-    - CSS: `css/chat-styles.css` (legacy bubbles/cards + a small toolkit-shell adaptation block)
+    - CSS: `css/chat-styles.css` (legacy bubbles/cards + a small toolkit-shell adaptation block); `css/chat-theme.css` (cloud "Blueprint" theme — palette tokens, the verbatim cloud chat stylesheet scoped to `.chat-ui[data-theme='cloud']`, and plugin adaptations for the legacy `.message` DOM)
     - Vendored toolkit: `vendor/chat-ui.iife.js` (byte-for-byte upstream build; see `vendor/THIRD_PARTY_NOTICES.md`)
     - JS: `js/chat-bridge.js` (compat globals + toolkit mount); `js/chat-script.js` is retained on disk but no longer injected
     - Sanitizer: `js/purify.min.js` (DOMPurify, loaded as a data URI)
@@ -242,7 +242,7 @@ Each message uses role classes like `.message.user`, `.message.assistant`, `.mes
 
 ### chat-ui toolkit shell and the html-part bridge
 
-The transcript and composer are owned by the vendored chat-ui toolkit (`vendor/chat-ui.iife.js`, MIT — see `vendor/THIRD_PARTY_NOTICES.md`), mounted by `chat-bridge.js` into `#chat-root` via `ChatUI.createChatView(container, { transport, features, partRenderers })`:
+The transcript and composer are owned by the vendored chat-ui toolkit (`vendor/chat-ui.iife.js`, MIT — see `vendor/THIRD_PARTY_NOTICES.md`), mounted by `chat-bridge.js` into `#chat-root` via `ChatUI.createChatView(container, { transport, placeholder, theme: 'cloud', features, partRenderers })`. `theme: 'cloud'` stamps `data-theme='cloud'` on the `.chat-ui` root, activating the scoped cloud "Blueprint" rules in `css/chat-theme.css` (loaded through the `{{cssTheme}}` template placeholder; composer reads/writes go through the handle's `setComposerText`/`setComposerEnabled` API rather than DOM pokes):
 
 - **Shell (toolkit-native):** `.cui-status` line, `.cui-messages` scroll list with pin/jump-to-bottom handling, `.cui-attachments` staged-chip strip, `.cui-composer` (autosizing input, send/cancel, attach), `.cui-context-card` (fed by `setContextUsage`), quote chip. The queue feature is explicitly disabled (`queue: false`) — host order is authoritative.
 - **Message bodies (html-bridged):** legacy `.message` bubble HTML flows through `addInteraction`/`updateInteraction` as `{ type: 'html', html }` parts. A custom `partRenderers.html` sanitizes via DOMPurify and emits the markup raw (single-root `.message` becomes the part element; multi-root payloads get a `.cui-part-html` wrapper), stamping `data-key` from the interaction `domKey` so the keyed upsert/patch pipeline can address it. No extra bubble chrome is added around legacy markup.
