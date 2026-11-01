@@ -17,11 +17,19 @@
  * Shell ownership split:
  *   - Toolkit (chat-ui): status line, scrollable message list (.cui-messages),
  *     jump-to-bottom button, attachment strip, composer (input/send/cancel),
- *     context-usage card, quote chip.
+ *     context-usage card, quote chip, model picker (feature-gated).
  *   - Bridge (this file): compat globals, html part renderer that emits the
  *     legacy .message markup raw, keyed upsert/patch pipeline, plugin cards
- *     (consent, question, task plan, canvas pointer, suggested prompts),
- *     autonomy overlay, toast, collapsibles, metrics tooltips, sanitization.
+ *     mapped to native chat-ui parts (consent -> card:approval, question ->
+ *     card:question, task plan -> card:task_plan, suggested prompts ->
+ *     suggestions part, canvas pointer -> evidence + meta.actions), autonomy
+ *     overlay, toast, collapsibles, metrics tooltips, sanitization.
+ *
+ * Structured-html decomposition: incoming .message bubbles are sniffed by
+ * partsForHtml(). Short single-block notice bubbles (system/summary/info/
+ * warning/error/debug role classes) become `evidence` parts; a meaningful
+ * metrics footer (.metrics-icon not .hidden) becomes a `usage` part appended
+ * after the (footer-stripped) html part. Everything else stays an `html` part.
  *
  * Compatibility contract (do NOT rename; C# call sites use these exact names):
  *   addMessage, upsertMessage, upsertMessageAfter, removeThinkingMessage,
@@ -31,6 +39,7 @@
  *   showPlanConsent, resolvePlanConsent, updateTaskPlan, showSuggestedPrompts,
  *   showCanvasPointer, showUserQuestion, resolveUserQuestion, resetMessages,
  *   getAllMessageKeys, showToast  (+ window.SH_READY readiness flag)
+ *   Optional forward-compat global (no C# call site yet): setModels.
  *
  * JS -> C# events keep the sh:// / clipboard:// scheme contract unchanged.
  */
@@ -270,7 +279,13 @@ function patchExistingMessage(existing, incoming) {
 
 function applyPatchToExisting(existing, patchObj, context) {
     if (!existing || !patchObj) return null;
-    const content = existing.querySelector('.message-content') || existing;
+    const content = existing.querySelector('.message-content');
+    if (!content) {
+        // Never append patch markup into a node without a content anchor (e.g. a
+        // native-part .cui-msg has none) — the host resends the full payload.
+        console.warn(`[JS] ${context}: patch target has no .message-content`);
+        return null;
+    }
     const safeHtml = sanitizeHtml(patchObj.html || '');
     if (patchObj.patch === 'append') {
         const temp = document.createElement('div');
@@ -351,14 +366,19 @@ function setDatasetKeySafe(node, key) {
 }
 
 /**
- * Finds a keyed part node inside container by its dataset.key value. Keyed nodes are
- * the rendered html part roots: legacy `.message` bubbles or `.cui-part-html` wrappers.
+ * Finds a keyed part node inside container by its dataset.key value. Keyed nodes
+ * are the rendered part roots (legacy `.message` bubbles, `.cui-part-html`
+ * wrappers) or the `.cui-msg` chrome itself when the interaction rendered only
+ * native parts (evidence/usage/cards carry no `.message` element). The `.cui-msg`
+ * ancestor sorts before its inner `.message` in document order, so callers that
+ * need the toolkit wrapper (topOf/moveAfter) and callers that patch
+ * `.message-content` both work off the same lookup.
  * @param {HTMLElement} chatContainer
  * @param {string} key
  * @returns {HTMLElement|null}
  */
 function findExistingMessageByKey(chatContainer, key) {
-    const parts = Array.from(chatContainer.querySelectorAll('.message, .cui-part-html'));
+    const parts = Array.from(chatContainer.querySelectorAll('[data-key]'));
     return parts.find(m => (m.dataset && m.dataset.key) === (key || '')) || null;
 }
 
@@ -540,6 +560,236 @@ function renderHtmlPart(part, ctx) {
     return node;
 }
 
+// ---------------------------------------------------------------------------
+// Structured-html -> canonical part decomposition
+// ---------------------------------------------------------------------------
+
+/**
+ * `.message <role>` classes that render as notice lines rather than full
+ * bubbles when their content is short and free of block markup. Special turns
+ * and background lines (subagent evidence, document/context events, runtime
+ * notices) arrive through these classes.
+ */
+const NOTICE_LEVEL_BY_ROLE = {
+    error: 'error',
+    warning: 'warning',
+    info: 'info',
+    debug: 'info',
+    system: 'info',
+    summary: 'info',
+};
+
+/** Longest notice body that still maps to an evidence part. */
+const EVIDENCE_MAX_CHARS = 600;
+
+/** Markup that requires full html rendering (never maps to evidence). */
+const EVIDENCE_BLOCK_TAGS = new Set([
+    'PRE', 'TABLE', 'UL', 'OL', 'BLOCKQUOTE', 'DETAILS', 'IMG', 'VIDEO', 'AUDIO',
+    'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HR', 'FORM', 'INPUT', 'BUTTON',
+    'SELECT', 'TEXTAREA', 'CANVAS', 'IFRAME', 'SVG', 'OBJECT',
+]);
+
+/**
+ * Decomposes a legacy `.message` html payload into canonical chat-ui parts:
+ *  - notice-role bubbles with short, block-free bodies -> a single `evidence`
+ *    part (severity comes from the role class);
+ *  - a `.message-footer` metrics icon carrying data (not `.hidden`) -> a
+ *    `usage` part appended after the html body; the footer chrome is stripped
+ *    either way so the html part only carries header + content;
+ *  - everything else -> the payload stays one `html` part.
+ * @param {string} messageHtml
+ * @returns {{parts:object[], role:string, el:HTMLElement|null, rawEl:HTMLElement|null, plain:boolean}}
+ *   `el` is the parsed (possibly footer-stripped) `.message` element; `rawEl` is
+ *   the same element before the footer strip, reused by the in-place patch path
+ *   so its metrics-icon sync still sees the incoming footer. `plain` is true
+ *   only when the result is exactly one html part, which is the only shape the
+ *   cheap in-place patch can apply.
+ */
+function partsForHtml(messageHtml) {
+    const role = sniffRole(messageHtml);
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = sanitizeHtml(messageHtml || '');
+    const el = tempDiv.firstElementChild || null;
+    const isMessage = !!el && tempDiv.children.length === 1 &&
+        el.classList && el.classList.contains('message');
+    if (!isMessage) {
+        return { parts: [{ type: 'html', html: messageHtml || '' }], role, el, rawEl: el, plain: true };
+    }
+
+    const roleMatch = /(^|\s)message\s+([a-zA-Z-]+)/.exec(el.className || '');
+    const roleCls = roleMatch ? roleMatch[2].toLowerCase() : '';
+    const content = el.querySelector('.message-content');
+
+    // Notice roles -> evidence part when the body is short, plain text.
+    if (Object.prototype.hasOwnProperty.call(NOTICE_LEVEL_BY_ROLE, roleCls) && content) {
+        const text = (content.textContent || '').trim();
+        let hasBlock = false;
+        if (text) {
+            const descendants = content.querySelectorAll('*');
+            for (const node of descendants) {
+                if (EVIDENCE_BLOCK_TAGS.has(node.tagName)) { hasBlock = true; break; }
+            }
+        }
+        if (text && text.length <= EVIDENCE_MAX_CHARS && !hasBlock) {
+            return {
+                parts: [{ type: 'evidence', level: NOTICE_LEVEL_BY_ROLE[roleCls], text }],
+                role: 'system',
+                el,
+                rawEl: el,
+                plain: false,
+            };
+        }
+    }
+
+    // Metrics footer -> usage part. The footer chrome is stripped from the html
+    // body either way; a `.hidden` icon means the host had no metrics to report.
+    // `rawEl` keeps a pre-strip copy for patchExistingMessage's footer sync.
+    const rawEl = el.cloneNode(true);
+    const footer = el.querySelector('.message-footer');
+    const icon = footer ? footer.querySelector('.metrics-icon') : null;
+    let usage = null;
+    if (icon && !icon.classList.contains('hidden')) {
+        const positiveInt = (name) => {
+            const n = parseInt(icon.getAttribute(name), 10);
+            return Number.isFinite(n) && n > 0 ? n : null;
+        };
+        const provider = icon.getAttribute('data-provider') || '';
+        const model = icon.getAttribute('data-model') || '';
+        const reason = icon.getAttribute('data-reason') || '';
+        const ctxUsage = icon.getAttribute('data-context-usage') || '';
+        const label = [
+            provider,
+            model,
+            reason && reason !== 'unknown' ? reason : '',
+            ctxUsage ? `ctx ${ctxUsage}` : '',
+        ].filter(Boolean).join(' · ');
+        usage = {};
+        if (label) usage.label = label;
+        const tokensIn = positiveInt('data-in');
+        const tokensOut = positiveInt('data-out');
+        if (tokensIn != null) usage.tokensIn = tokensIn;
+        if (tokensOut != null) usage.tokensOut = tokensOut;
+    }
+    if (footer) footer.remove();
+
+    const parts = [{ type: 'html', html: el.outerHTML }];
+    if (usage) parts.push({ type: 'usage', usage });
+    return { parts, role, el, rawEl, plain: !usage };
+}
+
+/**
+ * Stamps the toolkit `.cui-msg` chrome with dataset identifiers: `data-iid`
+ * always (interaction id — used by plugin-card freezes and byKey lookups) and
+ * `data-key` when the interaction carries a real domKey, which is what
+ * getAllMessageKeys and the keyed upsert pipeline operate on. Plugin/notice
+ * cards only get `data-iid` so they stay out of getAllMessageKeys.
+ * @param {HTMLElement|null} top - the `.cui-msg` node
+ * @param {{id:string, domKey?:string}} interaction
+ */
+function stampToolkitMsg(top, interaction) {
+    try {
+        if (!top || !top.dataset || !interaction) return;
+        top.dataset.iid = interaction.id || '';
+        if (interaction.domKey) top.dataset.key = interaction.domKey;
+    } catch { /* ignore */ }
+}
+
+/**
+ * Registry of native plugin interactions (consent/question/task-plan/pointer)
+ * so `routeMessageAction` can recover the host-side entity id from the toolkit
+ * message id and the `resolve*` globals can locate the card to freeze.
+ * interactionId -> { kind, refId, options? }
+ */
+const _pluginCards = new Map();
+
+/**
+ * Finds the `.cui-msg` chrome stamped with a plugin interaction id.
+ * @param {string} iid
+ * @returns {HTMLElement|null}
+ */
+function pluginMsgEl(iid) {
+    const nodes = document.querySelectorAll('.cui-msg[data-iid]');
+    for (const node of nodes) {
+        if (node.dataset && node.dataset.iid === iid) return node;
+    }
+    return null;
+}
+
+/**
+ * Freezes a resolved plugin card in place: disables every control and marks
+ * the card resolved. Mirrors the legacy `.resolved` DOM freeze without a
+ * re-render so the user's chosen state label stays visible.
+ * @param {string} iid - plugin interaction id
+ */
+function freezePluginCard(iid) {
+    const node = pluginMsgEl(iid);
+    if (!node) return;
+    node.querySelectorAll('button, input, select, textarea').forEach(c => { c.disabled = true; });
+    const card = node.querySelector('.cui-card');
+    if (card) card.dataset.resolved = 'true';
+}
+
+/**
+ * Pushes a native plugin interaction (card/part message) into the toolkit
+ * message list, records it in `_pluginCards`, stamps `data-iid`, and keeps the
+ * trailing-loader ordering rule.
+ * @param {string} iid - interaction id (becomes message.id for action routing)
+ * @param {string} refId - host-side entity id embedded in sh:// event urls
+ * @param {string} kind - registry kind label
+ * @param {string} role - canonical chat-ui role
+ * @param {object[]} parts
+ * @param {object} [meta] - message meta (e.g. actions rows)
+ * @param {string[]} [options] - question option labels for choice-index recovery
+ */
+function pushPluginInteraction(iid, refId, kind, role, parts, meta, options) {
+    _pluginCards.set(iid, { kind, refId, options });
+    const interaction = { id: iid, role, parts };
+    if (meta) interaction.meta = meta;
+    try {
+        _view.addInteraction(interaction);
+    } catch (err) {
+        _pluginCards.delete(iid); // don't leave a stale refId/dedupe entry
+        console.error(`[JS] pushPluginInteraction(${kind}) failed:`, err);
+        return;
+    }
+    const container = document.getElementById('chat-container');
+    const top = container ? container.lastElementChild : null;
+    stampToolkitMsg(top, interaction);
+    hoistAboveTrailingLoader(top);
+}
+
+/**
+ * Composes the approval card's pre-wrap description from a consent plan:
+ * summary, numbered steps (tool + canvas-change note), assumptions, success
+ * criteria and the scope note the legacy card rendered as .plan-consent-note.
+ * @param {object} plan
+ * @returns {string}
+ */
+function composePlanDescription(plan) {
+    const lines = [];
+    if (plan && plan.summary) lines.push(String(plan.summary));
+    const steps = plan && Array.isArray(plan.steps) ? plan.steps : [];
+    if (steps.length) {
+        if (lines.length) lines.push('');
+        steps.forEach((step, i) => {
+            const text = (step && (step.description || step.id)) || 'Step';
+            const tool = step && step.tool
+                ? ` — ${step.tool}${step.mutatesCanvas ? ' (canvas change)' : ''}`
+                : '';
+            lines.push(`${i + 1}. ${text}${tool}`);
+        });
+    }
+    const section = (label, values) => {
+        if (!Array.isArray(values) || values.length === 0) return;
+        lines.push('', `${label}:`);
+        values.forEach(v => lines.push(`- ${v}`));
+    };
+    section('Assumptions', plan && plan.assumptions);
+    section('Success criteria', plan && plan.successCriteria);
+    lines.push('', 'Approving this approach does not approve canvas changes. Each concrete change receives a graphical review.');
+    return lines.join('\n');
+}
+
 /**
  * Records a perf sample for a completed render/patch operation.
  * @param {number} start
@@ -585,12 +835,11 @@ function addMessage(messageHtml) {
         }
 
         try {
-            _view.addInteraction({
-                id: nextAnonId(),
-                role: sniffRole(messageHtml),
-                parts: [{ type: 'html', html: messageHtml || '' }],
-            });
+            const mapped = partsForHtml(messageHtml);
+            const interaction = { id: nextAnonId(), role: mapped.role, parts: mapped.parts };
+            _view.addInteraction(interaction);
             const top = chatContainer.lastElementChild;
+            stampToolkitMsg(top, interaction); // data-iid only — anonymous stays keyless
             hoistAboveTrailingLoader(top);
             const inner = innerContent(top) || top;
             if (inner && inner.classList && inner.classList.contains('message')) addWipeAnimation(inner);
@@ -649,9 +898,11 @@ function upsertMessageAfter(followKey, key, messageHtml) {
 
         // Full-HTML payload: prefer patching the existing bubble in place (keeps
         // position and chrome, avoids toolkit re-render churn on every delta).
+        // Only a payload that maps to a single html part is patchable in place —
+        // one that decomposes to native parts (evidence/usage) needs a re-render.
+        const mapped = partsForHtml(messageHtml);
         if (existing) {
-            const incomingMsg = createElementFromHtml(messageHtml, 'upsertMessageAfter');
-            if (incomingMsg && patchExistingMessage(existing, incomingMsg)) {
+            if (mapped.plain && mapped.rawEl && patchExistingMessage(existing, mapped.rawEl)) {
                 finalizeMessageInsertion(existing, wasAtBottom);
                 recordHtmlCache(key, messageHtml);
                 noteRenderPerf(start, 'upsertMessageAfter(patch-in-place)', messageHtml.length);
@@ -679,17 +930,19 @@ function upsertMessageAfter(followKey, key, messageHtml) {
 
         try {
             if (existing) {
-                // Toolkit re-render (rare: in-place patch rejected the template shape).
-                _view.updateInteraction(key, { parts: [{ type: 'html', html: messageHtml || '' }] });
+                // Toolkit re-render (native-part payload or a shape the in-place
+                // patch rejected).
+                _view.updateInteraction(key, { parts: mapped.parts });
             } else {
                 _view.addInteraction({
                     id: key,
                     domKey: key,
-                    role: sniffRole(messageHtml),
-                    parts: [{ type: 'html', html: messageHtml || '' }],
+                    role: mapped.role,
+                    parts: mapped.parts,
                 });
             }
             const top = chatContainer.lastElementChild;
+            stampToolkitMsg(top, { id: key, domKey: key });
             // Honor the ordering contract: the (re)rendered message lands after follow.
             moveAfter(chatContainer, top, followTop);
             hoistAboveTrailingLoader(top);
@@ -747,9 +1000,11 @@ function upsertMessage(key, messageHtml) {
 
         // Full-HTML payload: patch the existing bubble in place rather than
         // re-rendering through the toolkit (keeps position; avoids DOM churn).
+        // Only a payload mapping to a single html part is patchable in place —
+        // native-part payloads (evidence/usage) re-render through the toolkit.
+        const mapped = partsForHtml(messageHtml);
         if (existing) {
-            const incomingMsg = createElementFromHtml(messageHtml, 'upsertMessage');
-            if (incomingMsg && patchExistingMessage(existing, incomingMsg)) {
+            if (mapped.plain && mapped.rawEl && patchExistingMessage(existing, mapped.rawEl)) {
                 finalizeMessageInsertion(existing, wasAtBottom);
                 recordHtmlCache(key, messageHtml);
                 noteRenderPerf(start, 'upsertMessage(patch-in-place)', messageHtml.length);
@@ -758,6 +1013,7 @@ function upsertMessage(key, messageHtml) {
 
             if (!_view) {
                 // Fallback shell: replace the whole bubble in place.
+                const incomingMsg = createElementFromHtml(messageHtml, 'upsertMessage');
                 if (incomingMsg) {
                     setDatasetKeySafe(incomingMsg, key);
                     topOf(existing).replaceWith(incomingMsg);
@@ -772,8 +1028,9 @@ function upsertMessage(key, messageHtml) {
             try {
                 // Toolkit re-render preserving the message's current slot.
                 const slot = topOf(existing).nextElementSibling;
-                _view.updateInteraction(key, { parts: [{ type: 'html', html: messageHtml || '' }] });
+                _view.updateInteraction(key, { parts: mapped.parts });
                 const top = chatContainer.lastElementChild;
+                stampToolkitMsg(top, { id: key, domKey: key });
                 if (slot && top !== slot) {
                     chatContainer.insertBefore(top, slot);
                 } else {
@@ -803,13 +1060,10 @@ function upsertMessage(key, messageHtml) {
         }
 
         try {
-            _view.addInteraction({
-                id: key,
-                domKey: key,
-                role: sniffRole(messageHtml),
-                parts: [{ type: 'html', html: messageHtml || '' }],
-            });
+            const interaction = { id: key, domKey: key, role: mapped.role, parts: mapped.parts };
+            _view.addInteraction(interaction);
             const top = chatContainer.lastElementChild;
+            stampToolkitMsg(top, interaction);
             hoistAboveTrailingLoader(top);
             const inner = innerContent(top) || top;
             if (inner && inner.classList && inner.classList.contains('message')) addWipeAnimation(inner);
@@ -903,6 +1157,41 @@ function replaceLastMessageByRole(role, messageHtml) {
             // The .message element swaps inside its .cui-msg chrome, preserving the
             // toolkit wrapper; unwrapped nodes (fallback shell) replace directly.
             lastMessage.replaceWith(incoming);
+        } else if (_view) {
+            // Native-part bubbles (evidence/usage render no .message element):
+            // replace the last .cui-msg chrome of that role instead. A keyed or
+            // interaction-stamped victim goes through the toolkit so the keyed
+            // pipeline keeps addressing it; anything else gets a raw swap.
+            const msgs = Array.from(chatContainer.querySelectorAll(`.cui-msg[data-role="${role}"]`));
+            const victim = msgs.length ? msgs[msgs.length - 1] : null;
+            if (victim) {
+                const byKeyRef = victim.dataset && (victim.dataset.key || victim.dataset.iid);
+                const mapped = partsForHtml(messageHtml);
+                if (byKeyRef) {
+                    try {
+                        const slot = victim.nextElementSibling;
+                        _view.updateInteraction(byKeyRef, { parts: mapped.parts });
+                        const top = chatContainer.lastElementChild;
+                        stampToolkitMsg(top, { id: byKeyRef, domKey: victim.dataset.key });
+                        if (slot && top !== slot) {
+                            chatContainer.insertBefore(top, slot);
+                        } else {
+                            hoistAboveTrailingLoader(top);
+                        }
+                        finalizeMessageInsertion(innerContent(top) || top, wasAtBottom);
+                        noteRenderPerf(start, 'replaceLastMessageByRole', messageHtml.length);
+                        return true;
+                    } catch (err) {
+                        console.warn('[JS] replaceLastMessageByRole toolkit error:', err);
+                    }
+                }
+                // Raw swap fallback: carry the domKey over so keyed upserts keep
+                // finding the replacement node.
+                setDatasetKeySafe(incoming, victim.dataset && victim.dataset.key);
+                victim.replaceWith(incoming);
+            } else {
+                insertAboveThinkingIfPresent(chatContainer, incoming);
+            }
         } else {
             insertAboveThinkingIfPresent(chatContainer, incoming);
         }
@@ -1434,6 +1723,30 @@ function clearAttachments() {
     }
 }
 
+/**
+ * Feeds the native composer model picker (features.modelPicker). Entries are
+ * {id, label?, hint?} objects or bare strings; `selected` is the current model
+ * id. Changes emit sh://event?type=model&model=<id> — the host route is opt-in
+ * (today's host logs it as an unknown event type until C# wires it).
+ * @param {Array<string|object>} models
+ * @param {string} [selected]
+ */
+function setModels(models, selected) {
+    if (!_view) {
+        console.warn('[JS] setModels: chat view not ready');
+        return;
+    }
+    try {
+        const normalized = (Array.isArray(models) ? models : [])
+            .filter(m => m != null)
+            .map(m => typeof m === 'string' ? { id: m } : m)
+            .filter(m => m && typeof m.id === 'string' && m.id !== '');
+        _view.setModels(normalized, selected);
+    } catch (err) {
+        console.error('[JS] setModels error:', err);
+    }
+}
+
 function setAttachEnabled(enabled, tooltip) {
     const btn = _els.attach || document.getElementById('attach-button');
     if (!btn) return;
@@ -1641,6 +1954,7 @@ function resetMessages() {
     hideAutonomyOverlay();
     hideTaskPlanPanel();
     clearSuggestedPrompts();
+    _pluginCards.clear();
 
     try {
         _templateCache.clear();
@@ -1667,7 +1981,11 @@ function getAllMessageKeys() {
 
         const seen = new Set();
         const keys = [];
-        const parts = chatContainer.querySelectorAll('.message, .cui-part-html');
+        // Keyed nodes are the stamped part roots (.message / .cui-part-html) or
+        // the .cui-msg chrome for native-part interactions (evidence etc.) that
+        // carry no stamped inner element. The .cui-msg ancestor sorts first in
+        // document order, so each key is recorded once.
+        const parts = chatContainer.querySelectorAll('[data-key]');
         for (const el of parts) {
             const k = el.dataset && el.dataset.key;
             if (k && !seen.has(k)) {
@@ -1729,12 +2047,35 @@ document.addEventListener('copy', function(e) {
   });
 
 // ---------------------------------------------------------------------------
-// Plugin cards (DOM-level, unchanged semantics — appended inside the message list)
+// Plugin cards — native chat-ui parts/cards in the message list. The legacy
+// DOM implementations below stay as the no-toolkit fallback shell.
 // ---------------------------------------------------------------------------
 
 function showPlanConsent(plan) {
     const container = document.getElementById('chat-container');
     if (!container || !plan || !plan.id) return;
+
+    if (_view) {
+        // Native card:approval — Approve/Reject reports back through
+        // transport.messageAction -> sh://event?type=consent.
+        const iid = `consent-${plan.id}`;
+        if (_pluginCards.has(iid)) return; // same dedupe as the legacy card
+        pushPluginInteraction(iid, plan.id, 'consent', 'assistant', [{
+            type: 'card',
+            kind: 'approval',
+            data: {
+                action: 'consent',
+                state: 'pending',
+                title: plan.goal || 'Proposed plan',
+                description: composePlanDescription(plan),
+                approveLabel: 'Approve plan',
+                rejectLabel: 'Reject',
+            },
+        }]);
+        scrollToBottom();
+        return;
+    }
+
     const existing = Array.from(document.querySelectorAll('.plan-consent-card'))
         .find(node => node.dataset.consentId === plan.id);
     if (existing) return;
@@ -1807,6 +2148,10 @@ function showPlanConsent(plan) {
 }
 
 function resolvePlanConsent(id) {
+    if (_view) {
+        freezePluginCard(`consent-${id}`);
+        return;
+    }
     const card = Array.from(document.querySelectorAll('.plan-consent-card'))
         .find(node => node.dataset.consentId === id);
     if (!card) return;
@@ -1814,10 +2159,28 @@ function resolvePlanConsent(id) {
     card.querySelectorAll('button').forEach(button => { button.disabled = true; });
 }
 
-// Renders the current task plan in the HUD panel docked below the autonomy overlay.
-// The panel shows one plan at a time; a new plan id replaces the previous card and the
-// final state stays visible until another plan arrives or the chat is reset.
+// Renders the current task plan. Toolkit shell: a card:task_plan interaction in
+// the message list — one plan at a time (same-key upsert, like the HUD panel
+// before it); the final state stays visible until the chat is reset.
+// Fallback shell: the HUD panel docked below the autonomy overlay.
 function updateTaskPlan(plan) {
+    if (_view && plan && plan.id) {
+        const tasks = Array.isArray(plan.tasks) ? plan.tasks : [];
+        const statusMap = { in_progress: 'active', completed: 'done' };
+        const steps = tasks.map(task => ({
+            status: statusMap[task.status] || 'pending',
+            label: task.description || task.id || 'Task',
+        }));
+        const completed = tasks.filter(task => task.status === 'completed').length;
+        const title = (plan.goal || 'Task plan') + (tasks.length ? ` (${completed}/${tasks.length})` : '');
+        pushPluginInteraction('sh-task-plan', plan.id, 'task_plan', 'system', [{
+            type: 'card',
+            kind: 'task_plan',
+            data: { title, steps },
+        }]);
+        return;
+    }
+
     const panel = document.getElementById('task-plan-panel');
     if (!panel || !plan || !plan.id) return;
 
@@ -1879,6 +2242,8 @@ function updateTaskPlan(plan) {
 }
 
 function hideTaskPlanPanel() {
+    try { if (_view) _view.removeMessage('sh-task-plan'); } catch {}
+    _pluginCards.delete('sh-task-plan');
     const panel = document.getElementById('task-plan-panel');
     if (!panel) return;
     panel.innerHTML = '';
@@ -1886,16 +2251,29 @@ function hideTaskPlanPanel() {
 }
 
 /**
- * Renders suggested follow-up prompt chips above the input bar.
- * Clicking a chip fills the input field but never sends automatically.
+ * Renders suggested follow-up prompt chips. Toolkit shell: a `suggestions`
+ * part interaction at the end of the list — chips report `suggestion` through
+ * messageAction, which fills the composer without sending (same semantics as
+ * the legacy strip). Fallback shell: the strip above the input bar.
  * @param {string[]} suggestions - 0-3 prompt strings
  */
 function showSuggestedPrompts(suggestions) {
+    const items = Array.isArray(suggestions) ? suggestions.filter(s => typeof s === 'string' && s.trim()).slice(0, 3) : [];
+
+    if (_view) {
+        if (items.length === 0) {
+            clearSuggestedPrompts();
+            return;
+        }
+        pushPluginInteraction('sh-suggestions', 'sh-suggestions', 'suggestions', 'assistant',
+            [{ type: 'suggestions', prompts: items }]);
+        return;
+    }
+
     const strip = document.getElementById('suggestions-strip');
     if (!strip) return;
     strip.innerHTML = '';
 
-    const items = Array.isArray(suggestions) ? suggestions.filter(s => typeof s === 'string' && s.trim()).slice(0, 3) : [];
     if (items.length === 0) {
         strip.classList.add('hidden');
         return;
@@ -1918,6 +2296,8 @@ function showSuggestedPrompts(suggestions) {
 }
 
 function clearSuggestedPrompts() {
+    try { if (_view) _view.removeMessage('sh-suggestions'); } catch {}
+    _pluginCards.delete('sh-suggestions');
     const strip = document.getElementById('suggestions-strip');
     if (!strip) return;
     strip.innerHTML = '';
@@ -1927,11 +2307,27 @@ function clearSuggestedPrompts() {
 /**
  * Renders a canvas pointer card: the tool's message plus a button that replays
  * the pan/zoom/highlight on the Grasshopper canvas via the sh:// bridge.
+ * Toolkit shell: an evidence line + a meta.actions row whose
+ * `canvas_pointer` action routes through messageAction to the same
+ * sh://event?type=canvas_pointer&id=... the legacy button emitted.
  * @param {object} ptr - { id, message }
  */
 function showCanvasPointer(ptr) {
     const container = document.getElementById('chat-container');
     if (!container || !ptr || !ptr.id) return;
+
+    if (_view) {
+        const iid = `pointer-${ptr.id}`;
+        pushPluginInteraction(iid, ptr.id, 'canvas_pointer', 'assistant',
+            [{
+                type: 'evidence',
+                level: 'info',
+                text: `◎ ${ptr.message || 'The assistant is pointing at something on the canvas.'}`,
+            }],
+            { actions: [{ id: 'canvas_pointer', label: 'Show on canvas', payload: { id: ptr.id } }] });
+        scrollToBottom();
+        return;
+    }
 
     const card = document.createElement('section');
     card.className = 'canvas-pointer-card';
@@ -1967,11 +2363,33 @@ function showCanvasPointer(ptr) {
 /**
  * Renders a blocking question card: question text, 2-4 option buttons and an
  * always-present free-text field. Answers travel back via the sh:// bridge.
+ * Toolkit shell: a card:question — chip clicks and the free-text field report
+ * {answer} through messageAction; the bridge registry keeps the option labels
+ * so chip answers recover their choice index for the sh:// event.
  * @param {object} q - { id, question, options }
  */
 function showUserQuestion(q) {
     const container = document.getElementById('chat-container');
     if (!container || !q || !q.id) return;
+
+    if (_view) {
+        const iid = `question-${q.id}`;
+        const options = Array.isArray(q.options) ? q.options.filter(o => typeof o === 'string') : [];
+        pushPluginInteraction(iid, q.id, 'question', 'assistant', [{
+            type: 'card',
+            kind: 'question',
+            data: {
+                question: q.question || '',
+                action: 'question',
+                options,
+                allowFreeText: true,
+                placeholder: 'Type an answer…',
+                submitLabel: 'Send',
+            },
+        }], undefined, options);
+        scrollToBottom();
+        return;
+    }
 
     const card = document.createElement('section');
     card.className = 'user-question-card';
@@ -2041,6 +2459,10 @@ function showUserQuestion(q) {
  * @param {string} id - question id
  */
 function resolveUserQuestion(id) {
+    if (_view) {
+        freezePluginCard(`question-${id}`);
+        return;
+    }
     const card = Array.from(document.querySelectorAll('.user-question-card'))
         .find(node => node.dataset.questionId === id);
     if (!card) return;
@@ -2080,30 +2502,45 @@ function fillComposerInput(text) {
 /**
  * chat-ui `transport.messageAction` — interactive parts/cards report back here.
  * Maps each action to the matching sh:// event the C# host already handles.
- * (Legacy plugin cards emit sh:// directly; this covers native toolkit parts
- * and meta.actions rows for parity with the documented contract.)
- * @param {string} messageId
+ * The `_pluginCards` registry translates the toolkit message id back to the
+ * host-side entity id (consent/question/pointer ids), so the emitted urls are
+ * byte-identical to what the legacy DOM cards sent.
+ * @param {string} messageId - toolkit interaction id (e.g. 'consent-<plan id>')
  * @param {string} action
  * @param {object} payload
  */
 function routeMessageAction(messageId, action, payload) {
     const p = payload && typeof payload === 'object' ? payload : {};
+    const plugin = _pluginCards.get(messageId) || null;
+    const refId = plugin && plugin.refId ? plugin.refId : messageId;
     switch (action) {
         case 'approval':
         case 'consent':
-            emitShEvent(`sh://event?type=consent&id=${encodeURIComponent(messageId)}&decision=${p.decision === 'approved' ? 'approve' : 'reject'}`);
+            emitShEvent(`sh://event?type=consent&id=${encodeURIComponent(refId)}&decision=${p.decision === 'approved' ? 'approve' : 'reject'}`);
             return;
         case 'question':
             if (typeof p.answer === 'string' && p.answer) {
-                emitShEvent(`sh://event?type=question&id=${encodeURIComponent(messageId)}&text=${encodeURIComponent(p.answer)}`);
+                // Chip answers recover their choice index; anything else is free text.
+                const opts = plugin && Array.isArray(plugin.options) ? plugin.options : [];
+                const idx = opts.indexOf(p.answer);
+                if (idx >= 0) {
+                    emitShEvent(`sh://event?type=question&id=${encodeURIComponent(refId)}&choice=${idx}`);
+                } else {
+                    emitShEvent(`sh://event?type=question&id=${encodeURIComponent(refId)}&text=${encodeURIComponent(p.answer)}`);
+                }
             }
             return;
         case 'canvas_pointer':
-            emitShEvent(`sh://event?type=canvas_pointer&id=${encodeURIComponent(messageId)}`);
+            emitShEvent(`sh://event?type=canvas_pointer&id=${encodeURIComponent(typeof p.id === 'string' ? p.id : refId)}`);
             return;
         case 'suggestion':
             // Same behavior as the legacy chip: fill the composer, never auto-send.
             fillComposerInput(typeof p.text === 'string' ? p.text : '');
+            return;
+        case 'model_select':
+            if (typeof p.model === 'string' && p.model) {
+                emitShEvent(`sh://event?type=model&model=${encodeURIComponent(p.model)}`);
+            }
             return;
         default:
             console.warn('[JS] messageAction: unmapped action', action, 'messageId:', messageId);
@@ -2130,6 +2567,9 @@ const bridgeTransport = {
     },
     messageAction(messageId, action, payload) {
         routeMessageAction(messageId, action, payload);
+    },
+    selectModel(modelId) {
+        emitShEvent(`sh://event?type=model&model=${encodeURIComponent(modelId || '')}`);
     },
 };
 
@@ -2300,6 +2740,7 @@ function initChatUiShell() {
             quoteChip: true,
             attachments: true,
             messageActions: true,
+            modelPicker: true,       // .cui-model stays hidden until setModels feeds it
             attachmentAccept: 'image/*',
         },
         partRenderers: {

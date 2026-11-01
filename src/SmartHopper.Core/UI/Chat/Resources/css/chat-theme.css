@@ -368,6 +368,11 @@
 .chat-ui[data-theme='cloud'] .cui-reject:hover:not(:disabled) { background: var(--paper-2); }
 .chat-ui[data-theme='cloud'] .cui-card-input { border-radius: 0; }
 .chat-ui[data-theme='cloud'] .cui-card-answer-row button { border-radius: 0; font-family: var(--mono); }
+/* Resolved cards (bridge-stamped data-resolved after the host resolves the
+   consent/question) dim like the legacy .resolved cards did. */
+.chat-ui[data-theme='cloud'] .cui-card[data-resolved] { opacity: 0.65; }
+.chat-ui[data-theme='cloud'] .cui-card[data-resolved] button,
+.chat-ui[data-theme='cloud'] .cui-card[data-resolved] input { cursor: default; }
 .chat-ui[data-theme='cloud'] .cui-actions button { border-radius: 0; }
 .chat-ui[data-theme='cloud'] .cui-subagent-badge { border-radius: 0; font-family: var(--mono); }
 .chat-ui[data-theme='cloud'] .cui-subagent-cancel { border-radius: 0; font-family: var(--mono); }
