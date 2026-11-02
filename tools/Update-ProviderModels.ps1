@@ -1417,7 +1417,7 @@ function Merge-Pricing($existing, $incoming) {
     if (-not $incoming) { return $existing }
 
     $merged = [ordered]@{}
-    $fields = @('TextInput','TextOutput','Request','ImageInput','ImageOutput','ImageToken','AudioInput','AudioOutput','VideoOutput','AudioCacheRead','CacheRead','CacheWrite','InternalReasoning','WebSearch','Discount')
+    $fields = @('TextInput','TextOutput','Request','ImageInput','ImageOutput','ImageToken','AudioInput','AudioOutput','VideoInput','VideoOutput','AudioCacheRead','CacheRead','CacheWrite','InternalReasoning','WebSearch','Discount')
     foreach ($f in $fields) {
         $iv = $incoming.$f
         $ev = $existing.$f
@@ -1467,6 +1467,8 @@ function Get-OpenRouterEnrichment($orm) {
             image_token         = 'ImageToken'
             audio               = 'AudioInput'
             audio_output        = 'AudioOutput'
+            video               = 'VideoInput'
+            video_input         = 'VideoInput'
             video_output        = 'VideoOutput'
             input_audio_cache   = 'AudioCacheRead'
             input_cache_read    = 'CacheRead'
