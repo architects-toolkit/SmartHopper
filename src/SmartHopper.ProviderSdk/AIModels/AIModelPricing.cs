@@ -19,27 +19,32 @@
 namespace SmartHopper.ProviderSdk.AIModels
 {
     /// <summary>
-    /// Pricing information for a model, in USD per unit as reported by the source
-    /// of truth (OpenRouter). Token-based prices are per single token (e.g.
-    /// <c>0.0000025m</c> means $2.50 per million tokens). All fields are optional;
-    /// when <c>null</c> the concept is not priced or not published by the source.
+    /// Pricing information for a model, in its declared currency per unit.
+    /// USD remains the default for OpenRouter. Token prices are per single token (e.g.
+    /// <c>0.0000025m</c> means $2.50 per million tokens). Names follow the
+    /// <c>&lt;modality&gt;_&lt;direction&gt;</c> convention shared with the catalogue wire
+    /// schema (<c>text_input</c>, <c>image_output</c>, <c>cache_read</c>, …): input-side
+    /// fields carry the <c>Input</c> suffix direction, output-side fields carry
+    /// <c>Output</c>, and prompt-cache fields are <c>CacheRead</c>/<c>CacheWrite</c>.
+    /// All fields are optional; when <c>null</c> the concept is not priced or not
+    /// published by the source.
     /// </summary>
     public class AIModelPricing
     {
-        /// <summary>ISO-style currency the prices are denominated in (e.g. <c>"USD"</c>, <c>"EUR"</c>). Defaults to <c>"USD"</c>.</summary>
+        /// <summary>Gets or sets the currency of all prices; defaults to USD for existing providers.</summary>
         public string Currency { get; set; } = "USD";
 
-        /// <summary>Price per prompt (input text) token.</summary>
-        public decimal? Prompt { get; set; }
+        /// <summary>Price per text input token (prompt).</summary>
+        public decimal? TextInput { get; set; }
 
-        /// <summary>Price per completion (output text) token.</summary>
-        public decimal? Completion { get; set; }
+        /// <summary>Price per text output token (completion).</summary>
+        public decimal? TextOutput { get; set; }
 
         /// <summary>Flat per-request fee, if any.</summary>
         public decimal? Request { get; set; }
 
         /// <summary>Price per input image (legacy OpenRouter <c>image</c> field).</summary>
-        public decimal? Image { get; set; }
+        public decimal? ImageInput { get; set; }
 
         /// <summary>Price per generated (output) image.</summary>
         public decimal? ImageOutput { get; set; }
@@ -48,19 +53,22 @@ namespace SmartHopper.ProviderSdk.AIModels
         public decimal? ImageToken { get; set; }
 
         /// <summary>Price per input audio unit (legacy OpenRouter <c>audio</c> field).</summary>
-        public decimal? Audio { get; set; }
+        public decimal? AudioInput { get; set; }
 
         /// <summary>Price per output audio unit.</summary>
         public decimal? AudioOutput { get; set; }
 
+        /// <summary>Price per generated (output) video unit, as declared by the feed.</summary>
+        public decimal? VideoOutput { get; set; }
+
         /// <summary>Price for cached input audio.</summary>
-        public decimal? InputAudioCache { get; set; }
+        public decimal? AudioCacheRead { get; set; }
 
-        /// <summary>Price per cached input token read.</summary>
-        public decimal? InputCacheRead { get; set; }
+        /// <summary>Price per cached prompt-cache read token.</summary>
+        public decimal? CacheRead { get; set; }
 
-        /// <summary>Price per cached input token write.</summary>
-        public decimal? InputCacheWrite { get; set; }
+        /// <summary>Price per token written to the provider's prompt cache (e.g. Anthropic cache creation).</summary>
+        public decimal? CacheWrite { get; set; }
 
         /// <summary>Price per internal reasoning token (hidden chain-of-thought).</summary>
         public decimal? InternalReasoning { get; set; }
