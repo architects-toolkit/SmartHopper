@@ -73,7 +73,7 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
             "{\"catalogue_version\":" + version +
             ",\"min_client_protocol\":1,\"protocol\":\"smarthopper-models/1\",\"providers\":{\"" + provider +
             "\":{\"models\":[{\"aliases\":[\"gpt-test-1-latest\"],\"capabilities\":[\"text\",\"tools\",\"reasoning\"],\"context_limit\":400000,\"created\":\"2026-01-01T00:00:00Z\",\"default_capability\":\"Text2Text|ToolChat\",\"deprecated\":false,\"discouraged_for_tools\":[],\"model\":\"" + modelId +
-            "\",\"pricing\":{\"cache_read\":\"0.0000003\",\"cache_write\":\"0.000000375\",\"currency\":\"EUR\",\"image_output\":\"0.00003\",\"text_input\":\"0.0000012\",\"text_output\":\"0.0000048\",\"video_output\":\"0.05\",\"surprise_field\":\"9.99\"},\"rank\":9990,\"supports_prompt_caching\":true,\"supports_streaming\":true,\"verified\":true}]}},\"published_at\":\"2026-10-21T05:00:00Z\"}";
+            "\",\"pricing\":{\"cache_read\":\"0.0000003\",\"cache_write\":\"0.000000375\",\"currency\":\"EUR\",\"image_output\":\"0.00003\",\"text_input\":\"0.0000012\",\"text_output\":\"0.0000048\",\"video_input\":\"0.0000008\",\"video_output\":\"0.05\",\"surprise_field\":\"9.99\"},\"rank\":9990,\"supports_prompt_caching\":true,\"supports_streaming\":true,\"verified\":true}]}},\"published_at\":\"2026-10-21T05:00:00Z\"}";
 
         private string ManifestJson(int version = 1) =>
             "{\"catalogue_url\":\"/api/v1/catalogue\",\"key_id\":\"" + this.keyId +
@@ -215,6 +215,7 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
             Assert.Equal(0.000000375m, model.Pricing.CacheWrite);
             Assert.Equal(0.00003m, model.Pricing.ImageOutput);
             Assert.Equal(0.05m, model.Pricing.VideoOutput);
+            Assert.Equal(0.0000008m, model.Pricing.VideoInput);
             Assert.Single(model.Aliases);
         }
 

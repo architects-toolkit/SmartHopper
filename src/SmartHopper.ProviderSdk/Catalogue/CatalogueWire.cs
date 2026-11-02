@@ -425,6 +425,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
                 ImageToken = ParseMoney(obj["image_token"], $"{path}.image_token"),
                 AudioInput = ParseMoney(obj["audio_input"], $"{path}.audio_input"),
                 AudioOutput = ParseMoney(obj["audio_output"], $"{path}.audio_output"),
+                VideoInput = ParseMoney(obj["video_input"], $"{path}.video_input"),
                 VideoOutput = ParseMoney(obj["video_output"], $"{path}.video_output"),
                 AudioCacheRead = ParseMoney(obj["audio_cache_read"], $"{path}.audio_cache_read"),
                 CacheRead = ParseMoney(obj["cache_read"], $"{path}.cache_read"),

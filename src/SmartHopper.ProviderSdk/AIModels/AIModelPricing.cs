@@ -58,6 +58,9 @@ namespace SmartHopper.ProviderSdk.AIModels
         /// <summary>Price per output audio unit.</summary>
         public decimal? AudioOutput { get; set; }
 
+        /// <summary>Price per input video unit, as declared by the feed (when the provider prices video input separately from text tokens).</summary>
+        public decimal? VideoInput { get; set; }
+
         /// <summary>Price per generated (output) video unit, as declared by the feed.</summary>
         public decimal? VideoOutput { get; set; }
 
