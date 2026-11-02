@@ -53,24 +53,24 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
             bool hasActualInput = metrics.InputTokens > 0;
             if (hasActualInput)
             {
-                cost += metrics.InputTokensPrompt * GetPositivePrice(pricing.Prompt);
-                cost += metrics.InputTokensCached * GetPositivePrice(pricing.InputCacheRead);
-                cost += metrics.InputTokensCacheWrite * GetPositivePrice(pricing.InputCacheWrite);
+                cost += metrics.InputTokensPrompt * GetPositivePrice(pricing.TextInput);
+                cost += metrics.InputTokensCached * GetPositivePrice(pricing.CacheRead);
+                cost += metrics.InputTokensCacheWrite * GetPositivePrice(pricing.CacheWrite);
             }
             else if (metrics.EstimatedInputTokens > 0)
             {
-                cost += metrics.EstimatedInputTokens * GetPositivePrice(pricing.Prompt);
+                cost += metrics.EstimatedInputTokens * GetPositivePrice(pricing.TextInput);
             }
 
             bool hasActualOutput = metrics.OutputTokens > 0;
             if (hasActualOutput)
             {
-                cost += metrics.OutputTokensGeneration * GetPositivePrice(pricing.Completion);
+                cost += metrics.OutputTokensGeneration * GetPositivePrice(pricing.TextOutput);
                 cost += metrics.OutputTokensReasoning * GetPositivePrice(pricing.InternalReasoning);
             }
             else if (metrics.EstimatedOutputTokens > 0)
             {
-                cost += metrics.EstimatedOutputTokens * GetPositivePrice(pricing.Completion);
+                cost += metrics.EstimatedOutputTokens * GetPositivePrice(pricing.TextOutput);
             }
 
             return cost;

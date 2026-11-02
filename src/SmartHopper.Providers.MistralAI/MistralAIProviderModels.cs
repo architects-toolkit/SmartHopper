@@ -68,9 +68,9 @@ namespace SmartHopper.Providers.MistralAI
                     Created = new DateTime(2026, 10, 6),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000136m,
-                        Completion = 0.00000418m,
-                        InputCacheRead = 0.00000014m,
+                        TextInput = 0.00000136m,
+                        TextOutput = 0.00000418m,
+                        CacheRead = 0.00000014m,
                     },
                     Aliases = new List<string> { "mistral-large-4-0" },
                 },
@@ -91,8 +91,8 @@ namespace SmartHopper.Providers.MistralAI
                     Created = new DateTime(2026, 4, 30),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000015m,
-                        Completion = 0.0000075m,
+                        TextInput = 0.0000015m,
+                        TextOutput = 0.0000075m,
                     },
                     Aliases = new List<string> { "mistral-medium-3-5-0", "mistral-medium", "mistral-medium-3-5", "mistral-medium-3.5", "mistral-medium-3", "mistral-medium-2604", "mistral-vibe-cli-latest", "mistral-vibe-cli-with-tools", "magistral-medium-latest" },
                 },
@@ -115,15 +115,15 @@ namespace SmartHopper.Providers.MistralAI
                     Created = new DateTime(2026, 3, 16),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.0000006m,
-                        InputCacheRead = 0.000000015m,
+                        TextInput = 0.00000015m,
+                        TextOutput = 0.0000006m,
+                        CacheRead = 0.000000015m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000000075m,
-                        Completion = 0.0000003m,
-                        InputCacheRead = 0.0000000075m,
+                        TextInput = 0.000000075m,
+                        TextOutput = 0.0000003m,
+                        CacheRead = 0.0000000075m,
                     },
                     Aliases = new List<string> { "mistral-small", "mistral-small-latest", "magistral-small-latest", "mistral-vibe-cli-fast", "mistral-small-2603:batch" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
@@ -145,9 +145,9 @@ namespace SmartHopper.Providers.MistralAI
                     Created = new DateTime(2025, 12, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000001m,
-                        InputCacheRead = 0.00000001m,
+                        TextInput = 0.0000001m,
+                        TextOutput = 0.0000001m,
+                        CacheRead = 0.00000001m,
                     },
                     Aliases = new List<string> { "ministral-3b-latest" },
                 },
@@ -165,15 +165,15 @@ namespace SmartHopper.Providers.MistralAI
                     Created = new DateTime(2025, 12, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.00000015m,
-                        InputCacheRead = 0.000000015m,
+                        TextInput = 0.00000015m,
+                        TextOutput = 0.00000015m,
+                        CacheRead = 0.000000015m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.000000075m,
-                        Completion = 0.000000075m,
-                        InputCacheRead = 0.0000000075m,
+                        TextInput = 0.000000075m,
+                        TextOutput = 0.000000075m,
+                        CacheRead = 0.0000000075m,
                     },
                     Aliases = new List<string> { "ministral-8b-latest", "ministral-8b-2512:batch" },
                 },
@@ -190,9 +190,9 @@ namespace SmartHopper.Providers.MistralAI
                     Created = new DateTime(2025, 12, 2),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000002m,
-                        Completion = 0.0000002m,
-                        InputCacheRead = 0.00000002m,
+                        TextInput = 0.0000002m,
+                        TextOutput = 0.0000002m,
+                        CacheRead = 0.00000002m,
                     },
                     Aliases = new List<string> { "ministral-14b-latest" },
                 },
@@ -210,15 +210,15 @@ namespace SmartHopper.Providers.MistralAI
                     Created = new DateTime(2025, 12, 1),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000005m,
-                        Completion = 0.0000015m,
-                        InputCacheRead = 0.00000005m,
+                        TextInput = 0.0000005m,
+                        TextOutput = 0.0000015m,
+                        CacheRead = 0.00000005m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000025m,
-                        Completion = 0.00000075m,
-                        InputCacheRead = 0.000000025m,
+                        TextInput = 0.00000025m,
+                        TextOutput = 0.00000075m,
+                        CacheRead = 0.000000025m,
                     },
                     Aliases = new List<string> { "mistral-large", "mistral-large-latest", "mistral-large-veteran-2512", "mistral-large-2512:batch" },
                 },
@@ -240,15 +240,15 @@ namespace SmartHopper.Providers.MistralAI
                     Created = new DateTime(2025, 8, 1),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000003m,
-                        Completion = 0.0000009m,
-                        InputCacheRead = 0.00000003m,
+                        TextInput = 0.0000003m,
+                        TextOutput = 0.0000009m,
+                        CacheRead = 0.00000003m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000015m,
-                        Completion = 0.00000045m,
-                        InputCacheRead = 0.000000015m,
+                        TextInput = 0.00000015m,
+                        TextOutput = 0.00000045m,
+                        CacheRead = 0.000000015m,
                     },
                     Aliases = new List<string> { "codestral-latest", "mistral-code-latest", "mistral-code-fim-latest", "codestral-2508:batch" },
                 },
@@ -339,9 +339,9 @@ namespace SmartHopper.Providers.MistralAI
                     Created = new DateTime(2025, 12, 9),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000004m,
-                        Completion = 0.000002m,
-                        InputCacheRead = 0.00000004m,
+                        TextInput = 0.0000004m,
+                        TextOutput = 0.000002m,
+                        CacheRead = 0.00000004m,
                     },
                     Aliases = new List<string> { "devstral-medium-latest", "devstral-latest", "devstral-medium-251121", "mistral-code-agent-latest" },
                 },
@@ -453,9 +453,9 @@ namespace SmartHopper.Providers.MistralAI
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.0000002m,
+                        TextInput = 0.000002m,
+                        TextOutput = 0.000006m,
+                        CacheRead = 0.0000002m,
                     },
                 },
 
@@ -554,9 +554,9 @@ namespace SmartHopper.Providers.MistralAI
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000002m,
-                        Completion = 0.000006m,
-                        InputCacheRead = 0.0000002m,
+                        TextInput = 0.000002m,
+                        TextOutput = 0.000006m,
+                        CacheRead = 0.0000002m,
                     },
                     Aliases = new List<string> { "pixtral-large-latest", "mistral-large-pixtral-2411" },
                 },

@@ -63,10 +63,13 @@ namespace SmartHopper.ProviderSdk.Catalogue
     }
 
     /// <summary>
-    /// Strict parser for the <c>smarthopper-models/1</c> wire format.
-    /// Every field is re-validated client-side (fail closed): closed property
-    /// sets, regex-bound identifiers, bounded strings, decimal-string money and
-    /// no URL-capable fields — the same rules the server enforces at publish.
+    /// Parser for the <c>smarthopper-models/1</c> wire format.
+    /// Every known field is re-validated client-side (fail closed): regex-bound
+    /// identifiers, bounded strings, decimal-string money and no URL-capable
+    /// fields — the same rules the server enforces at publish. Unknown
+    /// properties are ignored rather than rejected, so a catalogue emitting
+    /// newer fields never bricks older clients — unknown data is blocked from
+    /// entering parsed state, not treated as a protocol violation.
     /// </summary>
     public static class CatalogueWire
     {
@@ -80,44 +83,6 @@ namespace SmartHopper.ProviderSdk.Catalogue
         private static readonly Regex ProviderIdRegex = new (@"^[a-z][a-z0-9]{0,31}$", RegexOptions.Compiled);
         private static readonly Regex CapabilityTokenRegex = new (@"^[A-Za-z][A-Za-z0-9_]{0,39}$", RegexOptions.Compiled);
         private static readonly Regex MoneyRegex = new (@"^(0|[1-9][0-9]*)(\.[0-9]+)?$", RegexOptions.Compiled);
-
-        private static readonly HashSet<string> DocumentProperties = new (StringComparer.Ordinal)
-        {
-            "protocol", "catalogue_version", "published_at", "min_client_protocol", "providers",
-        };
-
-        private static readonly HashSet<string> SectionProperties = new (StringComparer.Ordinal)
-        {
-            "models",
-        };
-
-        private static readonly HashSet<string> ModelProperties = new (StringComparer.Ordinal)
-        {
-            "model", "display_name", "capabilities", "default_capability", "verified", "rank",
-            "deprecated", "aliases", "context_limit", "created", "supports_streaming",
-            "supports_batch", "supports_prompt_caching", "discouraged_for_tools",
-            "cache_key_strategy", "pricing", "batch_pricing",
-        };
-
-        private static readonly HashSet<string> PricingProperties = new (StringComparer.Ordinal)
-        {
-            "currency", "prompt", "completion", "input_cache_read",
-        };
-
-        private static readonly HashSet<string> KeySetProperties = new (StringComparer.Ordinal)
-        {
-            "protocol", "keys", "key_id",
-        };
-
-        private static readonly HashSet<string> KeyProperties = new (StringComparer.Ordinal)
-        {
-            "key_id", "alg", "public_key", "not_before", "not_after", "status",
-        };
-
-        private static readonly HashSet<string> ManifestProperties = new (StringComparer.Ordinal)
-        {
-            "protocol", "latest_version", "published_at", "key_id", "catalogue_url", "signature_url", "keys_url",
-        };
 
         /// <summary>
         /// Parses raw catalogue bytes into a validated document.
@@ -151,7 +116,6 @@ namespace SmartHopper.ProviderSdk.Catalogue
                 throw new CatalogueProtocolException($"catalogue is not valid JSON: {ex.Message}");
             }
 
-            RejectUnknownProperties(root, DocumentProperties, "document");
             RequireString(root, "protocol", ProtocolId, "document");
 
             var version = RequireInt(root, "catalogue_version", "document");
@@ -177,7 +141,6 @@ namespace SmartHopper.ProviderSdk.Catalogue
                 }
 
                 var section = ExpectObject(sectionProp.Value, $"providers.{providerId}");
-                RejectUnknownProperties(section, SectionProperties, $"providers.{providerId}");
                 var models = RequireArray(section, "models", $"providers.{providerId}");
                 var entries = new List<AIModelCapabilities>(models.Count);
                 foreach (var modelToken in models)
@@ -211,7 +174,6 @@ namespace SmartHopper.ProviderSdk.Catalogue
                 throw new CatalogueProtocolException($"manifest is not valid JSON: {ex.Message}");
             }
 
-            RejectUnknownProperties(root, ManifestProperties, "manifest");
             RequireString(root, "protocol", ProtocolId, "manifest");
             RequireString(root, "catalogue_url", "manifest");
             RequireString(root, "signature_url", "manifest");
@@ -256,14 +218,12 @@ namespace SmartHopper.ProviderSdk.Catalogue
                 throw new CatalogueProtocolException($"keyset is not valid JSON: {ex.Message}");
             }
 
-            RejectUnknownProperties(root, KeySetProperties, "keyset");
             RequireString(root, "protocol", ProtocolId, "keyset");
             var keys = RequireArray(root, "keys", "keyset");
             var result = new List<CatalogueKeyInfo>(keys.Count);
             foreach (var token in keys)
             {
                 var obj = ExpectObject(token, "keyset.keys[]");
-                RejectUnknownProperties(obj, KeyProperties, "keyset.keys[]");
                 var keyId = RequireString(obj, "key_id", "keyset.keys[]");
                 var alg = RequireString(obj, "alg", "keyset.keys[]");
                 var publicKey = RequireString(obj, "public_key", "keyset.keys[]");
@@ -329,8 +289,6 @@ namespace SmartHopper.ProviderSdk.Catalogue
         private static AIModelCapabilities ParseModel(JObject obj, string providerId)
         {
             var path = $"providers.{providerId}.models[]";
-            RejectUnknownProperties(obj, ModelProperties, path);
-
             var model = RequireString(obj, "model", path);
             if (!ModelIdRegex.IsMatch(model))
             {
@@ -450,7 +408,6 @@ namespace SmartHopper.ProviderSdk.Catalogue
             }
 
             var obj = ExpectObject(token, path);
-            RejectUnknownProperties(obj, PricingProperties, path);
             var currency = RequireString(obj, "currency", path);
             if (currency != "USD" && currency != "EUR")
             {
@@ -460,9 +417,20 @@ namespace SmartHopper.ProviderSdk.Catalogue
             return new AIModelPricing
             {
                 Currency = currency,
-                Prompt = ParseMoney(obj["prompt"], $"{path}.prompt"),
-                Completion = ParseMoney(obj["completion"], $"{path}.completion"),
-                InputCacheRead = ParseMoney(obj["input_cache_read"], $"{path}.input_cache_read"),
+                TextInput = ParseMoney(obj["text_input"], $"{path}.text_input"),
+                TextOutput = ParseMoney(obj["text_output"], $"{path}.text_output"),
+                Request = ParseMoney(obj["request"], $"{path}.request"),
+                ImageInput = ParseMoney(obj["image_input"], $"{path}.image_input"),
+                ImageOutput = ParseMoney(obj["image_output"], $"{path}.image_output"),
+                ImageToken = ParseMoney(obj["image_token"], $"{path}.image_token"),
+                AudioInput = ParseMoney(obj["audio_input"], $"{path}.audio_input"),
+                AudioOutput = ParseMoney(obj["audio_output"], $"{path}.audio_output"),
+                VideoOutput = ParseMoney(obj["video_output"], $"{path}.video_output"),
+                AudioCacheRead = ParseMoney(obj["audio_cache_read"], $"{path}.audio_cache_read"),
+                CacheRead = ParseMoney(obj["cache_read"], $"{path}.cache_read"),
+                CacheWrite = ParseMoney(obj["cache_write"], $"{path}.cache_write"),
+                InternalReasoning = ParseMoney(obj["internal_reasoning"], $"{path}.internal_reasoning"),
+                WebSearch = ParseMoney(obj["web_search"], $"{path}.web_search"),
             };
         }
 
@@ -517,17 +485,6 @@ namespace SmartHopper.ProviderSdk.Catalogue
                 }
 
                 throw new CatalogueProtocolException($"{what} is not a JSON object");
-            }
-        }
-
-        private static void RejectUnknownProperties(JObject obj, HashSet<string> allowed, string path)
-        {
-            foreach (var prop in obj.Properties())
-            {
-                if (!allowed.Contains(prop.Name))
-                {
-                    throw new CatalogueProtocolException($"{path}: unknown property '{prop.Name}'");
-                }
             }
         }
 
