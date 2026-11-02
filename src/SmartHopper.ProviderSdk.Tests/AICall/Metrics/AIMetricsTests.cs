@@ -253,7 +253,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
             {
                 Provider = provider,
                 Model = model,
-                Pricing = new AIModelPricing { Prompt = prompt, Completion = completion },
+                Pricing = new AIModelPricing { TextInput = prompt, TextOutput = completion },
             });
         }
     }

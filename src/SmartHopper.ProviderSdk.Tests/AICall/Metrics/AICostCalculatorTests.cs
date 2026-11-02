@@ -59,7 +59,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
         public void Calculate_NegativeOrFreePrices_ReturnsZero()
         {
             ProviderSdkTestHelper.ResetCapabilityRegistry();
-            RegisterPricing("openai", "free-model", new AIModelPricing { Prompt = 0m, Completion = -1m });
+            RegisterPricing("openai", "free-model", new AIModelPricing { TextInput = 0m, TextOutput = -1m });
 
             var metrics = new AIMetrics
             {
@@ -84,8 +84,8 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
             ProviderSdkTestHelper.ResetCapabilityRegistry();
             RegisterPricing("openai", "gpt-test", new AIModelPricing
             {
-                Prompt = 0.0000025m,
-                Completion = 0.000010m,
+                TextInput = 0.0000025m,
+                TextOutput = 0.000010m,
             });
 
             var metrics = new AIMetrics
@@ -112,10 +112,10 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
             ProviderSdkTestHelper.ResetCapabilityRegistry();
             RegisterPricing("anthropic", "claude-test", new AIModelPricing
             {
-                Prompt = 0.000003m,
-                InputCacheRead = 0.0000003m,
-                InputCacheWrite = 0.00000375m,
-                Completion = 0.000015m,
+                TextInput = 0.000003m,
+                CacheRead = 0.0000003m,
+                CacheWrite = 0.00000375m,
+                TextOutput = 0.000015m,
             });
 
             var metrics = new AIMetrics
@@ -147,8 +147,8 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
             ProviderSdkTestHelper.ResetCapabilityRegistry();
             RegisterPricing("google", "gemini-test", new AIModelPricing
             {
-                Prompt = 0.000001m,
-                Completion = 0.000004m,
+                TextInput = 0.000001m,
+                TextOutput = 0.000004m,
                 InternalReasoning = 0.000008m,
             });
 
@@ -179,8 +179,8 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
             ProviderSdkTestHelper.ResetCapabilityRegistry();
             RegisterPricing("openai", "gpt-test", new AIModelPricing
             {
-                Prompt = 0.000002m,
-                Completion = 0.000006m,
+                TextInput = 0.000002m,
+                TextOutput = 0.000006m,
             });
 
             var metrics = new AIMetrics
@@ -208,7 +208,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
         public void Calculate_EstimatedInputTokensFallback_WhenNoActualInput()
         {
             ProviderSdkTestHelper.ResetCapabilityRegistry();
-            RegisterPricing("openai", "gpt-test", new AIModelPricing { Prompt = 0.000001m });
+            RegisterPricing("openai", "gpt-test", new AIModelPricing { TextInput = 0.000001m });
 
             var metrics = new AIMetrics
             {
@@ -230,7 +230,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
         public void Calculate_EstimatedOutputTokensFallback_WhenNoActualOutput()
         {
             ProviderSdkTestHelper.ResetCapabilityRegistry();
-            RegisterPricing("openai", "gpt-test", new AIModelPricing { Completion = 0.000005m });
+            RegisterPricing("openai", "gpt-test", new AIModelPricing { TextOutput = 0.000005m });
 
             var metrics = new AIMetrics
             {
@@ -254,8 +254,8 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
             ProviderSdkTestHelper.ResetCapabilityRegistry();
             RegisterPricing("openai", "gpt-test", new AIModelPricing
             {
-                Prompt = 0.000001m,
-                Completion = 0.000004m,
+                TextInput = 0.000001m,
+                TextOutput = 0.000004m,
             });
 
             var metrics = new AIMetrics

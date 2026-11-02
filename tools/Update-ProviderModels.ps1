@@ -1029,6 +1029,7 @@ function Resolve-OpenRouterEntry($modelId, $aliases) {
             elseif ($_.pricing.image)     { $p += [double]$_.pricing.image }
             if ($_.pricing.audio_output)  { $p += [double]$_.pricing.audio_output }
             elseif ($_.pricing.audio)     { $p += [double]$_.pricing.audio }
+            if ($_.pricing.video_output)  { $p += [double]$_.pricing.video_output }
             $p
         }; Descending = $true } |
         Select-Object -First 1
@@ -1416,7 +1417,7 @@ function Merge-Pricing($existing, $incoming) {
     if (-not $incoming) { return $existing }
 
     $merged = [ordered]@{}
-    $fields = @('Prompt','Completion','Request','Image','ImageOutput','ImageToken','Audio','AudioOutput','InputAudioCache','InputCacheRead','InputCacheWrite','InternalReasoning','WebSearch','Discount')
+    $fields = @('TextInput','TextOutput','Request','ImageInput','ImageOutput','ImageToken','AudioInput','AudioOutput','VideoOutput','AudioCacheRead','CacheRead','CacheWrite','InternalReasoning','WebSearch','Discount')
     foreach ($f in $fields) {
         $iv = $incoming.$f
         $ev = $existing.$f
@@ -1458,17 +1459,18 @@ function Get-OpenRouterEnrichment($orm) {
     $pricing = $null
     if ($orm.pricing) {
         $map = @{
-            prompt              = 'Prompt'
-            completion          = 'Completion'
+            prompt              = 'TextInput'
+            completion          = 'TextOutput'
             request             = 'Request'
-            image               = 'Image'
+            image               = 'ImageInput'
             image_output        = 'ImageOutput'
             image_token         = 'ImageToken'
-            audio               = 'Audio'
+            audio               = 'AudioInput'
             audio_output        = 'AudioOutput'
-            input_audio_cache   = 'InputAudioCache'
-            input_cache_read    = 'InputCacheRead'
-            input_cache_write   = 'InputCacheWrite'
+            video_output        = 'VideoOutput'
+            input_audio_cache   = 'AudioCacheRead'
+            input_cache_read    = 'CacheRead'
+            input_cache_write   = 'CacheWrite'
             internal_reasoning  = 'InternalReasoning'
             web_search          = 'WebSearch'
             discount            = 'Discount'
@@ -1975,6 +1977,8 @@ foreach ($m in $mergedModels.Values) {
                       elseif ($null -ne $orm.pricing.audio) { $orm.pricing.audio }
                       else { $null }
         if ($null -ne $audioPrice) { $prices.Add([decimal]$audioPrice) }
+
+        if ($null -ne $orm.pricing.video_output) { $prices.Add([decimal]$orm.pricing.video_output) }
 
         $sumPrice = if ($prices.Count -gt 0) { ($prices | Measure-Object -Sum).Sum } else { [decimal]::MaxValue }
         $m | Add-Member -NotePropertyName 'OutputPrice' -NotePropertyValue $sumPrice -Force

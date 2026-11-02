@@ -48,7 +48,7 @@ namespace SmartHopper.Providers.DeepSeek
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between February 2026 and May 2026
+                // Released between January 2026 and April 2026
 
                 new AIModelCapabilities
                 {
@@ -63,9 +63,9 @@ namespace SmartHopper.Providers.DeepSeek
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000008134m,
-                        Completion = 0.00000016268m,
-                        InputCacheRead = 0.000000016268m,
+                        TextInput = 0.00000008134m,
+                        TextOutput = 0.00000016268m,
+                        CacheRead = 0.000000016268m,
                     },
                     Aliases = new List<string> { "deepseek-v4-flash" },
                 },
@@ -82,9 +82,9 @@ namespace SmartHopper.Providers.DeepSeek
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.0000016m,
-                        Completion = 0.0000032m,
-                        InputCacheRead = 0.000000135m,
+                        TextInput = 0.0000002088m,
+                        TextOutput = 0.0000004176m,
+                        CacheRead = 0.0000000174m,
                     },
                 },
 
@@ -106,15 +106,15 @@ namespace SmartHopper.Providers.DeepSeek
                     Created = new DateTime(2026, 8, 21),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000022m,
-                        Completion = 0.00000066m,
-                        InputCacheRead = 0.000000007m,
+                        TextInput = 0.00000022m,
+                        TextOutput = 0.00000066m,
+                        CacheRead = 0.000000007m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        Prompt = 0.00000011m,
-                        Completion = 0.00000033m,
-                        InputCacheRead = 0.0000000035m,
+                        TextInput = 0.00000011m,
+                        TextOutput = 0.00000033m,
+                        CacheRead = 0.0000000035m,
                     },
                     Aliases = new List<string> { "deepseek-v4-flash-vision-exp:batch" },
                 },

@@ -82,7 +82,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             {
                 Provider = "openai",
                 Model = "gpt-test",
-                Pricing = new AIModelPricing { Prompt = 0.000001m, Completion = 0.000004m },
+                Pricing = new AIModelPricing { TextInput = 0.000001m, TextOutput = 0.000004m },
             });
 
             var first = new AIMetrics

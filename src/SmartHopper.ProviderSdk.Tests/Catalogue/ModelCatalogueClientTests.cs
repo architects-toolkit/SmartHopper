@@ -73,7 +73,7 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
             "{\"catalogue_version\":" + version +
             ",\"min_client_protocol\":1,\"protocol\":\"smarthopper-models/1\",\"providers\":{\"" + provider +
             "\":{\"models\":[{\"aliases\":[\"gpt-test-1-latest\"],\"capabilities\":[\"text\",\"tools\",\"reasoning\"],\"context_limit\":400000,\"created\":\"2026-01-01T00:00:00Z\",\"default_capability\":\"Text2Text|ToolChat\",\"deprecated\":false,\"discouraged_for_tools\":[],\"model\":\"" + modelId +
-            "\",\"pricing\":{\"completion\":\"0.0000048\",\"currency\":\"EUR\",\"input_cache_read\":\"0.0000003\",\"prompt\":\"0.0000012\"},\"rank\":9990,\"supports_prompt_caching\":true,\"supports_streaming\":true,\"verified\":true}]}},\"published_at\":\"2026-10-21T05:00:00Z\"}";
+            "\",\"pricing\":{\"cache_read\":\"0.0000003\",\"cache_write\":\"0.000000375\",\"currency\":\"EUR\",\"image_output\":\"0.00003\",\"text_input\":\"0.0000012\",\"text_output\":\"0.0000048\",\"video_output\":\"0.05\",\"surprise_field\":\"9.99\"},\"rank\":9990,\"supports_prompt_caching\":true,\"supports_streaming\":true,\"verified\":true}]}},\"published_at\":\"2026-10-21T05:00:00Z\"}";
 
         private string ManifestJson(int version = 1) =>
             "{\"catalogue_url\":\"/api/v1/catalogue\",\"key_id\":\"" + this.keyId +
@@ -209,8 +209,12 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
             Assert.True(model.HasCapability(AICapability.Reasoning));
             Assert.Equal(AICapability.Text2Text | AICapability.ToolChat, model.Default);
             Assert.Equal("EUR", model.Pricing.Currency);
-            Assert.Equal(0.0000012m, model.Pricing.Prompt);
-            Assert.Equal(0.0000003m, model.Pricing.InputCacheRead);
+            Assert.Equal(0.0000012m, model.Pricing.TextInput);
+            Assert.Equal(0.0000048m, model.Pricing.TextOutput);
+            Assert.Equal(0.0000003m, model.Pricing.CacheRead);
+            Assert.Equal(0.000000375m, model.Pricing.CacheWrite);
+            Assert.Equal(0.00003m, model.Pricing.ImageOutput);
+            Assert.Equal(0.05m, model.Pricing.VideoOutput);
             Assert.Single(model.Aliases);
         }
 
@@ -225,9 +229,16 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
             var bad = CatalogueJson().Replace("\"verified\":true", "\"verified\":true,\"display_name\":\"see https://evil\"");
             Assert.Throws<CatalogueProtocolException>(() => CatalogueWire.ParseDocument(Encoding.UTF8.GetBytes(bad)));
 
-            // Unknown property (additionalProperties: false).
+            // Unknown properties are ignored (forward compatibility) — they are
+            // blocked from entering parsed state, not treated as violations. A
+            // catalogue emitting newer fields must never brick older clients.
             var extra = CatalogueJson().Replace("\"verified\":true", "\"verified\":true,\"evil\":true");
-            Assert.Throws<CatalogueProtocolException>(() => CatalogueWire.ParseDocument(Encoding.UTF8.GetBytes(extra)));
+            var tolerant = CatalogueWire.ParseDocument(Encoding.UTF8.GetBytes(extra));
+            Assert.Single(tolerant.Providers["openai"]);
+            Assert.Null(tolerant.Providers["openai"][0].Pricing.Request);
+            Assert.Null(tolerant.Providers["openai"][0].Pricing.Discount);
+            // 'surprise_field' inside pricing is likewise ignored, not read.
+            Assert.Null(tolerant.Providers["openai"][0].Pricing.InternalReasoning);
 
             // Negative money.
             var money = CatalogueJson().Replace("\"0.0000012\"", "\"-1\"");

@@ -83,7 +83,7 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.OpenRouter
             Assert.NotNull(model);
             Assert.True(model.SupportsBatch);
             Assert.NotNull(model.BatchPricing);
-            Assert.True(model.BatchPricing.Prompt < model.Pricing.Prompt);
+            Assert.True(model.BatchPricing.TextInput < model.Pricing.TextInput);
             Assert.Contains("openai/gpt-5.6-luna:batch", model.Aliases);
         }
 
