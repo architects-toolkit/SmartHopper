@@ -200,15 +200,24 @@ namespace SmartHopper.Infrastructure.Dialogs
         private static string ConclusionLine()
         {
             var service = ModelCatalogueService.Instance;
-            switch (service.Source)
+            var applied = service.Source switch
             {
-                case ModelCatalogueSource.Remote:
+                ModelCatalogueSource.Remote => $"catalogue v{service.AppliedVersion} from models.smarthopper.xyz",
+                ModelCatalogueSource.Cache => $"the verified local catalogue v{service.AppliedVersion}",
+                _ => "the built-in model tables",
+            };
+            switch (service.RemoteStatus)
+            {
+                case ModelCatalogueRemoteStatus.Updated:
                     return $"✔ SUCCESS — applied catalogue v{service.AppliedVersion} from models.smarthopper.xyz.";
-                case ModelCatalogueSource.Cache:
-                    return $"✔ OFFLINE OK — verified local catalogue v{service.AppliedVersion} applied; the service was unreachable or had no newer release.";
+                case ModelCatalogueRemoteStatus.UpToDate:
+                    return $"✔ UP TO DATE — v{service.AppliedFloor} is the latest release; running on {applied}.";
+                case ModelCatalogueRemoteStatus.Unreachable:
+                    return $"⚠ OFFLINE — could not reach models.smarthopper.xyz; continuing on {applied}.";
+                case ModelCatalogueRemoteStatus.Failed:
+                    return $"✖ UPDATE FAILED — {(service.LastError ?? "unknown error").TrimEnd('.')}; continuing on {applied}.";
                 default:
-                    return "✖ NO CATALOGUE — using the built-in model tables." +
-                           (service.LastError != null ? $" Reason: {service.LastError}" : string.Empty);
+                    return $"— running on {applied}.";
             }
         }
 

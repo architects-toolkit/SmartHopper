@@ -287,6 +287,7 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
             await service.RefreshAsync();
             Assert.Equal(1, service.AppliedVersion);
             Assert.Equal(ModelCatalogueSource.Remote, service.Source);
+            Assert.Equal(ModelCatalogueRemoteStatus.Updated, service.RemoteStatus);
 
             var caps = AIModelCapabilityRegistry.Instance.GetCapabilities("openai", "gpt-test-1");
             Assert.NotNull(caps);
@@ -310,6 +311,7 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
 
             await service.RefreshAsync();
             Assert.Equal(0, service.AppliedVersion);
+            Assert.Equal(ModelCatalogueRemoteStatus.Failed, service.RemoteStatus);
             Assert.NotNull(service.LastError);
             Assert.Null(AIModelCapabilityRegistry.Instance.GetCapabilities("openai", "gpt-test-1"));
             Assert.False(new ModelCatalogueCache(this.cacheDir).TryLoad(out _));
@@ -337,7 +339,53 @@ namespace SmartHopper.ProviderSdk.Tests.Catalogue
             await offline.RefreshAsync();
             Assert.Equal(1, offline.AppliedVersion);
             Assert.Equal(ModelCatalogueSource.Cache, offline.Source);
+            Assert.Equal(ModelCatalogueRemoteStatus.Unreachable, offline.RemoteStatus);
             Assert.NotNull(AIModelCapabilityRegistry.Instance.GetCapabilities("openai", "gpt-test-1"));
+        }
+
+        [Fact]
+        public async Task RemoteStatusDistinguishesUpToDateOfflineAndFailed()
+        {
+            // Prime a verified cache at v1 through a good remote run.
+            var docBytes = Encoding.UTF8.GetBytes(CatalogueJson());
+            var docSig = this.Sign(docBytes);
+            var online = this.NewService(path =>
+            {
+                if (path.EndsWith("/manifest")) return (200, this.ManifestJson(1));
+                if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(docBytes));
+                if (path.EndsWith("/catalogue.sig")) return (200, docSig);
+                return (404, "{}");
+            });
+            await online.RefreshAsync();
+            Assert.Equal(ModelCatalogueRemoteStatus.Updated, online.RemoteStatus);
+            AIModelCapabilityRegistry.Instance.Models.Clear();
+
+            // Remote reachable but nothing newer → UpToDate, not "offline".
+            var current = this.NewService(path => path.EndsWith("/manifest") ? (200, this.ManifestJson(1)) : (404, "{}"));
+            await current.RefreshAsync();
+            Assert.Equal(ModelCatalogueRemoteStatus.UpToDate, current.RemoteStatus);
+            Assert.Equal(ModelCatalogueSource.Cache, current.Source);
+            Assert.Equal(1, current.AppliedVersion);
+
+            // Same local state but remote dead → Unreachable (the real offline case).
+            var offline = this.NewService(_ => (503, "{}"));
+            await offline.RefreshAsync();
+            Assert.Equal(ModelCatalogueRemoteStatus.Unreachable, offline.RemoteStatus);
+            Assert.Equal(ModelCatalogueSource.Cache, offline.Source);
+
+            // Reached but the update is rejected → Failed, never reported as offline.
+            var v2 = Encoding.UTF8.GetBytes(CatalogueJson(2));
+            var rejected = this.NewService(path =>
+            {
+                if (path.EndsWith("/manifest")) return (200, this.ManifestJson(2));
+                if (path.EndsWith("/catalogue")) return (200, Encoding.UTF8.GetString(v2));
+                if (path.EndsWith("/catalogue.sig")) return (200, Convert.ToBase64String(new byte[64]));
+                return (404, "{}");
+            });
+            await rejected.RefreshAsync();
+            Assert.Equal(ModelCatalogueRemoteStatus.Failed, rejected.RemoteStatus);
+            Assert.Equal(ModelCatalogueSource.Cache, rejected.Source);
+            Assert.NotNull(rejected.LastError);
         }
 
         [Fact]

@@ -45,6 +45,30 @@ namespace SmartHopper.ProviderSdk.Catalogue
     }
 
     /// <summary>
+    /// Outcome of the last refresh's remote round-trip — independent of which
+    /// source is currently applied. Lets callers distinguish "service
+    /// unreachable" from "checked: already current" and "update rejected",
+    /// all of which otherwise collapse onto <see cref="ModelCatalogueSource.Cache"/>.
+    /// </summary>
+    public enum ModelCatalogueRemoteStatus
+    {
+        /// <summary>Remote was not checked (no refresh has completed, or a concurrent refresh collapsed onto an in-flight one).</summary>
+        NotChecked = 0,
+
+        /// <summary>The remote was reached and reports no release newer than the applied floor.</summary>
+        UpToDate = 1,
+
+        /// <summary>A newer signed remote catalogue was fetched, verified and applied.</summary>
+        Updated = 2,
+
+        /// <summary>The remote could not be reached, or its artefacts could not be fetched.</summary>
+        Unreachable = 3,
+
+        /// <summary>The remote was reached but the update was rejected or failed (see <see cref="ModelCatalogueService.LastError"/>).</summary>
+        Failed = 4,
+    }
+
+    /// <summary>
     /// Non-blocking catalogue refresh: verifies and applies the signed local
     /// cache first, then fetches the remote manifest and — only when it is
     /// newer — the catalogue + signature, verifies them before parsing, merges
@@ -112,6 +136,9 @@ namespace SmartHopper.ProviderSdk.Catalogue
         /// <summary>Gets where the applied catalogue came from.</summary>
         public ModelCatalogueSource Source { get; private set; } = ModelCatalogueSource.None;
 
+        /// <summary>Gets the outcome of the last refresh's remote round-trip.</summary>
+        public ModelCatalogueRemoteStatus RemoteStatus { get; private set; } = ModelCatalogueRemoteStatus.NotChecked;
+
         /// <summary>Gets the last failure message, or null.</summary>
         public string LastError { get; private set; }
 
@@ -141,6 +168,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
             try
             {
                 this.Log(ProviderLogLevel.Info, "starting catalogue refresh");
+                this.RemoteStatus = ModelCatalogueRemoteStatus.NotChecked;
 
                 // Seed the anti-rollback floor from disk before anything remote
                 // is evaluated: the ratchet survives cache deletion/corruption.
@@ -157,6 +185,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
             catch (Exception ex)
             {
                 this.LastError = ex.Message;
+                this.RemoteStatus = ModelCatalogueRemoteStatus.Failed;
                 this.Log(ProviderLogLevel.Warning, $"catalogue refresh failed: {ex.Message}");
             }
             finally
@@ -226,6 +255,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
             var factory = this._httpFactory ?? ProviderSdkHost.HttpClientFactory;
             if (factory == null)
             {
+                this.RemoteStatus = ModelCatalogueRemoteStatus.Unreachable;
                 return;
             }
 
@@ -235,12 +265,14 @@ namespace SmartHopper.ProviderSdk.Catalogue
                 manifest = await this.GetManifestAsync(client, cancellationToken).ConfigureAwait(false);
                 if (manifest == null)
                 {
+                    this.RemoteStatus = ModelCatalogueRemoteStatus.Unreachable;
                     this.Log(ProviderLogLevel.Warning, "catalogue manifest unreachable — keeping applied metadata");
                     return;
                 }
 
                 if (manifest.LatestVersion <= this._floor)
                 {
+                    this.RemoteStatus = ModelCatalogueRemoteStatus.UpToDate;
                     this.Log(ProviderLogLevel.Info, $"catalogue already up to date (floor v{this._floor}, remote latest v{manifest.LatestVersion})");
                     return;
                 }
@@ -249,6 +281,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
                 var signature = await this.GetTextAsync(client, "/api/v1/catalogue.sig", cancellationToken).ConfigureAwait(false);
                 if (catalogueBytes == null || signature == null)
                 {
+                    this.RemoteStatus = ModelCatalogueRemoteStatus.Unreachable;
                     return;
                 }
 
@@ -276,6 +309,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
                 this.AppliedVersion = document.Version;
                 this._floor = document.Version;
                 this.Source = ModelCatalogueSource.Remote;
+                this.RemoteStatus = ModelCatalogueRemoteStatus.Updated;
                 this.LastError = null;
 
                 var sha256 = Convert.ToHexString(SHA256.HashData(catalogueBytes)).ToLowerInvariant();
