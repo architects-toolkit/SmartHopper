@@ -2129,9 +2129,28 @@ if ($UpdateFile) {
     $newListContent = ($newBlocks -join "`r`n`r`n")
     $newFileContent = $beforeList + $newListContent + "`r`n            };" + $afterList
 
-    [System.IO.File]::WriteAllText($TargetFile, $newFileContent, $utf8NoBom)
-    $fileUpdated = $true
-    Write-Host "[$Provider] Wrote $($sorted.Count) model(s) to $TargetFile."
+    # The regenerated `// Released between ...` section headers embed the current
+    # month, so a rewrite can differ from the file on disk only in comments even
+    # when no model data changed. Committing that drift opens pull requests whose
+    # entire diff is comment churn (e.g. PR #918). Compare old and new content
+    # with comment-only and blank lines stripped; when nothing else changed,
+    # leave the file untouched so downstream steps see a clean working tree and
+    # skip PR creation. Inline trailing comments (e.g. `// TODO: retrieve
+    # capabilities`) stay attached to their code line and still count as changes.
+    $oldMeaningful = @($sourceContent  -split "`r?`n" | Where-Object { $_ -notmatch '^\s*(//.*)?$' }) -join "`n"
+    $newMeaningful = @($newFileContent -split "`r?`n" | Where-Object { $_ -notmatch '^\s*(//.*)?$' }) -join "`n"
+
+    if ([string]::Equals($newFileContent, $sourceContent, [System.StringComparison]::Ordinal)) {
+        Write-Host "[$Provider] $TargetFile is already up to date."
+    }
+    elseif ([string]::Equals($newMeaningful, $oldMeaningful, [System.StringComparison]::Ordinal)) {
+        Write-Host "[$Provider] Only generated comments would change in $TargetFile; leaving the file untouched to avoid a comment-only PR."
+    }
+    else {
+        [System.IO.File]::WriteAllText($TargetFile, $newFileContent, $utf8NoBom)
+        $fileUpdated = $true
+        Write-Host "[$Provider] Wrote $($sorted.Count) model(s) to $TargetFile."
+    }
 }
 
 # ---------------------------------------------------------------------------
