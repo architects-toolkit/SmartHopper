@@ -54,10 +54,9 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
         /// <inheritdoc/>
         public bool IsAvailable(string providerName)
         {
-            return AIModelCapabilityRegistry.Instance.ValidateCapabilities(
-                providerName,
-                AIModelCapabilityRegistry.Instance.SelectBestModel(providerName, null, this.RequiresCapability),
-                this.RequiresCapability);
+            var model = AIModelCapabilityRegistry.Instance.SelectBestModel(providerName, null, this.RequiresCapability);
+            return !string.IsNullOrWhiteSpace(model) &&
+                AIModelCapabilityRegistry.Instance.ValidateCapabilities(providerName, model, this.RequiresCapability);
         }
 
         /// <inheritdoc/>
