@@ -124,8 +124,6 @@ Components are the core elements of a GhJSON document. Each component represents
   "name": "Addition",
   "library": "Maths",
   "nickName": "Add",
-  "componentGuid": "a0d62394-a118-422d-abb3-6af115c75b25",
-  "instanceGuid": "12345678-1234-1234-1234-123456789abc",
   "id": 1,
   "pivot": "100,200",
   "inputSettings": [ ... ],
@@ -174,7 +172,7 @@ Components can be identified with any of these combinations:
 3. **By Component GUID + ID**: `componentGuid` plus `id`
 4. **By Component GUID + Instance GUID**: `componentGuid` plus `instanceGuid`
 
-You MAY include both `componentGuid` and `name` together. For reliable instantiation, include `componentGuid` and an `id` when the component will be referenced by connections or groups.
+When generating a document for placement, omit `componentGuid` and `instanceGuid` for new components: supply `name` and an `id` (when referenced by connections or groups) and let the deserializer resolve the component type and assign instance GUIDs. Never invent GUID values. Include `componentGuid` only when it is the component type's real GUID copied from a serialized document — a wrong but plausible value silently instantiates a different component than `name` suggests.
 
 When deserializing (placing) a document onto a Grasshopper canvas, `instanceGuid` carries identity semantics: a component whose `instanceGuid` matches an object already on the canvas SHOULD update that object in place — preserving its identity, its position (unless `pivot` is provided), and its existing wires — rather than producing a duplicate. To place additional copies of an object, omit `instanceGuid` (or assign a new one) so the component is treated as new.
 
@@ -504,7 +502,6 @@ Unlike Rhino 8 script components (C#, Python 3, IronPython 2) which implement `I
 {
   "name": "LB Hourly Plot",
   "library": "Ladybug",
-  "componentGuid": "410755b1-224a-4c1e-a407-bf32fb45ea7e",
   "id": 1,
   "pivot": "100,200",
   "inputSettings": [
@@ -648,7 +645,6 @@ When placing a paginated document on a canvas, implementations SHOULD preserve i
   "components": [
     {
       "name": "Number Slider",
-      "instanceGuid": "11111111-1111-1111-1111-111111111111",
       "id": 1,
       "pivot": "100,100",
       "componentState": {
@@ -671,7 +667,6 @@ When placing a paginated document on a canvas, implementations SHOULD preserve i
   "components": [
     {
       "name": "Number Slider",
-      "instanceGuid": "11111111-1111-1111-1111-111111111111",
       "id": 1,
       "pivot": "100,100",
       "componentState": {
@@ -684,27 +679,23 @@ When placing a paginated document on a canvas, implementations SHOULD preserve i
     },
     {
       "name": "Number Slider",
-      "instanceGuid": "22222222-2222-2222-2222-222222222222",
       "id": 2,
       "pivot": "100,150",
       "componentState": {
         "extensions": {
           "gh.numberslider": {
-            "value": "3<0,10>"
+            "value": "3<0~10>"
           }
         }
       }
     },
     {
       "name": "Addition",
-      "componentGuid": "a0d62394-a118-422d-abb3-6af115c75b25",
-      "instanceGuid": "33333333-3333-3333-3333-333333333333",
       "id": 3,
       "pivot": "300,125"
     },
     {
       "name": "Panel",
-      "instanceGuid": "44444444-4444-4444-4444-444444444444",
       "id": 4,
       "pivot": "500,125"
     }
@@ -730,7 +721,6 @@ When placing a paginated document on a canvas, implementations SHOULD preserve i
   "components": [
     {
       "name": "Number Slider",
-      "instanceGuid": "11111111-1111-1111-1111-111111111111",
       "id": 1,
       "pivot": "100,100",
       "componentState": {
@@ -743,7 +733,6 @@ When placing a paginated document on a canvas, implementations SHOULD preserve i
     },
     {
       "name": "Number Slider",
-      "instanceGuid": "22222222-2222-2222-2222-222222222222",
       "id": 2,
       "pivot": "100,150",
       "componentState": {
@@ -756,7 +745,6 @@ When placing a paginated document on a canvas, implementations SHOULD preserve i
     },
     {
       "name": "Addition",
-      "instanceGuid": "33333333-3333-3333-3333-333333333333",
       "id": 3,
       "pivot": "300,125"
     }
@@ -767,7 +755,7 @@ When placing a paginated document on a canvas, implementations SHOULD preserve i
   ],
   "groups": [
     {
-      "instanceGuid": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "id": 1,
       "name": "Inputs",
       "color": "argb:255,200,220,255",
       "members": [1, 2]
