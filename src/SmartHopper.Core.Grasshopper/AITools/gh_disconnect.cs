@@ -50,7 +50,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AIMutatingTool(
                 name: this.toolName,
-                description: "Stage Grasshopper wire removals, show the user an in-canvas visual review, and remove only accepted connections. Requires component GUIDs (use gh_get_selected or gh_get to find them first).",
+                description: "Stage Grasshopper wire removals, show the user an in-canvas visual review, and remove only accepted connections. Requires component GUIDs (use gh_get_selected or gh_get to find them first). Each result entry reports status 'disconnected' for real removals or 'noop' when no wire existed between the resolved endpoints.",
                 category: "Canvas.Modifications",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -204,6 +204,25 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         continue;
                     }
 
+                    // Distinguish real removals from no-ops: the upstream disconnector reports
+                    // success for nonexistent wires, so verify a wire actually exists between
+                    // the resolved endpoints before calling it.
+                    var sourceParam = ResolveDisconnectEndpoint(doc.FindObject(sourceGuid, true), sourceParamName, output: true);
+                    var targetParam = ResolveDisconnectEndpoint(doc.FindObject(targetGuid, true), targetParamName, output: false);
+                    if (sourceParam != null && targetParam != null &&
+                        !targetParam.Sources.Contains(sourceParam))
+                    {
+                        successfulDisconnections.Add(new JObject
+                        {
+                            ["sourceGuid"] = sourceGuidStr,
+                            ["targetGuid"] = targetGuidStr,
+                            ["sourceParam"] = sourceParamName ?? "(first output)",
+                            ["targetParam"] = targetParamName ?? "(first input)",
+                            ["status"] = "noop"
+                        });
+                        continue;
+                    }
+
                     // Use centralized GhJSON disconnector. The caller handles a single
                     // solution recompute and canvas redraw after all disconnections are applied.
                     bool success = GhJsonGrasshopper.Disconnect(sourceGuid, targetGuid, sourceParamName, targetParamName);
@@ -275,5 +294,40 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
         }
 
+        /// <summary>
+        /// Resolves the output or input parameter on a document object, mirroring GhJSON's
+        /// ConnectionHelper semantics: a standalone param resolves to itself; component params
+        /// are matched by nickname, then name, then numeric index; the first parameter is used
+        /// when no name is supplied.
+        /// </summary>
+        private static IGH_Param? ResolveDisconnectEndpoint(IGH_DocumentObject? obj, string? paramName, bool output)
+        {
+            if (obj is IGH_Param param)
+            {
+                return param;
+            }
+
+            if (obj is not IGH_Component component)
+            {
+                return null;
+            }
+
+            var list = output ? component.Params.Output : component.Params.Input;
+            if (string.IsNullOrWhiteSpace(paramName))
+            {
+                return list.FirstOrDefault();
+            }
+
+            var named = list.FirstOrDefault(p => string.Equals(p.NickName, paramName, StringComparison.OrdinalIgnoreCase))
+                ?? list.FirstOrDefault(p => string.Equals(p.Name, paramName, StringComparison.OrdinalIgnoreCase));
+            if (named != null)
+            {
+                return named;
+            }
+
+            return int.TryParse(paramName, out var index) && index >= 0 && index < list.Count
+                ? list[index]
+                : null;
+        }
     }
 }
