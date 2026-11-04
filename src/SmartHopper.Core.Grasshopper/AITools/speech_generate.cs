@@ -61,7 +61,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Generates speech audio from text input. Example: speech_generate({ text: 'The pavilion is 12 meters wide.', voice: 'nova', speed: '1.0' }).",
+                description: "Generates speech audio from text input. Example: speech_generate({ text: 'The pavilion is 12 meters wide.', voice: 'alloy', speed: '1.0' }).",
                 category: "Data.Media",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -72,8 +72,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         },
                         ""voice"": {
                             ""type"": ""string"",
-                            ""description"": ""The voice ID to use (e.g., 'alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer')"",
-                            ""default"": ""nova""
+                            ""description"": ""Optional voice ID (provider-specific, e.g., 'alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer' on OpenAI). Leave empty to use the provider's default voice.""
                         },
                         ""speed"": {
                             ""type"": ""string"",
@@ -113,7 +112,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             if (string.IsNullOrEmpty(voice))
             {
-                voice = SmartHopperSettings.Instance.GetSetting("speech_voice", "nova")?.ToString() ?? "nova";
+                voice = SmartHopperSettings.Instance.GetSetting("speech_voice", null)?.ToString();
             }
 
             // Get speed from args, extra settings, or default
@@ -147,7 +146,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 paramBuilder.WithExtras(toolCall.Parameters.Extras);
             }
 
-            paramBuilder.WithExtra("voice", voice);
+            if (!string.IsNullOrWhiteSpace(voice))
+            {
+                paramBuilder.WithExtra("voice", voice);
+            }
+
             paramBuilder.WithExtra("speed", speed);
             request.Parameters = paramBuilder.Build();
             return request;

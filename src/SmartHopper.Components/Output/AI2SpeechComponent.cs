@@ -127,7 +127,7 @@ namespace SmartHopper.Components.Output
         /// </summary>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Voice", "V", "Voice ID (e.g., alloy, echo, fable, onyx, nova, shimmer)", GH_ParamAccess.tree, "nova");
+            pManager.AddTextParameter("Voice", "V", "Voice ID (provider-specific, e.g. alloy, echo, fable, onyx, nova, shimmer on OpenAI; leave empty for the provider default)", GH_ParamAccess.tree, string.Empty);
             pManager.AddTextParameter("Speed", "Sp", "Speech speed (0.25 to 4.0)", GH_ParamAccess.tree, "1.0");
         }
 
@@ -139,7 +139,7 @@ namespace SmartHopper.Components.Output
             base.PrepareInputs(inputs, context);
 
             // Read Voice and Speed from sliced inputs (per-unit)
-            var voice = "nova";
+            var voice = string.Empty;
             var speed = "1.0";
 
             if (inputs.TryGetValue("Voice", out var voiceObj) && voiceObj is GH_String voiceStr && !string.IsNullOrWhiteSpace(voiceStr.Value))
@@ -152,7 +152,10 @@ namespace SmartHopper.Components.Output
                 speed = speedStr.Value;
             }
 
-            SetRequestParameterExtra(inputs, "voice", voice);
+            if (!string.IsNullOrWhiteSpace(voice))
+            {
+                SetRequestParameterExtra(inputs, "voice", voice);
+            }
             if (double.TryParse(speed, NumberStyles.Float, CultureInfo.InvariantCulture, out var speedValue))
             {
                 SetRequestParameterExtra(inputs, "speed", speedValue);
