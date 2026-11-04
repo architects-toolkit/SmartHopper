@@ -123,8 +123,10 @@ namespace SmartHopper.Core.ComponentBase.Cores
 
         /// <summary>
         /// Wipes per-run scratch fields without touching the cross-run survivors
-        /// (<see cref="Submission"/>, <see cref="SentinelTrees"/>). Call from
-        /// <c>OnEnteringNeedsRun</c>.
+        /// (<see cref="Submission"/>, <see cref="SentinelTrees"/>). Called from
+        /// <c>OnEnteringNeedsRun</c>, which is invoked both on the NeedsRun
+        /// transition and on Processing entry (via <c>OnEnteringProcessing</c>)
+        /// so runs triggered directly with Run=true reset too.
         /// </summary>
         public void ResetForNextRun()
         {

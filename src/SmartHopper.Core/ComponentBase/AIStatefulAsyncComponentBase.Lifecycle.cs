@@ -188,6 +188,28 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <inheritdoc/>
+        protected override void OnEnteringProcessing()
+        {
+            base.OnEnteringProcessing();
+
+            // With Run=true, every trigger (input change, Run pulse) transitions
+            // directly to Processing and never enters NeedsRun, so the per-run
+            // cleanup in OnEnteringNeedsRun would never fire: accumulated state
+            // (metrics tree, AIReturn snapshot, batch scratch, and derived
+            // components' fetch caches) leaks across runs — e.g. the Metrics
+            // output growing one entry per run. Reuse the same reset here so
+            // every new run starts clean regardless of the path that led to it.
+            // Entering Processing while a remote batch is still in flight is a
+            // continuation of the same run, not a new one — keep its state so
+            // sentinel reconstruction still works.
+            if (this._batchState.Submission == null)
+            {
+                Logger.For<AIStatefulAsyncComponentBase>().Trace("[AIStatefulAsyncComponentBase] OnEnteringProcessing: no in-flight batch, resetting per-run state");
+                this.OnEnteringNeedsRun();
+            }
+        }
+
+        /// <inheritdoc/>
         protected override void OnProcessingUnitStart(GH_Path path, int? itemIndex)
         {
             base.OnProcessingUnitStart(path, itemIndex);
