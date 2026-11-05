@@ -267,7 +267,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "deepseek-v4-1-flash-1017",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9955,
@@ -299,10 +299,12 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "voxtral-mini-transcribe-3-0",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    Capabilities = AICapability.SpeechInput | AICapability.AudioInput | AICapability.TextOutput,
+                    Default = AICapability.Speech2Text,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9940,
+                    ContextLimit = 32000,
                     Aliases = new List<string> { "voxtral-mini-transcribe-3", "Voxtral Mini Transcribe 3.0" },
                 },
 
@@ -310,7 +312,8 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "voxtral-mini-tts-3-0",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
+                    Default = AICapability.Text2Speech,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9935,
@@ -321,10 +324,12 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "voxtral-small-transcribe-3-0",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    Capabilities = AICapability.SpeechInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling,
+                    Default = AICapability.Speech2Text,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9930,
+                    ContextLimit = 32000,
                     Aliases = new List<string> { "voxtral-small-transcribe-3", "Voxtral Small Transcribe 3.0" },
                 },
 
