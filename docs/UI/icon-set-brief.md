@@ -2,7 +2,7 @@
 
 # SmartHopper Icon Set — Design Brief
 
-Brief for generating a new, coherent icon set (e.g. with an AI icon-set generator such as mew.design) covering the Grasshopper component icons and app identity assets of SmartHopper.
+Brief for generating a new, coherent icon set covering the Grasshopper component icons and app identity assets of SmartHopper. Production workflow options (built-in Rhino tooling, official vector sources, code-generated, AI generators) are compared in §12.
 
 ---
 
@@ -12,7 +12,7 @@ Brief for generating a new, coherent icon set (e.g. with an AI icon-set generato
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Components/Resources/` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-09-07 |
+| **Last Updated** | 2026-11-05 |
 | **Documentation Maintainer** | Devin AI |
 
 ---
@@ -437,11 +437,32 @@ These are not PNG assets but should be included in the visual design handoff bec
 | Replaced model | Runtime 16×16 | Blue `#3498DB` | Filled circle + white refresh arrow |
 | Provider identity | Runtime 16×16 | Provider brand | Official provider logo in the bottom strip; do not regenerate |
 
-### 9. Gaps and cleanup notes
+### 9. Gaps and cleanup notes — verified 2026-11-05
 
-- **14 components currently ship without icons** (`Icon => null` or no override): the 4 forum `*2AI` inputs, 4 GhJSON/GhPatch file operations, `GhValidate`, `GhPatchApplyToCanvas`, `AIGhConnect`, `AIGhReport`, `CombineMetrics`, and `SmartHopperMcpServer`.
-- **Eight additional components require new dedicated compositions** because they currently reuse an icon with different semantics: Boolean/Integer/Number List to AI, JSON Get Value, JSON Set Value, AI Web To Markdown, Canvas To Image, and Viewport To Image.
-- `websummarize.png`, `ghjsonai.png`, `imggenerate.png`, and `toai-speech.png` are currently orphaned. Reuse a generated replacement only if its final meaning exactly matches a required composition; otherwise remove the resource during integration.
+Re-audited against `src/SmartHopper.Components` on 2026-11-05. The component set and every gap listed below are **unchanged** since this brief was written; no icon work has landed yet.
+
+- **14 components ship without icons** (`Icon => null` or no override) — confirmed:
+
+| Component | File | Reason |
+| --- | --- | --- |
+| McNeel Post to AI | `Input/McNeelPost2AIComponent.cs` | `Icon => null` |
+| McNeel Topic to AI | `Input/McNeelTopic2AIComponent.cs` | `Icon => null` |
+| Ladybug Post to AI | `Input/LadybugPost2AIComponent.cs` | `Icon => null` |
+| Ladybug Topic to AI | `Input/LadybugTopic2AIComponent.cs` | `Icon => null` |
+| Save GhJSON | `Grasshopper/SaveGhJSONComponent.cs` | `Icon => null` |
+| Open GhJSON | `Grasshopper/OpenGhJSONComponent.cs` | `Icon => null` |
+| Save GhPatch | `Grasshopper/SaveGhPatchComponent.cs` | `Icon => null` |
+| Open GhPatch | `Grasshopper/OpenGhPatchComponent.cs` | `Icon => null` |
+| Validate GhJSON | `Grasshopper/GhValidateComponents.cs` | `Icon => null` |
+| Apply GhPatch to Canvas | `Grasshopper/GhPatchApplyToCanvasComponents.cs` | `Icon => null` |
+| AI Smart Connect | `Grasshopper/AIGhConnectComponent.cs` | `Icon => null` |
+| AI Canvas Report | `Grasshopper/AIGhReportComponent.cs` | `Icon => null` |
+| Combine Metrics | `Misc/CombineMetricsComponent.cs` | `Icon => null` |
+| SmartHopper MCP Server | `Mcp/SmartHopperMcpServerComponent.cs` | no `Icon` override |
+
+- **Eight components reuse an icon with different semantics** — confirmed: `BooleanList2AI`→`toaibool`, `IntegerList2AI`→`toaiinteger`, `NumberList2AI`→`toainumeric`, `JsonGetValue`/`JsonSetValue`→`jsonitem`, `AIWeb2Md`→`webtomd`, `CanvasCapture`/`ViewportCapture`→`aitoimg`.
+- **Naming note:** the GhJSON components are `Gh*Components` classes (e.g. `GhGetComponents`, `GhPatchApplyComponents`), not `*Component.cs`, and `AIListFilter.cs` doesn't follow the `*Component.cs` filename pattern either — future icon audits should scan all `.cs` files, not just `*Component.cs`.
+- Orphaned files in `Resources/`: `websummarize.png` and `imggenerate.png` are embedded in `Resources.resx` but unused; `ghjsonai.png` and `toai-speech.png` exist on disk but aren't even embedded. Remove during integration unless a generated replacement matches a needed composition exactly.
 - Legacy `Resources.resx` aliases (`text2ai`, `web2ai`, `file2ai`, `audio2ai`, `img2ai`, `json2ai`, `list2ai`, `ghjson2ai`, the forum `*2ai` aliases, and `aiprompt`) should be consolidated after all code references are migrated.
 - Template/junk entries `Bitmap1`, `Color1`, `Icon1`, and `Name1` should not be recreated.
 - Chat UI uses an inline chart emoji for metrics; it is outside the Grasshopper component icon set but should eventually use the same F29 metrics drawing for product consistency.
@@ -459,3 +480,73 @@ Use this preamble for every badge:
 Compose each final icon with:
 
 > "Transparent 24×24 icon. Main glyph: {full-size drawing ID}. Bottom-left modifier: {badge ID or none}. Bottom-right action: {badge ID or none}. Apply domain color {color} to the main glyph and behavior color {color} to the action. Preserve clear separation between main glyph and badges. Use no more than two badges and no more than two semantic colors plus slate/off-white."
+
+### 11. Design review — critique and refinements (2026-11-05)
+
+Review of this proposal from a small-format icon-design perspective. At 24×24 px — and ~16 px in the ribbon — each icon is essentially a **favicon**: one readable silhouette is the whole game.
+
+#### 11.1 What already holds up
+
+- **Modular masters + badges is the right architecture.** Composing 100+ icons from ~33 glyphs and ~41 badges guarantees consistency that one-shot generation can't.
+- **Fixed badge positions and the mirrored to/from-AI direction pair** are the strongest parts of the grammar — predictable scanning beats per-icon cleverness.
+- **Double-encoding** (color *and* shape for every semantic) is correct for accessibility and dark themes.
+- **Reserving red for errors only** is right.
+
+#### 11.2 Problems at 24 px and proposed fixes
+
+| # | Issue in the proposal | Fix |
+| --- | --- | --- |
+| 1 | **Text fragments won't survive.** `123`, `1.0`, `MD`, `{;}` inside an ~18 px main glyph turn to noise at render size, worse at 16 px. | Allow at most **one big letterform per icon** (`T`, `#`, `M`); express "decimal" as a digit + heavy dot, "list" as three rows, "markdown" as the down-chevron (B06). Rule: **no two-character strings anywhere**. |
+| 2 | **Source badges at 7–9 px are the weakest link.** A rhino head, a beetle, and a speech bubble can collapse into the same round blob. | Push silhouettes maximally apart (angular rhino-head profile vs. round beetle vs. round bubble with tail), and if that fails at 9 px, fall back to a small monogram letter (`M`/`L`/`D`) — letters beat mini-mascots at this size. |
+| 3 | **Three-element icons** (glyph + source badge + direction badge on forum `*2AI` inputs) are the busiest in the set. | Merge direction and AI into the single arrow-into-spark badge (already the plan) and treat that badge as the *only* bottom-right element; simplify the main glyph to compensate (e.g. post card → one avatar dot, one line). |
+| 4 | **Strokes can vanish.** The spec allows 1.5 px lines; sub-2 px strokes at 24 px anti-alias to gray. | Minimum **2 px stroke** at final size, ≥2 px transparent margin on all sides (matches the stock GH set and leaves room for the subtle drop shadow, see §12). |
+| 5 | **Teal `#258F91` vs. blue `#347FB8` are close** on a mid-gray canvas at badge size. | Restrict teal to main glyphs and blue to badges (they'd rarely sit adjacent), or deepen teal toward green-cyan. Colors stay secondary to shape, so this is a polish issue, not a blocker. |
+| 6 | **Style mismatch with stock GH icons.** The stock set is flat fills, no outline stroke, plus a drop shadow (2 px blur, ~25 % black, +1/+1). An all-outlined set will look noticeably different on a mixed canvas. | Decide deliberately: (a) adopt the stock look — no outline, add the drop shadow — for a native feel, or (b) keep the dark-slate outline for dark-theme robustness and accept the stylistic difference. The outline option is defensible; just don't mix the two styles within the set. |
+| 7 | **AI spark ambiguity.** A symmetric four-point star reads as "favorite/new" more than "AI". | Keep the proposed *asymmetric* spark (one elongated point), and always pair it with the arrow so it reads as a verb, not a status marker. |
+| 8 | **No acceptance step is defined.** | Before generating all ~100 icons, compose a **contact sheet**: every icon at 24 px and 16 px, on light and dark canvas screenshots. Reject any drawing that needs a tooltip to decode. |
+
+#### 11.3 Simplified rules to adopt
+
+1. One main silhouette + at most 2 badges, prefer 1.
+2. One character max per icon; no multi-letter text.
+3. 2 px minimum stroke, 2 px transparent margin, rounded joins.
+4. If a composition needs a third badge, remove detail from the main glyph instead.
+5. Ship the contact-sheet review before full production.
+
+### 12. Production workflow options (researched 2026-11-05)
+
+Four realistic ways to produce the set, best options first for this project.
+
+#### 12.1 Code-generated icons (recommended for this grammar)
+
+David Rutten's own advice for formulaic icons: *"if your icons are made up of a boundary shape, a colour and a text label, just use `System.Drawing` to generate them."* The master+badge grammar in §8 maps directly onto this: a small spec table `{glyph, color, badge-left, badge-right}` rendered by a build-time tool guarantees pixel-perfect consistency, lets us tweak the palette once and re-render everything, and removes all hand-composition of 100 PNGs. Output is checked into `Resources/` as today. A `tools/` script or a tiny `SmartHopper.Components.Test` helper could host it.
+
+#### 12.2 Rhino's "G2 Icon" workflow (near-built-in; needs the GH2 alpha plugin)
+
+The vector icon editor lives in **Grasshopper 2**, not stock Rhino 8 — it does not come with the installer. To get it: `_PackageManager` in **Rhino 8.1 or later** (stable/commercial SR is fine, not limited to the WIP) → check **"Include pre-releases"** → install **"grasshopper2"**. GH2 is alpha on its own release schedule and expires on ~45-day cycles, so it needs periodic updates; McNeel describes the icon editor itself as an incomplete but usable feature.
+
+Once installed, fire the `G2` command once (the icon tooling lives in the GH2 plugin), then:
+
+1. Run `_G2IconSetup` — it creates the icon drawing setup and the **"GH2 Icon"** panel (there's also a setup button at the top of the panel; the `.3dm` must be made "icon aware" before export works).
+2. Draw the icon as Rhino geometry (curves, hatches, surfaces) in the icon zone.
+3. `G2IconSymbol` inserts a library of predefined parametric icon shapes/symbols.
+4. Extra primitives via **TextDots**: a `.`/`o`/`O` dot becomes a small/medium/large circle; `"X"` becomes letter glyphs; a backtick nudges the next character for pixel-level kerning; `BringToFront`/`PushToBack` or Z position control layering.
+5. `G2ExportIcons` (or the red arrow button in the panel) exports the artwork to PNG at up to 5 formats/sizes.
+
+Used in production by at least the Nautilus plugin for all its icons. Caveat: some users report the raycast-render step glitches on certain machines; standard PNG export works.
+
+#### 12.3 Official and recovered source icon sets
+
+- **Official vector sources:** McNeel's [Grasshopper Icons guide](https://developer.rhino3d.com/en/guides/grasshopper/grasshopper-icons/) ships `Grasshopper_Icon_Set.zip` (Xara `.xar` files) — free to use and modify for Grasshopper-related projects. It also documents the stock style: 24×24, 2 px empty border, drop shadow (2 px blur, ~25 % black, +1 px right/down).
+- **Recovered SVG set:** [`aidannewsome/grasshopper-icons`](https://github.com/aidannewsome/grasshopper-icons) — the same Xara sources recovered to ~554 named SVGs/PNGs plus a manifest and documented drawing method. Ideal glyph donor: take a stock-style glyph, recolor to our palette, badge-compose.
+
+#### 12.4 AI icon-set generators (the original plan)
+
+mew.design and similar generators are good for **style exploration** (palette, spark shape, badge language) — run the §10 prompts there for a first pass. But diffusion output at 24 px needs pixel-grid cleanup, and batch consistency across 100 icons is unreliable. If used, plan a manual pixel pass in Paint.NET/Aseprite per icon, or use the AI output only as concept art feeding §12.1's spec table.
+
+#### 12.5 Recommended path
+
+1. Prototype ~10 representative icons (one per category family) via §12.2 (G2 Icon tool) or §12.3 (SVG donors) — whatever yields the best first masters.
+2. Lock the badge sheet and palette from the contact-sheet review (§11.3.5).
+3. Implement §12.1: a spec-driven `System.Drawing` (or SVG→PNG) compositor that renders every icon from a table — this is where the modular grammar pays off.
+4. Reserve §12.4 for the two hardest bespoke assets: the SmartHopper mascot and `aichat` flagship.

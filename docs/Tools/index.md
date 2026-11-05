@@ -10,7 +10,7 @@ Tools are callable operations the AI can invoke (function/tool calling) and util
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Core.Grasshopper/AITools/` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
+| **Last Updated** | 2026-11-01 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -214,25 +214,25 @@ Every tool declares a hierarchical `Category` in `Group.Subgroup` form. Filters 
 
 | Category | Tools |
 | --- | --- |
-| `Canvas.Modifications` | `button_click`, `gh_clear`, `gh_connect`, `gh_disconnect`, `gh_group`, `gh_move`, `gh_remove`, `gh_run`, `gh_select`, `gh_set_value`, `gh_smart_connect`, `gh_tidy_up` |
-| `Canvas.Query` | `gh_get`, `gh_list_categories`, `gh_list_components`, `gh_report` |
-| `Canvas.ComponentControl` | `gh_component_lock`, `gh_component_preview`, `gh_parameter_*` (experimental) |
+| `Canvas.Modifications` | `button_click`, `gh_clear`, `gh_connect`, `gh_disconnect`, `gh_group`, `gh_group_selected`, `gh_move`, `gh_remove`, `gh_run`, `gh_select`, `gh_set_value`, `gh_smart_connect`, `gh_tidy_up`, `gh_tidy_up_selected` |
+| `Canvas.Query` | `gh_get` and its `gh_get_*` variants, `gh_list_categories`, `gh_list_components`, `gh_report` |
+| `Canvas.ComponentControl` | `gh_component_toggle_lock`, `gh_component_lock_selected`, `gh_component_unlock_selected`, `gh_component_toggle_preview`, `gh_component_hide_preview_selected`, `gh_component_show_preview_selected`, `gh_parameter_*` (experimental) |
 | `Canvas.Vision` | `canvas_screenshot`, `canvas_hi-res_screenshot`, `viewport_screenshot` |
 | `Canvas.ViewControl` | `canvas_point`, `canvas_view`, `gh_document_switch` |
 | `Canvas.Documents` | `gh_document_list`, `gh_document_new`, `gh_document_open`, `gh_document_save` (see [Document Tools](./gh_document.md)) |
-| `GhJSON.Generation` | `gh_generate` |
+| `GhJSON.Generation` | `gh_generate`, `gh_generate_and_place_on_canvas` |
 | `GhJSON.Tools` | `gh_put`, `gh_diff`, `gh_merge`, `gh_patch_apply`, `gh_patch_validate`, `show_ghjson` |
 | `Knowledge.SmartHopper` | `smarthopper_readme`, `smarthopper_workflows`, `smarthopper_tool_help`, `smarthopper_ghjson_reference` |
 | `Knowledge.McNeelForum` / `Knowledge.LadybugForum` / `Knowledge.Discourse` | `mcneel_*`, `ladybug_*`, `discourse_*` forum readers |
 | `Knowledge.Web` / `Knowledge.Files` | `web2md`, `file2md` |
 | `AgentPlanning` | `ask_user`, `plan_propose`, `plan_tasks`, `spawn_subagent`, `send_to_subagent`, `wait_subagents`, `list_subagents` |
-| `Scripting.Code` | `script_generate`, `script_edit`, `script_review` |
-| `Scripting.Parameters` | `script_parameter_*` (experimental) |
+| `Scripting.Code` | `script_generate`, `script_generate_and_place_on_canvas`, `script_edit`, `script_edit_and_replace_on_canvas`, `script_review` |
+| `Scripting.Parameters` | `script_parameter_*`, `script_toggle_std_output`, `script_set_principal_input` (experimental) |
 | `AIProviders` | `providers_list`, `providers_models`, `gh_component_set_provider` |
 | `Data.Text` / `Data.Lists` / `Data.Media` | `text2text`, `text2boolean`, `text2json`, `list_filter`, `text2textlist`, `textlist2boolean`, `img2text`, `text2img`, `speech_generate` |
-| `Rhino.Geometry` / `Rhino.Read3dm` | `rhino_get_geometry_3dm`, `rhino_read_3dm` (experimental) |
+| `Rhino.Geometry` / `Rhino.Read3dm` | `rhino_get_geometry`, `rhino_read_3dm` (experimental) |
 | `Assistant.Meta` | `search_tools` — progressive tool discovery |
-| `Hidden` | Internal component-backing tools; never exposed to the model | (feat(tools): progressive tool loading via search_tools)
+| `Hidden` | Internal helpers (`script_generate`/`script_edit` base variants); never exposed to the model |
 
 ### Progressive tool loading
 
