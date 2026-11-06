@@ -19,9 +19,11 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Eto.Drawing;
 using Eto.Forms;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Utils;
@@ -156,7 +158,7 @@ namespace SmartHopper.Menu.Dialogs
 
             var descriptionLabel = new Label
             {
-                Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\n\nIt currently supports MistralAI, OpenAI, DeepSeek, Anthropic, Gemini and OpenRouter.",
+                Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\n\nIt currently supports " + GetSupportedProviderNames() + ".",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
             };
@@ -291,6 +293,18 @@ namespace SmartHopper.Menu.Dialogs
                     new Label { Text = "- Ladybug Tools for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("Ladybug Artwork", "https://github.com/ladybug-tools/artwork"),
                     new Label { Text = "(CC BY 4.0)", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var grasshopperIconsLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "- Aidan Newsome for", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("grasshopper-icons", "https://github.com/aidannewsome/grasshopper-icons"),
+                    new Label { Text = "(recovered David Rutten icon set, McNeel guide terms)", Font = new Font(SystemFont.Default, 10) },
                 },
             };
 
@@ -481,13 +495,25 @@ namespace SmartHopper.Menu.Dialogs
             {
                 contentLayout.Items.Add(new Label
                 {
-                    Text = "KEEP IN MIND THAT SMARTHOPPER IS STILL IN ITS EARLY STAGES OF DEVELOPMENT AND MAY HAVE BUGS OR LIMITATIONS. FILES SAVED WITH THIS VERSION MAY NOT BE COMPATIBLE WITH FUTURE VERSIONS.",
+                    Text = "THIS IS A PRERELEASE VERSION OF SMARTHOPPER — IT MAY CONTAIN BUGS OR UNFINISHED FEATURES, AND FILES SAVED WITH IT MAY NOT BE COMPATIBLE WITH FUTURE VERSIONS.",
                     Font = new Font(SystemFont.Default, 10),
                     Wrap = WrapMode.Word,
                     TextColor = Colors.DarkRed,
                 });
                 contentLayout.Items.Add(null); // spacing
             }
+
+            // Show warning only on debug compilations
+#if DEBUG
+            contentLayout.Items.Add(new Label
+            {
+                Text = "DEBUG BUILD — this is a development compilation and may contain bugs, extra logging or unfinished features. Do not redistribute.",
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                TextColor = Colors.DarkRed,
+            });
+            contentLayout.Items.Add(null); // spacing
+#endif
 
             contentLayout.Items.Add(new StackLayout
             {
@@ -521,6 +547,7 @@ namespace SmartHopper.Menu.Dialogs
             contentLayout.Items.Add(lobeIconsLink);
             contentLayout.Items.Add(rhinoIconLink);
             contentLayout.Items.Add(ladybugIconLink);
+            contentLayout.Items.Add(grasshopperIconsLink);
             contentLayout.Items.Add(logoDesignThanksLabel);
             contentLayout.Items.Add(null); // spacing
             contentLayout.Items.Add(null); // spacing
@@ -538,6 +565,40 @@ namespace SmartHopper.Menu.Dialogs
             };
 
             return mainContentLayout;
+        }
+
+        /// <summary>
+        /// Resolves the comma-separated list of registered provider display names
+        /// for the description text, so new providers are mentioned automatically.
+        /// Falls back to the bundled provider list when the registry is
+        /// unavailable — the About dialog must never fail to render.
+        /// </summary>
+        private static string GetSupportedProviderNames()
+        {
+            const string fallback = "MistralAI, OpenAI, DeepSeek, Anthropic, Gemini, OpenRouter, Ollama, LocalAI and SmartHopper Cloud";
+
+            try
+            {
+                var names = ProviderManager.Instance.GetProviders(includeUntrusted: true)
+                    .Select(p => p.Name)
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+
+                if (names.Length == 0)
+                {
+                    return fallback;
+                }
+
+                return names.Length == 1
+                    ? names[0]
+                    : string.Join(", ", names.Take(names.Length - 1)) + " and " + names[names.Length - 1];
+            }
+            catch
+            {
+                return fallback;
+            }
         }
 
         private static LinkButton CreateLinkButton(string text, string url)
