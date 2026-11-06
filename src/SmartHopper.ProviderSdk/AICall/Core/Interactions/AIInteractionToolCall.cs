@@ -120,19 +120,32 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         }
 
         /// <summary>
+        /// SMIL-animated spinner appended to the pending card header while the
+        /// matching tool result has not been received. Kept inline so the shared
+        /// chat-ui stylesheets need no changes; the element disappears when the
+        /// tool result upserts into the same card (see
+        /// <see cref="AIInteractionToolResult.GetStreamKey"/>).
+        /// </summary>
+        internal const string PendingSpinnerHtml =
+            " <svg width=\"11\" height=\"11\" viewBox=\"0 0 16 16\" style=\"vertical-align:-1px;margin-left:5px;opacity:.7\" aria-hidden=\"true\">" +
+            "<circle cx=\"8\" cy=\"8\" r=\"6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" " +
+            "stroke-dasharray=\"28 10\" stroke-linecap=\"round\">" +
+            "<animateTransform attributeName=\"transform\" type=\"rotate\" from=\"0 8 8\" to=\"360 8 8\" " +
+            "dur=\"0.9s\" repeatCount=\"indefinite\"/></circle></svg>";
+
+        /// <summary>
         /// Gets the display name for rendering (header label): the activity
         /// sentence when the model supplied <c>aim</c> or the tool declares an
-        /// <c>ActivityLabel</c>, else the tool name.
+        /// <c>ActivityLabel</c>, else the tool name. A spinner follows the label
+        /// because a bare call is always still awaiting its result; the header
+        /// flips to the completed state when the result upserts into this card.
         /// </summary>
         public virtual string GetDisplayNameForRender()
         {
-            var label = this.GetActivityLabelForRender();
-            if (label != null)
-            {
-                return label;
-            }
+            var name = this.GetActivityLabelForRender()
+                ?? (string.IsNullOrWhiteSpace(this.Name) ? "Tool Call" : $"Tool Call: {this.Name}");
 
-            return string.IsNullOrWhiteSpace(this.Name) ? "Tool Call" : $"Tool Call: {this.Name}";
+            return name + PendingSpinnerHtml;
         }
 
         /// <summary>
@@ -173,8 +186,12 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 return null;
             }
 
+            // Strip markup characters too: the label is injected raw into the
+            // card header HTML, and 'aim' is model-controlled text.
             var cleaned = label.Replace('\n', ' ').Replace('\r', ' ')
-                .Replace("`", string.Empty).Replace("*", string.Empty).Trim();
+                .Replace("`", string.Empty).Replace("*", string.Empty)
+                .Replace("<", string.Empty).Replace(">", string.Empty)
+                .Replace("&", string.Empty).Replace("\"", string.Empty).Trim();
             var wordCount = cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
             return wordCount is > 0 and < 7 ? cleaned : null;
         }

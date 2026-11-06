@@ -21,7 +21,6 @@ using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
-using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.ProviderSdk.Diagnostics;
 namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 {
@@ -73,39 +72,26 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Returns a stable stream grouping key for this interaction using tool.result:{IdOrName}.
+        /// Returns the originating tool call's stream key so the chat merges the
+        /// result into the call's card: the pending card upserts under
+        /// tool.call:{id} and this result upserts into that same DOM node,
+        /// replacing the spinner header with the completed title.
         /// </summary>
-        /// <returns>Stream group key.</returns>
+        /// <returns>Stream group key shared with the originating call.</returns>
         public override string GetStreamKey()
         {
-            var id = !string.IsNullOrEmpty(this.Id) ? this.Id : (this.Name ?? string.Empty);
-            if (!string.IsNullOrWhiteSpace(this.TurnId))
-            {
-                return $"turn:{this.TurnId}:tool.result:{id}";
-            }
-
-            return $"tool.result:{id}";
+            return base.GetStreamKey();
         }
 
         /// <summary>
-        /// Returns a stable de-duplication key for this interaction including a compact result string.
+        /// Returns the originating tool call's de-duplication key so every
+        /// render path (live upserts, history replay, final flush) collapses
+        /// call and result into the same chat card.
         /// </summary>
-        /// <returns>De-duplication key.</returns>
+        /// <returns>De-duplication key shared with the originating call.</returns>
         public override string GetDedupKey()
         {
-            // Compact representation of the result to avoid massive keys
-            var resultStr = this.Result != null
-                ? (this.Result.Type == JTokenType.String
-                    ? ((string)this.Result).Trim()
-                    : this.Result.ToString(Formatting.None))
-                : string.Empty;
-
-            var res = resultStr.Length > 64 ? resultStr.Substring(0, 64) : resultStr;
-
-            var idPart = $"{this.Id ?? this.Name ?? string.Empty}:{res}";
-            var hash = HashUtility.ComputeShortHash(idPart);
-
-            return $"{this.GetStreamKey()}:{hash}";
+            return base.GetDedupKey();
         }
 
         /// <summary>
@@ -117,28 +103,39 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Gets the display name for rendering (header label): the activity
-        /// sentence when the tool call supplied <c>aim</c> or the tool declares an
-        /// <c>ActivityLabel</c>, else the tool name.
+        /// Gets the completed-state header for the merged card: when the result
+        /// upserts into the pending call card it replaces the spinning gerund
+        /// label with this deterministic "Tool Result: {name}" title.
         /// </summary>
         public override string GetDisplayNameForRender()
         {
-            var label = this.GetActivityLabelForRender();
-            if (label != null)
-            {
-                return label;
-            }
-
             return string.IsNullOrWhiteSpace(this.Name) ? "Tool Result" : $"Tool Result: {this.Name}";
         }
 
         /// <summary>
-        /// Gets the raw markdown content to render for this interaction (pretty-printed JSON
-        /// result followed by one markdown image per attached <see cref="ToolResultImage"/>).
+        /// Gets the raw markdown content for the merged call+result card: a
+        /// compact single-line "args → result" summary leads (the collapsed
+        /// bubble shows real content instead of only the first "{"), then the
+        /// pretty-printed arguments and result, then one markdown image per
+        /// attached <see cref="ToolResultImage"/>.
         /// </summary>
         public override string GetRawContentForRender()
         {
-            var json = this.Result != null && this.Result.HasValues ? JsonConvert.SerializeObject(this.Result, Formatting.Indented) : string.Empty;
+            var argsCompact = this.Arguments != null && this.Arguments.HasValues
+                ? JsonConvert.SerializeObject(this.Arguments, Formatting.None)
+                : "{}";
+
+            string json;
+            if (this.Result != null && this.Result.HasValues)
+            {
+                var compact = JsonConvert.SerializeObject(this.Result, Formatting.None);
+                var indented = JsonConvert.SerializeObject(this.Result, Formatting.Indented);
+                json = $"``{argsCompact}`` → ``{compact}``\n\n```json\n{indented}\n```";
+            }
+            else
+            {
+                json = $"``{argsCompact}``";
+            }
 
             if (this.Images == null || this.Images.Count == 0)
             {
