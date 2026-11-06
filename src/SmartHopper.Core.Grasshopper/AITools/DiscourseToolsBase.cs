@@ -161,7 +161,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "knowledge", "forum", "web", "search", "read-only", "external" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""results"": { ""type"": ""array"" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
-                activityLabel: $"surfing {this.ForumName} forum");
+                activityLabel: $"surfing {this.ForumName} forum",
+                resultLabel: $"surfed {this.ForumName} forum");
         }
 
         /// <summary>
