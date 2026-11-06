@@ -125,6 +125,7 @@ namespace SmartHopper.Infrastructure.Hosting
                     Surfaces = tool.Surfaces,
                     Category = tool.Category,
                     ParametersSchema = tool.ParametersSchema,
+                    ActivityLabel = tool.ActivityLabel,
                 };
             }
 

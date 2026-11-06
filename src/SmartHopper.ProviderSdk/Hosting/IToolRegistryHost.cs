@@ -73,6 +73,12 @@ namespace SmartHopper.ProviderSdk.Hosting
 
         /// <summary>Optional model-side hint. Free-form (e.g. <c>required</c>).</summary>
         public string RequiredUse { get; set; }
+
+        /// <summary>
+        /// Optional short activity sentence (&lt;7 words) shown in the chat UI for
+        /// collapsed tool-call bubbles when the model supplies no <c>aim</c> argument.
+        /// </summary>
+        public string ActivityLabel { get; set; }
     }
 
     /// <summary>

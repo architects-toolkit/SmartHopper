@@ -920,6 +920,20 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 var toolsArray = new JArray();
                 foreach (var tool in eligible)
                 {
+                    var parameters = JObject.Parse(tool.ParametersSchema);
+                    if (parameters["properties"] is JObject properties
+                        && properties["aim"] == null)
+                    {
+                        // Every tool may carry an optional model-written activity
+                        // sentence ("aim", <7 words) shown on the collapsed chat
+                        // bubble in place of the tool's deterministic label.
+                        properties["aim"] = new JObject
+                        {
+                            ["type"] = "string",
+                            ["description"] = "Optional short sentence (fewer than 7 words) describing the aim of this specific call, shown to the user in chat.",
+                        };
+                    }
+
                     var toolObject = new JObject
                     {
                         ["type"] = "function",
@@ -927,7 +941,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                         {
                             ["name"] = tool.Name,
                             ["description"] = tool.RichDescription,
-                            ["parameters"] = JObject.Parse(tool.ParametersSchema),
+                            ["parameters"] = parameters,
                         },
                     };
 
