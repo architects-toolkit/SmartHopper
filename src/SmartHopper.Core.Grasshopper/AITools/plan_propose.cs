@@ -74,7 +74,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "planning", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""planId"": { ""type"": ""string"" }, ""status"": { ""type"": ""string"" }, ""steps"": { ""type"": ""array"" } } }",
                 surfaces: AIToolSurface.Chat,
-                activityLabel: "planning what to do next");
+                activityLabel: "planning what to do next",
+                resultLabel: "planned what to do next");
         }
 
         private async Task<AIReturn> ExecuteAsync(AIToolCall toolCall)

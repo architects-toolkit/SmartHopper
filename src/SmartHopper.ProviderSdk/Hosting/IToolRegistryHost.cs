@@ -79,6 +79,12 @@ namespace SmartHopper.ProviderSdk.Hosting
         /// collapsed tool-call bubbles when the model supplies no <c>aim</c> argument.
         /// </summary>
         public string ActivityLabel { get; set; }
+
+        /// <summary>
+        /// Optional short completed-state sentence (&lt;7 words) shown in the chat card
+        /// header once the result arrives, when the call/result supplies none.
+        /// </summary>
+        public string ResultLabel { get; set; }
     }
 
     /// <summary>

@@ -932,6 +932,11 @@ namespace SmartHopper.ProviderSdk.AIProviders
                             ["type"] = "string",
                             ["description"] = "Optional short sentence (fewer than 7 words) describing the aim of this specific call, shown to the user in chat.",
                         };
+                        properties["aim_done"] = new JObject
+                        {
+                            ["type"] = "string",
+                            ["description"] = "Optional short sentence (fewer than 7 words) describing the completed outcome of this call, shown to the user in chat once the tool finishes.",
+                        };
                     }
 
                     var toolObject = new JObject
