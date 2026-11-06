@@ -143,9 +143,39 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         TargetParameter = value.TargetParameter,
                     })
                     .ToList();
+
+                // A proposal whose wire does not exist must not be staged: it is a
+                // no-op that would otherwise still prompt the user for approval.
+                var stagedProposals = new List<CanvasConnectionReviewProposal>();
+                var stagedIndexByProposalIndex = new Dictionary<int, int>();
+                for (var proposalIdx = 0; proposalIdx < proposals.Count; proposalIdx++)
+                {
+                    var candidate = proposals[proposalIdx];
+                    var sourceParam = ResolveDisconnectEndpoint(
+                        doc.FindObject(candidate.SourceGuid, true), candidate.SourceParameter, output: true);
+                    var targetParam = ResolveDisconnectEndpoint(
+                        doc.FindObject(candidate.TargetGuid, true), candidate.TargetParameter, output: false);
+                    if (sourceParam != null && targetParam != null &&
+                        !targetParam.Sources.Contains(sourceParam))
+                    {
+                        successfulDisconnections.Add(new JObject
+                        {
+                            ["sourceGuid"] = candidate.SourceGuid.ToString(),
+                            ["targetGuid"] = candidate.TargetGuid.ToString(),
+                            ["sourceParam"] = candidate.SourceParameter ?? "(first output)",
+                            ["targetParam"] = candidate.TargetParameter ?? "(first input)",
+                            ["status"] = "noop"
+                        });
+                        continue;
+                    }
+
+                    stagedIndexByProposalIndex[proposalIdx] = stagedProposals.Count;
+                    stagedProposals.Add(candidate);
+                }
+
                 var reviewSession = CanvasChangeReviewService.CreateConnectionSession(
                     this.toolName,
-                    proposals,
+                    stagedProposals,
                     CanvasChangeKind.ConnectionRemoved);
                 var applyReview = reviewSession.Items.Count > 0 &&
                     await CanvasChangeReviewService.ReviewAsync(reviewSession, toolCall.InvocationContext, toolCall.CancellationToken).ConfigureAwait(false);
@@ -193,7 +223,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         continue;
                     }
 
-                    if (!acceptedIndexes.Contains(proposalIndex++))
+                    if (!stagedIndexByProposalIndex.TryGetValue(proposalIndex, out var stagedIndex))
+                    {
+                        // Wire never existed — already reported as a no-op before the review.
+                        proposalIndex++;
+                        continue;
+                    }
+
+                    proposalIndex++;
+                    if (!acceptedIndexes.Contains(stagedIndex))
                     {
                         failedDisconnections.Add(new JObject
                         {

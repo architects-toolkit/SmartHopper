@@ -158,9 +158,49 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     });
                 }
 
+                // A proposal whose wire already exists must not be staged: approving
+                // it would re-prompt for a connection the user already allowed (for
+                // example one just created by gh_put). Existing wires are reported
+                // as no-op successes and never reach the review.
+                var stagedProposals = new List<CanvasConnectionReviewProposal>();
+                var noopConnections = new List<JObject>();
+                var filterTcs = new TaskCompletionSource<bool>();
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                {
+                    try
+                    {
+                        foreach (var proposal in proposals)
+                        {
+                            if (IsAlreadyConnected(doc, proposal))
+                            {
+                                noopConnections.Add(new JObject
+                                {
+                                    ["sourceGuid"] = proposal.SourceGuid.ToString(),
+                                    ["targetGuid"] = proposal.TargetGuid.ToString(),
+                                    ["sourceParam"] = proposal.SourceParameter ?? "(first output)",
+                                    ["targetParam"] = proposal.TargetParameter ?? "(first input)",
+                                    ["status"] = "noop",
+                                });
+                            }
+                            else
+                            {
+                                stagedProposals.Add(proposal);
+                            }
+                        }
+
+                        filterTcs.SetResult(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        filterTcs.SetException(ex);
+                    }
+                });
+                await filterTcs.Task
+                    .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
+
                 var reviewSession = CanvasChangeReviewService.CreateConnectionSession(
                     this.toolName,
-                    proposals,
+                    stagedProposals,
                     CanvasChangeKind.ConnectionAdded);
                 var applyReview = reviewSession.Items.Count > 0 &&
                     await CanvasChangeReviewService.ReviewAsync(reviewSession, toolCall.InvocationContext, toolCall.CancellationToken).ConfigureAwait(false);
@@ -178,9 +218,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         toolCall.CancellationToken.ThrowIfCancellationRequested();
                         var successfulConnections = new List<JObject>();
-                        for (var index = 0; index < proposals.Count; index++)
+                        for (var index = 0; index < stagedProposals.Count; index++)
                         {
-                            var proposal = proposals[index];
+                            var proposal = stagedProposals[index];
                             if (!acceptedIndexes.Contains(index))
                             {
                                 failedConnections.Add(new JObject
@@ -232,12 +272,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var successfulConnections = await connectTcs.Task
                     .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
+                var allSuccessful = noopConnections.Concat(successfulConnections).ToList();
 
                 var toolResult = new JObject
                 {
-                    ["successful"] = JArray.FromObject(successfulConnections),
+                    ["successful"] = JArray.FromObject(allSuccessful),
                     ["failed"] = JArray.FromObject(failedConnections),
-                    ["successCount"] = successfulConnections.Count,
+                    ["successCount"] = allSuccessful.Count,
                     ["failCount"] = failedConnections.Count
                 };
 
@@ -255,5 +296,59 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
         }
 
+        /// <summary>
+        /// Checks whether the resolved wire already exists on the canvas.
+        /// Mirrors the endpoint resolution GhJSON's <c>Connect</c> applies so the
+        /// pre-check can never disagree with the apply step.
+        /// </summary>
+        private static bool IsAlreadyConnected(GH_Document doc, CanvasConnectionReviewProposal proposal)
+        {
+            var sourceParam = ResolveOutputParam(doc.FindObject(proposal.SourceGuid, true), proposal.SourceParameter);
+            var targetParam = ResolveInputParam(doc.FindObject(proposal.TargetGuid, true), proposal.TargetParameter);
+            return sourceParam != null && targetParam != null && targetParam.Sources.Contains(sourceParam);
+        }
+
+        private static IGH_Param? ResolveOutputParam(IGH_DocumentObject? obj, string? paramName)
+        {
+            if (obj is IGH_Param param)
+            {
+                return param;
+            }
+
+            return obj is IGH_Component component
+                ? FindParam(component.Params.Output, paramName)
+                : null;
+        }
+
+        private static IGH_Param? ResolveInputParam(IGH_DocumentObject? obj, string? paramName)
+        {
+            if (obj is IGH_Param param)
+            {
+                return param;
+            }
+
+            return obj is IGH_Component component
+                ? FindParam(component.Params.Input, paramName)
+                : null;
+        }
+
+        private static IGH_Param? FindParam(IList<IGH_Param> parameters, string? paramName)
+        {
+            if (string.IsNullOrWhiteSpace(paramName))
+            {
+                return parameters.FirstOrDefault();
+            }
+
+            var match = parameters.FirstOrDefault(p => string.Equals(p.NickName, paramName, StringComparison.OrdinalIgnoreCase))
+                ?? parameters.FirstOrDefault(p => string.Equals(p.Name, paramName, StringComparison.OrdinalIgnoreCase));
+            if (match != null)
+            {
+                return match;
+            }
+
+            return int.TryParse(paramName, out var index) && index >= 0 && index < parameters.Count
+                ? parameters[index]
+                : null;
+        }
     }
 }
