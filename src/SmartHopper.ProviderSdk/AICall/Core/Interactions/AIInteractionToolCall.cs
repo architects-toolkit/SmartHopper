@@ -16,9 +16,11 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.Hosting;
 namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 {
     /// <summary>
@@ -118,10 +120,18 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Gets the display name for rendering (header label).
+        /// Gets the display name for rendering (header label): the activity
+        /// sentence when the model supplied <c>aim</c> or the tool declares an
+        /// <c>ActivityLabel</c>, else the tool name.
         /// </summary>
         public virtual string GetDisplayNameForRender()
         {
+            var label = this.GetActivityLabelForRender();
+            if (label != null)
+            {
+                return label;
+            }
+
             return string.IsNullOrWhiteSpace(this.Name) ? "Tool Call" : $"Tool Call: {this.Name}";
         }
 
@@ -131,6 +141,42 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         public virtual string GetRawContentForRender()
         {
             return this.Arguments != null && this.Arguments.HasValues ? JsonConvert.SerializeObject(this.Arguments, Formatting.Indented) : string.Empty;
+        }
+
+        /// <summary>
+        /// Resolves the short activity sentence for the collapsed bubble: the
+        /// model-written <c>aim</c> argument when present, else the tool's
+        /// deterministic <c>ActivityLabel</c>. Only sentences shorter than seven
+        /// words are honored.
+        /// </summary>
+        internal string? GetActivityLabelForRender()
+        {
+            var label = SanitizeActivityLabel(this.Arguments?["aim"]?.ToString());
+            if (label != null)
+            {
+                return label;
+            }
+
+            if (!string.IsNullOrWhiteSpace(this.Name)
+                && ProviderSdkHost.ToolRegistry.GetTools().TryGetValue(this.Name, out var tool))
+            {
+                return SanitizeActivityLabel(tool.ActivityLabel);
+            }
+
+            return null;
+        }
+
+        internal static string? SanitizeActivityLabel(string? label)
+        {
+            if (string.IsNullOrWhiteSpace(label))
+            {
+                return null;
+            }
+
+            var cleaned = label.Replace('\n', ' ').Replace('\r', ' ')
+                .Replace("`", string.Empty).Replace("*", string.Empty).Trim();
+            var wordCount = cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+            return wordCount is > 0 and < 7 ? cleaned : null;
         }
 
         /// <summary>

@@ -160,7 +160,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "knowledge", "forum", "web", "search", "read-only", "external" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""results"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
+                activityLabel: $"surfing {this.ForumName} forum");
         }
 
         /// <summary>

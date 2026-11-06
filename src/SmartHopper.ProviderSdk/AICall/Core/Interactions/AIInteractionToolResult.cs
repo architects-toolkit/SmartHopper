@@ -117,10 +117,18 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Gets the display name for rendering (header label).
+        /// Gets the display name for rendering (header label): the activity
+        /// sentence when the tool call supplied <c>aim</c> or the tool declares an
+        /// <c>ActivityLabel</c>, else the tool name.
         /// </summary>
         public override string GetDisplayNameForRender()
         {
+            var label = this.GetActivityLabelForRender();
+            if (label != null)
+            {
+                return label;
+            }
+
             return string.IsNullOrWhiteSpace(this.Name) ? "Tool Result" : $"Tool Result: {this.Name}";
         }
 

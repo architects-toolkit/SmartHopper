@@ -63,7 +63,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "subagents", "orchestration", "background" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""subagent_id"": { ""type"": ""string"" }, ""label"": { ""type"": ""string"" }, ""status"": { ""type"": ""string"" } } }",
-                surfaces: AIToolSurface.Chat);
+                surfaces: AIToolSurface.Chat,
+                activityLabel: "starting some subagents");
 
             yield return new AITool(
                 SendName,

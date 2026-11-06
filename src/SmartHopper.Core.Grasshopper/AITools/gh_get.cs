@@ -106,7 +106,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: tags,
                 outputSchema: outputSchema,
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                activityLabel: "retrieving components on the canvas");
         }
 
         /// <summary>
