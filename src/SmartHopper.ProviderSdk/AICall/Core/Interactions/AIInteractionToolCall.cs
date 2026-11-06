@@ -121,31 +121,34 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 
         /// <summary>
         /// SMIL-animated spinner appended to the pending card header while the
-        /// matching tool result has not been received. Kept inline so the shared
-        /// chat-ui stylesheets need no changes; the element disappears when the
-        /// tool result upserts into the same card (see
+        /// matching tool result has not been received. Carries the shared
+        /// <c>cui-tool-spinner</c> class so chat-ui's themed CSS can take over
+        /// once vendored assets refresh; the element disappears when the tool
+        /// result upserts into the same card (see
         /// <see cref="AIInteractionToolResult.GetStreamKey"/>).
         /// </summary>
         internal const string PendingSpinnerHtml =
-            " <svg width=\"11\" height=\"11\" viewBox=\"0 0 16 16\" style=\"vertical-align:-1px;margin-left:5px;opacity:.7\" aria-hidden=\"true\">" +
+            " <span class=\"cui-tool-spinner\"><svg width=\"11\" height=\"11\" viewBox=\"0 0 16 16\" style=\"vertical-align:-1px;opacity:.7\" aria-hidden=\"true\">" +
             "<circle cx=\"8\" cy=\"8\" r=\"6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" " +
             "stroke-dasharray=\"28 10\" stroke-linecap=\"round\">" +
             "<animateTransform attributeName=\"transform\" type=\"rotate\" from=\"0 8 8\" to=\"360 8 8\" " +
-            "dur=\"0.9s\" repeatCount=\"indefinite\"/></circle></svg>";
+            "dur=\"0.9s\" repeatCount=\"indefinite\"/></circle></svg></span>";
 
         /// <summary>
         /// Gets the display name for rendering (header label): the activity
         /// sentence when the model supplied <c>aim</c> or the tool declares an
-        /// <c>ActivityLabel</c>, else the tool name. A spinner follows the label
-        /// because a bare call is always still awaiting its result; the header
-        /// flips to the completed state when the result upserts into this card.
+        /// <c>ActivityLabel</c>, else the tool name. Emits the shared tool-card
+        /// contract (<c>data-callid</c>/<c>data-state="pending"</c>) and a
+        /// spinner; the header flips to the completed state when the result
+        /// upserts into this card.
         /// </summary>
         public virtual string GetDisplayNameForRender()
         {
             var name = this.GetActivityLabelForRender()
                 ?? (string.IsNullOrWhiteSpace(this.Name) ? "Tool Call" : $"Tool Call: {this.Name}");
 
-            return name + PendingSpinnerHtml;
+            var callId = SanitizeActivityLabel(this.Id) ?? string.Empty;
+            return $"<span class=\"cui-tool-title\" data-callid=\"{callId}\" data-state=\"pending\">{name}</span>" + PendingSpinnerHtml;
         }
 
         /// <summary>
