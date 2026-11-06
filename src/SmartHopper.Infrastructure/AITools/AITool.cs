@@ -170,6 +170,13 @@ namespace SmartHopper.Infrastructure.AITools
         public string? ActivityLabel { get; }
 
         /// <summary>
+        /// Gets the short completed-state sentence (fewer than seven words) shown in the
+        /// chat card header once the tool result arrives — e.g. "retrieved components on
+        /// the canvas". A result <c>summary</c> or the call's <c>aim_done</c> overrides it.
+        /// </summary>
+        public string? ResultLabel { get; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="AITool"/> class.
         /// Creates a new AI tool.
         /// </summary>
@@ -187,6 +194,7 @@ namespace SmartHopper.Infrastructure.AITools
         /// <param name="annotations">MCP-style annotations for the tool.</param>
         /// <param name="surfaces">Execution surfaces on which the tool is available.</param>
         /// <param name="activityLabel">Short activity sentence (&lt;7 words) for the collapsed chat bubble.</param>
+        /// <param name="resultLabel">Short completed-state sentence (&lt;7 words) shown once the result arrives.</param>
         public AITool(
             string name,
             string description,
@@ -201,7 +209,8 @@ namespace SmartHopper.Infrastructure.AITools
             string? outputSchema = null,
             AIToolAnnotations? annotations = null,
             AIToolSurface surfaces = AIToolSurface.All,
-            string? activityLabel = null)
+            string? activityLabel = null,
+            string? resultLabel = null)
         {
             this.Name = name ?? throw new ArgumentNullException(nameof(name));
             this.Description = description ?? throw new ArgumentNullException(nameof(description));
@@ -215,6 +224,7 @@ namespace SmartHopper.Infrastructure.AITools
             this.Surfaces = surfaces;
             this.Tags = tags ?? BuildDefaultTags(category, mutatesCanvas);
             this.ActivityLabel = activityLabel;
+            this.ResultLabel = resultLabel;
             this.OutputSchema = outputSchema ?? "{ \"type\": \"object\" }";
             this.Annotations = annotations ?? new AIToolAnnotations(
                 readOnlyHint: !mutatesCanvas,

@@ -126,6 +126,7 @@ namespace SmartHopper.Infrastructure.Hosting
                     Category = tool.Category,
                     ParametersSchema = tool.ParametersSchema,
                     ActivityLabel = tool.ActivityLabel,
+                    ResultLabel = tool.ResultLabel,
                 };
             }
 

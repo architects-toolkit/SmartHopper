@@ -22,6 +22,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Hosting;
 namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 {
     /// <summary>
@@ -103,13 +104,38 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Gets the completed-state header for the merged card: when the result
-        /// upserts into the pending call card it replaces the spinning gerund
-        /// label with this deterministic "Tool Result: {name}" title.
+        /// Gets the completed-state header for the merged card. Resolution order:
+        /// the tool-written <c>summary</c> field in the result (it knows the real
+        /// outcome — e.g. "found 12 components"), the model-written <c>aim_done</c>
+        /// argument from the call, the tool's deterministic <c>ResultLabel</c>, and
+        /// finally "Tool Result: {name}". All sentences must stay under seven words.
         /// </summary>
         public override string GetDisplayNameForRender()
         {
+            var label = SanitizeActivityLabel(this.Result?["summary"]?.ToString())
+                ?? SanitizeActivityLabel(this.Arguments?["aim_done"]?.ToString())
+                ?? this.GetResultLabelForRender();
+            if (label != null)
+            {
+                return label;
+            }
+
             return string.IsNullOrWhiteSpace(this.Name) ? "Tool Result" : $"Tool Result: {this.Name}";
+        }
+
+        /// <summary>
+        /// Resolves the tool's deterministic completed-state sentence via the
+        /// registered tool catalog, when one is declared.
+        /// </summary>
+        private string? GetResultLabelForRender()
+        {
+            if (!string.IsNullOrWhiteSpace(this.Name)
+                && ProviderSdkHost.ToolRegistry.GetTools().TryGetValue(this.Name, out var tool))
+            {
+                return SanitizeActivityLabel(tool.ResultLabel);
+            }
+
+            return null;
         }
 
         /// <summary>
