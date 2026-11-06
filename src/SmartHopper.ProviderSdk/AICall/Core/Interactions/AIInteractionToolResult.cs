@@ -115,12 +115,11 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
             var label = SanitizeActivityLabel(this.Result?["summary"]?.ToString())
                 ?? SanitizeActivityLabel(this.Arguments?["aim_done"]?.ToString())
                 ?? this.GetResultLabelForRender();
-            if (label != null)
-            {
-                return label;
-            }
+            var title = label
+                ?? (string.IsNullOrWhiteSpace(this.Name) ? "Tool Result" : $"Tool Result: {this.Name}");
 
-            return string.IsNullOrWhiteSpace(this.Name) ? "Tool Result" : $"Tool Result: {this.Name}";
+            var callId = SanitizeActivityLabel(this.Id) ?? string.Empty;
+            return $"<span class=\"cui-tool-title\" data-callid=\"{callId}\" data-state=\"done\">{title}</span>";
         }
 
         /// <summary>

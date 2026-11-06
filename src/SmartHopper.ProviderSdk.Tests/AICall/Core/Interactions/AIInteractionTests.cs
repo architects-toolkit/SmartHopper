@@ -283,10 +283,11 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             var unnamed = new AIInteractionToolCall();
             var named = new AIInteractionToolCall { Name = "my_tool" };
 
-            // Pending calls carry the spinner markup until the result arrives.
-            Assert.StartsWith("Tool Call", unnamed.GetDisplayNameForRender());
-            Assert.StartsWith("Tool Call: my_tool", named.GetDisplayNameForRender());
+            // Pending calls carry the tool-card contract + spinner markup until the result arrives.
+            Assert.Contains("Tool Call", unnamed.GetDisplayNameForRender());
+            Assert.Contains("Tool Call: my_tool", named.GetDisplayNameForRender());
             Assert.Contains("animateTransform", unnamed.GetDisplayNameForRender());
+            Assert.Contains("data-state=\"pending\"", unnamed.GetDisplayNameForRender());
         }
 
         [Fact(DisplayName = nameof(ToolCall_GetRawContentForRender) + PlatformSuffix)]
