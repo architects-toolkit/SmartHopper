@@ -429,8 +429,8 @@ namespace SmartHopper.Infrastructure.Tests
             // Act
             var key = toolResult.GetStreamKey();
 
-            // Assert
-            Assert.Equal("turn:abc123:tool.result:call_xyz", key);
+            // Assert — results share the call key so they merge into one card.
+            Assert.Equal("turn:abc123:tool.call:call_xyz", key);
         }
 
         /// <summary>
@@ -460,11 +460,8 @@ namespace SmartHopper.Infrastructure.Tests
             // Act
             var key = toolResult.GetDedupKey();
 
-            // Assert
-            Assert.StartsWith("turn:abc123:tool.result:call_xyz:", key);
-            var parts = key.Split(':');
-            Assert.Equal(5, parts.Length);
-            Assert.Equal(16, parts[4].Length); // Hash is 16 chars
+            // Assert — merged with the call: identical dedup key, no result suffix.
+            Assert.Equal("turn:abc123:tool.call:call_xyz:none", key);
         }
 
         #endregion
@@ -796,7 +793,8 @@ namespace SmartHopper.Infrastructure.Tests
 
             // Assert - Document expected key patterns
             Assert.Equal($"turn:{turnId}:tool.call:call_1", toolCallKey);
-            Assert.Equal($"turn:{turnId}:tool.result:call_1", toolResultKey);
+            // Call and result share one key: the result merges into the call's card.
+            Assert.Equal($"turn:{turnId}:tool.call:call_1", toolResultKey);
             Assert.Equal($"turn:{turnId}:assistant", assistantStreamKey);
 
             // Expected DOM key for first assistant text: turn:{turnId}:assistant:seg1
