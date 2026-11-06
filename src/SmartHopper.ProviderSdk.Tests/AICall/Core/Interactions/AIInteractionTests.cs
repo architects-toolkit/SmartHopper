@@ -283,8 +283,10 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             var unnamed = new AIInteractionToolCall();
             var named = new AIInteractionToolCall { Name = "my_tool" };
 
-            Assert.Equal("Tool Call", unnamed.GetDisplayNameForRender());
-            Assert.Equal("Tool Call: my_tool", named.GetDisplayNameForRender());
+            // Pending calls carry the spinner markup until the result arrives.
+            Assert.StartsWith("Tool Call", unnamed.GetDisplayNameForRender());
+            Assert.StartsWith("Tool Call: my_tool", named.GetDisplayNameForRender());
+            Assert.Contains("animateTransform", unnamed.GetDisplayNameForRender());
         }
 
         [Fact(DisplayName = nameof(ToolCall_GetRawContentForRender) + PlatformSuffix)]
@@ -351,8 +353,9 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
                 Name = "my_tool",
             };
 
-            Assert.Equal("tool.result:tr_1", withoutTurn.GetStreamKey());
-            Assert.Equal("turn:turn-1:tool.result:my_tool", withTurn.GetStreamKey());
+            // Results share the originating call's key so they merge into one chat card.
+            Assert.Equal("tool.call:tr_1", withoutTurn.GetStreamKey());
+            Assert.Equal("turn:turn-1:tool.call:my_tool", withTurn.GetStreamKey());
         }
 
         [Fact(DisplayName = nameof(ToolResult_GetDedupKey) + PlatformSuffix)]
@@ -366,8 +369,8 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
 
             var key = interaction.GetDedupKey();
 
-            Assert.StartsWith("tool.result:tr_1:", key);
-            Assert.Equal("tool.result:tr_1:".Length + 16, key.Length);
+            // Merged with the originating call: same dedup key, no result suffix.
+            Assert.Equal("tool.call:tr_1:none", key);
         }
 
         [Fact(DisplayName = nameof(ToolResult_MessagesPropagation) + PlatformSuffix)]

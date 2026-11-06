@@ -627,8 +627,9 @@ namespace SmartHopper.Core.UI.Chat
                                 {
                                     if (interaction is AIInteractionToolResult tr)
                                     {
-                                        var followKey = GetFollowKeyForToolResult(tr);
-                                        this._dialog.UpsertMessageAfter(followKey, streamKey, tr, source: "OnInteractionCompletedToolResult");
+                                        // Results share the originating call's stream key, so this
+                                        // upsert replaces the pending card in place.
+                                        this._dialog.UpsertMessageByKey(streamKey, tr, source: "OnInteractionCompletedToolResult");
                                     }
                                     else
                                     {
@@ -1036,20 +1037,6 @@ namespace SmartHopper.Core.UI.Chat
             /// <summary>
             /// Computes the follow key for a tool result, which should appear immediately after its corresponding tool call.
             /// </summary>
-            private static string GetFollowKeyForToolResult(AIInteractionToolResult tr)
-            {
-                try
-                {
-                    var id = !string.IsNullOrEmpty(tr?.Id) ? tr.Id : (tr?.Name ?? string.Empty);
-                    if (!string.IsNullOrWhiteSpace(tr?.TurnId))
-                    {
-                        return $"turn:{tr.TurnId}:tool.call:{id}";
-                    }
-
-                    return $"tool.call:{id}";
-                }
-                catch { return null; }
-            }
         }
     }
 }
