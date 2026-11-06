@@ -50,7 +50,7 @@ namespace SmartHopper.Components.JSON
                 "JsonObject",
                 "Create a JSON object from key-value pairs.\nNumbers, booleans and valid JSON arrays/objects are auto-coerced from their string representation.",
                 "SmartHopper",
-                "JSON")
+                "I. JSON")
         {
         }
 

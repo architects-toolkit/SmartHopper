@@ -51,7 +51,7 @@ namespace SmartHopper.Components.JSON
                 "JsonSetValue",
                 "Set a nested value in a JSON object using a dot-notation path.\nExample: \"address.city\" sets the city in the address object.",
                 "SmartHopper",
-                "JSON")
+                "I. JSON")
         {
         }
 

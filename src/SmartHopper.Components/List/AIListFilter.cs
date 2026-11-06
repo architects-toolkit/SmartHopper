@@ -72,7 +72,7 @@ namespace SmartHopper.Components.List
                 "AIListFilter",
                 "Filter, reorder, shuffle, repeat items or combine multiple tasks on lists of elements using natural language criteria.\nThis components takes the list as a whole. This means that each criterion will filter each full list.\nIf a tree structure is provided, criteria and lists will only match within the same branch paths.",
                 "SmartHopper",
-                "List")
+                "J. Text & Lists")
         {
         }
 

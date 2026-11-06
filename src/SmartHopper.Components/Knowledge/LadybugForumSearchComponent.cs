@@ -62,7 +62,7 @@ namespace SmartHopper.Components.Knowledge
                   "LadybugSearch",
                   "Search for Ladybug Tools Discourse forum posts by query string.",
                   "SmartHopper",
-                  "Knowledge")
+                  "F. Forums")
         {
             this.RunOnlyOnInputChanges = false;
         }

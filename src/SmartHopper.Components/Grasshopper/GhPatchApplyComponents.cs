@@ -47,7 +47,7 @@ namespace SmartHopper.Components.Grasshopper
                 "GhPatchApply",
                 "Apply a `.ghpatch` patch document to a base GhJSON document. By default, refuses to apply on base checksum mismatch.",
                 "SmartHopper",
-                "Grasshopper")
+                "D. Canvas")
         {
             this.RunOnlyOnInputChanges = false;
         }

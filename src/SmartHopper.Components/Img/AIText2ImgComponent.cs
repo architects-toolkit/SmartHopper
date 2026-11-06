@@ -89,7 +89,7 @@ namespace SmartHopper.Components.Img
                 "AIText2Img",
                 "Generate images using AI based on text prompts.",
                 "SmartHopper",
-                "Img")
+                "H. Media")
         {
         }
 

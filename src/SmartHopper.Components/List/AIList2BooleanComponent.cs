@@ -92,7 +92,7 @@ namespace SmartHopper.Components.List
                 "AIList2Boolean",
                 "Use natural language to evaluate a list and output a TRUE/FALSE answer.\nThis components takes the list as a whole. This means that every question will return True or False for each provided list (not for each individual items).\nIf a tree structure is provided, questions and lists will only match within the same branch paths.",
                 "SmartHopper",
-                "List")
+                "J. Text & Lists")
         {
         }
 

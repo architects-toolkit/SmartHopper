@@ -49,7 +49,7 @@ namespace SmartHopper.Components.JSON
                 "JsonArray",
                 "Create a JSON array from a list of items.\nNumbers, booleans and valid JSON arrays/objects are auto-coerced from their string representation.",
                 "SmartHopper",
-                "JSON")
+                "I. JSON")
         {
         }
 

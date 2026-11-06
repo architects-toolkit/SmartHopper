@@ -49,7 +49,7 @@ namespace SmartHopper.Components.Grasshopper
                 "GhTidyUp",
                 "Organize selected components into a tidy grid layout",
                 "SmartHopper",
-                "Grasshopper")
+                "D. Canvas")
         {
         }
 

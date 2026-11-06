@@ -48,7 +48,7 @@ namespace SmartHopper.Components.JSON
                 "Json2Text",
                 "Serialize a JSON value to a Grasshopper string.\nWhen Pretty is true, outputs human-readable indented JSON.",
                 "SmartHopper",
-                "JSON")
+                "I. JSON")
         {
         }
 

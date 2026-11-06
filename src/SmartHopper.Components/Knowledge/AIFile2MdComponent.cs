@@ -149,7 +149,7 @@ namespace SmartHopper.Components.Knowledge
                   "AIFile2Md",
                   "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown with AI-powered image description. Image Mode: 'embed' — embed as base64 with short caption; 'describe' — long AI description; 'caption' — short AI title only.",
                   "SmartHopper",
-                  "Knowledge")
+                  "G. Documents")
         {
             // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
             this.RunOnlyOnInputChanges = false;

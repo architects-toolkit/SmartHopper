@@ -48,7 +48,7 @@ namespace SmartHopper.Components.Knowledge
                   "DiscoursePostOpen",
                   "Open a Discourse forum post in the default web browser by its numeric ID from any Discourse instance.",
                   "SmartHopper",
-                  "Knowledge")
+                  "F. Forums")
         {
             // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
             this.RunOnlyOnInputChanges = false;

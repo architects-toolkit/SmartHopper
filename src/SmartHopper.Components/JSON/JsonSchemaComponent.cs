@@ -52,7 +52,7 @@ namespace SmartHopper.Components.JSON
                 "JsonSchema",
                 "Build a JSON Schema from property definitions.\n\nProperty format: \"name:type\" or \"name:type:description\"\nUse dot-notation for nested properties: \"address.city:string:The city name\"\nValid types: string, number, integer, boolean, object, array",
                 "SmartHopper",
-                "JSON")
+                "I. JSON")
         {
         }
 

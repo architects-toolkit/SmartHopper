@@ -49,7 +49,7 @@ namespace SmartHopper.Components.JSON
                 "JsonArray2Text",
                 "Parse a JSON array string into a Grasshopper text list.\nJSON strings have their outer quotes stripped. Numbers, booleans and objects are serialized to their compact string form.",
                 "SmartHopper",
-                "JSON")
+                "I. JSON")
         {
         }
 

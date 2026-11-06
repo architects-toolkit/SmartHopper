@@ -52,7 +52,7 @@ namespace SmartHopper.Components.Grasshopper
                 "GhGet",
                 "Convert Grasshopper components to GhJSON format, with optional filters",
                 "SmartHopper",
-                "Grasshopper")
+                "D. Canvas")
         {
             this.RunOnlyOnInputChanges = false;
         }

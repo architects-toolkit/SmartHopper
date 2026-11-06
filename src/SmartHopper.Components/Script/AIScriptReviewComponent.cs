@@ -77,7 +77,7 @@ namespace SmartHopper.Components.Script
                   "AIScriptReview",
                   "Review existing Grasshopper script components and get coded checks plus an AI review.\nSupports multiple selected components. Questions are matched to selected components in order.",
                   "SmartHopper",
-                  "Script")
+                  "K. Script")
         {
             this.RunOnlyOnInputChanges = false;
         }

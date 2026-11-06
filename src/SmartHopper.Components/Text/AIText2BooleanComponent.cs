@@ -88,7 +88,7 @@ namespace SmartHopper.Components.Text
                 "AIText2Boolean",
                 "Use natural language to ask a TRUE or FALSE question about a text.\nIf a tree structure is provided, questions and texts will only match within the same branch paths.",
                 "SmartHopper",
-                "Text")
+                "J. Text & Lists")
         {
         }
 

@@ -63,7 +63,7 @@ namespace SmartHopper.Components.Knowledge
                   "AIDiscoursePostSumm",
                   "Generate a concise summary of a Discourse forum post by ID from any Discourse instance using the configured AI provider.",
                   "SmartHopper",
-                  "Knowledge")
+                  "F. Forums")
         {
         }
 

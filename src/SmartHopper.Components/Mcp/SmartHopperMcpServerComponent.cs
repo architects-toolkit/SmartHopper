@@ -66,7 +66,7 @@ namespace SmartHopper.Components.Mcp
                 "MCP",
                 "Exposes SmartHopper's AI tools to external Model Context Protocol clients (Claude Desktop, Cursor, VS Code, Claude Code) over a loopback HTTP server. Editing and view-control tools are disabled by default; enable them explicitly via the inputs.",
                 "SmartHopper",
-                "MCP")
+                "A. AI")
         {
         }
 

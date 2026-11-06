@@ -65,7 +65,7 @@ namespace SmartHopper.Components.Knowledge
                   "AIMcNeelTopicSumm",
                   "Generate a concise summary of a McNeel Discourse forum topic (all posts) by topic ID using the configured AI provider.",
                   "SmartHopper",
-                  "Knowledge")
+                  "F. Forums")
         {
             // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
             this.RunOnlyOnInputChanges = false;

@@ -119,7 +119,7 @@ namespace SmartHopper.Components.Knowledge
                 "AIWeb2Md",
                 "Convert a web page (URL) to Markdown with optional AI-powered image description. Image Mode: 'link' (default) — keep remote image URLs as Markdown links; 'embed' — download and embed as base64 data URI with a short AI caption; 'describe' — long AI description; 'caption' — short AI-generated title.",
                 "SmartHopper",
-                "Knowledge")
+                "G. Documents")
         {
             // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
             this.RunOnlyOnInputChanges = false;

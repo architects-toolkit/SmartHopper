@@ -44,7 +44,7 @@ namespace SmartHopper.Components.Grasshopper
                 "GhRetrieveComponents",
                 "Get a JSON list of all available Grasshopper components in your Grasshopper installation. Use optional category filter to focus the results.",
                 "SmartHopper",
-                "Grasshopper")
+                "D. Canvas")
         {
         }
 

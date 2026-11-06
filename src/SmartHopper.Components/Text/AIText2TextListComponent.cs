@@ -86,7 +86,7 @@ namespace SmartHopper.Components.Text
                 "AIText2TextList",
                 "Generate a list of text items from a prompt and count using AI.\nIf a tree is provided, prompts and counts will match by branch path.",
                 "SmartHopper",
-                "Text")
+                "J. Text & Lists")
         {
         }
 

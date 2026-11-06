@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Grasshopper
                 "GhValidate",
                 "Validates a GhJSON document against the official schema and performs structural checks.",
                 "SmartHopper",
-                "Grasshopper")
+                "D. Canvas")
         {
         }
 

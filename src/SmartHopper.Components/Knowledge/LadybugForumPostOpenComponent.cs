@@ -47,7 +47,7 @@ namespace SmartHopper.Components.Knowledge
                   "LadybugPostOpen",
                   "Open a Ladybug Tools Discourse forum post in the default web browser by its numeric ID.",
                   "SmartHopper",
-                  "Knowledge")
+                  "F. Forums")
         {
             this.RunOnlyOnInputChanges = false;
         }

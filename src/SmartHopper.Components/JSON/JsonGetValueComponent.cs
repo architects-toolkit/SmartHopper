@@ -49,7 +49,7 @@ namespace SmartHopper.Components.JSON
                 "JsonGetValue",
                 "Extract a nested value from a JSON object using dot-notation path.\nExample: \"address.city\" extracts the city from the address object.",
                 "SmartHopper",
-                "JSON")
+                "I. JSON")
         {
         }
 

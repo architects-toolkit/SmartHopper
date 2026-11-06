@@ -97,7 +97,7 @@ namespace SmartHopper.Components.JSON
                 "AIText2Json",
                 "Generate structured JSON from a prompt using AI, conforming to a provided JSON Schema.\nIf a tree structure is provided, prompts and schemas will only match within the same branch paths.",
                 "SmartHopper",
-                "JSON")
+                "J. Text & Lists")
         {
         }
 

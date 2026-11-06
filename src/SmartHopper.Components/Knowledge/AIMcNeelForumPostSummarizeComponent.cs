@@ -65,7 +65,7 @@ namespace SmartHopper.Components.Knowledge
                   "AIMcNeelPostSumm",
                   "Generate a concise summary of a McNeel Discourse forum post by ID using the configured AI provider.",
                   "SmartHopper",
-                  "Knowledge")
+                  "F. Forums")
         {
         }
 

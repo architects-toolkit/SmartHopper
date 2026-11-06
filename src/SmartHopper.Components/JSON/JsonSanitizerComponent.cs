@@ -58,7 +58,7 @@ namespace SmartHopper.Components.JSON
                 "Pipeline: direct parse → strip markdown code-block fences → extract first complete JSON object via brace-depth tracking → sanitize (escape control chars inside strings, normalize smart quotes, remove trailing commas, close unterminated strings and unbalanced braces/brackets).\n" +
                 "Outputs the minified JSON and a summary of the operations performed.",
                 "SmartHopper",
-                "JSON")
+                "I. JSON")
         {
         }
 

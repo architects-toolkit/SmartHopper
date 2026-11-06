@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Grasshopper
         /// Initializes a new instance of the <see cref="GhPutComponents"/> class.
         /// </summary>
         public GhPutComponents()
-            : base("Place GhJSON", "GhPut", "Convert GhJSON to a Grasshopper components on the canvas.\n\nAccepts either a GhJSON document string or an absolute path to a .ghjson file. New components will be added at the bottom of the canvas.", "SmartHopper", "Grasshopper")
+            : base("Place GhJSON", "GhPut", "Convert GhJSON to a Grasshopper components on the canvas.\n\nAccepts either a GhJSON document string or an absolute path to a .ghjson file. New components will be added at the bottom of the canvas.", "SmartHopper", "D. Canvas")
         {
             // Always run when Run is true, even if inputs haven't changed
             // This allows re-placing the same JSON multiple times if needed

@@ -41,7 +41,7 @@ namespace SmartHopper.Components.Grasshopper
                   "SaveGhPatch",
                   "Save a GhPatch string to a .ghpatch file. If the path includes an extension, it will be replaced with .ghpatch.",
                   "SmartHopper",
-                  "Grasshopper")
+                  "E. GhJSON Files")
         {
             this.RunOnlyOnInputChanges = false;
         }

@@ -34,7 +34,7 @@ namespace SmartHopper.Components.Misc
                 "DMetrics",
                 "Deconstructs SmartHopper usage metrics into individual values. Accepts a tree of metrics and preserves branch topology in outputs.",
                 "SmartHopper",
-                "Utils")
+                "L. Metrics")
         {
         }
 

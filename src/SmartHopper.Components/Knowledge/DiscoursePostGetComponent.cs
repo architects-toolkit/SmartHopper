@@ -55,7 +55,7 @@ namespace SmartHopper.Components.Knowledge
                   "DiscoursePostGet",
                   "Retrieve a full Discourse forum post by its numeric ID from any Discourse instance.",
                   "SmartHopper",
-                  "Knowledge")
+                  "F. Forums")
         {
             // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
             this.RunOnlyOnInputChanges = false;

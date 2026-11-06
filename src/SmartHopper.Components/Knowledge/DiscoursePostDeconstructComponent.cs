@@ -39,7 +39,7 @@ namespace SmartHopper.Components.Knowledge
                   "DeconstructDiscoursePost",
                   "Deconstruct a Discourse forum post into its individual properties (id, username, topic id, title, date, etc.). Works with any Discourse instance, including McNeel and Ladybug forum posts.",
                   "SmartHopper",
-                  "Knowledge")
+                  "F. Forums")
         {
         }
 

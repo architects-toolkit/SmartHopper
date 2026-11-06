@@ -59,7 +59,7 @@ namespace SmartHopper.Components.Knowledge
                   "McNeelSearch",
                   "Search for McNeel Discourse forum posts by query string.",
                   "SmartHopper",
-                  "Knowledge")
+                  "F. Forums")
         {
             this.RunOnlyOnInputChanges = false;
         }

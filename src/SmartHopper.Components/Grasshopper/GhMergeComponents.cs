@@ -47,7 +47,7 @@ namespace SmartHopper.Components.Grasshopper
                 "GhMerge",
                 "Merge two GhJSON documents into one. Target takes priority on conflicts (duplicate components by GUID are skipped from source).",
                 "SmartHopper",
-                "Grasshopper")
+                "D. Canvas")
         {
         }
 

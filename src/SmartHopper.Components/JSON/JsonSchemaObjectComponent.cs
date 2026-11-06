@@ -59,7 +59,7 @@ namespace SmartHopper.Components.JSON
                 "JsonSchemaObj",
                 "Build a JSON Schema object property definition composed of Properties.\n\nEach property is prefixed with the object name using dot-notation.\nConnect property outputs from JsonSchemaProp to Properties.\nThe output list can be merged with other properties and fed directly into Json Schema component.",
                 "SmartHopper",
-                "JSON")
+                "I. JSON")
         {
         }
 

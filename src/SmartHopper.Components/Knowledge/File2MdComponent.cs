@@ -61,7 +61,7 @@ namespace SmartHopper.Components.Knowledge
                   "File2Md",
                   "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text and extract embedded images. No AI required. Use AIFile2Md for AI-powered image description.",
                   "SmartHopper",
-                  "Knowledge")
+                  "G. Documents")
         {
             this.RunOnlyOnInputChanges = false;
         }

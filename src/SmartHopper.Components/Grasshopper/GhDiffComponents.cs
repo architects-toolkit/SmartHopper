@@ -46,7 +46,7 @@ namespace SmartHopper.Components.Grasshopper
                 "GhDiff",
                 "Diff two GhJSON documents and produce a `.ghpatch` document describing the differences. Components are matched by instanceGuid > id > structural fingerprint.",
                 "SmartHopper",
-                "Grasshopper")
+                "D. Canvas")
         {
         }
 

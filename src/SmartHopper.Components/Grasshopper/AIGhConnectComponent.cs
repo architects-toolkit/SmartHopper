@@ -68,7 +68,7 @@ namespace SmartHopper.Components.Grasshopper
                   "AIGhConnect",
                   "Use AI to intelligently connect selected Grasshopper components based on a described purpose.\nSelect components on the canvas, describe the desired wiring goal, and let AI suggest and create the connections.",
                   "SmartHopper",
-                  "Grasshopper")
+                  "D. Canvas")
         {
             this.RunOnlyOnInputChanges = false;
         }

@@ -87,7 +87,7 @@ namespace SmartHopper.Components.Knowledge
                 "Web2Md",
                 "Convert a web page (URL) to Markdown text. No AI required. Supports Wikipedia, GitHub, GitLab, Discourse, Stack Exchange, and generic HTML pages. Images are kept as remote Markdown links.",
                 "SmartHopper",
-                "Knowledge")
+                "G. Documents")
         {
             // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
             this.RunOnlyOnInputChanges = false;

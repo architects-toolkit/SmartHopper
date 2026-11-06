@@ -69,7 +69,7 @@ namespace SmartHopper.Components.Grasshopper
                   "AIGhReport",
                   "Generate a comprehensive canvas status report including object counts, topology, groups, scribbles, viewport contents, metadata, and runtime messages. Optionally includes an AI-generated summary of the file purpose and current view.",
                   "SmartHopper",
-                  "Grasshopper")
+                  "D. Canvas")
         {
         }
 

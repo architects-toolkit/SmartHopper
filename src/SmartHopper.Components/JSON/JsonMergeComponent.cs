@@ -49,7 +49,7 @@ namespace SmartHopper.Components.JSON
                 "JsonMerge",
                 "Merge multiple JSON objects into one.\nShallow merge: later objects overwrite keys from earlier ones on conflict.",
                 "SmartHopper",
-                "JSON")
+                "I. JSON")
         {
         }
 

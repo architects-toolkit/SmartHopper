@@ -62,7 +62,7 @@ namespace SmartHopper.Components.Knowledge
                   "AILadybugPostSumm",
                   "Generate a concise summary of a Ladybug Tools Discourse forum post by ID using the configured AI provider.",
                   "SmartHopper",
-                  "Knowledge")
+                  "F. Forums")
         {
         }
 

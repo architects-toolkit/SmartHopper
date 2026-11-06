@@ -96,7 +96,7 @@ namespace SmartHopper.Components.Img
                   "AIImg2Text",
                   "Describe or analyze images using a vision AI model. Accepts image file paths or URLs and returns AI-generated text descriptions.",
                   "SmartHopper",
-                  "Img")
+                  "H. Media")
         {
         }
 

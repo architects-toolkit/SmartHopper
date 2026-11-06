@@ -49,7 +49,7 @@ namespace SmartHopper.Components.Img
             string nickname,
             string description,
             string toolName)
-            : base(name, nickname, description, "SmartHopper", "Img")
+            : base(name, nickname, description, "SmartHopper", "H. Media")
         {
             this.toolName = toolName;
             this.RunOnlyOnInputChanges = false;

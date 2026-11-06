@@ -39,7 +39,7 @@ namespace SmartHopper.Components.Misc
                 "CMetrics",
                 "Combines multiple metrics entries within each branch into a single aggregated metric. Preserves branch topology.",
                 "SmartHopper",
-                "Utils")
+                "L. Metrics")
         {
         }
 

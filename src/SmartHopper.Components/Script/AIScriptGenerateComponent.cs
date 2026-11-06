@@ -87,7 +87,7 @@ namespace SmartHopper.Components.Script
                   "AIScriptGen",
                   "Create or edit Grasshopper script components from natural language instructions. Outputs GhJSON that can be placed on canvas using GH Put.\nIn create mode: processes each prompt as a separate branch.\nIn edit mode: matches prompts to selected components in order.",
                   "SmartHopper",
-                  "Script")
+                  "K. Script")
         {
             this.RunOnlyOnInputChanges = false;
         }

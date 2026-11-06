@@ -44,7 +44,7 @@ namespace SmartHopper.Components.Grasshopper
                   "OpenGhPatch",
                   "Open a .ghpatch file from disk and return its content with validation output. Input files must have extension .ghpatch.",
                   "SmartHopper",
-                  "Grasshopper")
+                  "E. GhJSON Files")
         {
             this.RunOnlyOnInputChanges = false;
         }

@@ -55,7 +55,7 @@ namespace SmartHopper.Components.Knowledge
                   "LadybugPostGet",
                   "Retrieve a full Ladybug Tools Discourse forum post by its numeric ID.",
                   "SmartHopper",
-                  "Knowledge")
+                  "F. Forums")
         {
             // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
             this.RunOnlyOnInputChanges = false;

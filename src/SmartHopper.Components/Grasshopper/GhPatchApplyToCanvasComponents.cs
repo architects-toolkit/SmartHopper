@@ -53,7 +53,7 @@ namespace SmartHopper.Components.Grasshopper
                 "GhPatchApplyCanvas",
                 "Apply a `.ghpatch` directly to the current Grasshopper canvas. Only actually changed components are replaced.",
                 "SmartHopper",
-                "Grasshopper")
+                "D. Canvas")
         {
             this.RunOnlyOnInputChanges = false;
         }
