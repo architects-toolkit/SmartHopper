@@ -32,6 +32,7 @@ using Grasshopper.Kernel.Special;
 using Newtonsoft.Json.Linq;
 using Rhino;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
     /// <summary>
@@ -72,62 +73,62 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// <param name="redraw">True to redraw canvas immediately.</param>
         public static void SetComponentPreview(Guid guid, bool previewOn, bool redraw = true)
         {
-            Debug.WriteLine($"[ComponentManipulation] SetComponentPreview: guid={guid}, previewOn={previewOn}");
+            Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] SetComponentPreview: guid={guid}, previewOn={previewOn}");
             var obj = CanvasAccess.FindInstance(guid);
-            Debug.WriteLine(obj != null
+            Logger.Trace(typeof(ComponentManipulation).FullName, obj != null
                 ? $"[ComponentManipulation] Found object of type {obj.GetType().Name}"
                 : "[ComponentManipulation] Found null object");
             if (obj is GH_Component component)
             {
-                Debug.WriteLine($"[ComponentManipulation] Component.IsPreviewCapable={component.IsPreviewCapable}, Hidden={component.Hidden}");
+                Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] Component.IsPreviewCapable={component.IsPreviewCapable}, Hidden={component.Hidden}");
                 if (component.IsPreviewCapable)
                 {
                     obj.RecordUndoEvent("[SH] Set Component Preview");
                     component.Hidden = !previewOn;
-                    Debug.WriteLine($"[ComponentManipulation] New Hidden={component.Hidden}");
+                    Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] New Hidden={component.Hidden}");
                     if (redraw)
                     {
                         Instances.RedrawCanvas();
-                        Debug.WriteLine("[ComponentManipulation] Canvas redrawn");
+                        Logger.Trace(typeof(ComponentManipulation).FullName, "[ComponentManipulation] Canvas redrawn");
                     }
                 }
                 else
                 {
-                    Debug.WriteLine("[ComponentManipulation] Component is not preview capable");
+                    Logger.Trace(typeof(ComponentManipulation).FullName, "[ComponentManipulation] Component is not preview capable");
                 }
             }
             else if (obj is IGH_Param param)
             {
-                Debug.WriteLine($"[ComponentManipulation] IGH_Param found: {param.GetType().Name}");
+                Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] IGH_Param found: {param.GetType().Name}");
 
                 // Check if the parameter implements IGH_PreviewObject for preview capabilities
                 if (param is IGH_PreviewObject paramPreview)
                 {
-                    Debug.WriteLine($"[ComponentManipulation] IGH_Param.Hidden={paramPreview.Hidden}, IsPreviewCapable={paramPreview.IsPreviewCapable}");
+                    Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] IGH_Param.Hidden={paramPreview.Hidden}, IsPreviewCapable={paramPreview.IsPreviewCapable}");
                     if (paramPreview.IsPreviewCapable)
                     {
                         obj.RecordUndoEvent("[SH] Set Parameter Preview");
                         paramPreview.Hidden = !previewOn;
-                        Debug.WriteLine($"[ComponentManipulation] New Hidden={paramPreview.Hidden}");
+                        Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] New Hidden={paramPreview.Hidden}");
                         if (redraw)
                         {
                             Instances.RedrawCanvas();
-                            Debug.WriteLine("[ComponentManipulation] Canvas redrawn");
+                            Logger.Trace(typeof(ComponentManipulation).FullName, "[ComponentManipulation] Canvas redrawn");
                         }
                     }
                     else
                     {
-                        Debug.WriteLine("[ComponentManipulation] IGH_Param is not preview capable");
+                        Logger.Trace(typeof(ComponentManipulation).FullName, "[ComponentManipulation] IGH_Param is not preview capable");
                     }
                 }
                 else
                 {
-                    Debug.WriteLine("[ComponentManipulation] IGH_Param does not implement IGH_PreviewObject");
+                    Logger.Trace(typeof(ComponentManipulation).FullName, "[ComponentManipulation] IGH_Param does not implement IGH_PreviewObject");
                 }
             }
             else
             {
-                Debug.WriteLine("[ComponentManipulation] Object is not previewable (not a GH_DocumentObject)");
+                Logger.Trace(typeof(ComponentManipulation).FullName, "[ComponentManipulation] Object is not previewable (not a GH_DocumentObject)");
             }
         }
 
@@ -139,38 +140,38 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// <param name="redraw">True to redraw canvas immediately.</param>
         public static void SetComponentLock(Guid guid, bool locked, bool redraw = true)
         {
-            Debug.WriteLine($"[ComponentManipulation] SetComponentLock: guid={guid}, locked={locked}");
+            Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] SetComponentLock: guid={guid}, locked={locked}");
             var obj = CanvasAccess.FindInstance(guid);
-            Debug.WriteLine(obj != null
+            Logger.Trace(typeof(ComponentManipulation).FullName, obj != null
                 ? $"[ComponentManipulation] Found object of type {obj.GetType().Name}"
                 : "[ComponentManipulation] Found null object");
             if (obj is GH_Component component)
             {
-                Debug.WriteLine($"[ComponentManipulation] Component.Locked={component.Locked}");
+                Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] Component.Locked={component.Locked}");
                 obj.RecordUndoEvent("[SH] Set Component Lock");
                 component.Locked = locked;
-                Debug.WriteLine($"[ComponentManipulation] New Locked={component.Locked}");
+                Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] New Locked={component.Locked}");
                 if (redraw)
                 {
                     Instances.RedrawCanvas();
-                    Debug.WriteLine("[ComponentManipulation] Canvas redrawn");
+                    Logger.Trace(typeof(ComponentManipulation).FullName, "[ComponentManipulation] Canvas redrawn");
                 }
             }
             else if (obj is IGH_Param param)
             {
-                Debug.WriteLine($"[ComponentManipulation] IGH_Param.Locked={param.Locked}");
+                Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] IGH_Param.Locked={param.Locked}");
                 obj.RecordUndoEvent("[SH] Set Component Lock");
                 param.Locked = locked;
-                Debug.WriteLine($"[ComponentManipulation] New Locked={param.Locked}");
+                Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] New Locked={param.Locked}");
                 if (redraw)
                 {
                     Instances.RedrawCanvas();
-                    Debug.WriteLine("[ComponentManipulation] Canvas redrawn");
+                    Logger.Trace(typeof(ComponentManipulation).FullName, "[ComponentManipulation] Canvas redrawn");
                 }
             }
             else
             {
-                Debug.WriteLine("[ComponentManipulation] Object is neither a GH_Component nor a GH_Param");
+                Logger.Trace(typeof(ComponentManipulation).FullName, "[ComponentManipulation] Object is neither a GH_Component nor a GH_Param");
             }
         }
 
@@ -254,7 +255,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 var obj = CanvasAccess.FindInstance(guid);
                 if (obj == null)
                 {
-                    Debug.WriteLine($"[ComponentManipulation] ButtonClick: object not found {guid}");
+                    Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] ButtonClick: object not found {guid}");
                     return;
                 }
 
@@ -271,7 +272,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 }
                 else
                 {
-                    Debug.WriteLine($"[ComponentManipulation] ButtonClick: object {guid} is not a Grasshopper Button");
+                    Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] ButtonClick: object {guid} is not a Grasshopper Button");
                 }
             });
 
@@ -306,7 +307,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ComponentManipulation] ButtonClick failed for {guid}: {ex.Message}");
+                Logger.Exception(typeof(ComponentManipulation).FullName, ex, $"[ComponentManipulation] ButtonClick failed for {guid}: {ex.Message}");
                 return false;
             }
         }

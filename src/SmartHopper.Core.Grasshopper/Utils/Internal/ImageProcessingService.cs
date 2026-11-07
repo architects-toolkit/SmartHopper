@@ -31,6 +31,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
+    using SmartHopper.ProviderSdk.Logging;
 
     /// <summary>
     /// Shared image processing utilities used by <c>file2md</c> and <c>web2md</c>.
@@ -135,7 +136,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ImageProcessingService] DescribeImageAsync failed: {ex.Message}");
+                Logger.Exception(typeof(ImageProcessingService).FullName, ex, $"[ImageProcessingService] DescribeImageAsync failed: {ex.Message}");
                 return "[Image description failed]";
             }
         }
@@ -161,7 +162,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                 var response = await client.GetAsync(new Uri(imageUrl)).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
-                    Debug.WriteLine($"[ImageProcessingService] Failed to download image {imageUrl}: HTTP {(int)response.StatusCode}");
+                    Logger.Error(typeof(ImageProcessingService).FullName, $"[ImageProcessingService] Failed to download image {imageUrl}: HTTP {(int)response.StatusCode}");
                     return (null, null);
                 }
 
@@ -171,7 +172,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ImageProcessingService] DownloadImageAsync failed for {imageUrl}: {ex.Message}");
+                Logger.Exception(typeof(ImageProcessingService).FullName, ex, $"[ImageProcessingService] DownloadImageAsync failed for {imageUrl}: {ex.Message}");
                 return (null, null);
             }
             finally

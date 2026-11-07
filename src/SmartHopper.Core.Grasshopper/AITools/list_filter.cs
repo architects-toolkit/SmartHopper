@@ -33,6 +33,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Hosting;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -126,7 +127,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine("[ListTools] Running FilterList tool");
+                Logger.For<list_filter>().Trace("[ListTools] Running FilterList tool");
 
                 // Extract parameters
                 string providerName = toolCall.Provider;
@@ -194,7 +195,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                Debug.WriteLine($"[ListTools] Got indices: {string.Join(", ", indices)}");
+                Logger.For<list_filter>().Trace($"[ListTools] Got indices: {string.Join(", ", indices)}");
 
                 // Success case
                 var toolResult = new JObject();
@@ -209,7 +210,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ListTools] Error in FilterList: {ex.Message}");
+                Logger.For<list_filter>().Exception(ex, $"[ListTools] Error in FilterList: {ex.Message}");
 
                 output.CreateError($"Error: {ex.Message}");
                 return output;

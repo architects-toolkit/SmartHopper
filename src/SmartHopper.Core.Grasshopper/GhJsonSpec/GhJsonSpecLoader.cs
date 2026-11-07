@@ -28,6 +28,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.GhJsonSpec
 {
     /// <summary>
@@ -156,7 +157,7 @@ namespace SmartHopper.Core.Grasshopper.GhJsonSpec
                 }
                 catch (Exception ex) when (!(ex is OperationCanceledException))
                 {
-                    Debug.WriteLine($"[GhJsonSpecLoader] Embedded load failed for '{fileName}': {ex.Message}");
+                    Logger.Exception(typeof(GhJsonSpecLoader).FullName, ex, $"[GhJsonSpecLoader] Embedded load failed for '{fileName}': {ex.Message}");
                 }
             }
 
@@ -168,11 +169,11 @@ namespace SmartHopper.Core.Grasshopper.GhJsonSpec
             {
                 if (!preferOnline)
                 {
-                    Debug.WriteLine($"[GhJsonSpecLoader] Online load failed for '{fileName}', rethrowing: {ex.Message}");
+                    Logger.Exception(typeof(GhJsonSpecLoader).FullName, ex, $"[GhJsonSpecLoader] Online load failed for '{fileName}', rethrowing: {ex.Message}");
                     throw;
                 }
 
-                Debug.WriteLine($"[GhJsonSpecLoader] Online load failed for '{fileName}', falling back to embedded: {ex.Message}");
+                Logger.Warning(typeof(GhJsonSpecLoader).FullName, $"[GhJsonSpecLoader] Online load failed for '{fileName}', falling back to embedded: {ex.Message}");
                 return LoadEmbedded(fileName);
             }
         }
@@ -204,7 +205,7 @@ namespace SmartHopper.Core.Grasshopper.GhJsonSpec
 
             using var reader = new StreamReader(stream);
             var content = reader.ReadToEnd();
-            Debug.WriteLine($"[GhJsonSpecLoader] Loaded '{fileName}' from embedded resource '{resourceName}' ({content.Length} chars).");
+            Logger.Trace(typeof(GhJsonSpecLoader).FullName, $"[GhJsonSpecLoader] Loaded '{fileName}' from embedded resource '{resourceName}' ({content.Length} chars).");
             return content;
         }
 
@@ -216,7 +217,7 @@ namespace SmartHopper.Core.Grasshopper.GhJsonSpec
             using var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            Debug.WriteLine($"[GhJsonSpecLoader] Loaded '{fileName}' from online source '{url}' ({content.Length} chars).");
+            Logger.Trace(typeof(GhJsonSpecLoader).FullName, $"[GhJsonSpecLoader] Loaded '{fileName}' from online source '{url}' ({content.Length} chars).");
             return content;
         }
 

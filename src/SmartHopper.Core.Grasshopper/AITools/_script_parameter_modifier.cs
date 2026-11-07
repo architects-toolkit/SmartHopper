@@ -32,6 +32,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -405,7 +406,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         toolCall.CancellationToken.ThrowIfCancellationRequested();
                         string message = operation(args);
-                        Debug.WriteLine($"[{toolName}] {message}");
+                        Logger.For<script_parameter_modifier>().Trace($"[{toolName}] {message}");
                         var body = AIBodyBuilder.Create()
                             .AddToolResult(new JObject
                             {
@@ -426,7 +427,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{toolName}] Error: {ex.Message}");
+                Logger.For<script_parameter_modifier>().Exception(ex, $"[{toolName}] Error: {ex.Message}");
                 output.CreateError(ex.Message);
                 return output;
             }

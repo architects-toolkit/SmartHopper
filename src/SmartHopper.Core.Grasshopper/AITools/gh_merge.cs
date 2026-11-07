@@ -28,6 +28,7 @@ using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -101,13 +102,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 sourceDoc = GhJson.Fix(sourceDoc).Document;
 
                 // Merge documents using GhJson façade
-                Debug.WriteLine("[gh_merge] Merging documents...");
+                Logger.For<gh_merge>().Trace("[gh_merge] Merging documents...");
                 var mergeResult = GhJson.Merge(targetDoc, sourceDoc);
 
                 // Serialize merged document back to JSON using GhJson facade
                 var mergedJson = GhJson.ToJson(mergeResult.Document, new WriteOptions { Indented = false });
 
-                Debug.WriteLine($"[gh_merge] Merge complete: +{mergeResult.ComponentsAdded} components, +{mergeResult.ConnectionsAdded} connections, +{mergeResult.GroupsAdded} groups");
+                Logger.For<gh_merge>().Trace($"[gh_merge] Merge complete: +{mergeResult.ComponentsAdded} components, +{mergeResult.ConnectionsAdded} connections, +{mergeResult.GroupsAdded} groups");
 
                 var toolResult = new JObject
                 {
@@ -129,7 +130,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_merge] Error: {ex.Message}");
+                Logger.For<gh_merge>().Exception(ex, $"[gh_merge] Error: {ex.Message}");
                 output.CreateError(ex.Message);
                 return output;
             }

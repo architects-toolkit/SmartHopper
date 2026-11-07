@@ -37,6 +37,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -217,7 +218,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var existingLanguage = ScriptComponentRegistry.GetLanguageKey(existingComp.ComponentGuid);
                 var existingInstanceGuid = existingComp.InstanceGuid;
 
-                Debug.WriteLine($"[script_edit] Existing language: {existingLanguage}, InstanceGuid: {existingInstanceGuid}");
+                Logger.For<script_edit>().Trace($"[script_edit] Existing language: {existingLanguage}, InstanceGuid: {existingInstanceGuid}");
 
                 // Build user prompt with GhJSON
                 var userPrompt = this.userPromptTemplate
@@ -262,8 +263,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var changesSummary = responseJson["changesSummary"]?.ToString() ?? "Script updated";
                 var nickname = responseJson["nickname"]?.ToString() ?? existingComp.NickName ?? "AI Script";
 
-                Debug.WriteLine($"[script_edit] New script length: {newScriptCode.Length}");
-                Debug.WriteLine($"[script_edit] New inputs: {newInputs.Count}, outputs: {newOutputs.Count}");
+                Logger.For<script_edit>().Trace($"[script_edit] New script length: {newScriptCode.Length}");
+                Logger.For<script_edit>().Trace($"[script_edit] New inputs: {newInputs.Count}, outputs: {newOutputs.Count}");
 
                 // Validate script code for non-Rhino geometry patterns and retry if needed
                 var validationResult = ScriptCodeValidator.Validate(newScriptCode, existingLanguage);
@@ -272,7 +273,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 while (!validationResult.IsValid && retryCount < MaxValidationRetries)
                 {
                     retryCount++;
-                    Debug.WriteLine($"[script_edit] Validation failed (attempt {retryCount}/{MaxValidationRetries}): {string.Join("; ", validationResult.Issues)}");
+                    Logger.For<script_edit>().Warning($"[script_edit] Validation failed (attempt {retryCount}/{MaxValidationRetries}): {string.Join("; ", validationResult.Issues)}");
 
                     // Build correction request
                     var correctionBuilder = AIBodyBuilder.Create()
@@ -295,7 +296,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (!correctionResult.Success)
                     {
-                        Debug.WriteLine($"[script_edit] Correction request failed, using original script");
+                        Logger.For<script_edit>().Warning($"[script_edit] Correction request failed, using original script");
                         break;
                     }
 
@@ -317,7 +318,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     // Continue with the script but log a warning - it may still work
                     var validationWarning = $"Script validation failed after {retryCount} retries: {string.Join("; ", validationResult.Issues)}";
-                    Debug.WriteLine($"[script_edit] {validationWarning}");
+                    Logger.For<script_edit>().Trace($"[script_edit] {validationWarning}");
                 }
 
                 // Get component info for the language
@@ -358,7 +359,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[script_edit] Error: {ex.Message}");
+                Logger.For<script_edit>().Exception(ex, $"[script_edit] Error: {ex.Message}");
                 output.CreateError(ex.Message);
                 return output;
             }
@@ -504,7 +505,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Step 1: Call gh_get_by_guid to retrieve GhJSON for the target component
-                Debug.WriteLine($"[{this.wrapperToolName}] Step 1: Calling gh_get_by_guid for {instanceGuid}");
+                Logger.For<script_edit>().Trace($"[{this.wrapperToolName}] Step 1: Calling gh_get_by_guid for {instanceGuid}");
 
                 var ghGetArgs = new JObject
                 {
@@ -552,7 +553,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Step 2: Call script_edit with the retrieved GhJSON and original instructions
-                Debug.WriteLine($"[{this.wrapperToolName}] Step 2: Calling script_edit");
+                Logger.For<script_edit>().Trace($"[{this.wrapperToolName}] Step 2: Calling script_edit");
 
                 var scriptEditArgs = new JObject
                 {
@@ -583,7 +584,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!editResult.Success)
                 {
-                    Debug.WriteLine($"[{this.wrapperToolName}] script_edit failed");
+                    Logger.For<script_edit>().Warning($"[{this.wrapperToolName}] script_edit failed");
                     output.Messages = editResult.Messages;
                     return output;
                 }
@@ -606,7 +607,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                Debug.WriteLine($"[{this.wrapperToolName}] Step 3: Calling gh_put with editMode=true");
+                Logger.For<script_edit>().Trace($"[{this.wrapperToolName}] Step 3: Calling gh_put with editMode=true");
 
                 // Step 3: Call gh_put internally using AIToolManager
                 var ghPutArgs = new JObject
@@ -640,7 +641,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!ghPutResult.Success)
                 {
-                    Debug.WriteLine($"[{this.wrapperToolName}] gh_put failed");
+                    Logger.For<script_edit>().Warning($"[{this.wrapperToolName}] gh_put failed");
 
                     // Return combined result with edit success but put failure
                     var partialResult = new JObject
@@ -660,7 +661,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                Debug.WriteLine($"[{this.wrapperToolName}] Both steps completed successfully");
+                Logger.For<script_edit>().Trace($"[{this.wrapperToolName}] Both steps completed successfully");
 
                 // Combine results from both operations
                 var ghPutToolResult = ghPutResult.Body?.Interactions
@@ -690,7 +691,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.wrapperToolName}] Error: {ex.Message}");
+                Logger.For<script_edit>().Exception(ex, $"[{this.wrapperToolName}] Error: {ex.Message}");
                 output.CreateError(ex.Message);
                 return output;
             }

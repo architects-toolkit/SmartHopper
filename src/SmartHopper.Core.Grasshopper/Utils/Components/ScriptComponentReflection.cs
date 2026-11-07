@@ -23,6 +23,7 @@ using System.Linq;
 using GhJSON.Core.NameResolution;
 using Grasshopper.Kernel;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Utils.Components
 {
     /// <summary>
@@ -125,7 +126,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ScriptComponentReflection] Failed to get script text: {ex.Message}");
+                Logger.Exception(typeof(ScriptComponentReflection).FullName, ex, $"[ScriptComponentReflection] Failed to get script text: {ex.Message}");
             }
 
             return string.Empty;
@@ -194,7 +195,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ScriptComponentReflection] Failed to set script text: {ex.Message}");
+                Logger.Exception(typeof(ScriptComponentReflection).FullName, ex, $"[ScriptComponentReflection] Failed to set script text: {ex.Message}");
             }
         }
 
@@ -219,7 +220,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             ghComp.CreateAttributes();
             ghComp.ExpireSolution(true);
 
-            Debug.WriteLine($"[ScriptComponentReflection] Refreshed script component '{ghComp.Name}'");
+            Logger.Trace(typeof(ScriptComponentReflection).FullName, $"[ScriptComponentReflection] Refreshed script component '{ghComp.Name}'");
         }
 
         /// <summary>
@@ -240,16 +241,16 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                 if (accessProp != null && accessProp.CanWrite && accessProp.PropertyType == typeof(GH_ParamAccess))
                 {
                     accessProp.SetValue(param, access);
-                    Debug.WriteLine($"[ScriptComponentReflection] Set access '{access}' on parameter '{param.Name}'");
+                    Logger.Error(typeof(ScriptComponentReflection).FullName, $"[ScriptComponentReflection] Set access '{access}' on parameter '{param.Name}'");
                 }
                 else
                 {
-                    Debug.WriteLine($"[ScriptComponentReflection] Parameter '{param.Name}' does not support Access property");
+                    Logger.Error(typeof(ScriptComponentReflection).FullName, $"[ScriptComponentReflection] Parameter '{param.Name}' does not support Access property");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ScriptComponentReflection] Failed to set access on '{param.Name}': {ex.Message}");
+                Logger.Exception(typeof(ScriptComponentReflection).FullName, ex, $"[ScriptComponentReflection] Failed to set access on '{param.Name}': {ex.Message}");
             }
         }
     }

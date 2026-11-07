@@ -39,6 +39,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -160,7 +161,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.toolName}] Error: {ex.Message}");
+                Logger.For<gh_generate>().Exception(ex, $"[{this.toolName}] Error: {ex.Message}");
                 output.CreateError($"Failed to generate GhJSON: {ex.Message}");
                 return output;
             }
@@ -185,7 +186,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Step 1: Call gh_generate to produce the GhJSON.
-                Debug.WriteLine($"[{this.wrapperToolName}] Step 1: Calling {this.toolName}");
+                Logger.For<gh_generate>().Trace($"[{this.wrapperToolName}] Step 1: Calling {this.toolName}");
 
                 var generateArgs = new JObject
                 {
@@ -218,7 +219,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!generateResult.Success)
                 {
-                    Debug.WriteLine($"[{this.wrapperToolName}] {this.toolName} failed");
+                    Logger.For<gh_generate>().Warning($"[{this.wrapperToolName}] {this.toolName} failed");
                     var generateError = generateResult.Messages?.FirstOrDefault(m => m?.Severity == SHRuntimeMessageSeverity.Error)?.Message ?? "Unknown error";
                     output.CreateError($"gh_generate failed: {generateError}");
                     return output;
@@ -242,7 +243,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Step 2: Call gh_put to place the components on canvas.
-                Debug.WriteLine($"[{this.wrapperToolName}] Step 2: Calling gh_put");
+                Logger.For<gh_generate>().Trace($"[{this.wrapperToolName}] Step 2: Calling gh_put");
 
                 var ghPutArgs = new JObject
                 {
@@ -276,7 +277,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!ghPutResult.Success)
                 {
-                    Debug.WriteLine($"[{this.wrapperToolName}] gh_put failed");
+                    Logger.For<gh_generate>().Warning($"[{this.wrapperToolName}] gh_put failed");
 
                     var putError = ghPutResult.Messages?.FirstOrDefault(m => m?.Severity == SHRuntimeMessageSeverity.Error)?.Message ?? "gh_put failed";
                     var partialResult = new JObject
@@ -316,7 +317,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.wrapperToolName}] Error: {ex.Message}");
+                Logger.For<gh_generate>().Exception(ex, $"[{this.wrapperToolName}] Error: {ex.Message}");
                 output.CreateError($"Failed to generate and place GhJSON: {ex.Message}");
                 return output;
             }

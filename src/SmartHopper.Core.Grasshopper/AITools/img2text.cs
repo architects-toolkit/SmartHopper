@@ -30,6 +30,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -242,7 +243,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine($"[{this.toolName}] Running DescribeImageAsync tool");
+                Logger.For<img2text>().Trace($"[{this.toolName}] Running DescribeImageAsync tool");
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.GetArgumentsOrEmpty();
@@ -295,7 +296,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.toolName}] Error in DescribeImageAsync: {ex.Message}");
+                Logger.For<img2text>().Exception(ex, $"[{this.toolName}] Error in DescribeImageAsync: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }

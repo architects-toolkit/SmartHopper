@@ -27,6 +27,7 @@ using Grasshopper;
 using Grasshopper.Kernel;
 using Rhino;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
     /// <summary>
@@ -144,17 +145,17 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
             if (obj is IGH_Component component)
             {
-                // Debug.WriteLine("The object is an IGH_Component.");
+                // Logger.Error(typeof(CanvasAccess).FullName, "The object is an IGH_Component.");
                 return component;
             }
             else if (obj is IGH_Param param)
             {
-                // Debug.WriteLine("The object is an IGH_Param.");
+                // Logger.Error(typeof(CanvasAccess).FullName, "The object is an IGH_Param.");
                 return param;
             }
             else
             {
-                // Debug.WriteLine("The object is neither an IGH_Component nor an IGH_Param.");
+                // Logger.Error(typeof(CanvasAccess).FullName, "The object is neither an IGH_Component nor an IGH_Param.");
                 return obj;
             }
         }
@@ -398,12 +399,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     return targetPath;
                 }
 
-                Debug.WriteLine("[CanvasAccess] SaveDocument returned false.");
+                Logger.Trace(typeof(CanvasAccess).FullName, "[CanvasAccess] SaveDocument returned false.");
                 return null;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[CanvasAccess] SaveDocument failed: {ex.Message}");
+                Logger.Exception(typeof(CanvasAccess).FullName, ex, $"[CanvasAccess] SaveDocument failed: {ex.Message}");
                 return null;
             }
         }
@@ -433,14 +434,14 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 var canvas = Instances.ActiveCanvas;
                 if (canvas?.Document == null)
                 {
-                    System.Diagnostics.Debug.WriteLine("[CanvasAccess] CenterViewOnComponent: No active canvas");
+                    Logger.Error(typeof(CanvasAccess).FullName, "[CanvasAccess] CenterViewOnComponent: No active canvas");
                     return false;
                 }
 
                 var component = canvas.Document.FindObject(instanceGuid, true);
                 if (component == null)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[CanvasAccess] CenterViewOnComponent: Component not found: {instanceGuid}");
+                    Logger.Error(typeof(CanvasAccess).FullName, $"[CanvasAccess] CenterViewOnComponent: Component not found: {instanceGuid}");
                     return false;
                 }
 
@@ -463,7 +464,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 // Check if component is already within the central 2/3
                 if (centralRegion.Contains(componentCenter))
                 {
-                    System.Diagnostics.Debug.WriteLine("[CanvasAccess] Component already in central region, no pan needed");
+                    Logger.Trace(typeof(CanvasAccess).FullName, "[CanvasAccess] Component already in central region, no pan needed");
                     return false;
                 }
 
@@ -486,12 +487,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 canvas.Viewport.MidPoint = newMidpoint;
                 canvas.Refresh();
 
-                System.Diagnostics.Debug.WriteLine($"[CanvasAccess] Positioned component {instanceGuid} at horizontal {horizontalPosition:P0}");
+                Logger.Trace(typeof(CanvasAccess).FullName, $"[CanvasAccess] Positioned component {instanceGuid} at horizontal {horizontalPosition:P0}");
                 return true;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[CanvasAccess] Error centering canvas: {ex.Message}");
+                Logger.Exception(typeof(CanvasAccess).FullName, ex, $"[CanvasAccess] Error centering canvas: {ex.Message}");
                 return false;
             }
         }

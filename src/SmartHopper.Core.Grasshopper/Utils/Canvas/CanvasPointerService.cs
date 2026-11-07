@@ -30,6 +30,7 @@ using Grasshopper.Kernel;
 using Rhino;
 using SmartHopper.Infrastructure.Interaction;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
     /// <summary>
@@ -165,7 +166,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[CanvasPointerService] Show failed: {ex.Message}");
+                Logger.Exception(typeof(CanvasPointerService).FullName, ex, $"[CanvasPointerService] Show failed: {ex.Message}");
                 return Task.FromResult(new CanvasPointerShowResult { Error = $"Pointer display failed: {ex.Message}" });
             }
         }

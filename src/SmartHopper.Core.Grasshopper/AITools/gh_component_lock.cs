@@ -29,6 +29,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -118,19 +119,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.GetArgumentsOrEmpty();
                 var guids = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
                 var locked = args["locked"]?.ToObject<bool>() ?? false;
-                Debug.WriteLine($"[GhObjTools] GhToggleLockAsync: locked={locked}, guids count={guids.Count}");
+                Logger.For<gh_component_toggle_lock>().Trace($"[GhObjTools] GhToggleLockAsync: locked={locked}, guids count={guids.Count}");
 
                 var requestedGuids = new List<Guid>();
                 foreach (var s in guids)
                 {
-                    Debug.WriteLine($"[GhObjTools] Processing GUID string: {s}");
+                    Logger.For<gh_component_toggle_lock>().Trace($"[GhObjTools] Processing GUID string: {s}");
                     if (Guid.TryParse(s, out var guid))
                     {
                         requestedGuids.Add(guid);
                     }
                     else
                     {
-                        Debug.WriteLine($"[GhObjTools] Invalid GUID: {s}");
+                        Logger.For<gh_component_toggle_lock>().Warning($"[GhObjTools] Invalid GUID: {s}");
                     }
                 }
 
