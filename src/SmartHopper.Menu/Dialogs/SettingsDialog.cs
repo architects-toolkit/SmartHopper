@@ -48,11 +48,8 @@ namespace SmartHopper.Menu.Dialogs
         private readonly GeneralSettingsPage _generalPage;
         private readonly ProvidersSettingsPage _providersPage;
         private readonly AssistantSettingsPage _assistantPage;
-        private readonly Dictionary<string, GenericProviderSettingsPage> _providerPages;
-
-        // Navigation between the tabbed view and a single provider's settings view
-        private readonly Panel _viewContainer = new Panel();
-        private Control _mainView;
+        private readonly FallbackSettingsPage _fallbackPage;
+        private readonly List<GenericProviderSettingsPage> _providerPages;
 
         // Settings models
         private readonly GeneralSettings _generalSettings;
@@ -101,6 +98,8 @@ namespace SmartHopper.Menu.Dialogs
                 DefaultAIProvider = this._settings.DefaultAIProvider,
                 DebounceTime = this._settings.DebounceTime,
                 BatchPollIntervalSeconds = this._settings.BatchPollIntervalSeconds,
+                TelemetryLevel = (int)this._settings.TelemetryLevel,
+                DiagnosticsEnabled = this._settings.DiagnosticsEnabled,
             };
 
             this._trustedProvidersSettings = new TrustedProvidersSettings(this._settings.TrustedProviders);
@@ -120,20 +119,22 @@ namespace SmartHopper.Menu.Dialogs
             // Create tab pages
             this._generalPage = new GeneralSettingsPage(this._providers);
             this._assistantPage = new AssistantSettingsPage(this._providers);
-            this._providersPage = new ProvidersSettingsPage(this._providers, this.ShowProviderSettings);
-            this._providerPages = new Dictionary<string, GenericProviderSettingsPage>();
+            this._providersPage = new ProvidersSettingsPage(this._providers);
+            this._fallbackPage = new FallbackSettingsPage(this._providers);
+            this._providerPages = new List<GenericProviderSettingsPage>();
 
-            // Create provider-specific settings views (navigated to in-place)
+            // Create provider-specific tabs
             foreach (var provider in this._providers)
             {
                 var providerPage = new GenericProviderSettingsPage(provider);
-                this._providerPages[provider.Name] = providerPage;
+                this._providerPages.Add(providerPage);
             }
 
             // Load settings into pages
-            this._generalPage.LoadSettings(this._generalSettings, this._settings.ModalityFallback, this._settings.FallbackProviderPins);
+            this._generalPage.LoadSettings(this._generalSettings);
             this._providersPage.LoadSettings(this._trustedProvidersSettings, this._providerIntegrityCheckMode);
             this._assistantPage.LoadSettings(this._assistantSettings);
+            this._fallbackPage.LoadSettings(this._settings.ModalityFallback, this._settings.FallbackProviderPins);
 
             this.CreateTabLayout();
         }
@@ -152,6 +153,13 @@ namespace SmartHopper.Menu.Dialogs
                 Content = this._generalPage,
             });
 
+            // Add Providers tab
+            tabControl.Pages.Add(new TabPage
+            {
+                Text = "Providers",
+                Content = this._providersPage,
+            });
+
             // Add SmartHopper Assistant tab
             tabControl.Pages.Add(new TabPage
             {
@@ -159,12 +167,25 @@ namespace SmartHopper.Menu.Dialogs
                 Content = this._assistantPage,
             });
 
-            // Add Providers tab
+            // Add Fallback tab
             tabControl.Pages.Add(new TabPage
             {
-                Text = "AI Providers",
-                Content = this._providersPage,
+                Text = "Fallback",
+                Content = this._fallbackPage,
             });
+
+            // Add provider-specific tabs
+            for (int i = 0; i < this._providers.Length; i++)
+            {
+                var provider = this._providers[i];
+                var providerPage = this._providerPages[i];
+
+                tabControl.Pages.Add(new TabPage
+                {
+                    Text = provider.Name,
+                    Content = providerPage,
+                });
+            }
 
             // Create buttons
             var saveButton = new Button { Text = "Save" };
@@ -180,12 +201,9 @@ namespace SmartHopper.Menu.Dialogs
             buttonLayout.Items.Add(saveButton);
             buttonLayout.Items.Add(cancelButton);
 
-            // Set up the dialog content: a swappable view container over the shared buttons
-            this._mainView = tabControl;
-            this._viewContainer.Content = this._mainView;
-
+            // Set up the dialog content
             var content = new DynamicLayout();
-            content.Add(this._viewContainer, yscale: true);
+            content.Add(tabControl, yscale: true);
             content.Add(buttonLayout);
 
             this.Content = content;
@@ -198,42 +216,6 @@ namespace SmartHopper.Menu.Dialogs
         }
 
         /// <summary>
-        /// Switches the dialog content to the given provider's settings view.
-        /// The same Save button still applies — Back is navigation, not commit.
-        /// </summary>
-        /// <param name="provider">The provider whose settings should be shown.</param>
-        private void ShowProviderSettings(IAIProvider provider)
-        {
-            if (provider == null || !this._providerPages.TryGetValue(provider.Name, out var providerPage))
-            {
-                return;
-            }
-
-            var backButton = new Button { Text = "< Back" };
-            backButton.Click += (sender, e) => this.ShowMainView();
-
-            var providerView = new DynamicLayout { Spacing = new Size(5, 5) };
-            providerView.Add(new StackLayout
-            {
-                Orientation = Orientation.Horizontal,
-                Items = { backButton },
-            });
-            providerView.Add(providerPage, yscale: true);
-
-            this._viewContainer.Content = providerView;
-            this.Title = $"SmartHopper Settings — {provider.Name}";
-        }
-
-        /// <summary>
-        /// Restores the main tabbed settings view.
-        /// </summary>
-        private void ShowMainView()
-        {
-            this._viewContainer.Content = this._mainView;
-            this.Title = "SmartHopper Settings";
-        }
-
-        /// <summary>
         /// Saves all settings from all tabs and closes the dialog
         /// </summary>
         private void SaveSettings()
@@ -241,12 +223,12 @@ namespace SmartHopper.Menu.Dialogs
             try
             {
                 // Save settings from each tab page
-                this._generalPage.SaveSettings(this._generalSettings, out var fallbackMode, out var fallbackPins);
+                this._generalPage.SaveSettings(this._generalSettings);
                 this._providersPage.SaveSettings(this._trustedProvidersSettings, out var providerIntegrityCheckMode);
                 this._assistantPage.SaveSettings(this._assistantSettings);
 
                 // Save provider-specific settings
-                foreach (var providerPage in this._providerPages.Values)
+                foreach (var providerPage in this._providerPages)
                 {
                     providerPage.SaveSettings();
                 }
@@ -255,6 +237,8 @@ namespace SmartHopper.Menu.Dialogs
                 this._settings.DefaultAIProvider = this._generalSettings.DefaultAIProvider;
                 this._settings.DebounceTime = this._generalSettings.DebounceTime;
                 this._settings.BatchPollIntervalSeconds = this._generalSettings.BatchPollIntervalSeconds;
+                this._settings.TelemetryLevel = (Infrastructure.Telemetry.TelemetryLevel)this._generalSettings.TelemetryLevel;
+                this._settings.DiagnosticsEnabled = this._generalSettings.DiagnosticsEnabled;
                 this._settings.SmartHopperAssistant.EnableCanvasButton = this._assistantSettings.EnableCanvasButton;
                 this._settings.SmartHopperAssistant.EnableAIGreeting = this._assistantSettings.EnableAIGreeting;
                 this._settings.SmartHopperAssistant.EnableSuggestedPrompts = this._assistantSettings.EnableSuggestedPrompts;
@@ -266,6 +250,7 @@ namespace SmartHopper.Menu.Dialogs
                 this._settings.ProviderIntegrityCheckMode = providerIntegrityCheckMode;
 
                 // Save fallback settings
+                this._fallbackPage.SaveSettings(out var fallbackMode, out var fallbackPins);
                 this._settings.ModalityFallback = fallbackMode;
                 this._settings.FallbackProviderPins = fallbackPins;
 
