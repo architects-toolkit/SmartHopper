@@ -33,7 +33,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         private readonly DropDown _defaultProviderComboBox;
         private readonly NumericStepper _debounceControl;
         private readonly NumericStepper _batchPollIntervalControl;
-        private readonly DropDown _telemetryLevelComboBox;
+        private readonly CheckBox _telemetryCheckBox;
         private readonly CheckBox _diagnosticsCheckBox;
         private readonly IAIProvider[] _providers;
 
@@ -61,13 +61,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 Increment = 5,
             };
 
-            this._telemetryLevelComboBox = new DropDown();
-            this._telemetryLevelComboBox.Items.Add(new ListItem { Text = "None (disabled)" });
-            this._telemetryLevelComboBox.Items.Add(new ListItem { Text = "Essential (heartbeat + request counts)" });
-            this._telemetryLevelComboBox.Items.Add(new ListItem { Text = "Standard (+ model, duration, token counts)" });
-            this._telemetryLevelComboBox.Items.Add(new ListItem { Text = "Detailed (+ tool and component names)" });
+            this._telemetryCheckBox = new CheckBox { Text = "Share anonymous community stats" };
             this._diagnosticsCheckBox = new CheckBox { Text = "Share diagnostics" };
-            this._telemetryLevelComboBox.SelectedIndex = 0;
 
             foreach (var provider in this._providers)
             {
@@ -155,7 +150,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             telemetryRowLayout.Rows.Add(new TableRow(
                 new TableCell(new Label { Text = "Community stats:", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
-                new TableCell(this._telemetryLevelComboBox, true)));
+                new TableCell(this._telemetryCheckBox, true)));
 
             layout.Add(telemetryRowLayout);
 
@@ -169,6 +164,9 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             });
 
             // Diagnostics consent (independent opt-in: logs, warnings, errors, stack traces)
+#if DEBUG
+            this._diagnosticsCheckBox.Enabled = false;
+#endif
             var diagnosticsRowLayout = new TableLayout
             {
                 Spacing = new Size(10, 0),
@@ -179,6 +177,17 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 new TableCell(this._diagnosticsCheckBox, true)));
 
             layout.Add(diagnosticsRowLayout);
+
+#if DEBUG
+            layout.Add(new Label
+            {
+                Text = "⚠ DEBUG BUILD: Diagnostics sharing is enforced ON regardless of the setting above.",
+                TextColor = Colors.Orange,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500,
+            });
+#endif
 
             layout.Add(new Label
             {
@@ -224,17 +233,15 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Set batch poll interval
             this._batchPollIntervalControl.Value = settings.BatchPollIntervalSeconds;
 
-            // Set telemetry level
-            var telemetryIndex = settings.TelemetryLevel;
-            if (telemetryIndex < 0 || telemetryIndex >= this._telemetryLevelComboBox.Items.Count)
-            {
-                telemetryIndex = 0;
-            }
+            // Set telemetry consent
+            this._telemetryCheckBox.Checked = settings.TelemetryEnabled;
 
-            this._telemetryLevelComboBox.SelectedIndex = telemetryIndex;
-
-            // Set diagnostics consent
+            // Set diagnostics consent (forced on and locked in DEBUG builds)
+#if DEBUG
+            this._diagnosticsCheckBox.Checked = true;
+#else
             this._diagnosticsCheckBox.Checked = settings.DiagnosticsEnabled;
+#endif
         }
 
         /// <summary>
@@ -255,11 +262,13 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Save batch poll interval
             settings.BatchPollIntervalSeconds = (int)this._batchPollIntervalControl.Value;
 
-            // Save telemetry level
-            settings.TelemetryLevel = Math.Max(0, this._telemetryLevelComboBox.SelectedIndex);
+            // Save telemetry consent
+            settings.TelemetryEnabled = this._telemetryCheckBox.Checked == true;
 
-            // Save diagnostics consent
+            // Save diagnostics consent (the control is locked in DEBUG builds — keep the stored value)
+#if !DEBUG
             settings.DiagnosticsEnabled = this._diagnosticsCheckBox.Checked == true;
+#endif
         }
     }
 }

@@ -19,11 +19,10 @@ every sink whose per-sink level admits it and rebuilds routing whenever
 
 ## Consent
 
-Logging is diagnostics: it follows `SmartHopperSettings.EffectiveLoggingEnabled`,
-which is the `LoggingEnabled` override when set, otherwise
-`DiagnosticsEnabled`. Per-sink toggles and minimum levels live next to it
-(`LiveOutputEnabled`/`LiveOutputLevel`, `LogFileEnabled`/`LogFileLevel`,
-`LogRetentionDays`).
+Logging is diagnostics: it follows `SmartHopperSettings.EffectiveDiagnosticsEnabled`
+— there is no separate local-logging override. Per-sink toggles and minimum
+levels live next to it (`LiveOutputEnabled`/`LiveOutputLevel`,
+`LogFileEnabled`/`LogFileLevel`, `LogRetentionDays`).
 
 Providers get a typed logger via `AIProvider.Log` (`ILogger` on the base class,
 `ILogger<T>` on `AIProvider<T>`); other code uses `Logger.For<T>()` or
@@ -31,9 +30,9 @@ Providers get a typed logger via `AIProvider.Log` (`ILogger` on the base class,
 
 ## UI
 
-- `Settings → Logging` exposes the consent override plus every per-sink toggle
-  and level; the collector shipping switch (`OtlpLogEnabled`/`OtlpLogLevel`)
-  only ships while `DiagnosticsEnabled` is on.
+- `Settings → Logging` exposes every per-sink toggle and level; the collector
+  shipping switch (`OtlpLogEnabled`/`OtlpLogLevel`) only ships while
+  `DiagnosticsEnabled` is on.
 - `SmartHopper → Diagnostics` offers: Open Log Folder (Debug builds), Copy
   Diagnostics for GitHub (a scrubbed markdown report on the clipboard), and
   Generate Diagnostic Zip (scrubbed logs plus `diagnostics.json` with the
