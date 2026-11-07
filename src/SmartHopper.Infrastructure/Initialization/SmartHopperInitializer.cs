@@ -69,7 +69,7 @@ namespace SmartHopper.Infrastructure.Initialization
                     ProviderSdkHost.ContextProvider = new SmartHopperContextProviderHost();
                     ProviderSdkHost.ToolRegistry = new SmartHopperToolRegistryHost();
                     ProviderSdkHost.Diagnostics = new SmartHopperProviderDiagnosticsHost();
-                    ProviderSdkHost.Logger = new SmartHopperProviderLogger();
+                    ProviderSdkHost.Logger = new SmartHopperLogger();
                     ProviderSdkHost.HttpClientFactory = new SmartHopperProviderHttpClientFactory();
                     ProviderSdkHost.SettingsStoreFactory = SmartHopperProviderSettingsStoreFactory.Create;
 

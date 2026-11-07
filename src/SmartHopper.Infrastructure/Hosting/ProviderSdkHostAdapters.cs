@@ -19,10 +19,10 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.AICall.Logging;
 using SmartHopper.Infrastructure.AICall.Policies;
 using SmartHopper.Infrastructure.AIContext;
 using SmartHopper.Infrastructure.AIProviders;
@@ -34,6 +34,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Infrastructure.Hosting
@@ -144,58 +145,239 @@ namespace SmartHopper.Infrastructure.Hosting
                 return;
             }
 
-            if (message.Severity == SHRuntimeMessageSeverity.Error)
+            Logger.For<SmartHopperProviderDiagnosticsHost>().Trace($"[{providerName}] {message.Message}");
+            if (message.Severity != SHRuntimeMessageSeverity.Error)
             {
-                StyledMessageDialog.ShowError(message.Message, providerName ?? "SmartHopper");
+                return;
             }
-            else
-            {
-                Debug.WriteLine($"[{providerName}] {message.Message}");
-            }
+
+            // Provider diagnostics also arrive from background workers: Eto/WPF
+            // windows must be created on the UI (STA) thread, otherwise their
+            // constructor throws and the original report is lost. Marshal the
+            // dialog instead of showing it inline.
+            global::Rhino.RhinoApp.InvokeOnUiThread(new Action(() =>
+                StyledMessageDialog.ShowError(message.Message, providerName ?? "SmartHopper")));
         }
     }
 
     /// <summary>
-    /// Host-side logger routing SDK log output to Rhino's command-line window.
+    /// Host-side logger that routes SDK log entries to a set of <see cref="ILogSink"/> sinks.
+    /// Uses a shared <see cref="ILogFormatter"/> so live and file output are formatted identically.
+    /// Caches per-sink levels and refreshes them whenever <see cref="SmartHopperSettings"/> is saved.
     /// </summary>
-    public sealed class SmartHopperProviderLogger : IProviderLogger
+    public sealed class SmartHopperLogger : ILogger, IDisposable
     {
-        /// <inheritdoc />
-        public void Log(ProviderLogLevel level, string providerName, string message)
+        private readonly ILogFormatter _formatter;
+        private readonly List<ILogSink> _sinks;
+        private SmartHopperLogRoutingState _routingState;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SmartHopperLogger"/> class
+        /// and subscribes to settings changes.
+        /// </summary>
+        public SmartHopperLogger()
         {
-            var line = $"[{level}][{providerName}] {message}";
+            this._formatter = new SmartHopperLogFormatter();
+            this._sinks = new List<ILogSink>
+            {
+                new SmartHopperLiveSink(this._formatter),
+                new SmartHopperLogFileSink(this._formatter),
+            };
+
+            this._routingState = this.BuildRoutingState();
+
             try
             {
-                Rhino.RhinoApp.WriteLine(line);
+                SmartHopperSettings.Instance.SettingsSaved += this.OnSettingsSaved;
             }
             catch
             {
-                // RhinoApp may not be initialized in headless/test runs.
+                // Settings may not be available during some test setups.
             }
-
-            Debug.WriteLine(line);
         }
 
         /// <inheritdoc />
-        public void LogException(string providerName, Exception exception, string context = null)
+        public bool IsEnabled(ProviderLogLevel level)
+        {
+            var state = this._routingState;
+            foreach (var sink in state.Sinks)
+            {
+                if (sink.IsEnabled && level >= sink.MinLevel)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <inheritdoc />
+        public IDisposable BeginScope(IReadOnlyDictionary<string, object> state)
+            => LogScopeContext.BeginScope(state);
+
+        /// <inheritdoc />
+        public void Log(ProviderLogLevel level, string category, string message)
+        {
+            var state = this._routingState;
+
+            var anySink = false;
+            foreach (var sink in state.Sinks)
+            {
+                if (sink.IsEnabled && level >= sink.MinLevel)
+                {
+                    anySink = true;
+                    break;
+                }
+            }
+
+            if (!anySink)
+            {
+                return;
+            }
+
+            var entry = new SmartHopperLogEntry(
+                DateTimeOffset.UtcNow,
+                level,
+                category,
+                message,
+                LogScopeContext.Current?.Flatten());
+
+            foreach (var sink in state.Sinks)
+            {
+                if (!sink.IsEnabled || level < sink.MinLevel)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    sink.Sink.Write(entry);
+                }
+                catch
+                {
+                    // A failing sink must not break the other sinks.
+                }
+            }
+        }
+
+        /// <inheritdoc />
+        public void LogException(string category, Exception exception, string? context = null)
         {
             if (exception == null)
             {
                 return;
             }
 
-            var prefix = string.IsNullOrEmpty(context) ? string.Empty : context + ": ";
-            var line = $"[Error][{providerName}] {prefix}{exception.GetType().Name}: {exception.Message}";
+            if (!this.IsEnabled(ProviderLogLevel.Error))
+            {
+                return;
+            }
+
+            var message = SmartHopperLogExceptionFormatter.FormatException(exception, context);
+
+            // Attach the exception details to the entry scope so sinks that emit
+            // structured output can carry error.type / exception.stacktrace
+            // alongside the message. The stack is stripped of file paths before
+            // it can reach disk.
+            var exceptionScope = new Dictionary<string, object>
+            {
+                ["exception.type"] = exception.GetType().Name,
+                ["exception.stacktrace"] = SmartHopperLogExceptionFormatter.NormalizeStackTrace(exception.StackTrace) ?? string.Empty,
+            };
+
+            using (LogScopeContext.BeginScope(exceptionScope))
+            {
+                this.Log(ProviderLogLevel.Error, category, message);
+            }
+        }
+
+        /// <inheritdoc />
+        public void Dispose()
+        {
             try
             {
-                Rhino.RhinoApp.WriteLine(line);
+                SmartHopperSettings.Instance.SettingsSaved -= this.OnSettingsSaved;
             }
             catch
             {
-                // RhinoApp may not be initialized in headless/test runs.
+                // Best-effort unsubscribe.
             }
 
-            Debug.WriteLine(line);
+            foreach (var sink in this._sinks)
+            {
+                try
+                {
+                    sink.Flush();
+                    sink.Dispose();
+                }
+                catch
+                {
+                    // Best-effort cleanup.
+                }
+            }
+        }
+
+        private void OnSettingsSaved(object? sender, EventArgs e)
+        {
+            this._routingState = this.BuildRoutingState();
+        }
+
+        private SmartHopperLogRoutingState BuildRoutingState()
+        {
+            var settings = this.GetSettings();
+
+            var states = new List<SmartHopperLogSinkState>(this._sinks.Count);
+            foreach (var sink in this._sinks)
+            {
+                var (enabled, minLevel) = sink.Name switch
+                {
+                    "Live" => (settings?.LiveOutputEnabled ?? true, settings?.LiveOutputLevel ?? ProviderLogLevel.Info),
+                    "File" => (settings?.LogFileEnabled ?? true, settings?.LogFileLevel ?? ProviderLogLevel.Trace),
+                    _ => (true, ProviderLogLevel.Trace),
+                };
+
+                states.Add(new SmartHopperLogSinkState(sink, enabled, minLevel));
+            }
+
+            return new SmartHopperLogRoutingState(states);
+        }
+
+        private SmartHopperSettings? GetSettings()
+        {
+            try
+            {
+                return SmartHopperSettings.Instance;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private sealed class SmartHopperLogRoutingState
+        {
+            public SmartHopperLogRoutingState(IReadOnlyList<SmartHopperLogSinkState> sinks)
+            {
+                this.Sinks = sinks;
+            }
+
+            public IReadOnlyList<SmartHopperLogSinkState> Sinks { get; }
+        }
+
+        private sealed class SmartHopperLogSinkState
+        {
+            public SmartHopperLogSinkState(ILogSink sink, bool isEnabled, ProviderLogLevel minLevel)
+            {
+                this.Sink = sink;
+                this.IsEnabled = isEnabled;
+                this.MinLevel = minLevel;
+            }
+
+            public ILogSink Sink { get; }
+
+            public bool IsEnabled { get; }
+
+            public ProviderLogLevel MinLevel { get; }
         }
     }
 
