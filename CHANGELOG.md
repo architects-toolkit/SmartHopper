@@ -20,7 +20,6 @@ Many thanks to the following contributors to this release:
 - OpenAI, MistralAI and DeepSeek provider settings no longer write the configured API key to the debug log during validation; the log line now reports `<set>`/`<null>` like the other providers.
 ### Added
 
-<<<<<<< HEAD
 - Added a structured logging architecture: `ILogger`/`ILogger<T>` contracts plus the `Logger.For`/`Logger.For<T>` facade in `SmartHopper.ProviderSdk.Logging`, async-flowing `LogScope`/`LogScopeContext` scopes, `ProviderLogLevel`, `SmartHopperLogScrubber` (PII scrubbing before any log reaches a sink), `SmartHopperLogExceptionFormatter` (full exception chains with stack traces stripped of file paths), and a `DebugLogger` fallback.
 - Added logging sinks in `SmartHopper.Infrastructure.AICall.Logging`: `ILogSink`/`ILogFormatter` contracts, `SmartHopperLogEntry`, `SmartHopperLogFormatter`, `SmartHopperLiveSink` (Rhino command-line output) and `SmartHopperLogFileSink` (rolling per-day file under the diagnostics log folder with retention pruning). `SmartHopperLogger` (Infrastructure.Hosting) routes entries to every enabled sink at or above its per-sink level and refreshes routing whenever settings are saved. All sinks are local — nothing leaves the machine unless the user exports a diagnostics zip.
 - Added `SmartHopperDiagnostics` helper (log folder resolution, scrubbed bug-report zip generation) and `RuntimeMessageLogger` (ProviderSdk.Diagnostics) capturing runtime messages as structured log entries.
