@@ -145,6 +145,7 @@ Many thanks to the following contributors to this release:
 - The Settings dialog's Fallback tab is merged into the General tab, which now carries the modality fallback mode and per-conversion model overrides as a dedicated section. `FallbackSettingsPage` was folded into `GeneralSettingsPage` — one tab per file.
 - Per-provider settings tabs in the Settings dialog are replaced by in-place navigation: each row in the Providers tab's trusted-provider list gains a Configure button that swaps the dialog content to that provider's settings page with a "< Back" button at the top left (the dialog title shows the provider name while inside). The tab bar no longer grows with the provider count, and trusted-provider rows are now a single column (`icon | checkbox | Configure`).
 - Settings dialog tabs are now ordered General → Canvas Assistant → AI Providers (the former Providers tab is renamed AI Providers).
+- `GhJSON.Core`/`GhJSON.Grasshopper` package references are bumped to `1.3.4`, which adds directional connection expansion and reports whether `Disconnect` actually removed a wire.
 
 ### Removed
 
