@@ -32,6 +32,7 @@ using Grasshopper;
 using Grasshopper.GUI.Canvas;
 using Rhino;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.UI
 {
     /// <summary>
@@ -44,7 +45,7 @@ namespace SmartHopper.Core.UI
         [Conditional("DEBUG")]
         private static void DebugLog(string message)
         {
-            Debug.WriteLine(message);
+            Logger.Trace(typeof(DialogCanvasLink).FullName, message);
         }
 
         private static readonly object LockObject = new object();

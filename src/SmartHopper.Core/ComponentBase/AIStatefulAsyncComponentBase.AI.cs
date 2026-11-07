@@ -41,6 +41,7 @@ using SmartHopper.ProviderSdk.AICall.Validation;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.ComponentBase
 {
     /// <summary>
@@ -107,7 +108,7 @@ namespace SmartHopper.Core.ComponentBase
 
                 if (capabilities?.SupportsBatch == false)
                 {
-                    Debug.WriteLine($"[AIStatefulAsync] Batch disabled for model '{request.Model}' (SupportsBatch=false)");
+                    Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] Batch disabled for model '{request.Model}' (SupportsBatch=false)");
                     return default(T);
                 }
             }
@@ -122,12 +123,12 @@ namespace SmartHopper.Core.ComponentBase
                 this._batchState.Queue.Add((customId, request));
                 this._batchState.SentinelIds.Add(customId);
 
-                Debug.WriteLine($"[AIStatefulAsync] Queued batch item #{index}: customId={customId}, identifier={identifier}");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] Queued batch item #{index}: customId={customId}, identifier={identifier}");
                 return sentinelFactory(customId);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AIStatefulAsync] Batch queuing failed for '{identifier}': {ex.Message}, falling back to sync");
+                Logger.For<AIStatefulAsyncComponentBase>().Exception(ex, $"[AIStatefulAsync] Batch queuing failed for '{identifier}': {ex.Message}, falling back to sync");
                 return default(T);
             }
         }
@@ -192,7 +193,7 @@ namespace SmartHopper.Core.ComponentBase
 
             var json = this.SerializeMetricsEntry(metrics).ToString();
             this._metricsTree.Append(new GH_String(json), path);
-            Debug.WriteLine($"[AIStatefulAsync] Appended metric to tree at {path}");
+            Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] Appended metric to tree at {path}");
         }
 
         /// <summary>
@@ -206,7 +207,7 @@ namespace SmartHopper.Core.ComponentBase
             this._metricsTree ??= new GH_Structure<GH_String>();
             var json = this.SerializeMetricsEntry(metrics).ToString();
             this._metricsTree.Append(new GH_String(json), path);
-            Debug.WriteLine($"[AIStatefulAsync] Appended metric to tree at {path}");
+            Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] Appended metric to tree at {path}");
         }
 
         /// <summary>
@@ -232,7 +233,7 @@ namespace SmartHopper.Core.ComponentBase
 
             // Debug log parameters
             var requestParams = this.GetParameters();
-            Debug.WriteLine($"[CallAIToolAsync] Tool: {toolName}, Provider: {providerName}, Model: {model}, MaxTokens: {requestParams?.MaxTokens}, Temperature: {requestParams?.Temperature}, TimeoutSeconds: {requestParams?.TimeoutSeconds}");
+            Logger.For<AIStatefulAsyncComponentBase>().Trace($"[CallAIToolAsync] Tool: {toolName}, Provider: {providerName}, Model: {model}, MaxTokens: {requestParams?.MaxTokens}, Temperature: {requestParams?.Temperature}, TimeoutSeconds: {requestParams?.TimeoutSeconds}");
 
             // Create the tool call interaction with proper structure
             var toolCallInteraction = new AIInteractionToolCall
@@ -311,14 +312,14 @@ namespace SmartHopper.Core.ComponentBase
                                     false);
                             }
 
-                            Debug.WriteLine($"[AIStatefulAsync] Surfaced {warnings.Count()} validation warnings for batch request");
+                            Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] Surfaced {warnings.Count()} validation warnings for batch request");
                         }
 
                         // Only log errors, do not surface. Call will fail if errors are relevant
                         var errors = validationMessages.Where(m => m.Severity == SHRuntimeMessageSeverity.Error);
                         if (errors.Any())
                         {
-                            Debug.WriteLine($"[AIStatefulAsync] Batch request has {errors.Count()} validation errors - proceeding with queuing anyway");
+                            Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] Batch request has {errors.Count()} validation errors - proceeding with queuing anyway");
                         }
                     }
 

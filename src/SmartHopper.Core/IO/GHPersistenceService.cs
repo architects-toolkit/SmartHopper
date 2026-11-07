@@ -27,6 +27,7 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.IO
 {
     /// <summary>
@@ -59,7 +60,7 @@ namespace SmartHopper.Core.IO
                     writer.SetByteArray(key, bytes);
 
 #if DEBUG
-                    Debug.WriteLine($"[Persistence] Wrote V2 output for {component.Name} key={key}, paths={encoded.PathCount}, items={encoded.DataCount}");
+                    Logger.For<GHPersistenceService>().Trace($"[Persistence] Wrote V2 output for {component.Name} key={key}, paths={encoded.PathCount}, items={encoded.DataCount}");
 #endif
                 }
 
@@ -67,7 +68,7 @@ namespace SmartHopper.Core.IO
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[Persistence] Exception in WriteOutputsV2: {ex.Message}");
+                Logger.For<GHPersistenceService>().Exception(ex, $"[Persistence] Exception in WriteOutputsV2: {ex.Message}");
                 return false;
             }
         }
@@ -89,14 +90,14 @@ namespace SmartHopper.Core.IO
                 catch (Exception ex)
                 {
 #if DEBUG
-                    Debug.WriteLine($"[Persistence] Exception reading version key: {ex.Message}");
+                    Logger.For<GHPersistenceService>().Exception(ex, $"[Persistence] Exception reading version key: {ex.Message}");
 #endif
                 }
 
                 if (version != PersistenceConstants.CurrentVersion)
                 {
 #if DEBUG
-                    Debug.WriteLine($"[Persistence] Version mismatch or missing (found={version}); skipping V2 restore for {component.Name}");
+                    Logger.For<GHPersistenceService>().Error($"[Persistence] Version mismatch or missing (found={version}); skipping V2 restore for {component.Name}");
 #endif
                     return result;
                 }
@@ -127,7 +128,7 @@ namespace SmartHopper.Core.IO
                         {
 #if DEBUG
                             foreach (var w in warnings)
-                                Debug.WriteLine($"[Persistence] Decode warning for key={key}: {w}");
+                                Logger.For<GHPersistenceService>().Error($"[Persistence] Decode warning for key={key}: {w}");
 #endif
                         }
 
@@ -136,13 +137,13 @@ namespace SmartHopper.Core.IO
                     catch (Exception ex)
                     {
                         // Never throw; skip this param
-                        Debug.WriteLine($"[Persistence] Exception reading key={key}: {ex.Message}");
+                        Logger.For<GHPersistenceService>().Exception(ex, $"[Persistence] Exception reading key={key}: {ex.Message}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[Persistence] Exception in ReadOutputsV2: {ex.Message}");
+                Logger.For<GHPersistenceService>().Exception(ex, $"[Persistence] Exception in ReadOutputsV2: {ex.Message}");
             }
 
             return result;

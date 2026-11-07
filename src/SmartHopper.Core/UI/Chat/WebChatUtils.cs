@@ -29,6 +29,7 @@ using System.Threading.Tasks;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.UI.Chat
 {
     /// <summary>
@@ -39,7 +40,7 @@ namespace SmartHopper.Core.UI.Chat
         [Conditional("DEBUG")]
         private static void DebugLog(string message)
         {
-            Debug.WriteLine(message);
+            Logger.Trace(typeof(WebChatUtils).FullName, message);
         }
 
         /// <summary>

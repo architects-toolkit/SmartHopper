@@ -27,6 +27,7 @@ using System.Globalization;
 using Markdig;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.UI.Chat
 {
     /// <summary>
@@ -42,7 +43,7 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         public HtmlChatRenderer()
         {
-            Debug.WriteLine("[HtmlChatRenderer] Initializing HtmlChatRenderer");
+            Logger.For<HtmlChatRenderer>().Trace("[HtmlChatRenderer] Initializing HtmlChatRenderer");
 
             // Configure Markdig pipeline with needed extensions
             this._markdownPipeline = new MarkdownPipelineBuilder()
@@ -59,7 +60,7 @@ namespace SmartHopper.Core.UI.Chat
 
             // Initialize the resource manager
             this._resourceManager = new ChatResourceManager();
-            Debug.WriteLine("[HtmlChatRenderer] Resource manager initialized");
+            Logger.For<HtmlChatRenderer>().Trace("[HtmlChatRenderer] Resource manager initialized");
         }
 
         /// <summary>
@@ -68,26 +69,26 @@ namespace SmartHopper.Core.UI.Chat
         /// <returns>The initial HTML content.</returns>
         public string GetInitialHtml()
         {
-            Debug.WriteLine("[HtmlChatRenderer] Getting initial HTML");
+            Logger.For<HtmlChatRenderer>().Trace("[HtmlChatRenderer] Getting initial HTML");
 
             try
             {
                 string html = this._resourceManager.GetCompleteHtml();
-                Debug.WriteLine($"[HtmlChatRenderer] Complete HTML retrieved, length: {html?.Length ?? 0}");
+                Logger.For<HtmlChatRenderer>().Trace($"[HtmlChatRenderer] Complete HTML retrieved, length: {html?.Length ?? 0}");
 
                 // For debugging, output the first 200 characters of the HTML
                 if (html != null && html.Length > 0)
                 {
                     string preview = html.Length > 200 ? html.Substring(0, 200) + "..." : html;
-                    Debug.WriteLine($"[HtmlChatRenderer] HTML preview: {preview}");
+                    Logger.For<HtmlChatRenderer>().Trace($"[HtmlChatRenderer] HTML preview: {preview}");
                 }
 
                 return html;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[HtmlChatRenderer] Error getting complete HTML: {ex.Message}");
-                Debug.WriteLine($"[HtmlChatRenderer] Stack trace: {ex.StackTrace}");
+                Logger.For<HtmlChatRenderer>().Exception(ex, $"[HtmlChatRenderer] Error getting complete HTML: {ex.Message}");
+                Logger.For<HtmlChatRenderer>().Exception(ex, $"[HtmlChatRenderer] Stack trace: {ex.StackTrace}");
 
                 // Use the error template from resources
                 return this._resourceManager.GetErrorTemplate(ex.Message);
@@ -102,7 +103,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <returns>HTML representation of the message.</returns>
         public string RenderInteraction(IAIInteraction interaction, string cacheKey = null)
         {
-            Debug.WriteLine($"[HtmlChatRenderer] Generating message HTML for agent: {interaction.Agent.ToString()}");
+            Logger.For<HtmlChatRenderer>().Trace($"[HtmlChatRenderer] Generating message HTML for agent: {interaction.Agent.ToString()}");
 
             try
             {
@@ -121,7 +122,7 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[HtmlChatRenderer] Error creating message HTML with resource manager: {ex.Message}");
+                    Logger.For<HtmlChatRenderer>().Exception(ex, $"[HtmlChatRenderer] Error creating message HTML with resource manager: {ex.Message}");
 
                     // Create a simple message HTML as fallback
                     return "error";
@@ -129,8 +130,8 @@ namespace SmartHopper.Core.UI.Chat
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[HtmlChatRenderer] Error generating message HTML: {ex.Message}");
-                Debug.WriteLine($"[HtmlChatRenderer] Stack trace: {ex.StackTrace}");
+                Logger.For<HtmlChatRenderer>().Exception(ex, $"[HtmlChatRenderer] Error generating message HTML: {ex.Message}");
+                Logger.For<HtmlChatRenderer>().Exception(ex, $"[HtmlChatRenderer] Stack trace: {ex.StackTrace}");
 
                 // Create a simple message HTML as fallback
                 return "error";
