@@ -139,11 +139,20 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Gets the raw markdown content to render for this interaction (pretty-printed JSON args).
+        /// Gets the raw markdown content to render for this interaction. A compact
+        /// single-line preview leads so the collapsed chat bubble shows real content
+        /// instead of only the first "{" of the pretty-printed JSON block that follows.
         /// </summary>
         public virtual string GetRawContentForRender()
         {
-            return this.Arguments != null && this.Arguments.HasValues ? JsonConvert.SerializeObject(this.Arguments, Formatting.Indented) : string.Empty;
+            if (this.Arguments == null || !this.Arguments.HasValues)
+            {
+                return string.Empty;
+            }
+
+            var compact = JsonConvert.SerializeObject(this.Arguments, Formatting.None);
+            var indented = JsonConvert.SerializeObject(this.Arguments, Formatting.Indented);
+            return $"``{compact}``\n\n```json\n{indented}\n```";
         }
 
         /// <summary>

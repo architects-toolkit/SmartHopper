@@ -195,6 +195,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // so the default is off; callers can still request it explicitly.
                 var autoOffset = args["autoOffset"]?.ToObject<bool>() ?? (!editMode && existingComponents.Count == 0);
 
+                // Every new component goes through the shared tidy-up layout pipeline
+                // before the document is staged, so the review previews the exact final
+                // placement and Put applies the computed pivots verbatim.
+                document = await CanvasNewComponentLayout.ApplyAsync(
+                    document,
+                    new HashSet<Guid>(existingComponents.Keys),
+                    offsetBelowExisting: autoOffset,
+                    toolCall.CancellationToken).ConfigureAwait(false);
+
                 var changePlan = GhPutChangePlan.Create(document, existingDocument);
                 if (changePlan.Session.Items.Count > 0)
                 {
@@ -298,7 +307,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             CreateGroups = true,
                             SelectPlacedObjects = true,
                             SkipInvalidComponents = true,
-                            AutoOffset = autoOffset,
+
+                            // Pivots are already final: the shared tidy-up layout ran
+                            // before staging and autoOffset was applied there, so Put
+                            // must apply positions verbatim instead of offsetting again.
+                            AutoOffset = false,
                         };
 
                         putResult = GhJsonGrasshopper.Put(document, putOptions);
