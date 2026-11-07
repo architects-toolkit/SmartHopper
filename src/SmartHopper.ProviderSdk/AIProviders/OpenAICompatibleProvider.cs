@@ -29,6 +29,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.JsonSchemas;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.ProviderSdk.AIProviders
 {
     /// <summary>Base class for providers speaking the OpenAI Chat Completions / Responses wire format.</summary>
@@ -62,7 +63,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                     ["type"] = "function",
                     ["function"] = new JObject { ["name"] = request.ForceToolName, },
                 };
-                Debug.WriteLine($"[{logPrefix}] Forcing tool call: {request.ForceToolName}");
+                Logger.For<OpenAICompatibleProvider<T>>().Trace($"[{logPrefix}] Forcing tool call: {request.ForceToolName}");
             }
             else
             {
@@ -117,7 +118,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.Name}] DecodeOpenAICompatibleMetrics error: {ex.Message}");
+                Logger.For<OpenAICompatibleProvider<T>>().Exception(ex, $"[{this.Name}] DecodeOpenAICompatibleMetrics error: {ex.Message}");
                 return new AIMetrics();
             }
         }
@@ -306,7 +307,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.Name}] Failed to parse/handle JSON schema: {ex.Message}");
+                Logger.For<OpenAICompatibleProvider<T>>().Exception(ex, $"[{this.Name}] Failed to parse/handle JSON schema: {ex.Message}");
                 service.SetCurrentWrapperInfo(wrapperInfo);
                 return false;
             }

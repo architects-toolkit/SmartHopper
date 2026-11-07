@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.ProviderSdk.AICall.Utilities
 {
     /// <summary>
@@ -96,7 +97,7 @@ namespace SmartHopper.ProviderSdk.AICall.Utilities
             catch (Exception ex)
             {
                 // Best-effort extraction; log but don't throw
-                System.Diagnostics.Debug.WriteLine($"[RuntimeMessageUtility.ExtractMessages] Error extracting messages: {ex.Message}");
+                Logger.Exception(typeof(RuntimeMessageUtility).FullName, ex, $"[RuntimeMessageUtility.ExtractMessages] Error extracting messages: {ex.Message}");
             }
 
             return messages;

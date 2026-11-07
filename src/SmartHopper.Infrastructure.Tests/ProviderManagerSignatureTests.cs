@@ -678,7 +678,7 @@ namespace SmartHopper.Infrastructure.Tests
                 catch (Exception ex)
                 {
                     // Ignore invalid paths
-                    Debug.WriteLine($"Error checking path: {ex.Message}");
+                    Logger.For<ProviderManagerSignatureTests>().Exception(ex, $"Error checking path: {ex.Message}");
                 }
             }
 

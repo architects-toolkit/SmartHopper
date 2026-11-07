@@ -30,6 +30,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Test.Providers
 {
     /// <summary>
@@ -172,7 +173,7 @@ namespace SmartHopper.Components.Test.Providers
                                 {
                                     hasFunctionCall = true;
                                     var functionName = part["functionCall"]?["name"]?.ToString();
-                                    System.Diagnostics.Debug.WriteLine($"[TestGeminiTools] Found functionCall: {functionName}");
+                                    Logger.For<Worker>().Trace($"[TestGeminiTools] Found functionCall: {functionName}");
                                 }
 
                                 // Check for functionResponse in user messages
@@ -180,14 +181,14 @@ namespace SmartHopper.Components.Test.Providers
                                 {
                                     hasFunctionResponse = true;
                                     var responseId = part["functionResponse"]?["id"]?.ToString();
-                                    System.Diagnostics.Debug.WriteLine($"[TestGeminiTools] Found functionResponse: {responseId}");
+                                    Logger.For<Worker>().Trace($"[TestGeminiTools] Found functionResponse: {responseId}");
                                 }
                             }
                         }
                     }
 
-                    System.Diagnostics.Debug.WriteLine($"[TestGeminiTools] Found roles: {string.Join(", ", roles)}");
-                    System.Diagnostics.Debug.WriteLine($"[TestGeminiTools] Tool checks - functionCall: {hasFunctionCall}, functionResponse: {hasFunctionResponse}");
+                    Logger.For<Worker>().Trace($"[TestGeminiTools] Found roles: {string.Join(", ", roles)}");
+                    Logger.For<Worker>().Trace($"[TestGeminiTools] Tool checks - functionCall: {hasFunctionCall}, functionResponse: {hasFunctionResponse}");
 
                     if (!hasFunctionCall)
                     {

@@ -24,6 +24,7 @@ using Newtonsoft.Json;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.ProviderSdk.AICall.Metrics
 {
     public record AIMetrics
@@ -170,7 +171,7 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
             {
                 if (string.IsNullOrEmpty(this.Provider) || string.IsNullOrEmpty(this.Model))
                 {
-                    Debug.WriteLine("[AIMetrics.ContextUsagePercent] Missing provider or model");
+                    Logger.For<AIMetrics>().Warning("[AIMetrics.ContextUsagePercent] Missing provider or model");
                     return null;
                 }
 
@@ -180,7 +181,7 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
 
                 if (contextLimit == null || contextLimit.Value <= 0)
                 {
-                    Debug.WriteLine($"[AIMetrics.ContextUsagePercent] No context limit for {this.Provider}/{this.Model}");
+                    Logger.For<AIMetrics>().Trace($"[AIMetrics.ContextUsagePercent] No context limit for {this.Provider}/{this.Model}");
                     return null;
                 }
 
@@ -190,7 +191,7 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
                 var usage = (double)effectiveTokens / contextLimit.Value;
                 var roundedUsage = System.Math.Round(usage, 4);
 
-                Debug.WriteLine($"[AIMetrics.ContextUsagePercent] Provider: {this.Provider}, Model: {this.Model}, EffectiveTokens: {effectiveTokens}, ContextLimit: {contextLimit.Value}, Usage: {roundedUsage}");
+                Logger.For<AIMetrics>().Trace($"[AIMetrics.ContextUsagePercent] Provider: {this.Provider}, Model: {this.Model}, EffectiveTokens: {effectiveTokens}, ContextLimit: {contextLimit.Value}, Usage: {roundedUsage}");
 
                 return roundedUsage;
             }
@@ -267,7 +268,7 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
 
             if (!skipLog)
             {
-                Debug.WriteLine($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nInputTokensPrompt: {this.InputTokensPrompt} -> {this.InputTokensPrompt + other.InputTokensPrompt}\nInputTokensCached: {this.InputTokensCached} -> {this.InputTokensCached + other.InputTokensCached}\nInputTokensCacheWrite: {this.InputTokensCacheWrite} -> {this.InputTokensCacheWrite + other.InputTokensCacheWrite}\nOutputTokensReasoning: {this.OutputTokensReasoning} -> {this.OutputTokensReasoning + other.OutputTokensReasoning}\nOutputTokensGeneration: {this.OutputTokensGeneration} -> {this.OutputTokensGeneration + other.OutputTokensGeneration}\nEstimatedInputTokens: {this.EstimatedInputTokens} -> {this.EstimatedInputTokens + other.EstimatedInputTokens}\nEstimatedOutputTokens: {this.EstimatedOutputTokens} -> {this.EstimatedOutputTokens + other.EstimatedOutputTokens}\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nEstimatedCost: {this.EstimatedCost} -> {this.EstimatedCost + other.EstimatedCost}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
+                Logger.For<AIMetrics>().Trace($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nInputTokensPrompt: {this.InputTokensPrompt} -> {this.InputTokensPrompt + other.InputTokensPrompt}\nInputTokensCached: {this.InputTokensCached} -> {this.InputTokensCached + other.InputTokensCached}\nInputTokensCacheWrite: {this.InputTokensCacheWrite} -> {this.InputTokensCacheWrite + other.InputTokensCacheWrite}\nOutputTokensReasoning: {this.OutputTokensReasoning} -> {this.OutputTokensReasoning + other.OutputTokensReasoning}\nOutputTokensGeneration: {this.OutputTokensGeneration} -> {this.OutputTokensGeneration + other.OutputTokensGeneration}\nEstimatedInputTokens: {this.EstimatedInputTokens} -> {this.EstimatedInputTokens + other.EstimatedInputTokens}\nEstimatedOutputTokens: {this.EstimatedOutputTokens} -> {this.EstimatedOutputTokens + other.EstimatedOutputTokens}\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nEstimatedCost: {this.EstimatedCost} -> {this.EstimatedCost + other.EstimatedCost}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
             }
 
             var dataCount = this.DataCount ?? other.DataCount;

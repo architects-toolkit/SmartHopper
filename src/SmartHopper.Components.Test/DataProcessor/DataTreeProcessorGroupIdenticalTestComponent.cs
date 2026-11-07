@@ -29,6 +29,7 @@ using Grasshopper.Kernel.Types;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Test.DataProcessor
 {
     /// <summary>
@@ -117,7 +118,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                     };
 
                     var (dataCount, iterations) = DataTreeProcessor.CalculateProcessingMetrics(trees, options);
-                    Debug.WriteLine($"[GroupIdentical] Iterations: {iterations}, DataCount: {dataCount}");
+                    Logger.For<Worker>().Trace($"[GroupIdentical] Iterations: {iterations}, DataCount: {dataCount}");
 
                     // Function that counts how many times it's called
                     async Task<Dictionary<string, List<GH_Integer>>> Func(Dictionary<string, List<GH_Integer>> branches)

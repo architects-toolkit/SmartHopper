@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.ProviderSdk.Utils
 {
     /// <summary>
@@ -79,7 +80,7 @@ namespace SmartHopper.ProviderSdk.Utils
             var includeSet = new HashSet<string>(includes.Where(p => p != "*"), StringComparer.OrdinalIgnoreCase);
             var excludeSet = new HashSet<string>(excludes, StringComparer.OrdinalIgnoreCase);
 
-            Debug.WriteLine($"[Filter] raw='{raw}', includeAll={includeAll}, include=[{string.Join(",", includeSet)}], exclude=[{string.Join(",", excludeSet)}]");
+            Logger.For<Filter>().Trace($"[Filter] raw='{raw}', includeAll={includeAll}, include=[{string.Join(",", includeSet)}], exclude=[{string.Join(",", excludeSet)}]");
 
             return new Filter(false, includeAll, includeSet, excludeSet);
         }

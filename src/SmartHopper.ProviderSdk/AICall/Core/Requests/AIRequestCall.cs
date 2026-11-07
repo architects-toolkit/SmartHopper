@@ -32,6 +32,7 @@ using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 using SmartHopper.ProviderSdk.Streaming;
 namespace SmartHopper.ProviderSdk.AICall.Core.Requests
@@ -116,7 +117,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                 // Evaluate provider trust/integrity through the centralized policy.
                 var trustResult = ProviderTrustPolicy.Evaluate(this);
                 messages.AddRange(trustResult.Messages);
-                Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' trust verdict: {trustResult.Verdict}");
+                Logger.For<AIRequestCall>().Trace($"[AIRequestCall] Provider '{this.Provider}' trust verdict: {trustResult.Verdict}");
 
                 if (trustResult.Verdict == ProviderTrustVerdict.Block)
                 {
@@ -265,7 +266,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            Debug.WriteLine($"[AIRequest.Exec] Provider='{this.Provider}', Model='{this.Model}', ToolFilter='{this.Body?.ToolFilter ?? "null"}'");
+            Logger.For<AIRequestCall>().Trace($"[AIRequest.Exec] Provider='{this.Provider}', Model='{this.Model}', ToolFilter='{this.Body?.ToolFilter ?? "null"}'");
 
             try
             {
@@ -344,7 +345,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                 var air = (AIReturn)result;
                 try
                 {
-                    Debug.WriteLine($"[AIRequest.Exec] before policies: interactions={air?.Body?.InteractionsCount ?? 0}, new={string.Join(",", air?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
+                    Logger.For<AIRequestCall>().Trace($"[AIRequest.Exec] before policies: interactions={air?.Body?.InteractionsCount ?? 0}, new={string.Join(",", air?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
                 }
                 catch
                 {
@@ -354,7 +355,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                 await ProviderSdkHost.PolicyPipeline.ApplyResponsePoliciesAsync(air).ConfigureAwait(false);
                 try
                 {
-                    Debug.WriteLine($"[AIRequest.Exec] after policies: interactions={air?.Body?.InteractionsCount ?? 0}, new={string.Join(",", air?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
+                    Logger.For<AIRequestCall>().Error($"[AIRequest.Exec] after policies: interactions={air?.Body?.InteractionsCount ?? 0}, new={string.Join(",", air?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
                 }
                 catch
                 {
@@ -428,7 +429,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AIRequestCall.ExecStreamingInternal] Error getting streaming adapter: {ex.Message}");
+                Logger.For<AIRequestCall>().Exception(ex, $"[AIRequestCall.ExecStreamingInternal] Error getting streaming adapter: {ex.Message}");
             }
 
             if (adapter == null)
@@ -437,7 +438,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                 // Reset the streaming intent so provider PreCall does not pick an SSE endpoint
                 // that the non-streaming CallApi pipeline cannot parse.
                 this.WantsStreaming = false;
-                Debug.WriteLine($"[AIRequest.ExecStreamingInternal] No streaming adapter for provider '{this.Provider}', falling back to non-streaming");
+                Logger.For<AIRequestCall>().Error($"[AIRequest.ExecStreamingInternal] No streaming adapter for provider '{this.Provider}', falling back to non-streaming");
                 var result = await this.ProviderInstance.Call(this, cancellationToken).ConfigureAwait(false);
                 return (AIReturn)result;
             }
@@ -480,12 +481,12 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
             }
             catch (OperationCanceledException)
             {
-                Debug.WriteLine("[AIRequest.ExecStreamingInternal] Streaming cancelled");
+                Logger.For<AIRequestCall>().Error("[AIRequest.ExecStreamingInternal] Streaming cancelled");
                 finalReturn.CreateProviderError("Streaming cancelled", this);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AIRequest.ExecStreamingInternal] Streaming failed: {ex.Message}");
+                Logger.For<AIRequestCall>().Exception(ex, $"[AIRequest.ExecStreamingInternal] Streaming failed: {ex.Message}");
                 finalReturn.CreateProviderError($"Streaming failed: {ex.Message}", this);
             }
 

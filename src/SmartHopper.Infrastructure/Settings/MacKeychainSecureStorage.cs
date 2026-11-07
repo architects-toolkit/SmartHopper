@@ -20,6 +20,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Infrastructure.Settings
 {
     /// <summary>
@@ -121,22 +122,22 @@ namespace SmartHopper.Infrastructure.Settings
 
                 if (result == DuplicateItemError)
                 {
-                    Debug.WriteLine($"[MacKeychainSecureStorage] Key '{keyName}' already exists; storage failed after duplicate removal.");
+                    Logger.Warning(typeof(MacKeychainSecureStorage).FullName, $"[MacKeychainSecureStorage] Key '{keyName}' already exists; storage failed after duplicate removal.");
                     return false;
                 }
 
                 if (result != NoError)
                 {
-                    Debug.WriteLine($"[MacKeychainSecureStorage] Store failed for '{keyName}' with status {result}.");
+                    Logger.Warning(typeof(MacKeychainSecureStorage).FullName, $"[MacKeychainSecureStorage] Store failed for '{keyName}' with status {result}.");
                     return false;
                 }
 
-                Debug.WriteLine($"[MacKeychainSecureStorage] Stored data '{keyName}' in macOS Keychain.");
+                Logger.Trace(typeof(MacKeychainSecureStorage).FullName, $"[MacKeychainSecureStorage] Stored data '{keyName}' in macOS Keychain.");
                 return true;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[MacKeychainSecureStorage] Store error for '{keyName}': {ex.Message}");
+                Logger.Exception(typeof(MacKeychainSecureStorage).FullName, ex, $"[MacKeychainSecureStorage] Store error for '{keyName}': {ex.Message}");
                 return false;
             }
         }
@@ -167,7 +168,7 @@ namespace SmartHopper.Infrastructure.Settings
 
                 byte[] result = new byte[length];
                 Marshal.Copy(data, result, 0, (int)length);
-                Debug.WriteLine($"[MacKeychainSecureStorage] Retrieved data '{keyName}' from macOS Keychain.");
+                Logger.Trace(typeof(MacKeychainSecureStorage).FullName, $"[MacKeychainSecureStorage] Retrieved data '{keyName}' from macOS Keychain.");
                 return result;
             }
             finally
