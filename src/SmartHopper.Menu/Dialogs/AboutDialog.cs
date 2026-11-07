@@ -575,7 +575,7 @@ namespace SmartHopper.Menu.Dialogs
         /// </summary>
         private static string GetSupportedProviderNames()
         {
-            const string fallback = "MistralAI, OpenAI, DeepSeek, Anthropic, Gemini, OpenRouter, Ollama, LocalAI and SmartHopper Cloud";
+            const string fallback = "MistralAI, OpenAI, DeepSeek, Anthropic, Gemini, OpenRouter, Ollama and LocalAI";
 
             try
             {
