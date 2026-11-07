@@ -100,13 +100,12 @@ namespace SmartHopper.Menu.Dialogs
                 DefaultAIProvider = this._settings.DefaultAIProvider,
                 DebounceTime = this._settings.DebounceTime,
                 BatchPollIntervalSeconds = this._settings.BatchPollIntervalSeconds,
-                TelemetryLevel = (int)this._settings.TelemetryLevel,
+                TelemetryEnabled = this._settings.TelemetryEnabled,
                 DiagnosticsEnabled = this._settings.DiagnosticsEnabled,
             };
 
             this._logSettings = new LogSettings
             {
-                LoggingEnabled = this._settings.LoggingEnabled,
                 LiveOutputEnabled = this._settings.LiveOutputEnabled,
                 LiveOutputLevel = this._settings.LiveOutputLevel,
                 LogFileEnabled = this._settings.LogFileEnabled,
@@ -261,9 +260,8 @@ namespace SmartHopper.Menu.Dialogs
                 this._settings.DefaultAIProvider = this._generalSettings.DefaultAIProvider;
                 this._settings.DebounceTime = this._generalSettings.DebounceTime;
                 this._settings.BatchPollIntervalSeconds = this._generalSettings.BatchPollIntervalSeconds;
-                this._settings.TelemetryLevel = (Infrastructure.Telemetry.TelemetryLevel)this._generalSettings.TelemetryLevel;
+                this._settings.TelemetryEnabled = this._generalSettings.TelemetryEnabled;
                 this._settings.DiagnosticsEnabled = this._generalSettings.DiagnosticsEnabled;
-                this._settings.LoggingEnabled = this._logSettings.LoggingEnabled;
                 this._settings.LiveOutputEnabled = this._logSettings.LiveOutputEnabled;
                 this._settings.LiveOutputLevel = this._logSettings.LiveOutputLevel;
                 this._settings.LogFileEnabled = this._logSettings.LogFileEnabled;
