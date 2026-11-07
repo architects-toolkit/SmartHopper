@@ -46,6 +46,7 @@ namespace SmartHopper.Menu.Dialogs
 
         // Tab pages
         private readonly GeneralSettingsPage _generalPage;
+        private readonly LogSettingsPage _logPage;
         private readonly ProvidersSettingsPage _providersPage;
         private readonly AssistantSettingsPage _assistantPage;
         private readonly FallbackSettingsPage _fallbackPage;
@@ -53,6 +54,7 @@ namespace SmartHopper.Menu.Dialogs
 
         // Settings models
         private readonly GeneralSettings _generalSettings;
+        private readonly LogSettings _logSettings;
         private readonly TrustedProvidersSettings _trustedProvidersSettings;
         private readonly AssistantSettings _assistantSettings;
         private ProviderIntegrityCheckMode _providerIntegrityCheckMode;
@@ -102,6 +104,18 @@ namespace SmartHopper.Menu.Dialogs
                 DiagnosticsEnabled = this._settings.DiagnosticsEnabled,
             };
 
+            this._logSettings = new LogSettings
+            {
+                LoggingEnabled = this._settings.LoggingEnabled,
+                LiveOutputEnabled = this._settings.LiveOutputEnabled,
+                LiveOutputLevel = this._settings.LiveOutputLevel,
+                LogFileEnabled = this._settings.LogFileEnabled,
+                LogFileLevel = this._settings.LogFileLevel,
+                LogRetentionDays = this._settings.LogRetentionDays,
+                OtlpLogEnabled = this._settings.OtlpLogEnabled,
+                OtlpLogLevel = this._settings.OtlpLogLevel,
+            };
+
             this._trustedProvidersSettings = new TrustedProvidersSettings(this._settings.TrustedProviders);
             this._providerIntegrityCheckMode = this._settings.ProviderIntegrityCheckMode;
 
@@ -118,6 +132,7 @@ namespace SmartHopper.Menu.Dialogs
 
             // Create tab pages
             this._generalPage = new GeneralSettingsPage(this._providers);
+            this._logPage = new LogSettingsPage();
             this._assistantPage = new AssistantSettingsPage(this._providers);
             this._providersPage = new ProvidersSettingsPage(this._providers);
             this._fallbackPage = new FallbackSettingsPage(this._providers);
@@ -132,6 +147,7 @@ namespace SmartHopper.Menu.Dialogs
 
             // Load settings into pages
             this._generalPage.LoadSettings(this._generalSettings);
+            this._logPage.LoadSettings(this._logSettings);
             this._providersPage.LoadSettings(this._trustedProvidersSettings, this._providerIntegrityCheckMode);
             this._assistantPage.LoadSettings(this._assistantSettings);
             this._fallbackPage.LoadSettings(this._settings.ModalityFallback, this._settings.FallbackProviderPins);
@@ -151,6 +167,13 @@ namespace SmartHopper.Menu.Dialogs
             {
                 Text = "General",
                 Content = this._generalPage,
+            });
+
+            // Add Logging tab
+            tabControl.Pages.Add(new TabPage
+            {
+                Text = "Logging",
+                Content = this._logPage,
             });
 
             // Add Providers tab
@@ -224,6 +247,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 // Save settings from each tab page
                 this._generalPage.SaveSettings(this._generalSettings);
+                this._logPage.SaveSettings(this._logSettings);
                 this._providersPage.SaveSettings(this._trustedProvidersSettings, out var providerIntegrityCheckMode);
                 this._assistantPage.SaveSettings(this._assistantSettings);
 
@@ -239,6 +263,14 @@ namespace SmartHopper.Menu.Dialogs
                 this._settings.BatchPollIntervalSeconds = this._generalSettings.BatchPollIntervalSeconds;
                 this._settings.TelemetryLevel = (Infrastructure.Telemetry.TelemetryLevel)this._generalSettings.TelemetryLevel;
                 this._settings.DiagnosticsEnabled = this._generalSettings.DiagnosticsEnabled;
+                this._settings.LoggingEnabled = this._logSettings.LoggingEnabled;
+                this._settings.LiveOutputEnabled = this._logSettings.LiveOutputEnabled;
+                this._settings.LiveOutputLevel = this._logSettings.LiveOutputLevel;
+                this._settings.LogFileEnabled = this._logSettings.LogFileEnabled;
+                this._settings.LogFileLevel = this._logSettings.LogFileLevel;
+                this._settings.LogRetentionDays = this._logSettings.LogRetentionDays;
+                this._settings.OtlpLogEnabled = this._logSettings.OtlpLogEnabled;
+                this._settings.OtlpLogLevel = this._logSettings.OtlpLogLevel;
                 this._settings.SmartHopperAssistant.EnableCanvasButton = this._assistantSettings.EnableCanvasButton;
                 this._settings.SmartHopperAssistant.EnableAIGreeting = this._assistantSettings.EnableAIGreeting;
                 this._settings.SmartHopperAssistant.EnableSuggestedPrompts = this._assistantSettings.EnableSuggestedPrompts;

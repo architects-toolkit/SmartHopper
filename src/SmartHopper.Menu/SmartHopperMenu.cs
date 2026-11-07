@@ -143,11 +143,9 @@ namespace SmartHopper.Menu
                 SettingsMenuItem.Create(),
                 new ToolStripSeparator(),
                 RefreshProvidersMenuItem.Create(),
-                RefreshCatalogueMenuItem.Create(),
                 VerifyProvidersMenuItem.Create(),
                 new ToolStripSeparator(),
                 DiagnosticsMenuItem.Create(),
-                VisitWebsiteMenuItem.Create(),
                 AboutMenuItem.Create(),
             });
 
