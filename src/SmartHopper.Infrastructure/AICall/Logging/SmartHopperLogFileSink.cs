@@ -118,7 +118,7 @@ namespace SmartHopper.Infrastructure.AICall.Logging
                 return;
             }
 
-            // Bound the pending queue like the OTLP publisher: a logging burst
+            // Bound the pending queue so that a logging burst
             // must never exhaust host memory — oldest lines are dropped first.
             while (this._queue.Count >= MaxPendingLines)
             {
