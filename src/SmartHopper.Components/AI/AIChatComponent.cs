@@ -35,6 +35,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.AI
 {
     /// <summary>
@@ -145,7 +146,7 @@ namespace SmartHopper.Components.AI
                     {
                         if (interaction == null) continue;
 
-                        Debug.WriteLine($"[AIChatComponent] Interaction from {interaction.Agent}: {interaction}");
+                        Logger.For<AIChatComponent>().Trace($"[AIChatComponent] Interaction from {interaction.Agent}: {interaction}");
 
                         var ts = interaction.Time.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture);
                         var role = interaction.Agent.ToDescription();
@@ -160,7 +161,7 @@ namespace SmartHopper.Components.AI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AIChatComponent] SolveInstance history build error: {ex.Message}");
+                Logger.For<AIChatComponent>().Exception(ex, $"[AIChatComponent] SolveInstance history build error: {ex.Message}");
             }
 
             // Persistently set (or clear) the chat history so downstream updates occur
@@ -267,12 +268,12 @@ namespace SmartHopper.Components.AI
             {
                 try
                 {
-                    Debug.WriteLine("[AIChatWorker] Ensuring web chat dialog is open");
+                    Logger.For<AIChatWorker>().Trace("[AIChatWorker] Ensuring web chat dialog is open");
                     this.progressReporter?.Invoke("Starting web chat interface...");
 
                     // Get the actual provider name to use
                     string actualProvider = this.component.GetActualAIProviderName();
-                    Debug.WriteLine($"[AIChatWorker] Using Provider: {actualProvider} (Selected: {this.component.GetActualAIProviderName()})");
+                    Logger.For<AIChatWorker>().Trace($"[AIChatWorker] Using Provider: {actualProvider} (Selected: {this.component.GetActualAIProviderName()})");
 
                     // Ensure dialog is open (non-blocking) and wire incremental updates
                     WebChatUtils.EnsureDialogOpen(
@@ -302,7 +303,7 @@ namespace SmartHopper.Components.AI
                             }
                             catch (Exception cbEx)
                             {
-                                Debug.WriteLine($"[AIChatWorker] onUpdate callback error: {cbEx.Message}");
+                                Logger.For<AIChatWorker>().Error($"[AIChatWorker] onUpdate callback error: {cbEx.Message}");
                             }
                         });
 
@@ -319,7 +320,7 @@ namespace SmartHopper.Components.AI
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIChatWorker] Error: {ex.Message}");
+                    Logger.For<AIChatWorker>().Exception(ex, $"[AIChatWorker] Error: {ex.Message}");
                     this.progressReporter?.Invoke($"Error: {ex.Message}");
                     throw;
                 }

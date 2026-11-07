@@ -37,6 +37,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Utilities;
 
 namespace SmartHopper.Components.JSON
@@ -192,13 +193,13 @@ namespace SmartHopper.Components.JSON
             {
                 try
                 {
-                    Debug.WriteLine("[AIText2Json] Starting DoWorkAsync");
+                    Logger.For<AIText2JsonWorker>().Trace("[AIText2Json] Starting DoWorkAsync");
 
                     this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
-                            Debug.WriteLine($"[AIText2Json] ProcessData called with {branches.Count} branches");
+                            Logger.For<AIText2JsonWorker>().Trace($"[AIText2Json] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, this.parent, token).ConfigureAwait(false);
                         },
                         this.processingOptions,
@@ -208,7 +209,7 @@ namespace SmartHopper.Components.JSON
                     var batchSubmitted = await this.parent.TrySubmitBatchAsync("JSON", this.result, token).ConfigureAwait(false);
                     if (batchSubmitted)
                     {
-                        Debug.WriteLine("[AIText2Json] Sentinel tree stored, batch submitted");
+                        Logger.For<AIText2JsonWorker>().Trace("[AIText2Json] Sentinel tree stored, batch submitted");
                     }
                     else if (this.result.TryGetValue("JSON", out var resultTree))
                     {
@@ -216,11 +217,11 @@ namespace SmartHopper.Components.JSON
                         this.parent.FinishResults("JSON", resultTree);
                     }
 
-                    Debug.WriteLine($"[AIText2Json] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
+                    Logger.For<AIText2JsonWorker>().Trace($"[AIText2Json] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIText2Json] Error: {ex.Message}");
+                    Logger.For<AIText2JsonWorker>().Exception(ex, $"[AIText2Json] Error: {ex.Message}");
                 }
             }
 
@@ -253,14 +254,14 @@ namespace SmartHopper.Components.JSON
 
                     if (string.IsNullOrWhiteSpace(prompt))
                     {
-                        Debug.WriteLine($"[AIText2Json] Skipping empty prompt at batch item {i}");
+                        Logger.For<AIText2JsonWorker>().Error($"[AIText2Json] Skipping empty prompt at batch item {i}");
                         outputs["JSON"].Add(new GH_String(string.Empty));
                         continue;
                     }
 
                     if (string.IsNullOrWhiteSpace(schema))
                     {
-                        Debug.WriteLine($"[AIText2Json] Skipping empty schema at batch item {i}");
+                        Logger.For<AIText2JsonWorker>().Error($"[AIText2Json] Skipping empty schema at batch item {i}");
                         outputs["JSON"].Add(new GH_String(string.Empty));
                         continue;
                     }

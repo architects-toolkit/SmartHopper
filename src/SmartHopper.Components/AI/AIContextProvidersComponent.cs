@@ -30,6 +30,7 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AIContext;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.AI
 {
     /// <summary>
@@ -152,21 +153,21 @@ namespace SmartHopper.Components.AI
 
                         this._result["Providers"] = tree;
                         this._result["Success"] = true;
-                        Debug.WriteLine($"[AIContextProvidersComponent] Found {providers.Count} registered context providers");
+                        Logger.For<AIContextProvidersWorker>().Trace($"[AIContextProvidersComponent] Found {providers.Count} registered context providers");
                     }
                     else
                     {
                         this._result["Success"] = true;
                         this._result["Providers"] = tree;
                         this._result["Info"] = "No context providers registered";
-                        Debug.WriteLine("[AIContextProvidersComponent] No context providers registered");
+                        Logger.For<AIContextProvidersWorker>().Trace("[AIContextProvidersComponent] No context providers registered");
                     }
                 }
                 catch (Exception ex)
                 {
                     this._result["Success"] = false;
                     this._result["Error"] = ex.Message;
-                    Debug.WriteLine("[AIContextProvidersComponent] Error: " + ex.Message);
+                    Logger.For<AIContextProvidersWorker>().Exception(ex, "[AIContextProvidersComponent] Error: " + ex.Message);
                 }
 
                 return Task.CompletedTask;

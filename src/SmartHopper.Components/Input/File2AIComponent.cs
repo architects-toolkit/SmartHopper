@@ -43,6 +43,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Input
 {
     /// <summary>
@@ -166,7 +167,7 @@ namespace SmartHopper.Components.Input
                     if (this._fileContexts == null ||
                         !this._fileContexts.TryGetValue(representativeSentinelId, out var fileCtx))
                     {
-                        Debug.WriteLine($"[File2AI] OnBatchCompleted: File context missing for sentinel {representativeSentinelId}");
+                        Logger.For<File2AIComponent>().Warning($"[File2AI] OnBatchCompleted: File context missing for sentinel {representativeSentinelId}");
                         return new GH_String("[File context missing]");
                     }
 
@@ -223,7 +224,7 @@ namespace SmartHopper.Components.Input
                 }
 
                 var totalSlotMetrics = slotMetricsByPath.Values.Sum(l => l.Count);
-                Debug.WriteLine($"[File2AI] OnBatchCompleted: merged {totalSlotMetrics} slot metrics into {slotMetricsByPath.Count} branch path(s)");
+                Logger.For<File2AIComponent>().Trace($"[File2AI] OnBatchCompleted: merged {totalSlotMetrics} slot metrics into {slotMetricsByPath.Count} branch path(s)");
                 this.SetMetricsOutput(null);
             }
 
@@ -340,7 +341,7 @@ namespace SmartHopper.Components.Input
                     var batchSubmitted = await this.parent.TrySubmitBatchAsync("Markdown", markdownDict, token).ConfigureAwait(false);
                     if (batchSubmitted)
                     {
-                        Debug.WriteLine("[File2AI] Sentinel tree stored, batch submitted");
+                        Logger.For<File2AIWorker>().Trace("[File2AI] Sentinel tree stored, batch submitted");
                     }
                     else
                     {
@@ -353,7 +354,7 @@ namespace SmartHopper.Components.Input
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[File2AIWorker] Error: {ex.Message}");
+                    Logger.For<File2AIWorker>().Exception(ex, $"[File2AIWorker] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Error processing files: {ex.Message}");
                 }
             }

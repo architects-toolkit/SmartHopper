@@ -35,6 +35,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     public class McNeelForumSearchComponent : StatefulComponentBase
@@ -113,7 +114,7 @@ namespace SmartHopper.Components.Knowledge
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Query is required.");
                 }
 
-                Debug.WriteLine($"[McNeelForumSearchWorker] GatherInput - QueryTreeCount={queryTree?.DataCount ?? 0}, HasWork={this.hasWork}");
+                Logger.For<McNeelForumSearchWorker>().Trace($"[McNeelForumSearchWorker] GatherInput - QueryTreeCount={queryTree?.DataCount ?? 0}, HasWork={this.hasWork}");
 
                 dataCount = 0;
             }
@@ -122,7 +123,7 @@ namespace SmartHopper.Components.Knowledge
             {
                 if (!this.hasWork)
                 {
-                    Debug.WriteLine("[McNeelForumSearchWorker] DoWorkAsync called with hasWork=false, exiting.");
+                    Logger.For<McNeelForumSearchWorker>().Trace("[McNeelForumSearchWorker] DoWorkAsync called with hasWork=false, exiting.");
                     return;
                 }
 
@@ -150,7 +151,7 @@ namespace SmartHopper.Components.Knowledge
                                     continue;
                                 }
 
-                                Debug.WriteLine($"[McNeelForumSearchWorker] DoWorkAsync starting. Query='{queryValue}'");
+                                Logger.For<McNeelForumSearchWorker>().Trace($"[McNeelForumSearchWorker] DoWorkAsync starting. Query='{queryValue}'");
                                 var parameters = new JObject
                                 {
                                     ["query"] = queryValue,
@@ -178,15 +179,15 @@ namespace SmartHopper.Components.Knowledge
                                 }
                                 catch (Exception ex)
                                 {
-                                    Debug.WriteLine($"[McNeelForumSearchWorker] Error executing tool: {ex}");
+                                    Logger.For<McNeelForumSearchWorker>().Exception(ex, $"[McNeelForumSearchWorker] Error executing tool: {ex}");
                                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                                     continue;
                                 }
 
-                                Debug.WriteLine($"[McNeelForumSearchWorker] Tool call completed. Success={aiResult?.Success}, Status={aiResult?.Status}, HasBody={aiResult?.Body != null}");
+                                Logger.For<McNeelForumSearchWorker>().Trace($"[McNeelForumSearchWorker] Tool call completed. Success={aiResult?.Success}, Status={aiResult?.Status}, HasBody={aiResult?.Body != null}");
                                 if (aiResult?.Body != null)
                                 {
-                                    Debug.WriteLine($"[McNeelForumSearchWorker] Body interactions count={aiResult.Body.Interactions?.Count ?? 0}");
+                                    Logger.For<McNeelForumSearchWorker>().Error($"[McNeelForumSearchWorker] Body interactions count={aiResult.Body.Interactions?.Count ?? 0}");
                                 }
 
                                 var toolResult = ToolCallResult.FromAIReturn(aiResult);
@@ -197,7 +198,7 @@ namespace SmartHopper.Components.Knowledge
                                 }
 
                                 var resultsArray = toolResult["results"] as JArray ?? new JArray();
-                                Debug.WriteLine($"[McNeelForumSearchWorker] Parsed results array. Count={resultsArray.Count}");
+                                Logger.For<McNeelForumSearchWorker>().Trace($"[McNeelForumSearchWorker] Parsed results array. Count={resultsArray.Count}");
                                 foreach (var post in resultsArray)
                                 {
                                     outputs["McNeelForumPosts"].Add(new GH_String(post?.ToString() ?? string.Empty));
@@ -217,7 +218,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[McNeelForumSearchWorker] Error: {ex}");
+                    Logger.For<McNeelForumSearchWorker>().Exception(ex, $"[McNeelForumSearchWorker] Error: {ex}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
@@ -225,7 +226,7 @@ namespace SmartHopper.Components.Knowledge
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
                 var postsTree = this.resultPosts ?? new GH_Structure<GH_String>();
-                Debug.WriteLine($"[McNeelForumSearchWorker] SetOutput - resultPosts.DataCount={postsTree.DataCount}");
+                Logger.For<McNeelForumSearchWorker>().Trace($"[McNeelForumSearchWorker] SetOutput - resultPosts.DataCount={postsTree.DataCount}");
                 this.parent.SetPersistentOutput("McNeelForum Posts", postsTree, DA);
                 message = postsTree.DataCount == 0 ? "No search executed" : "Search completed";
             }

@@ -38,6 +38,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 using CommonDrawing = System.Drawing;
 
 namespace SmartHopper.Components.Text
@@ -243,15 +244,15 @@ namespace SmartHopper.Components.Text
             {
                 try
                 {
-                    Debug.WriteLine($"[Worker] Starting DoWorkAsync");
-                    Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
-                    Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
+                    Logger.For<AIText2BooleanWorker>().Trace($"[Worker] Starting DoWorkAsync");
+                    Logger.For<AIText2BooleanWorker>().Trace($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
+                    Logger.For<AIText2BooleanWorker>().Trace($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
                     this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
-                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
+                            Logger.For<AIText2BooleanWorker>().Trace($"[Worker] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, this.parent, token).ConfigureAwait(false);
                         },
                         this.processingOptions,
@@ -265,7 +266,7 @@ namespace SmartHopper.Components.Text
                     var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", resultDict, token).ConfigureAwait(false);
                     if (batchSubmitted)
                     {
-                        Debug.WriteLine($"[Worker] Sentinel tree stored, batch submitted");
+                        Logger.For<AIText2BooleanWorker>().Trace($"[Worker] Sentinel tree stored, batch submitted");
                     }
                     else
                     {
@@ -279,11 +280,11 @@ namespace SmartHopper.Components.Text
                         this.parent.FinishResults("Used Fallback", usedFallbackTree);
                     }
 
-                    Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Outputs.Keys)}");
+                    Logger.For<AIText2BooleanWorker>().Trace($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Outputs.Keys)}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[Worker] Error: {ex.Message}");
+                    Logger.For<AIText2BooleanWorker>().Exception(ex, $"[Worker] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
@@ -355,8 +356,8 @@ namespace SmartHopper.Components.Text
                  * the output values (as strings for batch support).
                  */
 
-                Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
-                Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
+                Logger.For<AIText2BooleanWorker>().Trace($"[Worker] Processing {branches.Count} trees");
+                Logger.For<AIText2BooleanWorker>().Trace($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees - cast from IGH_Goo to concrete types
                 var textBranch = branches["Text"].Cast<GH_String>().ToList();
@@ -380,7 +381,7 @@ namespace SmartHopper.Components.Text
                 textBranch = normalizedLists[0];
                 questionBranch = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Text count: {textBranch.Count}, Question count: {questionBranch.Count}, Fallback: '{fallbackValue}'");
+                Logger.For<AIText2BooleanWorker>().Trace($"[ProcessData] After normalization - Text count: {textBranch.Count}, Question count: {questionBranch.Count}, Fallback: '{fallbackValue}'");
 
                 // Initialize the outputs (as strings for batch support - sentinels are strings).
                 // Result and UsedFallback are kept as parallel lists with identical lengths.
@@ -392,12 +393,12 @@ namespace SmartHopper.Components.Text
                 // For each item in the prompt tree, get the response from AI
                 for (int i = 0; i < textBranch.Count; i++)
                 {
-                    Debug.WriteLine($"[ProcessData] Processing text {i + 1}/{textBranch.Count}");
+                    Logger.For<AIText2BooleanWorker>().Trace($"[ProcessData] Processing text {i + 1}/{textBranch.Count}");
 
                     string textValue = textBranch[i]?.Value ?? string.Empty;
                     string questionValue = questionBranch[i]?.Value ?? string.Empty;
 
-                    Debug.WriteLine($"[ProcessData] Text: '{textValue}', Question: '{questionValue}', Fallback: '{fallbackValue}'");
+                    Logger.For<AIText2BooleanWorker>().Trace($"[ProcessData] Text: '{textValue}', Question: '{questionValue}', Fallback: '{fallbackValue}'");
 
                     // Call the AI tool through the tool manager
                     var parameters = new JObject
@@ -411,7 +412,7 @@ namespace SmartHopper.Components.Text
                     var toolResult = await parent.CallAIToolAsync("text2boolean", parameters, cancellationToken)
                         .ConfigureAwait(false);
 
-                    Debug.WriteLine($"[ProcessData] Tool result: {toolResult?.ToString() ?? "null"}");
+                    Logger.For<AIText2BooleanWorker>().Trace($"[ProcessData] Tool result: {toolResult?.ToString() ?? "null"}");
 
                     if (toolResult == null)
                     {

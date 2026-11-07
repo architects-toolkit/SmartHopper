@@ -31,6 +31,7 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
@@ -263,7 +264,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIDiscourseTopicSummarizeWorker] Error: {ex.Message}");
+                    Logger.For<AIDiscourseTopicSummarizeWorker>().Exception(ex, $"[AIDiscourseTopicSummarizeWorker] Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }

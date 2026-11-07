@@ -32,6 +32,7 @@ using SmartHopper.Infrastructure.Consent;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Grasshopper
 {
     /// <summary>
@@ -185,7 +186,7 @@ namespace SmartHopper.Components.Grasshopper
                         }
 
                         var combined = parts.Count > 0 ? string.Join(" \n", parts) : "gh_put execution failed";
-                        Debug.WriteLine($"[GhPutComponents] gh_put Exec failed: {combined}");
+                        Logger.For<GhPutWorker>().Warning($"[GhPutComponents] gh_put Exec failed: {combined}");
                         this.error = combined;
                         return;
                     }
@@ -233,7 +234,7 @@ namespace SmartHopper.Components.Grasshopper
                         else if (trimmed.StartsWith("- "))
                         {
                             var msgText = trimmed.Substring(2);
-                            Debug.WriteLine($"[GhPutComponents] RuntimeMessage from analysis: Level={currentLevel}, Message={msgText}");
+                            Logger.For<GhPutWorker>().Error($"[GhPutComponents] RuntimeMessage from analysis: Level={currentLevel}, Message={msgText}");
                             this.AddRuntimeMessage(currentLevel, msgText);
                         }
                     }
@@ -241,7 +242,7 @@ namespace SmartHopper.Components.Grasshopper
 
                 if (!string.IsNullOrEmpty(this.error))
                 {
-                    Debug.WriteLine($"[GhPutComponents] RuntimeMessage error: Level={GH_RuntimeMessageLevel.Error}, Message={this.error}");
+                    Logger.For<GhPutWorker>().Warning($"[GhPutComponents] RuntimeMessage error: Level={GH_RuntimeMessageLevel.Error}, Message={this.error}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, this.error);
                     return;
                 }

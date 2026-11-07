@@ -38,6 +38,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Input
 {
     /// <summary>
@@ -154,7 +155,7 @@ namespace SmartHopper.Components.Input
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[McNeelPost2AIWorker] Error: {ex.Message}");
+                    Logger.For<McNeelPost2AIWorker>().Exception(ex, $"[McNeelPost2AIWorker] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Error retrieving posts: {ex.Message}");
                 }
             }

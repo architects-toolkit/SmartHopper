@@ -30,6 +30,7 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Grasshopper
 {
     /// <summary>
@@ -154,7 +155,7 @@ namespace SmartHopper.Components.Grasshopper
 
                 try
                 {
-                    Debug.WriteLine($"[AIGhConnectWorker] Starting with {this.guids.Count} GUIDs, purpose: {this.purpose}");
+                    Logger.For<AIGhConnectWorker>().Trace($"[AIGhConnectWorker] Starting with {this.guids.Count} GUIDs, purpose: {this.purpose}");
 
                     var parameters = new JObject
                     {
@@ -197,11 +198,11 @@ namespace SmartHopper.Components.Grasshopper
                         this.connectionsJson = string.Empty;
                     }
 
-                    Debug.WriteLine($"[AIGhConnectWorker] Completed - success={this.success}, reasoning length={this.reasoning.Length}");
+                    Logger.For<AIGhConnectWorker>().Trace($"[AIGhConnectWorker] Completed - success={this.success}, reasoning length={this.reasoning.Length}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIGhConnectWorker] Error: {ex.Message}");
+                    Logger.For<AIGhConnectWorker>().Exception(ex, $"[AIGhConnectWorker] Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                     this.success = false;
                 }

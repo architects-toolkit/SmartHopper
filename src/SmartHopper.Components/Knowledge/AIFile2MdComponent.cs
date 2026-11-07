@@ -44,6 +44,7 @@ using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
@@ -206,7 +207,7 @@ namespace SmartHopper.Components.Knowledge
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[AIFile2Md] Write file contexts error: {ex.Message}");
+                Logger.For<AIFile2MdComponent>().Exception(ex, $"[AIFile2Md] Write file contexts error: {ex.Message}");
             }
 
             return true;
@@ -253,18 +254,18 @@ namespace SmartHopper.Components.Knowledge
                     }
 
                     this._fileContextsInitialized = true;
-                    System.Diagnostics.Debug.WriteLine($"[AIFile2Md] Read: restored {count} file contexts");
+                    Logger.For<AIFile2MdComponent>().Trace($"[AIFile2Md] Read: restored {count} file contexts");
                 }
                 else
                 {
                     // No persisted contexts — if a batch is active this is a context-lost situation
                     this._batchContextLost = true;
-                    System.Diagnostics.Debug.WriteLine("[AIFile2Md] Read: no file contexts found — batch context lost");
+                    Logger.For<AIFile2MdComponent>().Trace("[AIFile2Md] Read: no file contexts found — batch context lost");
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[AIFile2Md] Read file contexts error: {ex.Message}");
+                Logger.For<AIFile2MdComponent>().Exception(ex, $"[AIFile2Md] Read file contexts error: {ex.Message}");
                 this._batchContextLost = true;
             }
 
@@ -312,7 +313,7 @@ namespace SmartHopper.Components.Knowledge
                     if (this._fileContexts == null ||
                         !this._fileContexts.TryGetValue(representativeSentinelId, out var fileCtx))
                     {
-                        Debug.WriteLine($"[AIFile2Md] OnBatchCompleted: File context missing for sentinel {representativeSentinelId}");
+                        Logger.For<AIFile2MdComponent>().Warning($"[AIFile2Md] OnBatchCompleted: File context missing for sentinel {representativeSentinelId}");
                         return new GH_String("[File context missing]");
                     }
 
@@ -371,7 +372,7 @@ namespace SmartHopper.Components.Knowledge
                 }
 
                 var totalSlotMetrics = slotMetricsByPath.Values.Sum(l => l.Count);
-                Debug.WriteLine($"[AIFile2Md] OnBatchCompleted: merged {totalSlotMetrics} slot metrics into {slotMetricsByPath.Count} branch path(s)");
+                Logger.For<AIFile2MdComponent>().Trace($"[AIFile2Md] OnBatchCompleted: merged {totalSlotMetrics} slot metrics into {slotMetricsByPath.Count} branch path(s)");
 
                 // Re-emit metrics now that per-slot tokens are included
                 this.SetMetricsOutput(null);
@@ -640,7 +641,7 @@ namespace SmartHopper.Components.Knowledge
                     if (batchSubmitted)
                     {
                         this.resultMarkdown = null;
-                        Debug.WriteLine("[AIFile2Md] Sentinel tree stored, batch submitted");
+                        Logger.For<AIFile2MdWorker>().Trace("[AIFile2Md] Sentinel tree stored, batch submitted");
                     }
                     else
                     {
@@ -658,7 +659,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIFile2Md] Error: {ex.Message}");
+                    Logger.For<AIFile2MdWorker>().Exception(ex, $"[AIFile2Md] Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }

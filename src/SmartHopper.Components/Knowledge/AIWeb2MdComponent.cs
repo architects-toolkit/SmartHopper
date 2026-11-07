@@ -41,6 +41,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
@@ -177,7 +178,7 @@ namespace SmartHopper.Components.Knowledge
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AIWeb2Md] Write URL contexts error: {ex.Message}");
+                Logger.For<AIWeb2MdComponent>().Exception(ex, $"[AIWeb2Md] Write URL contexts error: {ex.Message}");
             }
 
             return true;
@@ -227,17 +228,17 @@ namespace SmartHopper.Components.Knowledge
                     }
 
                     this._urlContextsInitialized = true;
-                    Debug.WriteLine($"[AIWeb2Md] Read: restored {count} URL contexts");
+                    Logger.For<AIWeb2MdComponent>().Trace($"[AIWeb2Md] Read: restored {count} URL contexts");
                 }
                 else
                 {
                     this._batchContextLost = true;
-                    Debug.WriteLine("[AIWeb2Md] Read: no URL contexts found — batch context lost");
+                    Logger.For<AIWeb2MdComponent>().Trace("[AIWeb2Md] Read: no URL contexts found — batch context lost");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AIWeb2Md] Read URL contexts error: {ex.Message}");
+                Logger.For<AIWeb2MdComponent>().Exception(ex, $"[AIWeb2Md] Read URL contexts error: {ex.Message}");
                 this._batchContextLost = true;
             }
 
@@ -281,7 +282,7 @@ namespace SmartHopper.Components.Knowledge
                     if (this._urlContexts == null ||
                         !this._urlContexts.TryGetValue(representativeSentinelId, out var urlCtx))
                     {
-                        Debug.WriteLine($"[AIWeb2Md] OnBatchCompleted: URL context missing for sentinel {representativeSentinelId}");
+                        Logger.For<AIWeb2MdComponent>().Warning($"[AIWeb2Md] OnBatchCompleted: URL context missing for sentinel {representativeSentinelId}");
                         return new GH_String("[URL context missing]");
                     }
 
@@ -338,7 +339,7 @@ namespace SmartHopper.Components.Knowledge
                 }
 
                 var totalSlotMetrics = slotMetricsByPath.Values.Sum(l => l.Count);
-                Debug.WriteLine($"[AIWeb2Md] OnBatchCompleted: merged {totalSlotMetrics} slot metrics into {slotMetricsByPath.Count} branch path(s)");
+                Logger.For<AIWeb2MdComponent>().Trace($"[AIWeb2Md] OnBatchCompleted: merged {totalSlotMetrics} slot metrics into {slotMetricsByPath.Count} branch path(s)");
                 this.SetMetricsOutput(null);
             }
 
@@ -454,7 +455,7 @@ namespace SmartHopper.Components.Knowledge
                     if (batchSubmitted)
                     {
                         this.resultMarkdown = null;
-                        Debug.WriteLine("[AIWeb2Md] Sentinel tree stored, batch submitted");
+                        Logger.For<AIWeb2MdWorker>().Trace("[AIWeb2Md] Sentinel tree stored, batch submitted");
                     }
                     else
                     {
@@ -470,7 +471,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIWeb2Md] Error: {ex.Message}");
+                    Logger.For<AIWeb2MdWorker>().Exception(ex, $"[AIWeb2Md] Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }

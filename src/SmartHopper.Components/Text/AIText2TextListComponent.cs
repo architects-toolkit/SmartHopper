@@ -37,6 +37,7 @@ using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Text
 {
     public class AIText2TextListComponent : AIStatefulAsyncComponentBase
@@ -172,7 +173,7 @@ namespace SmartHopper.Components.Text
             {
                 try
                 {
-                    Debug.WriteLine($"[AIText2TextList] Starting DoWorkAsync");
+                    Logger.For<AIText2TextListWorker>().Trace($"[AIText2TextList] Starting DoWorkAsync");
 
                     this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
@@ -183,7 +184,7 @@ namespace SmartHopper.Components.Text
                     var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", this.result, token).ConfigureAwait(false);
                     if (batchSubmitted)
                     {
-                        Debug.WriteLine($"[AIText2TextList] Sentinel tree stored, batch submitted");
+                        Logger.For<AIText2TextListWorker>().Trace($"[AIText2TextList] Sentinel tree stored, batch submitted");
                     }
                     else if (this.result.TryGetValue("Result", out var resultTree))
                     {
@@ -191,11 +192,11 @@ namespace SmartHopper.Components.Text
                         this.parent.FinishResults("Result", resultTree);
                     }
 
-                    Debug.WriteLine($"[AIText2TextList] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
+                    Logger.For<AIText2TextListWorker>().Trace($"[AIText2TextList] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIText2TextList] Error: {ex.Message}");
+                    Logger.For<AIText2TextListWorker>().Exception(ex, $"[AIText2TextList] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
@@ -224,7 +225,7 @@ namespace SmartHopper.Components.Text
                     string prompt = normalizedPrompts[i]?.Value ?? string.Empty;
                     if (!int.TryParse(normalizedCounts[i]?.Value, out int count) || count <= 0)
                     {
-                        Debug.WriteLine($"[AIText2TextList] Invalid count at branch {i}: '{normalizedCounts[i]?.Value}'");
+                        Logger.For<AIText2TextListWorker>().Error($"[AIText2TextList] Invalid count at branch {i}: '{normalizedCounts[i]?.Value}'");
                         continue;
                     }
 
