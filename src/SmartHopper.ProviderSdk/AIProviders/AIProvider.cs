@@ -41,6 +41,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 using SmartHopper.ProviderSdk.Streaming;
 using SmartHopper.ProviderSdk.Utils;
@@ -67,14 +68,12 @@ namespace SmartHopper.ProviderSdk.AIProviders
             }
             catch (TargetInvocationException tie) when (tie.InnerException != null)
             {
-                Debug.WriteLine($"[AIProvider<{typeof(T).Name}>] Constructor threw exception: {tie.InnerException.GetType().Name}: {tie.InnerException.Message}");
-                Debug.WriteLine($"[AIProvider<{typeof(T).Name}>] Stack trace: {tie.InnerException.StackTrace}");
+                Logger.For<AIProvider>().Exception(tie.InnerException, $"[AIProvider<{typeof(T).Name}>] Constructor threw exception");
                 throw tie.InnerException;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AIProvider<{typeof(T).Name}>] Failed to create instance: {ex.GetType().Name}: {ex.Message}");
-                Debug.WriteLine($"[AIProvider<{typeof(T).Name}>] Stack trace: {ex.StackTrace}");
+                Logger.For<AIProvider>().Exception(ex, $"[AIProvider<{typeof(T).Name}>] Failed to create instance");
                 throw;
             }
         });
@@ -177,7 +176,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 // Prevent reloading capabilities if already initialized
                 if (!AIModelCapabilityRegistry.Instance.HasProviderCapabilities(this.Name))
                 {
-                    Debug.WriteLine($"[{this.Name}] Registering model capabilities");
+                    Logger.For<AIProvider>().Trace($"[{this.Name}] Registering model capabilities");
 
                     // Retrieve full model metadata and register each model
                     var models = await this.Models.RetrieveModels().ConfigureAwait(false);
@@ -194,18 +193,18 @@ namespace SmartHopper.ProviderSdk.AIProviders
                             }
 
                             AIModelCapabilityRegistry.Instance.SetCapabilities(m);
-                            Debug.WriteLine($"[{this.Name}] Registered model {m.Model} with capabilities {m.Capabilities.ToDetailedString()} and default {m.Default.ToDetailedString()}");
+                            Logger.For<AIProvider>().Trace($"[{this.Name}] Registered model {m.Model} with capabilities {m.Capabilities.ToDetailedString()} and default {m.Default.ToDetailedString()}");
                         }
                     }
                 }
                 else
                 {
-                    Debug.WriteLine($"[{this.Name}] Capabilities already initialized, skipping reload");
+                    Logger.For<AIProvider>().Warning($"[{this.Name}] Capabilities already initialized, skipping reload");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.Name}] Error during model registration: {ex.Message}");
+                Logger.For<AIProvider>().Exception(ex, $"[{this.Name}] Error during model registration: {ex.Message}");
 
                 // Continue initialization even if model registration fails
             }
@@ -231,14 +230,14 @@ namespace SmartHopper.ProviderSdk.AIProviders
                         if (!settingsDict.ContainsKey(descriptor.Name))
                         {
                             settingsDict[descriptor.Name] = descriptor.DefaultValue;
-                            Debug.WriteLine($"[{this.Name}] Applied default value for setting '{descriptor.Name}': {descriptor.DefaultValue}");
+                            Logger.For<AIProvider>().Error($"[{this.Name}] Applied default value for setting '{descriptor.Name}': {descriptor.DefaultValue}");
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.Name}] Warning: Could not load default values during initialization: {ex.Message}");
+                Logger.For<AIProvider>().Exception(ex, $"[{this.Name}] Warning: Could not load default values during initialization: {ex.Message}");
 
                 // Continue initialization even if default value loading fails
             }
@@ -506,7 +505,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
             // Check for recursion
             if (_currentlyGettingSettings.Contains(settingKey))
             {
-                Debug.WriteLine($"[AIProvider] Recursion detected for {settingKey}, returning default to break cycle");
+                Logger.For<AIProvider>().Trace($"[AIProvider] Recursion detected for {settingKey}, returning default to break cycle");
                 return default;
             }
 
@@ -516,7 +515,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
 
                 if (this._injectedSettings == null)
                 {
-                    Debug.WriteLine($"Warning: Settings not initialized for {this.Name}");
+                    Logger.For<AIProvider>().Trace($"Warning: Settings not initialized for {this.Name}");
                     return default;
                 }
 
@@ -557,13 +556,13 @@ namespace SmartHopper.ProviderSdk.AIProviders
                     }
                     else
                     {
-                        Debug.WriteLine($"Warning: Failed to convert {key} to {typeof(T).Name} for provider {this.Name}");
+                        Logger.For<AIProvider>().Warning($"Warning: Failed to convert {key} to {typeof(T).Name} for provider {this.Name}");
                         return default;
                     }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Error getting setting {key} for provider {this.Name}: {ex.Message}");
+                    Logger.For<AIProvider>().Exception(ex, $"Error getting setting {key} for provider {this.Name}: {ex.Message}");
                     return default;
                 }
             }
@@ -604,7 +603,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.Name}] Icon load error: {ex.Message}");
+                Logger.For<AIProvider>().Exception(ex, $"[{this.Name}] Icon load error: {ex.Message}");
                 return this.CreateFallbackIcon();
             }
         }
@@ -627,7 +626,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.Name}] Icon load error: {ex.Message}");
+                Logger.For<AIProvider>().Exception(ex, $"[{this.Name}] Icon load error: {ex.Message}");
                 return this.CreateFallbackIcon();
             }
         }
@@ -694,7 +693,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
         {
             if (string.IsNullOrWhiteSpace(key))
             {
-                Debug.WriteLine($"Warning: Cannot set setting with empty key for provider {this.Name}");
+                Logger.For<AIProvider>().Warning($"Warning: Cannot set setting with empty key for provider {this.Name}");
                 return;
             }
 
@@ -712,11 +711,11 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 var store = ProviderSdkHost.SettingsStoreFactory(this.Name);
                 store?.Set(key, value);
 
-                Debug.WriteLine($"[{this.Name}] Setting '{key}' updated and persisted");
+                Logger.For<AIProvider>().Trace($"[{this.Name}] Setting '{key}' updated and persisted");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error setting '{key}' for provider {this.Name}: {ex.Message}");
+                Logger.For<AIProvider>().Exception(ex, $"Error setting '{key}' for provider {this.Name}: {ex.Message}");
             }
         }
 
@@ -798,7 +797,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
             // Clamp to shared bounds
             timeoutSeconds = Math.Max(TimeoutDefaults.MinTimeoutSeconds, Math.Min(timeoutSeconds, TimeoutDefaults.MaxTimeoutSeconds));
 
-            Debug.WriteLine($"[{this.Name}] Batch HttpClient timeout set to {timeoutSeconds}s");
+            Logger.For<AIProvider>().Trace($"[{this.Name}] Batch HttpClient timeout set to {timeoutSeconds}s");
 
             return this.CreateHttpClient(TimeSpan.FromSeconds(timeoutSeconds));
         }
@@ -827,7 +826,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 var tools = ProviderSdkHost.ToolRegistry.GetTools();
                 if (tools.Count == 0)
                 {
-                    Debug.WriteLine("No tools available.");
+                    Logger.For<AIProvider>().Trace("No tools available.");
                     return null;
                 }
 
@@ -860,13 +859,13 @@ namespace SmartHopper.ProviderSdk.AIProviders
                     toolsArray.Add(toolObject);
                 }
 
-                Debug.WriteLine($"[GetFormattedTools] {toolsArray.Count} tools formatted");
+                Logger.For<AIProvider>().Trace($"[GetFormattedTools] {toolsArray.Count} tools formatted");
 
                 return toolsArray;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error formatting tools: {ex.Message}");
+                Logger.For<AIProvider>().Exception(ex, $"Error formatting tools: {ex.Message}");
                 return null;
             }
         }
@@ -1062,7 +1061,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
             // Determine the full URL using centralized normalization
             Uri fullUri = this.BuildFullUrl(endpoint);
 
-            Debug.WriteLine($"[{this.Name}] Call - Method: {httpMethod.ToUpper(CultureInfo.InvariantCulture)}, URL: {fullUri}");
+            Logger.For<AIProvider>().Trace($"[{this.Name}] Call - Method: {httpMethod.ToUpper(CultureInfo.InvariantCulture)}, URL: {fullUri}");
 
             // Resolve and clamp the timeout so all layers share the same bounds.
             int seconds = request?.TimeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds;
@@ -1148,11 +1147,11 @@ namespace SmartHopper.ProviderSdk.AIProviders
                     var content = isBinaryAudio
                         ? null
                         : await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                    Debug.WriteLine($"[{this.Name}] Call - Response status: {response.StatusCode}");
+                    Logger.For<AIProvider>().Trace($"[{this.Name}] Call - Response status: {response.StatusCode}");
 
                     if (!response.IsSuccessStatusCode)
                     {
-                        Debug.WriteLine($"[{this.Name}] Call - Error response: {content}");
+                        Logger.For<AIProvider>().Warning($"[{this.Name}] Call - Error response: {content}");
 
                         // Create AIReturn with structured error instead of throwing
                         var errorReturn = new AIReturn();
@@ -1187,7 +1186,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                             ["audio_data"] = Convert.ToBase64String(audioBytes ?? Array.Empty<byte>()),
                             ["mime_type"] = string.IsNullOrWhiteSpace(audioMimeType) ? "audio/mpeg" : audioMimeType,
                         };
-                        Debug.WriteLine($"[{this.Name}] Call - Normalized binary audio response: {audioBytes?.Length ?? 0} bytes ({audioMimeType ?? "audio/mpeg"})");
+                        Logger.For<AIProvider>().Trace($"[{this.Name}] Call - Normalized binary audio response: {audioBytes?.Length ?? 0} bytes ({audioMimeType ?? "audio/mpeg"})");
                     }
                     else
                     {
@@ -1197,7 +1196,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"[{this.Name}] Call - Failed to parse JSON response: {ex.Message}");
+                            Logger.For<AIProvider>().Exception(ex, $"[{this.Name}] Call - Failed to parse JSON response: {ex.Message}");
 
                             // Provide a more useful error when the API returns non-JSON content (e.g., HTML error pages)
                             var preview = content?.Length > 200 ? content.Substring(0, 200) + "..." : content;
@@ -1225,7 +1224,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 }
                 catch (TaskCanceledException ex)
                 {
-                    Debug.WriteLine($"[{this.Name}] Call - TaskCanceledException (Timeout): {ex.Message}");
+                    Logger.For<AIProvider>().Exception(ex, $"[{this.Name}] Call - TaskCanceledException (Timeout): {ex.Message}");
                     var errorReturn = new AIReturn();
                     errorReturn.CreateProviderError($"HTTP Request Timeout: The request to {this.Name} took too long (exceeded {request?.TimeoutSeconds ?? 600} seconds). Try increasing the HTTP timeout in Settings.", request);
                     errorReturn.Status = AICallStatus.Finished;
@@ -1233,7 +1232,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[{this.Name}] Call - Exception: {ex.Message}");
+                    Logger.For<AIProvider>().Exception(ex, $"[{this.Name}] Call - Exception: {ex.Message}");
                     throw new Exception($"Error calling {this.Name} API: {ex.Message}", ex);
                 }
                 finally
@@ -1301,7 +1300,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
             {
                 this._cachedStreamingAdapter = this.CreateStreamingAdapter();
                 this._streamingAdapterProbed = true;
-                Debug.WriteLine(this._cachedStreamingAdapter != null
+                Logger.For<AIProvider>().Trace(this._cachedStreamingAdapter != null
                     ? $"[{this.Name}] Streaming adapter cached"
                     : $"[{this.Name}] No streaming adapter available");
             }

@@ -23,6 +23,7 @@ using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Streaming;
 namespace SmartHopper.Infrastructure.AICall.Execution
 {
@@ -59,20 +60,20 @@ namespace SmartHopper.Infrastructure.AICall.Execution
                 var provider = request?.ProviderInstance;
                 if (provider == null)
                 {
-                    Debug.WriteLine("[DefaultProviderExecutor] No provider instance available");
+                    Logger.For<DefaultProviderExecutor>().Error("[DefaultProviderExecutor] No provider instance available");
                     return null;
                 }
 
                 // Use the cached GetStreamingAdapter method from AIProvider base class
                 var adapter = provider.GetStreamingAdapter();
-                Debug.WriteLine(adapter != null
+                Logger.For<DefaultProviderExecutor>().Trace(adapter != null
                     ? $"[DefaultProviderExecutor] Using cached streaming adapter from provider '{provider.Name}'"
                     : $"[DefaultProviderExecutor] No streaming adapter available for provider '{provider.Name}'");
                 return adapter;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[DefaultProviderExecutor] Error getting streaming adapter: {ex.Message}");
+                Logger.For<DefaultProviderExecutor>().Exception(ex, $"[DefaultProviderExecutor] Error getting streaming adapter: {ex.Message}");
                 return null;
             }
         }

@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using SmartHopper.Infrastructure.Utils;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Utils;
 namespace SmartHopper.Infrastructure.AIContext
 {
@@ -45,7 +46,7 @@ namespace SmartHopper.Infrastructure.AIContext
             // Add the new provider
             _contextProviders.Add(provider);
 
-            Debug.WriteLine($"[RegisterContextProvider] Registered provider: {provider.ProviderId}");
+            Logger.Trace(typeof(AIContextManager).FullName, $"[RegisterContextProvider] Registered provider: {provider.ProviderId}");
         }
 
         /// <summary>
@@ -58,7 +59,7 @@ namespace SmartHopper.Infrastructure.AIContext
 
             _contextProviders.RemoveAll(p => p.ProviderId == providerId);
 
-            Debug.WriteLine($"[UnregisterProvider] Unregistered provider: {providerId}");
+            Logger.Trace(typeof(AIContextManager).FullName, $"[UnregisterProvider] Unregistered provider: {providerId}");
         }
 
         /// <summary>
@@ -119,12 +120,12 @@ namespace SmartHopper.Infrastructure.AIContext
                         key = $"{provider.ProviderId}_{key}";
                     }
 
-                    Debug.WriteLine($"[GetCurrentContext] Adding context key: {key}");
+                    Logger.Trace(typeof(AIContextManager).FullName, $"[GetCurrentContext] Adding context key: {key}");
                     result[key] = kv.Value;
                 }
             }
 
-            Debug.WriteLine($"[GetCurrentContext] {result.Count} context keys added");
+            Logger.Trace(typeof(AIContextManager).FullName, $"[GetCurrentContext] {result.Count} context keys added");
 
             return result;
         }

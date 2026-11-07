@@ -39,6 +39,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.ProviderSdk.AICall.Metrics;
     using SmartHopper.ProviderSdk.AICall.Utilities;
     using SmartHopper.ProviderSdk.Diagnostics;
+    using SmartHopper.ProviderSdk.Logging;
     using SmartHopper.ProviderSdk.Settings;
     using SmartHopper.ProviderSdk.Streaming;
     /// <summary>
@@ -333,7 +334,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 var retryOk = await this.TrySummarizeAndRetryAsync("Provider returned context exceeded error", linkedCts.Token).ConfigureAwait(false);
                                 if (retryOk)
                                 {
-                                    Debug.WriteLine("[ConversationSession] Retrying provider turn after summarization (non-streaming)");
+                                    Logger.For<StreamProcessingResult>().Trace("[ConversationSession] Retrying provider turn after summarization (non-streaming)");
                                     nsPrepared = await this.ExecuteProviderTurnAsync(options, turnId, linkedCts.Token).ConfigureAwait(false);
                                 }
                             }
@@ -369,7 +370,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 {
                                     try
                                     {
-                                        Debug.WriteLine("[ConversationSession] Retrying provider turn after summarization (non-streaming exception)");
+                                        Logger.For<StreamProcessingResult>().Error("[ConversationSession] Retrying provider turn after summarization (non-streaming exception)");
                                         nsPrepared = await this.ExecuteProviderTurnAsync(options, turnId, linkedCts.Token).ConfigureAwait(false);
                                         lastReturn = nsPrepared;
 
@@ -468,7 +469,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 var retryOk = await this.TrySummarizeAndRetryAsync("Streaming provider returned context exceeded error", linkedCts.Token).ConfigureAwait(false);
                                 if (retryOk)
                                 {
-                                    Debug.WriteLine("[ConversationSession] Retrying streaming after summarization");
+                                    Logger.For<StreamProcessingResult>().Trace("[ConversationSession] Retrying streaming after summarization");
                                     streamResult = await this.ProcessStreamingDeltasAsync(adapter, streamingOptions!, state.TurnId, linkedCts.Token).ConfigureAwait(false);
                                 }
                             }
@@ -536,7 +537,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             {
                                 try
                                 {
-                                    Debug.WriteLine("[ConversationSession] Retrying as non-streaming after summarization (streaming exception)");
+                                    Logger.For<StreamProcessingResult>().Error("[ConversationSession] Retrying as non-streaming after summarization (streaming exception)");
                                     var composite = await this.ExecuteProviderTurnAsync(options, state.TurnId, linkedCts.Token).ConfigureAwait(false);
                                     lastReturn = composite;
                                     this.NotifyFinal(composite);
@@ -814,7 +815,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             this._runUsageMetrics = this._runUsageMetrics.WithCombined(usage);
             this._runTokensEffective += Math.Max(0, usage.EffectiveTotalTokens);
-            Debug.WriteLine($"[ConversationSession.AccumulateCallUsage] callTokens={usage.EffectiveTotalTokens} (actual={usage.TotalTokens}, estimated={usage.TotalEstimatedTokens}), runTotal={this._runTokensEffective}");
+            Logger.For<StreamProcessingResult>().Trace($"[ConversationSession.AccumulateCallUsage] callTokens={usage.EffectiveTotalTokens} (actual={usage.TotalTokens}, estimated={usage.TotalEstimatedTokens}), runTotal={this._runTokensEffective}");
         }
 
         /// <summary>
@@ -912,7 +913,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             if (extended)
             {
-                Debug.WriteLine($"[ConversationSession.ExtendAutonomyLimits] extended by +50%: +{options.MaxAutonomousTime.TotalSeconds * 0.5:0.#}s, +{options.MaxAutonomousTokens / 2} tokens");
+                Logger.For<StreamProcessingResult>().Trace($"[ConversationSession.ExtendAutonomyLimits] extended by +50%: +{options.MaxAutonomousTime.TotalSeconds * 0.5:0.#}s, +{options.MaxAutonomousTokens / 2} tokens");
             }
 
             return extended;
@@ -930,7 +931,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var settings = SmartHopperSettings.Instance;
             if (!settings.SmartHopperAssistant.EnableAIGreeting)
             {
-                Debug.WriteLine("[ConversationSession] AI greeting disabled in settings, skipping greeting generation");
+                Logger.For<StreamProcessingResult>().Warning("[ConversationSession] AI greeting disabled in settings, skipping greeting generation");
                 return null;
             }
 
@@ -946,7 +947,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     this._initialRequest.Provider,
                     systemMessageText?.Content);
 
-                Debug.WriteLine($"[ConversationSession] Generating greeting via special turn: provider={this._initialRequest.Provider}, streaming={streamChunks}");
+                Logger.For<StreamProcessingResult>().Trace($"[ConversationSession] Generating greeting via special turn: provider={this._initialRequest.Provider}, streaming={streamChunks}");
 
                 // Execute greeting as a special turn
                 var result = await this.ExecuteSpecialTurnAsync(
@@ -961,7 +962,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession] Error generating greeting via special turn: {ex.Message}");
+                Logger.For<StreamProcessingResult>().Exception(ex, $"[ConversationSession] Error generating greeting via special turn: {ex.Message}");
                 return null;
             }
         }
@@ -1136,7 +1137,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             }
                             catch (Exception ex)
                             {
-                                Debug.WriteLine($"[ConversationSession.ProcessStreamingDeltasAsync] Error emitting persisted non-text delta: {ex.Message}");
+                                Logger.For<StreamProcessingResult>().Exception(ex, $"[ConversationSession.ProcessStreamingDeltasAsync] Error emitting persisted non-text delta: {ex.Message}");
                             }
                         }
 
@@ -1226,7 +1227,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 // Guard: providers must only be invoked when every tool_call already has a persisted tool_result
                 if (this.Request.Body.PendingToolCallsCount() > 0)
                 {
-                    Debug.WriteLine("[ConversationSession.ProcessPendingToolsAsync] Pending tool calls remain after execution; deferring provider turn until results are appended.");
+                    Logger.For<StreamProcessingResult>().Trace("[ConversationSession.ProcessPendingToolsAsync] Pending tool calls remain after execution; deferring provider turn until results are appended.");
                     continue;
                 }
 

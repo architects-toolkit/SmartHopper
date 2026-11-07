@@ -35,6 +35,7 @@ using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Utils;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 using SmartHopper.ProviderSdk.Utils;
 namespace SmartHopper.Infrastructure.AIProviders
@@ -90,13 +91,13 @@ namespace SmartHopper.Infrastructure.AIProviders
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Error loading provider assembly {providerFile}: {ex.Message}");
+                        Logger.For<ProviderManager>().Exception(ex, $"Error loading provider assembly {providerFile}: {ex.Message}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error discovering providers: {ex.Message}");
+                Logger.For<ProviderManager>().Exception(ex, $"Error discovering providers: {ex.Message}");
             }
         }
 
@@ -105,7 +106,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// </summary>
         public async Task RefreshProvidersAsync()
         {
-            Debug.WriteLine("[ProviderManager] Starting provider discovery and registration");
+            Logger.For<ProviderManager>().Trace("[ProviderManager] Starting provider discovery and registration");
 
             try
             {
@@ -113,7 +114,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 await this.DiscoverProvidersAsync().ConfigureAwait(false);
 
                 // After discovery, refresh settings for all providers
-                Debug.WriteLine("[ProviderManager] Provider discovery complete, refreshing settings");
+                Logger.For<ProviderManager>().Error("[ProviderManager] Provider discovery complete, refreshing settings");
                 SmartHopperSettings.Instance.RefreshProvidersLocalStorage();
             }
             finally
@@ -121,7 +122,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 // Mark refresh as completed regardless of provider count or errors
                 // This signals that infrastructure initialization is done
                 this._refreshCompleted = true;
-                Debug.WriteLine("[ProviderManager] Provider refresh completed (infrastructure ready)");
+                Logger.For<ProviderManager>().Error("[ProviderManager] Provider refresh completed (infrastructure ready)");
             }
         }
 
@@ -160,7 +161,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ProviderManager] Error verifying providers: {ex.Message}");
+                Logger.For<ProviderManager>().Exception(ex, $"[ProviderManager] Error verifying providers: {ex.Message}");
                 return new Dictionary<string, ProviderVerificationResult>();
             }
         }
@@ -182,7 +183,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     }
                     catch (CryptographicException ex)
                     {
-                        Debug.WriteLine($"Authenticode signature verification failed for {assemblyPath}: {ex.Message}");
+                        Logger.For<ProviderManager>().Exception(ex, $"Authenticode signature verification failed for {assemblyPath}: {ex.Message}");
                         await Task.Run(() => RhinoApp.InvokeOnUiThread(() =>
                         {
                             StyledMessageDialog.ShowError($"Authenticode signature verification failed for provider '{Path.GetFileName(assemblyPath)}'. Please replace it with a file downloaded from official SmartHopper sources.", "SmartHopper");
@@ -192,7 +193,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 }
                 else
                 {
-                    Debug.WriteLine($"[ProviderManager] Skipping Authenticode verification on non-Windows platform for {Path.GetFileName(assemblyPath)}");
+                    Logger.For<ProviderManager>().Warning($"[ProviderManager] Skipping Authenticode verification on non-Windows platform for {Path.GetFileName(assemblyPath)}");
                 }
 
                 // SHA-256 hash verification (cross-platform)
@@ -212,7 +213,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     switch (hashResult.Status)
                     {
                         case ProviderVerificationStatus.Match:
-                            Debug.WriteLine($"[ProviderManager] SHA-256 verification passed for {Path.GetFileName(assemblyPath)} ({platform})");
+                            Logger.For<ProviderManager>().Trace($"[ProviderManager] SHA-256 verification passed for {Path.GetFileName(assemblyPath)} ({platform})");
                             break;
 
                         case ProviderVerificationStatus.Mismatch:
@@ -240,7 +241,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 }).ConfigureAwait(false);
 
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' failed integrity verification and will not be loaded");
-                                Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification and will not be loaded");
+                                Logger.For<ProviderManager>().Warning($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification and will not be loaded");
 
                                 return;
                             }
@@ -267,7 +268,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 }).ConfigureAwait(false);
 
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' failed integrity verification");
-                                Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification");
+                                Logger.For<ProviderManager>().Warning($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification");
                             }
 
                             break;
@@ -289,7 +290,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 })).ConfigureAwait(false);
 
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: Provider '{Path.GetFileName(assemblyPath)}' blocked - hash repository unavailable in Strict mode");
-                                Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash unavailable (Strict mode)");
+                                Logger.For<ProviderManager>().Trace($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash unavailable (Strict mode)");
                                 return;
                             }
                             else
@@ -298,7 +299,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 var uaAsmName = Path.GetFileNameWithoutExtension(assemblyPath);
                                 this._unavailableProviders[uaAsmName] = true;
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: Could not verify provider '{Path.GetFileName(assemblyPath)}' - hash check skipped. Enable only if you trust this source.");
-                                Debug.WriteLine($"[ProviderManager] Hash unavailable for {Path.GetFileName(assemblyPath)}, skipping verification");
+                                Logger.For<ProviderManager>().Warning($"[ProviderManager] Hash unavailable for {Path.GetFileName(assemblyPath)}, skipping verification");
                             }
 
                             break;
@@ -323,7 +324,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 })).ConfigureAwait(false);
 
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' blocked - hash not found in {effectiveMode} mode");
-                                Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash not found ({effectiveMode} mode)");
+                                Logger.For<ProviderManager>().Trace($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash not found ({effectiveMode} mode)");
                                 return;
                             }
                             else
@@ -331,7 +332,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 // Soft mode: Log warning but allow
                                 this._unknownProviders[nfAsmName] = true;
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' is not known - enable only if you trust this source.");
-                                Debug.WriteLine($"[ProviderManager] Hash not found for {Path.GetFileName(assemblyPath)}, allowing in Soft mode");
+                                Logger.For<ProviderManager>().Trace($"[ProviderManager] Hash not found for {Path.GetFileName(assemblyPath)}, allowing in Soft mode");
                             }
 
                             break;
@@ -339,7 +340,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[ProviderManager] SHA-256 verification error for {assemblyPath}: {ex.Message}");
+                    Logger.For<ProviderManager>().Exception(ex, $"[ProviderManager] SHA-256 verification error for {assemblyPath}: {ex.Message}");
 
                     // Continue loading - don't block on verification errors
                 }
@@ -348,12 +349,12 @@ namespace SmartHopper.Infrastructure.AIProviders
                 var asmName = Path.GetFileNameWithoutExtension(assemblyPath);
 
                 // Prompt user for providers with no trust entry
-                Debug.WriteLine($"[ProviderManager] Checking trust for provider: {asmName}");
-                Debug.WriteLine($"[ProviderManager] TrustedProviders contains '{asmName}': {settings.TrustedProviders.ContainsKey(asmName)}");
+                Logger.For<ProviderManager>().Trace($"[ProviderManager] Checking trust for provider: {asmName}");
+                Logger.For<ProviderManager>().Trace($"[ProviderManager] TrustedProviders contains '{asmName}': {settings.TrustedProviders.ContainsKey(asmName)}");
 
                 if (!settings.TrustedProviders.ContainsKey(asmName))
                 {
-                    Debug.WriteLine($"[ProviderManager] Showing trust prompt for: {asmName}");
+                    Logger.For<ProviderManager>().Error($"[ProviderManager] Showing trust prompt for: {asmName}");
 
                     // Use TaskCompletionSource to properly wait for the dialog result
                     var tcs = new TaskCompletionSource<bool>();
@@ -361,26 +362,26 @@ namespace SmartHopper.Infrastructure.AIProviders
                     {
                         try
                         {
-                            Debug.WriteLine($"[ProviderManager] Displaying confirmation dialog for: {asmName}");
+                            Logger.For<ProviderManager>().Error($"[ProviderManager] Displaying confirmation dialog for: {asmName}");
                             bool result = StyledMessageDialog.ShowConfirmation($"A new AI provider was detected\n'{asmName}'.\n\nDo you want to enable it?\n\nIf you do not enable it now, you can do it later in the SmartHopper settings.");
-                            Debug.WriteLine($"[ProviderManager] Dialog returned: {result} for: {asmName}");
+                            Logger.For<ProviderManager>().Error($"[ProviderManager] Dialog returned: {result} for: {asmName}");
                             tcs.SetResult(result);
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"[ProviderManager] Dialog error for {asmName}: {ex.Message}");
+                            Logger.For<ProviderManager>().Exception(ex, $"[ProviderManager] Dialog error for {asmName}: {ex.Message}");
                             tcs.SetResult(false);
                         }
                     }));
 
                     bool userConfirmed = await tcs.Task.ConfigureAwait(false);
-                    Debug.WriteLine($"[ProviderManager] User confirmed: {userConfirmed} for: {asmName}");
+                    Logger.For<ProviderManager>().Trace($"[ProviderManager] User confirmed: {userConfirmed} for: {asmName}");
                     settings.TrustedProviders[asmName] = userConfirmed;
                     settings.Save();
                 }
                 else
                 {
-                    Debug.WriteLine($"[ProviderManager] Trust already exists for: {asmName} = {settings.TrustedProviders[asmName]}");
+                    Logger.For<ProviderManager>().Trace($"[ProviderManager] Trust already exists for: {asmName} = {settings.TrustedProviders[asmName]}");
                 }
 
                 // Load the assembly
@@ -423,17 +424,17 @@ namespace SmartHopper.Infrastructure.AIProviders
                         // Register the provider
                         this.RegisterProvider(provider, providerSettings, assembly);
 
-                        Debug.WriteLine($"Successfully registered provider: {provider.Name} from {assembly.GetName().Name}");
+                        Logger.For<ProviderManager>().Trace($"Successfully registered provider: {provider.Name} from {assembly.GetName().Name}");
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Error creating provider from factory {factoryType.FullName}: {ex.Message}");
+                        Logger.For<ProviderManager>().Exception(ex, $"Error creating provider from factory {factoryType.FullName}: {ex.Message}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error loading provider assembly {assemblyPath}: {ex.Message}");
+                Logger.For<ProviderManager>().Exception(ex, $"Error loading provider assembly {assemblyPath}: {ex.Message}");
             }
         }
 
@@ -464,12 +465,12 @@ namespace SmartHopper.Infrastructure.AIProviders
                 try
                 {
                     await provider.InitializeProviderAsync().ConfigureAwait(false);
-                    Debug.WriteLine($"[ProviderManager] Successfully initialized provider: {provider.Name}");
+                    Logger.For<ProviderManager>().Error($"[ProviderManager] Successfully initialized provider: {provider.Name}");
                 }
                 catch (Exception ex)
                 {
                     var msg = $"[SmartHopper] Error initializing provider {provider.Name}: {ex.Message}";
-                    Debug.WriteLine(msg);
+                    Logger.For<ProviderManager>().Error(msg);
                     Rhino.RhinoApp.WriteLine(msg);
                 }
             });
@@ -548,7 +549,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Error getting default provider: {ex.Message}");
+                    Logger.For<ProviderManager>().Exception(ex, $"Error getting default provider: {ex.Message}");
                 }
 
                 if (string.IsNullOrEmpty(defaultProviderName))
@@ -572,7 +573,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     // If provider is explicitly untrusted, don't return it
                     if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
                     {
-                        Debug.WriteLine($"Provider '{provider.Name}' is no longer trusted, returning null.");
+                        Logger.For<ProviderManager>().Error($"Provider '{provider.Name}' is no longer trusted, returning null.");
                         return null;
                     }
                 }
@@ -760,12 +761,12 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <param name="settings">The settings to update.</param>
         public void UpdateProviderSettings(string providerName, Dictionary<string, object> settings)
         {
-            Debug.WriteLine($"[ProviderManager] Updating settings for {providerName} with {settings?.Count ?? 0} values");
+            Logger.For<ProviderManager>().Trace($"[ProviderManager] Updating settings for {providerName} with {settings?.Count ?? 0} values");
 
             var provider = this.GetProvider(providerName);
             if (provider == null)
             {
-                Debug.WriteLine($"[ProviderManager] Provider {providerName} not found.");
+                Logger.For<ProviderManager>().Trace($"[ProviderManager] Provider {providerName} not found.");
                 return;
             }
 
@@ -773,20 +774,20 @@ namespace SmartHopper.Infrastructure.AIProviders
             // Validate settings
             if (!ui.ValidateSettings(settings))
             {
-                Debug.WriteLine($"[ProviderManager] Settings validation failed for provider {providerName}. Not updating any settings for this provider.");
+                Logger.For<ProviderManager>().Warning($"[ProviderManager] Settings validation failed for provider {providerName}. Not updating any settings for this provider.");
                 return;
             }
 
             SmartHopperSettings.Instance.ApplyProviderSettingUpdates(providerName, settings);
 
             // Save settings to disk
-            Debug.WriteLine($"[ProviderManager] Saving settings to disk");
+            Logger.For<ProviderManager>().Trace($"[ProviderManager] Saving settings to disk");
             SmartHopperSettings.Instance.Save();
 
             // Refresh the provider's cached settings (merge with existing to preserve provider-set values)
             var updatedSettings = SmartHopperSettings.Instance.GetProviderSettings(providerName);
             provider.RefreshCachedSettings(updatedSettings);
-            Debug.WriteLine($"[ProviderManager] Provider {providerName} settings refreshed with updated values");
+            Logger.For<ProviderManager>().Trace($"[ProviderManager] Provider {providerName} settings refreshed with updated values");
         }
 
         // Implement Authenticode verification using X509Certificate

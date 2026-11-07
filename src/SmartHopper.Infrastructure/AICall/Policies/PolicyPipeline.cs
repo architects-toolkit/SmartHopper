@@ -28,6 +28,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Infrastructure.AICall.Policies
 {
     /// <summary>
@@ -100,7 +101,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies
                             .Build();
                     }
 
-                    Debug.WriteLine($"[PolicyPipeline] Request policy {policy.GetType().Name} exception: {ex}");
+                    Logger.For<PolicyPipeline>().Trace($"[PolicyPipeline] Request policy {policy.GetType().Name} exception: {ex}");
                 }
             }
         }
@@ -163,7 +164,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies
                 {
                     try
                     {
-                        Debug.WriteLine($"[PolicyPipeline] before {policy.GetType().Name}: interactions={response.Body?.InteractionsCount ?? 0}, new={string.Join(",", response.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
+                        Logger.For<PolicyPipeline>().Trace($"[PolicyPipeline] before {policy.GetType().Name}: interactions={response.Body?.InteractionsCount ?? 0}, new={string.Join(",", response.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
                     }
                     catch
                     {
@@ -173,7 +174,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies
                     await policy.ApplyAsync(context).ConfigureAwait(false);
                     try
                     {
-                        Debug.WriteLine($"[PolicyPipeline] after  {policy.GetType().Name}: interactions={response.Body?.InteractionsCount ?? 0}, new={string.Join(",", response.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
+                        Logger.For<PolicyPipeline>().Error($"[PolicyPipeline] after  {policy.GetType().Name}: interactions={response.Body?.InteractionsCount ?? 0}, new={string.Join(",", response.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
                     }
                     catch
                     {
@@ -187,7 +188,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies
                         SHRuntimeMessageSeverity.Warning,
                         SHRuntimeMessageOrigin.Return,
                         $"Response policy {policy.GetType().Name} failed: {ex.Message}");
-                    Debug.WriteLine($"[PolicyPipeline] Response policy {policy.GetType().Name} exception: {ex}");
+                    Logger.For<PolicyPipeline>().Exception(ex, $"[PolicyPipeline] Response policy {policy.GetType().Name} exception: {ex}");
                 }
             }
         }

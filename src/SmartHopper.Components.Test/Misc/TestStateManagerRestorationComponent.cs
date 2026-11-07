@@ -28,6 +28,7 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Core.ComponentBase.State;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Test.Misc
 {
     /// <summary>
@@ -96,7 +97,7 @@ namespace SmartHopper.Components.Test.Misc
         /// <param name="newState">The new state.</param>
         private void OnStateManagerStateChanged(ComponentState oldState, ComponentState newState)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] StateManager: {oldState} -> {newState}");
+            Logger.For<TestStateManagerRestorationComponent>().Trace($"[{this.GetType().Name}] StateManager: {oldState} -> {newState}");
         }
 
         /// <inheritdoc/>
@@ -122,7 +123,7 @@ namespace SmartHopper.Components.Test.Misc
         public override bool Read(GH_IReader reader)
         {
             this.readCallCount++;
-            Debug.WriteLine($"[{this.GetType().Name}] Read() called (count: {this.readCallCount})");
+            Logger.For<TestStateManagerRestorationComponent>().Trace($"[{this.GetType().Name}] Read() called (count: {this.readCallCount})");
 
             // Demonstrate using ComponentStateManager for restoration
             this.stateManager.BeginRestoration();
@@ -161,7 +162,7 @@ namespace SmartHopper.Components.Test.Misc
         /// <inheritdoc/>
         public override bool Write(GH_IWriter writer)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] Write() called");
+            Logger.For<TestStateManagerRestorationComponent>().Trace($"[{this.GetType().Name}] Write() called");
 
             // Write state manager hashes
             var hashes = this.stateManager.GetCommittedHashes();
@@ -185,7 +186,7 @@ namespace SmartHopper.Components.Test.Misc
             if (this.stateManager.IsSuppressingInputChanges)
             {
                 this.solveAfterRestoreCount++;
-                Debug.WriteLine($"[{this.GetType().Name}] First solve after restoration (count: {this.solveAfterRestoreCount})");
+                Logger.For<TestStateManagerRestorationComponent>().Trace($"[{this.GetType().Name}] First solve after restoration (count: {this.solveAfterRestoreCount})");
 
                 // Clear suppression after first solve - this is the key to preventing data loss
                 this.stateManager.ClearSuppressionAfterFirstSolve();

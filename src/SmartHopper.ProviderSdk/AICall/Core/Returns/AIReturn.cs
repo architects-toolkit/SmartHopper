@@ -26,6 +26,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.ProviderSdk.AICall.Core.Returns
 {
     /// <summary>
@@ -240,7 +241,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
             this.Status = AICallStatus.Finished;
             try
             {
-                System.Diagnostics.Debug.WriteLine($"[AIReturn.CreateSuccess(body)] finalized body: interactions={this.Body?.InteractionsCount ?? 0}, new={string.Join(",", this.Body?.InteractionsNew ?? new List<int>())}");
+                Logger.For<AIReturn>().Trace($"[AIReturn.CreateSuccess(body)] finalized body: interactions={this.Body?.InteractionsCount ?? 0}, new={string.Join(",", this.Body?.InteractionsNew ?? new List<int>())}");
             }
             catch
             {
@@ -526,7 +527,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
             this.Body = b.Build();
             try
             {
-                System.Diagnostics.Debug.WriteLine($"[AIReturn.SetBody(raw)] built body: interactions={this.Body?.InteractionsCount ?? 0}, new={string.Join(",", this.Body?.InteractionsNew ?? new List<int>())}");
+                Logger.For<AIReturn>().Trace($"[AIReturn.SetBody(raw)] built body: interactions={this.Body?.InteractionsCount ?? 0}, new={string.Join(",", this.Body?.InteractionsNew ?? new List<int>())}");
             }
             catch
             {

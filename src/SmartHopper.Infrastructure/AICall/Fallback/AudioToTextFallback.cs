@@ -26,6 +26,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Infrastructure.AICall.Fallback
 {
     /// <summary>
@@ -73,7 +74,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                 if (interaction is AIInteractionAudio audioInteraction)
                 {
                     audioCount++;
-                    Debug.WriteLine($"[AudioToTextFallback] Transcribing audio {audioCount} via {providerName}/{modelName}");
+                    Logger.For<AudioToTextFallback>().Trace($"[AudioToTextFallback] Transcribing audio {audioCount} via {providerName}/{modelName}");
 
                     // Build a STT request for this audio
                     var audioBody = AIBodyBuilder.Create()
@@ -132,7 +133,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                 body.JsonOutputSchema,
                 body.InteractionsNew);
 
-            Debug.WriteLine($"[AudioToTextFallback] Transcribed {audioCount} audio clips to text");
+            Logger.For<AudioToTextFallback>().Trace($"[AudioToTextFallback] Transcribed {audioCount} audio clips to text");
             return result;
         }
     }

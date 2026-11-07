@@ -37,6 +37,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.ProviderSdk.AICall.Metrics;
     using SmartHopper.ProviderSdk.AICall.Utilities;
     using SmartHopper.ProviderSdk.Diagnostics;
+    using SmartHopper.ProviderSdk.Logging;
     /// <summary>
     /// Helper methods supporting <see cref="ConversationSession"/> orchestration logic.
     /// </summary>
@@ -91,15 +92,15 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             if (this._summarizationAttempted)
             {
-                Debug.WriteLine($"[ConversationSession] Reactive summarization skipped (already attempted this turn). Reason: {reason}");
+                Logger.For<ConversationSession>().Error($"[ConversationSession] Reactive summarization skipped (already attempted this turn). Reason: {reason}");
                 return false;
             }
 
-            Debug.WriteLine($"[ConversationSession] Reactive summarization triggered. Reason: {reason}");
+            Logger.For<ConversationSession>().Trace($"[ConversationSession] Reactive summarization triggered. Reason: {reason}");
             var summarized = await this.TrySummarizeContextAsync(ct).ConfigureAwait(false);
             if (!summarized)
             {
-                Debug.WriteLine("[ConversationSession] Reactive summarization failed (TrySummarizeContextAsync returned false). Not retrying.");
+                Logger.For<ConversationSession>().Error("[ConversationSession] Reactive summarization failed (TrySummarizeContextAsync returned false). Not retrying.");
                 return false;
             }
 
@@ -186,7 +187,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 this.PersistToolResult(result, turnId);
             }
 
-            Debug.WriteLine($"[ConversationSession.ReconcilePendingToolCalls] Reconciled {pending.Count} pending tool call(s): {reason}");
+            Logger.For<ConversationSession>().Trace($"[ConversationSession.ReconcilePendingToolCalls] Reconciled {pending.Count} pending tool call(s): {reason}");
             return pending.Count;
         }
 
@@ -259,7 +260,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession] Warning: failed to persist tool_call before execution: {ex.Message}");
+                Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession] Warning: failed to persist tool_call before execution: {ex.Message}");
             }
 
             var toolRq = new AIToolCall
@@ -374,7 +375,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession] Error emitting tool result delta: {ex.Message}");
+                Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession] Error emitting tool result delta: {ex.Message}");
             }
         }
 
@@ -423,7 +424,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 // Persist the final aggregated text to session history
                 this.AppendToSessionHistory(accumulatedText);
-                Debug.WriteLine($"[ConversationSession.Stream] Persisted final aggregated text: turnId={turnId}, length={accumulatedText.Content?.Length ?? 0}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.Stream] Persisted final aggregated text: turnId={turnId}, length={accumulatedText.Content?.Length ?? 0}");
             }
 
             // Update last return snapshot to use session body with correct TurnIds (not provider's raw delta)
@@ -433,7 +434,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var pendingAfterStream = this.Request.Body.PendingToolCallsCount();
             if (pendingAfterStream > 0)
             {
-                Debug.WriteLine($"[ConversationSession.Stream] INFO: {pendingAfterStream} tool call(s) remain unresolved after streaming. They will be processed in subsequent passes.");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.Stream] INFO: {pendingAfterStream} tool call(s) remain unresolved after streaming. They will be processed in subsequent passes.");
             }
         }
 
@@ -505,7 +506,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 var contextUsageStr = contextUsage.HasValue
                     ? $", Context={contextUsage.Value:P1}"
                     : string.Empty;
-                Debug.WriteLine($"[ConversationSession.UpdateLastReturn] Final aggregated metrics from body: Tokens In={aggregatedMetrics.InputTokensPrompt}, Out={aggregatedMetrics.OutputTokensGeneration}, Time={aggregatedMetrics.CompletionTime:F2}s, FinishReason={aggregatedMetrics.FinishReason}{contextUsageStr}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.UpdateLastReturn] Final aggregated metrics from body: Tokens In={aggregatedMetrics.InputTokensPrompt}, Out={aggregatedMetrics.OutputTokensGeneration}, Time={aggregatedMetrics.CompletionTime:F2}s, FinishReason={aggregatedMetrics.FinishReason}{contextUsageStr}");
             }
 
 #endif
@@ -560,8 +561,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 ? $"tool_result:{tr.Name}"
                                 : string.Empty;
 
-                    Debug.WriteLine(
-                        $"[ConversationSession.MergeNewToSessionBody] appending: type={interaction.GetType().Name}, agent={interaction.Agent.ToString()}, content={contentPreview}");
+                    Logger.For<ConversationSession>().Trace($"[ConversationSession.MergeNewToSessionBody] appending: type={interaction.GetType().Name}, agent={interaction.Agent.ToString()}, content={contentPreview}");
 
                     if (interaction is AIInteractionToolCall tc2)
                     {
@@ -569,7 +569,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         var dupCount = existingToolCalls.Count(x => string.Equals(x?.Id, tc2.Id, StringComparison.Ordinal));
                         if (dupCount > 0)
                         {
-                            Debug.WriteLine($"[ConversationSession.MergeNewToSessionBody] WARNING: inserting tool_call with duplicate id='{tc2?.Id}', existingCount={dupCount}, name='{tc2?.Name}'");
+                            Logger.For<ConversationSession>().Trace($"[ConversationSession.MergeNewToSessionBody] WARNING: inserting tool_call with duplicate id='{tc2?.Id}', existingCount={dupCount}, name='{tc2?.Name}'");
                         }
                     }
                 }
@@ -595,7 +595,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var newInteractions = ret.Body.GetNewInteractions();
             try
             {
-                Debug.WriteLine($"[ConversationSession] NotifyDelta: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession] NotifyDelta: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
 #if DEBUG
                 try
                 {
@@ -629,7 +629,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var newInteractions = ret.Body.GetNewInteractions();
             try
             {
-                Debug.WriteLine($"[ConversationSession] NotifyInteractionCompleted: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
+                Logger.For<ConversationSession>().Error($"[ConversationSession] NotifyInteractionCompleted: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
 #if DEBUG
                 try
                 {
@@ -657,7 +657,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             try
             {
-                Debug.WriteLine($"[ConversationSession] NotifyFinal: total={ret?.Body?.Interactions?.Count ?? 0}");
+                Logger.For<ConversationSession>().Error($"[ConversationSession] NotifyFinal: total={ret?.Body?.Interactions?.Count ?? 0}");
 #if DEBUG
                 try
                 {
@@ -753,7 +753,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     AIInteractionToolCall tc => $"ToolCall(name={tc.Name}, id={tc.Id}, turnId={tc.TurnId}, argsLen={tc.Arguments?.ToString()?.Length ?? 0})",
                     _ => $"{interaction.GetType().Name}(agent={interaction.Agent}, turnId={interaction.TurnId})"
                 };
-                Debug.WriteLine($"[ConversationSession.AppendToSessionHistory] {preview}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.AppendToSessionHistory] {preview}");
             }
             catch { }
 #endif
@@ -825,7 +825,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
 
 #if DEBUG
-            Debug.WriteLine($"[ConversationSession.UpdateToolCallInHistory] Updating tool call {updatedToolCall.Id}: argsLen {existingArgsLen} -> {newArgsLen}");
+            Logger.For<ConversationSession>().Trace($"[ConversationSession.UpdateToolCallInHistory] Updating tool call {updatedToolCall.Id}: argsLen {existingArgsLen} -> {newArgsLen}");
 #endif
 
             // Replace the interaction at the existing index
@@ -928,7 +928,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     .Select(g => $"{g.Key} x{g.Count()} [{string.Join(",", g.Select(t => t?.Name ?? string.Empty))}]");
 
                 var dupSummary = dupGroups.Any() ? string.Join("; ", dupGroups) : "none";
-                Debug.WriteLine($"[ConversationSession.Debug] {phase}: tool_calls total={total}, duplicates={dupSummary}");
+                Logger.For<ConversationSession>().Error($"[ConversationSession.Debug] {phase}: tool_calls total={total}, duplicates={dupSummary}");
             }
             catch
             {
@@ -1107,7 +1107,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession.Debug] Error writing conversation markdown: {ex.Message}");
+                Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession.Debug] Error writing conversation markdown: {ex.Message}");
             }
         }
 
@@ -1170,7 +1170,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession.Debug] Error resetting events log: {ex.Message}");
+                Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession.Debug] Error resetting events log: {ex.Message}");
             }
         }
 
@@ -1190,7 +1190,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession.Debug] Error appending event: {ex.Message}");
+                Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession.Debug] Error appending event: {ex.Message}");
             }
         }
 

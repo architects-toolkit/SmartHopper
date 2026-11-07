@@ -32,6 +32,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Infrastructure.Mcp
 {
     /// <summary>
@@ -172,7 +173,7 @@ namespace SmartHopper.Infrastructure.Mcp
                 throw new InvalidOperationException($"Failed to start MCP listener on port {this.options.Port}: {ex.Message}", ex);
             }
 
-            Debug.WriteLine($"[Mcp] Server listening on {this.Url}");
+            Logger.For<McpServer>().Trace($"[Mcp] Server listening on {this.Url}");
             this.acceptLoop = Task.Run(() => this.AcceptLoopAsync(this.cancellation.Token));
         }
 
@@ -206,14 +207,14 @@ namespace SmartHopper.Infrastructure.Mcp
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[Mcp] Error stopping listener: {ex.Message}");
+                Logger.For<McpServer>().Exception(ex, $"[Mcp] Error stopping listener: {ex.Message}");
             }
 
             this.listener = null;
             this.cancellation?.Dispose();
             this.cancellation = null;
             this.acceptLoop = null;
-            Debug.WriteLine("[Mcp] Server stopped");
+            Logger.For<McpServer>().Trace("[Mcp] Server stopped");
         }
 
         /// <inheritdoc/>
@@ -385,7 +386,7 @@ namespace SmartHopper.Infrastructure.Mcp
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[Mcp] Request error: {ex.Message}");
+                Logger.For<McpServer>().Exception(ex, $"[Mcp] Request error: {ex.Message}");
                 try
                 {
                     await WriteStatusAsync(client, 500, "Internal server error", CancellationToken.None).ConfigureAwait(false);

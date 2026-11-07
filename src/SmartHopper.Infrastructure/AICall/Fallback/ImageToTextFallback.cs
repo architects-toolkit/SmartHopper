@@ -26,6 +26,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Infrastructure.AICall.Fallback
 {
     /// <summary>
@@ -73,7 +74,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                 if (interaction is AIInteractionImage imgInteraction)
                 {
                     imageCount++;
-                    Debug.WriteLine($"[ImageToTextFallback] Converting image {imageCount} via {providerName}/{modelName}");
+                    Logger.For<ImageToTextFallback>().Trace($"[ImageToTextFallback] Converting image {imageCount} via {providerName}/{modelName}");
 
                     // Build a vision request for this image
                     var imgBody = AIBodyBuilder.Create()
@@ -133,7 +134,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                 body.JsonOutputSchema,
                 body.InteractionsNew);
 
-            Debug.WriteLine($"[ImageToTextFallback] Converted {imageCount} images to text");
+            Logger.For<ImageToTextFallback>().Trace($"[ImageToTextFallback] Converted {imageCount} images to text");
             return result;
         }
     }

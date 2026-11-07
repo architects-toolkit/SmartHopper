@@ -34,6 +34,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
     using SmartHopper.ProviderSdk.AICall.Utilities;
     using SmartHopper.ProviderSdk.AIModels;
+    using SmartHopper.ProviderSdk.Logging;
     using SmartHopper.ProviderSdk.Streaming;
     /// <summary>
     /// ConversationSession partial class containing special turn execution logic.
@@ -65,7 +66,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
 
             var turnId = Guid.NewGuid().ToString("N");
-            Debug.WriteLine($"[ConversationSession.SpecialTurn] Starting special turn: type={config.TurnType}, turnId={turnId}, preferStreaming={preferStreaming}, forceNonStreaming={config.ForceNonStreaming}");
+            Logger.For<ConversationSession>().Trace($"[ConversationSession.SpecialTurn] Starting special turn: type={config.TurnType}, turnId={turnId}, preferStreaming={preferStreaming}, forceNonStreaming={config.ForceNonStreaming}");
 
             // Snapshot current request state for final persistence
             var snapshot = this.CreateRequestSnapshot();
@@ -101,12 +102,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 // Apply persistence strategy to main conversation (this is where observers get notified)
                 this.ApplyPersistenceStrategy(config, snapshot, result, turnId);
 
-                Debug.WriteLine($"[ConversationSession.SpecialTurn] Completed special turn: type={config.TurnType}, turnId={turnId}, success={result?.Status == AICallStatus.Finished}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.SpecialTurn] Completed special turn: type={config.TurnType}, turnId={turnId}, success={result?.Status == AICallStatus.Finished}");
                 return result;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession.SpecialTurn] Error in special turn: type={config.TurnType}, turnId={turnId}, error={ex.Message}");
+                Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession.SpecialTurn] Error in special turn: type={config.TurnType}, turnId={turnId}, error={ex.Message}");
 
                 // Create error return and persist it to history
                 var errorReturn = new AIReturn();
@@ -165,7 +166,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             if (adapter == null)
             {
                 // Provider doesn't support streaming, fall back to non-streaming
-                Debug.WriteLine($"[ConversationSession.SpecialTurn] Provider doesn't support streaming, falling back to non-streaming");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.SpecialTurn] Provider doesn't support streaming, falling back to non-streaming");
                 return await this.ExecuteNonStreamingSpecialTurnAsync(specialRequest, config, turnId, ct).ConfigureAwait(false);
             }
 
@@ -302,7 +303,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             specialRequest.Endpoint = config.OverrideEndpoint ?? this.Request.Endpoint;
             specialRequest.Capability = config.OverrideCapability ?? this.Request.Capability;
 
-            Debug.WriteLine($"[ConversationSession.SpecialTurn] Created isolated request: provider={specialRequest.Provider}, model={specialRequest.Model}");
+            Logger.For<ConversationSession>().Trace($"[ConversationSession.SpecialTurn] Created isolated request: provider={specialRequest.Provider}, model={specialRequest.Model}");
             return specialRequest;
         }
 
@@ -330,7 +331,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 case HistoryPersistenceStrategy.Ephemeral:
                     // Don't persist anything, just restore snapshot
-                    Debug.WriteLine($"[ConversationSession.SpecialTurn] Ephemeral turn, not persisting to history");
+                    Logger.For<ConversationSession>().Trace($"[ConversationSession.SpecialTurn] Ephemeral turn, not persisting to history");
                     break;
 
                 case HistoryPersistenceStrategy.ReplaceAbove:
