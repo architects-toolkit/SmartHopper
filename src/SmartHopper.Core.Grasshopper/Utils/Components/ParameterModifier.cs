@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using Grasshopper.Kernel;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Utils.Components
 {
     /// <summary>
@@ -43,7 +44,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                 throw new ArgumentNullException(nameof(param));
 
             param.DataMapping = dataMapping;
-            Debug.WriteLine($"[ParameterModifier] Set data mapping to '{dataMapping}' for parameter '{param.Name}'");
+            Logger.Trace(typeof(ParameterModifier).FullName, $"[ParameterModifier] Set data mapping to '{dataMapping}' for parameter '{param.Name}'");
         }
 
         /// <summary>
@@ -55,7 +56,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                 throw new ArgumentNullException(nameof(param));
 
             param.Reverse = reverse;
-            Debug.WriteLine($"[ParameterModifier] Set reverse to '{reverse}' for parameter '{param.Name}'");
+            Logger.Trace(typeof(ParameterModifier).FullName, $"[ParameterModifier] Set reverse to '{reverse}' for parameter '{param.Name}'");
         }
 
         /// <summary>
@@ -67,7 +68,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                 throw new ArgumentNullException(nameof(param));
 
             param.Simplify = simplify;
-            Debug.WriteLine($"[ParameterModifier] Set simplify to '{simplify}' for parameter '{param.Name}'");
+            Logger.Trace(typeof(ParameterModifier).FullName, $"[ParameterModifier] Set simplify to '{simplify}' for parameter '{param.Name}'");
         }
 
         #endregion
@@ -98,7 +99,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                 count++;
             }
 
-            Debug.WriteLine($"[ParameterModifier] Bulk applied settings to {count} parameters");
+            Logger.Trace(typeof(ParameterModifier).FullName, $"[ParameterModifier] Bulk applied settings to {count} parameters");
         }
 
         /// <summary>
@@ -123,11 +124,11 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[ParameterModifier] Error modifying parameter '{param.Name}': {ex.Message}");
+                    Logger.Exception(typeof(ParameterModifier).FullName, ex, $"[ParameterModifier] Error modifying parameter '{param.Name}': {ex.Message}");
                 }
             }
 
-            Debug.WriteLine($"[ParameterModifier] Batch modified {count} parameters");
+            Logger.Trace(typeof(ParameterModifier).FullName, $"[ParameterModifier] Batch modified {count} parameters");
         }
 
         #endregion

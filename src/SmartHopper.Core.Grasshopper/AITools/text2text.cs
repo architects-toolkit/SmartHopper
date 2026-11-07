@@ -30,6 +30,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Hosting;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -140,7 +141,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine("[TextTools] Running GenerateText tool");
+                Logger.For<text2text>().Trace("[TextTools] Running GenerateText tool");
 
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
@@ -191,7 +192,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[TextTools] Error in GenerateText: {ex.Message}");
+                Logger.For<text2text>().Exception(ex, $"[TextTools] Error in GenerateText: {ex.Message}");
 
                 output.CreateError($"Error: {ex.Message}");
                 return output;

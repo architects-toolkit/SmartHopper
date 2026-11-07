@@ -34,6 +34,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -218,7 +219,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[Web2Md] Error in Web2MdAsync: {ex.Message}");
+                Logger.For<web2md>().Exception(ex, $"[Web2Md] Error in Web2MdAsync: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }

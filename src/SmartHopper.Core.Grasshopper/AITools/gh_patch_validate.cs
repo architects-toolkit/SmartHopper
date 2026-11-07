@@ -27,6 +27,7 @@ using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -76,7 +77,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.GetArgumentsOrEmpty();
                 var patchJson = args["patch"]?.ToString() ?? string.Empty;
 
-                Debug.WriteLine("[gh_patch_validate] Validating patch...");
+                Logger.For<gh_patch_validate>().Trace("[gh_patch_validate] Validating patch...");
                 var validationResult = GhJson.ValidatePatch(patchJson);
 
                 var errors = new JArray();
@@ -115,7 +116,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_patch_validate] Error: {ex.Message}");
+                Logger.For<gh_patch_validate>().Exception(ex, $"[gh_patch_validate] Error: {ex.Message}");
                 output.CreateError(ex.Message);
                 return output;
             }

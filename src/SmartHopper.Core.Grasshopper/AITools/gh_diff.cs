@@ -29,6 +29,7 @@ using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -109,12 +110,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var leftDoc = GhJson.FromJson(leftJson);
                 var rightDoc = GhJson.FromJson(rightJson);
 
-                Debug.WriteLine("[gh_diff] Diffing documents...");
+                Logger.For<gh_diff>().Trace("[gh_diff] Diffing documents...");
                 var diffResult = GhJson.Diff(leftDoc, rightDoc, options);
 
                 var patchJson = GhJson.PatchToJson(diffResult.Patch, new WriteOptions { Indented = false });
 
-                Debug.WriteLine($"[gh_diff] Diff complete: {diffResult.ComponentOpCount} component ops, {diffResult.ConnectionOpCount} connection ops, {diffResult.GroupOpCount} group ops");
+                Logger.For<gh_diff>().Trace($"[gh_diff] Diff complete: {diffResult.ComponentOpCount} component ops, {diffResult.ConnectionOpCount} connection ops, {diffResult.GroupOpCount} group ops");
 
                 var toolResult = new JObject
                 {
@@ -134,7 +135,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_diff] Error: {ex.Message}");
+                Logger.For<gh_diff>().Exception(ex, $"[gh_diff] Error: {ex.Message}");
                 output.CreateError(ex.Message);
                 return output;
             }

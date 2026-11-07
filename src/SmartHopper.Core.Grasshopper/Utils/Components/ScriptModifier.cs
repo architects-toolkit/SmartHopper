@@ -30,6 +30,7 @@ using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.Dialogs;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Utils.Components
 {
     /// <summary>
@@ -74,7 +75,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             };
 
             ghComp.Params.RegisterInputParam(param);
-            Debug.WriteLine($"[ScriptModifier] Added input parameter '{name}' with type hint '{typeHint}'");
+            Logger.Trace(typeof(ScriptModifier).FullName, $"[ScriptModifier] Added input parameter '{name}' with type hint '{typeHint}'");
 
             // Apply type hint if the parameter supports it
             if (!string.IsNullOrWhiteSpace(typeHint) && !string.Equals(typeHint, "object", StringComparison.OrdinalIgnoreCase))
@@ -117,7 +118,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             };
 
             ghComp.Params.RegisterOutputParam(param);
-            Debug.WriteLine($"[ScriptModifier] Added output parameter '{name}' with type hint '{typeHint}'");
+            Logger.Trace(typeof(ScriptModifier).FullName, $"[ScriptModifier] Added output parameter '{name}' with type hint '{typeHint}'");
 
             // Apply type hint if the parameter supports it
             if (!string.IsNullOrWhiteSpace(typeHint) && !string.Equals(typeHint, "object", StringComparison.OrdinalIgnoreCase))
@@ -144,7 +145,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             ghComp.Params.UnregisterInputParameter(param);
             RefreshScriptComponent(scriptComp);
 
-            Debug.WriteLine($"[ScriptModifier] Removed input parameter at index {index}");
+            Logger.Trace(typeof(ScriptModifier).FullName, $"[ScriptModifier] Removed input parameter at index {index}");
         }
 
         /// <summary>
@@ -163,7 +164,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             ghComp.Params.UnregisterOutputParameter(param);
             RefreshScriptComponent(scriptComp);
 
-            Debug.WriteLine($"[ScriptModifier] Removed output parameter at index {index}");
+            Logger.Trace(typeof(ScriptModifier).FullName, $"[ScriptModifier] Removed output parameter at index {index}");
         }
 
         #region Type Hint Management
@@ -184,7 +185,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             TrySetTypeHint(param, typeHint);
             RefreshScriptComponent(scriptComp);
 
-            Debug.WriteLine($"[ScriptModifier] Set type hint '{typeHint}' for input at index {index}");
+            Logger.Trace(typeof(ScriptModifier).FullName, $"[ScriptModifier] Set type hint '{typeHint}' for input at index {index}");
         }
 
         /// <summary>
@@ -203,7 +204,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             TrySetTypeHint(param, typeHint);
             RefreshScriptComponent(scriptComp);
 
-            Debug.WriteLine($"[ScriptModifier] Set type hint '{typeHint}' for output at index {index}");
+            Logger.Trace(typeof(ScriptModifier).FullName, $"[ScriptModifier] Set type hint '{typeHint}' for output at index {index}");
         }
 
         #endregion
@@ -225,7 +226,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             var param = ghComp.Params.Input[index];
             ScriptComponentReflection.SetParameterAccess(param, access);
             RefreshScriptComponent(scriptComp);
-            Debug.WriteLine($"[ScriptModifier] Set access '{access}' for input at index {index}");
+            Logger.Trace(typeof(ScriptModifier).FullName, $"[ScriptModifier] Set access '{access}' for input at index {index}");
         }
 
         #endregion
@@ -266,12 +267,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
 
                     RefreshScriptComponent(scriptComp);
 
-                    Debug.WriteLine($"[ScriptModifier] Set ShowStandardOutput to '{show}'");
+                    Logger.Trace(typeof(ScriptModifier).FullName, $"[ScriptModifier] Set ShowStandardOutput to '{show}'");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ScriptModifier] Error setting ShowStandardOutput: {ex.Message}");
+                Logger.Exception(typeof(ScriptModifier).FullName, ex, $"[ScriptModifier] Error setting ShowStandardOutput: {ex.Message}");
             }
         }
 
@@ -291,7 +292,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             ghComp.MasterParameterIndex = index;
             RefreshScriptComponent(scriptComp);
 
-            Debug.WriteLine($"[ScriptModifier] Set principal input to index {index}");
+            Logger.Trace(typeof(ScriptModifier).FullName, $"[ScriptModifier] Set principal input to index {index}");
         }
 
         #endregion
@@ -313,7 +314,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             var param = ghComp.Params.Input[index];
             param.Optional = optional;
 
-            Debug.WriteLine($"[ScriptModifier] Set input {index} optional to '{optional}'");
+            Logger.Trace(typeof(ScriptModifier).FullName, $"[ScriptModifier] Set input {index} optional to '{optional}'");
         }
 
         #endregion
@@ -349,16 +350,16 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                 if (typeHintProp != null && typeHintProp.CanWrite)
                 {
                     typeHintProp.SetValue(param, typeHint);
-                    Debug.WriteLine($"[ScriptModifier] Applied type hint '{typeHint}' to parameter '{param.Name}'");
+                    Logger.Trace(typeof(ScriptModifier).FullName, $"[ScriptModifier] Applied type hint '{typeHint}' to parameter '{param.Name}'");
                 }
                 else
                 {
-                    Debug.WriteLine($"[ScriptModifier] Parameter '{param.Name}' does not support TypeHint property");
+                    Logger.Trace(typeof(ScriptModifier).FullName, $"[ScriptModifier] Parameter '{param.Name}' does not support TypeHint property");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ScriptModifier] Failed to set type hint '{typeHint}' on parameter '{param.Name}': {ex.Message}");
+                Logger.Exception(typeof(ScriptModifier).FullName, ex, $"[ScriptModifier] Failed to set type hint '{typeHint}' on parameter '{param.Name}': {ex.Message}");
             }
         }
 
@@ -380,7 +381,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             ghComp.CreateAttributes();
             ghComp.ExpireSolution(true);
 
-            Debug.WriteLine($"[ScriptModifier] Refreshed script component '{ghComp.Name}'");
+            Logger.Trace(typeof(ScriptModifier).FullName, $"[ScriptModifier] Refreshed script component '{ghComp.Name}'");
         }
     }
 }

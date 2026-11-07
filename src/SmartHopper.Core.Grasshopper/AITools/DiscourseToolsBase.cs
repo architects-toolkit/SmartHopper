@@ -34,6 +34,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -256,7 +257,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine($"[{this.ForumName}ForumTools] Running SummarizePost tool");
+                Logger.For<DiscourseToolsBase>().Error($"[{this.ForumName}ForumTools] Running SummarizePost tool");
 
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
@@ -398,7 +399,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.ForumName}ForumTools] Error in SummarizePost: {ex.Message}");
+                Logger.For<DiscourseToolsBase>().Exception(ex, $"[{this.ForumName}ForumTools] Error in SummarizePost: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
@@ -469,13 +470,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (HttpRequestException httpEx)
             {
-                Debug.WriteLine($"[{this.ToolPrefix}_forum_topic_get] HTTP error while fetching topic: {httpEx}.");
+                Logger.For<DiscourseToolsBase>().Error($"[{this.ToolPrefix}_forum_topic_get] HTTP error while fetching topic: {httpEx}.");
                 output.CreateNetworkError(httpEx.Message, toolCall);
                 return output;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.ToolPrefix}_forum_topic_get] Error while fetching topic: {ex}.");
+                Logger.For<DiscourseToolsBase>().Exception(ex, $"[{this.ToolPrefix}_forum_topic_get] Error while fetching topic: {ex}.");
                 output.CreateError($"Error: {ex.Message}", toolCall);
                 return output;
             }
@@ -493,7 +494,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine($"[{this.ForumName}ForumTools] Running SummarizeTopic tool");
+                Logger.For<DiscourseToolsBase>().Error($"[{this.ForumName}ForumTools] Running SummarizeTopic tool");
 
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
@@ -629,7 +630,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.ForumName}ForumTools] Error in SummarizeTopic: {ex.Message}");
+                Logger.For<DiscourseToolsBase>().Exception(ex, $"[{this.ForumName}ForumTools] Error in SummarizeTopic: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
@@ -723,7 +724,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             using var httpClient = new HttpClient();
 
             var searchUri = new Uri($"{baseUrl}/search.json?q={Uri.EscapeDataString(query)}");
-            Debug.WriteLine($"[{this.ForumName}ForumTools] Search API call: {searchUri}");
+            Logger.For<DiscourseToolsBase>().Trace($"[{this.ForumName}ForumTools] Search API call: {searchUri}");
             var response = await httpClient.GetAsync(searchUri).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -747,7 +748,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
             }
 
-            Debug.WriteLine($"[{this.ForumName}ForumTools] Search returned {posts.Count} posts, {topics.Count} topics, {topicLookup.Count} topic titles mapped");
+            Logger.For<DiscourseToolsBase>().Trace($"[{this.ForumName}ForumTools] Search returned {posts.Count} posts, {topics.Count} topics, {topicLookup.Count} topic titles mapped");
 
             var filteredResults = new JArray();
             foreach (var post in posts)

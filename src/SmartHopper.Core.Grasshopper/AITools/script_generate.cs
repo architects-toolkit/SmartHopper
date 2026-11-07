@@ -39,6 +39,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -250,8 +251,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Detect language or use default
                 language = NormalizeLanguageKeyOrDefault(language, "python");
 
-                Debug.WriteLine($"[script_generate] Language: {language}, Script length: {scriptCode.Length}");
-                Debug.WriteLine($"[script_generate] Inputs: {inputs.Count}, Outputs: {outputs.Count}");
+                Logger.For<script_generate>().Trace($"[script_generate] Language: {language}, Script length: {scriptCode.Length}");
+                Logger.For<script_generate>().Trace($"[script_generate] Inputs: {inputs.Count}, Outputs: {outputs.Count}");
 
                 // Validate script code for non-Rhino geometry patterns and retry if needed
                 var validationResult = ScriptCodeValidator.Validate(scriptCode, language);
@@ -261,7 +262,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 while (!validationResult.IsValid && retryCount < MaxValidationRetries)
                 {
                     retryCount++;
-                    Debug.WriteLine($"[script_generate] Validation failed (attempt {retryCount}/{MaxValidationRetries}): {string.Join("; ", validationResult.Issues)}");
+                    Logger.For<script_generate>().Warning($"[script_generate] Validation failed (attempt {retryCount}/{MaxValidationRetries}): {string.Join("; ", validationResult.Issues)}");
 
                     // Build correction request
                     var correctionBuilder = AIBodyBuilder.Create()
@@ -290,7 +291,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (!correctionResult.Success)
                     {
-                        Debug.WriteLine($"[script_generate] Correction request failed, using original script");
+                        Logger.For<script_generate>().Warning($"[script_generate] Correction request failed, using original script");
                         break;
                     }
 
@@ -311,7 +312,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (!validationResult.IsValid)
                 {
                     var validationWarning = $"Script validation failed after {retryCount} retries: {string.Join("; ", validationResult.Issues)}";
-                    Debug.WriteLine($"[script_generate] {validationWarning}");
+                    Logger.For<script_generate>().Trace($"[script_generate] {validationWarning}");
 
                     // Return warning but continue - the script may still work
                     // This provides consistent error handling with script_edit
@@ -358,7 +359,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[script_generate] Error: {ex.Message}");
+                Logger.For<script_generate>().Exception(ex, $"[script_generate] Error: {ex.Message}");
                 output.CreateError(ex.Message);
                 return output;
             }
@@ -511,7 +512,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Step 1: Call script_generate to generate the GhJSON
-                Debug.WriteLine($"[{this.wrapperToolName}] Step 1: Calling script_generate");
+                Logger.For<script_generate>().Trace($"[{this.wrapperToolName}] Step 1: Calling script_generate");
 
                 var scriptGenerateArgs = new JObject
                 {
@@ -545,7 +546,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!generateResult.Success)
                 {
-                    Debug.WriteLine($"[{this.wrapperToolName}] script_generate failed");
+                    Logger.For<script_generate>().Warning($"[{this.wrapperToolName}] script_generate failed");
                     output.CreateError("AI script generation failed", toolCall, generateResult.Metrics);
                     foreach (var msg in generateResult.Messages.Where(m => m != null))
                     {
@@ -573,7 +574,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                Debug.WriteLine($"[{this.wrapperToolName}] Step 2: Calling gh_put");
+                Logger.For<script_generate>().Trace($"[{this.wrapperToolName}] Step 2: Calling gh_put");
 
                 // Step 2: Call gh_put to place the component on canvas
                 var ghPutArgs = new JObject
@@ -607,7 +608,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!ghPutResult.Success)
                 {
-                    Debug.WriteLine($"[{this.wrapperToolName}] gh_put failed");
+                    Logger.For<script_generate>().Warning($"[{this.wrapperToolName}] gh_put failed");
 
                     // Return combined result with generate success but put failure
                     var partialResult = new JObject
@@ -627,7 +628,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                Debug.WriteLine($"[{this.wrapperToolName}] Both steps completed successfully");
+                Logger.For<script_generate>().Trace($"[{this.wrapperToolName}] Both steps completed successfully");
 
                 // Combine results from both operations
                 var ghPutToolResult = ghPutResult.Body?.Interactions
@@ -662,7 +663,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.wrapperToolName}] Error: {ex.Message}");
+                Logger.For<script_generate>().Exception(ex, $"[{this.wrapperToolName}] Error: {ex.Message}");
                 output.CreateError(ex.Message);
                 return output;
             }

@@ -30,6 +30,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Hosting;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -106,7 +107,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine("[ImageTools] Running GenerateImageToolWrapper");
+                Logger.For<text2img>().Trace("[ImageTools] Running GenerateImageToolWrapper");
 
                 // Extract parameters
                 string providerName = toolCall.Provider;
@@ -196,7 +197,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ImageTools] Error in GenerateImageToolWrapper: {ex.Message}");
+                Logger.For<text2img>().Exception(ex, $"[ImageTools] Error in GenerateImageToolWrapper: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }

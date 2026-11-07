@@ -32,6 +32,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -311,7 +312,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[File2Md] Error in File2MdAsync: {ex.Message}");
+                Logger.For<file2md>().Exception(ex, $"[File2Md] Error in File2MdAsync: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
