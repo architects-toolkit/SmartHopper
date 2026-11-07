@@ -53,7 +53,7 @@ namespace SmartHopper.Components.Input
 
         protected override Bitmap Icon => Resources.LadybugTopic2AI;
 
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         public LadybugTopic2AIComponent()
             : base(

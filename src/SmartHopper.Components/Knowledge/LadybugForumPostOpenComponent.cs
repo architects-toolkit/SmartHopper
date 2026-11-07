@@ -39,7 +39,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.LadybugForumPostOpen;
 
-        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         public LadybugForumPostOpenComponent()
             : base(

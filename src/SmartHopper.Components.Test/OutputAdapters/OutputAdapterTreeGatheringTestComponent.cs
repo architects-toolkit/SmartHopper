@@ -53,7 +53,8 @@ namespace SmartHopper.Components.Test.OutputAdapters
                 "TEST Output Adapter Gathering",
                 "TEST-ADAPT-GATHER",
                 "Validates that AIOutputAdapterBase gathers typed text trees without type mismatch, aligns them per branch, and injects non-tree values verbatim.",
-                GH_Exposure.quarternary)
+                GH_Exposure.quarternary,
+                "Testing Adapters")
         {
             this.RunOnlyOnInputChanges = false;
         }

@@ -39,7 +39,7 @@ namespace SmartHopper.Components.JSON
         protected override Bitmap Icon => Resources.JsonObject;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonObjectComponent"/> class.

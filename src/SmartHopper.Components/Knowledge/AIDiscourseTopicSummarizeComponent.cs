@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.AIDiscourseTopicSummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {

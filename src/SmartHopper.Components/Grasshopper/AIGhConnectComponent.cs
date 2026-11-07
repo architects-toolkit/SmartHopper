@@ -47,7 +47,7 @@ namespace SmartHopper.Components.Grasshopper
         protected override Bitmap Icon => Resources.AIGhConnect;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "gh_smart_connect" };

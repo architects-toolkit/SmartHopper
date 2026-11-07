@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Output
         private JToken _fallback;
 
         public AI2JsonComponent()
-            : base("AI to JSON", "AI→JSON", "Generate structured JSON data from AI input", GH_Exposure.secondary)
+            : base("AI to JSON", "AI→JSON", "Generate structured JSON data from AI input", GH_Exposure.tertiary)
         {
         }
 

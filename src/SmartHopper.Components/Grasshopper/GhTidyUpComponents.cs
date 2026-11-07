@@ -60,7 +60,7 @@ namespace SmartHopper.Components.Grasshopper
         protected override Bitmap Icon => Properties.Resources.GhTidyUp;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         /// <summary>
         /// Enables the selection mode for this component.

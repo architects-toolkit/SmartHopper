@@ -59,6 +59,9 @@ namespace SmartHopper.Components.Grasshopper
         protected override Bitmap Icon => Resources.GhPut;
 
         /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
+
+        /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("JSON", "J", "GhJSON document to place on canvas, or an absolute path to a .ghjson file", GH_ParamAccess.item);

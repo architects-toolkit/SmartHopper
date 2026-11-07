@@ -138,9 +138,10 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="name">Component name.</param>
         /// <param name="nickname">Component nickname.</param>
         /// <param name="description">Component description.</param>
-        /// <param name="exposure">Component exposure level (primary or secondary).</param>
-        protected AIOutputAdapterBase(string name, string nickname, string description, GH_Exposure exposure)
-            : base(name, nickname, description, "SmartHopper", "C. Output")
+        /// <param name="exposure">Component exposure level.</param>
+        /// <param name="subcategory">Ribbon subcategory. Defaults to "C. Output"; adapter test components pass their own testing subcategory.</param>
+        protected AIOutputAdapterBase(string name, string nickname, string description, GH_Exposure exposure, string subcategory = "C. Output")
+            : base(name, nickname, description, "SmartHopper", subcategory)
         {
             this._exposure = exposure;
         }

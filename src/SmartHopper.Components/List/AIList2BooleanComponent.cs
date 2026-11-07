@@ -49,7 +49,7 @@ namespace SmartHopper.Components.List
 
         protected override Bitmap Icon => Resources.AIList2Boolean;
 
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         public override IEnumerable<string> Keywords => new[] {
             "AI List Evaluate",

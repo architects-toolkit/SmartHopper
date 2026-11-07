@@ -74,7 +74,7 @@ namespace SmartHopper.Components.Mcp
         public override Guid ComponentGuid => new Guid("a3c4f1d0-7e2b-4c5a-9d1b-7f5e8c0a2b4d");
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
         protected override System.Drawing.Bitmap Icon => Properties.Resources.SmartHopperMcpServer;

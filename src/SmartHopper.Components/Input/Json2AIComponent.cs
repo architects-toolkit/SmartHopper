@@ -41,7 +41,7 @@ namespace SmartHopper.Components.Input
                   "JSON to AI",
                   "Json2AI",
                   "Wraps JSON input into an AIInputPayload for AI processing.",
-                  GH_Exposure.secondary)
+                  GH_Exposure.tertiary)
         {
         }
 

@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Input
 
         protected override Bitmap Icon => Resources.GhJSON2AI;
 
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         public GhJSON2AIComponent()
             : base(

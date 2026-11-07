@@ -53,6 +53,9 @@ namespace SmartHopper.Components.Grasshopper
         protected override System.Drawing.Bitmap Icon => Properties.Resources.SaveGhJSON;
 
         /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
+
+        /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("GhJSON", "G", "GhJSON document string to save.", GH_ParamAccess.item);

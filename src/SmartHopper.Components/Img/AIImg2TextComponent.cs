@@ -55,6 +55,9 @@ namespace SmartHopper.Components.Img
         protected override Bitmap Icon => Resources.AIImg2Text;
 
         /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
+
+        /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
             "AIImg2Txt",
             "AIImgToText",

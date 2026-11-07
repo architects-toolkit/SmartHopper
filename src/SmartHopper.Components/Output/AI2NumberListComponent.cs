@@ -40,7 +40,7 @@ namespace SmartHopper.Components.Output
         private List<double> _fallback;
 
         public AI2NumberListComponent()
-            : base("AI to Number List", "AI→NumList", "Generate a list of numbers from AI input. The model is asked to return a JSON array of numbers; each item is expanded into the output branch.", GH_Exposure.primary)
+            : base("AI to Number List", "AI→NumList", "Generate a list of numbers from AI input. The model is asked to return a JSON array of numbers; each item is expanded into the output branch.", GH_Exposure.secondary)
         {
         }
 

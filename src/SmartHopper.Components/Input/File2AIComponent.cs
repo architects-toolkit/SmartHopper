@@ -79,7 +79,7 @@ namespace SmartHopper.Components.Input
 
         protected override Bitmap Icon => Resources.File2AI;
 
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "file2md", "img2text" };

@@ -40,7 +40,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.DiscoursePostOpen;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         public DiscoursePostOpenComponent()
             : base(

@@ -40,7 +40,7 @@ namespace SmartHopper.Components.Input
                   "Text to AI",
                   "Text2AI",
                   "Wraps text input into an AIInputPayload for AI processing.",
-                  GH_Exposure.secondary)
+                  GH_Exposure.primary)
         {
         }
 

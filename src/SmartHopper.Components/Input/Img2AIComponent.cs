@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Input
                   "Image to AI",
                   "Img2AI",
                   "Wraps image input into an AIInputPayload for AI processing.",
-                  GH_Exposure.secondary)
+                  GH_Exposure.tertiary)
         {
         }
 

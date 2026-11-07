@@ -41,7 +41,7 @@ namespace SmartHopper.Components.Output
         /// Initializes a new instance of the <see cref="AI2SpeechComponent"/> class.
         /// </summary>
         public AI2SpeechComponent()
-            : base("AI to Speech", "AI→Speech", "Generate speech audio from AI input", GH_Exposure.secondary)
+            : base("AI to Speech", "AI→Speech", "Generate speech audio from AI input", GH_Exposure.quarternary)
         {
         }
 

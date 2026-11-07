@@ -56,6 +56,9 @@ namespace SmartHopper.Components.Img
         }
 
         /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+
+        /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
             ArgumentNullException.ThrowIfNull(pManager);

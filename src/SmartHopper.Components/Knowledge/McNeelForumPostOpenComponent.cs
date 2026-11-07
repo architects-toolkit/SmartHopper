@@ -39,7 +39,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.McNeelForumPostOpen;
 
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         public McNeelForumPostOpenComponent()
             : base(

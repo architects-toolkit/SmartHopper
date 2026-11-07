@@ -49,7 +49,7 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("E03028FA-A7D4-41F0-A010-F6EEDE085594");
 
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         protected override Bitmap Icon => Resources.DiscoursePost2AI;
 

@@ -40,7 +40,7 @@ namespace SmartHopper.Components.Output
         /// Initializes a new instance of the <see cref="AI2ImgComponent"/> class.
         /// </summary>
         public AI2ImgComponent()
-            : base("AI to Image", "AI→Img", "Generate images from AI input payloads", GH_Exposure.secondary)
+            : base("AI to Image", "AI→Img", "Generate images from AI input payloads", GH_Exposure.quarternary)
         {
         }
 

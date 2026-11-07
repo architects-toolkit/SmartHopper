@@ -40,7 +40,7 @@ namespace SmartHopper.Components.Output
         private List<bool> _fallback;
 
         public AI2BooleanListComponent()
-            : base("AI to Boolean List", "AI→BoolList", "Generate a list of booleans from AI input. The model is asked to return a JSON array of true/false values; each item is expanded into the output branch.", GH_Exposure.primary)
+            : base("AI to Boolean List", "AI→BoolList", "Generate a list of booleans from AI input. The model is asked to return a JSON array of true/false values; each item is expanded into the output branch.", GH_Exposure.secondary)
         {
         }
 

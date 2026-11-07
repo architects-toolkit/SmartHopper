@@ -45,7 +45,7 @@ namespace SmartHopper.Components.AI
         protected override Bitmap Icon => Resources.AIContextProviders;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {

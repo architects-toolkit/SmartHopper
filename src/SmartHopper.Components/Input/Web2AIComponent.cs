@@ -80,7 +80,7 @@ namespace SmartHopper.Components.Input
 
         protected override Bitmap Icon => Resources.Web2AI;
 
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "web2md", "img2text" };

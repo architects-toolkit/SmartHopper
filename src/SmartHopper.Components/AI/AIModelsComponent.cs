@@ -56,7 +56,7 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Gets the exposure level of this component in the ribbon.
         /// </summary>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {

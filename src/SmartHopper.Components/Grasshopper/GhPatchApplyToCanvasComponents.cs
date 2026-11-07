@@ -65,6 +65,9 @@ namespace SmartHopper.Components.Grasshopper
         protected override Bitmap Icon => Properties.Resources.GhPatchApplyToCanvas;
 
         /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
+
+        /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Patch", "P", "GhPatch document string.", GH_ParamAccess.item);

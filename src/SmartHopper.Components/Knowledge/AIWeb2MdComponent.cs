@@ -80,7 +80,7 @@ namespace SmartHopper.Components.Knowledge
         protected override Bitmap Icon => Resources.AIWeb2Md;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[]

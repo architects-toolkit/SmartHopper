@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Input
                   "Audio to AI",
                   "Audio2AI",
                   "Wraps audio file input into an AIInputPayload for AI audio processing.",
-                  GH_Exposure.secondary)
+                  GH_Exposure.tertiary)
         {
         }
 

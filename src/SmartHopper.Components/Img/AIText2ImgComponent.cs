@@ -47,6 +47,9 @@ namespace SmartHopper.Components.Img
         protected override Bitmap Icon => Resources.AIText2Img;
 
         /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
+
+        /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
             "AI Image Generate",
             "AIImgGen",

@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Output
         private List<string> _fallback;
 
         public AI2TextListComponent()
-            : base("AI to Text List", "AI→TextList", "Generate a list of strings from AI input. The model is asked to return a JSON array of strings; each item is expanded into the output branch.", GH_Exposure.primary)
+            : base("AI to Text List", "AI→TextList", "Generate a list of strings from AI input. The model is asked to return a JSON array of strings; each item is expanded into the output branch.", GH_Exposure.secondary)
         {
         }
 
