@@ -27,6 +27,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using System.Threading.Tasks;
     using SmartHopper.Infrastructure.AICall.Execution;
     using SmartHopper.Infrastructure.AICall.Policies;
+    using SmartHopper.Infrastructure.AICall.Subagents;
     using SmartHopper.Infrastructure.AICall.Utilities;
     using SmartHopper.Infrastructure.Consent;
     using SmartHopper.Infrastructure.Interaction;
@@ -172,6 +173,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <param name="taskPlanPresenter">Optional presenter for invocation-specific task plan updates.</param>
         /// <param name="canvasPointerPresenter">Optional presenter for invocation-specific canvas pointer cards.</param>
         /// <param name="userQuestionPresenter">Optional presenter for invocation-specific user questions.</param>
+        /// <param name="subagentHost">Optional subagent host for conductor tools; child sessions receive none.</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="request"/> is null.</exception>
         public ConversationSession(
             AIRequestCall request,
@@ -181,7 +183,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             IConsentPresenter? consentPresenter = null,
             ITaskPlanPresenter? taskPlanPresenter = null,
             ICanvasPointerPresenter? canvasPointerPresenter = null,
-            IUserQuestionPresenter? userQuestionPresenter = null)
+            IUserQuestionPresenter? userQuestionPresenter = null,
+            ISubagentHost? subagentHost = null)
         {
             this.Request = request ?? throw new ArgumentNullException(nameof(request));
             this._initialRequest = request;
@@ -192,6 +195,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             this.TaskPlanPresenter = taskPlanPresenter;
             this.CanvasPointerPresenter = canvasPointerPresenter;
             this.UserQuestionPresenter = userQuestionPresenter;
+            this.SubagentHost = subagentHost;
 
             // Initialize _lastReturn with initial request body
             this._lastReturn.SetBody(request.Body);
@@ -649,6 +653,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         public IUserQuestionPresenter? UserQuestionPresenter { get; }
 
         /// <summary>
+        /// Gets the session's subagent host, when this session acts as a conductor.
+        /// Null on child sessions, which keeps subagent depth at one level.
+        /// </summary>
+        public ISubagentHost? SubagentHost { get; }
+
+        /// <summary>
         /// Adds a new user interaction to the conversation.
         /// </summary>
         /// <param name="userMessage">The user message content.</param>
@@ -979,7 +989,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             this.ApplyContextEditing();
 
             var stopwatch = Stopwatch.StartNew();
-            var res = await this.Request.Exec(stream: false).ConfigureAwait(false);
+            var res = await this.Request.Exec(stream: false, ct).ConfigureAwait(false);
             stopwatch.Stop();
 
             // Post-exec body reflects request policies applied inside Exec — this is the prompt actually sent
