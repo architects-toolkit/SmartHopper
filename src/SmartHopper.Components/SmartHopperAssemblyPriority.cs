@@ -20,6 +20,7 @@ using Grasshopper;
 using Grasshopper.Kernel;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
+using SmartHopper.Core.Grasshopper.Utils.Runtime;
 using SmartHopper.Core.UI;
 using SmartHopper.Core.UI.Chat;
 using SmartHopper.Infrastructure.AITools;
@@ -53,6 +54,10 @@ namespace SmartHopper.Components
 
             // Initialize the visual overlay that marks protected components on the canvas.
             CanvasProtectionOverlay.EnsureInitialized();
+
+            // Register the GhJSON placer so chat artifact cards can put documents
+            // on the active canvas without referencing the Grasshopper layer.
+            CanvasGhJsonPlacer.EnsureInitialized();
 
             // Install the global right-click message filter so every component
             // gets a "Lock from MCP updates" context menu item.

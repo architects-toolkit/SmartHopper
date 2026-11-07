@@ -310,6 +310,7 @@ namespace SmartHopper.Core.UI.Chat
                     taskPlanPresenter: new WebChatTaskPlanPresenter(this),
                     canvasPointerPresenter: new WebChatCanvasPointerPresenter(this),
                     userQuestionPresenter: new WebChatUserQuestionPresenter(this),
+                    ghJsonArtifactPresenter: new WebChatGhJsonArtifactPresenter(this),
                     subagentHost: this._subagentHost);
 
                 // If the user drags/resizes the dialog while we are rendering/upserting messages,
@@ -1838,6 +1839,23 @@ namespace SmartHopper.Core.UI.Chat
                                     catch (Exception ex)
                                     {
                                         DebugLog($"[WebChatDialog] Deferred ReplayCanvasPointer error: {ex.Message}");
+                                    }
+                                });
+                                break;
+                            }
+
+                        case "ghjson_place":
+                            {
+                                var artifactId = query.TryGetValue("id", out var aid) ? aid : string.Empty;
+                                Application.Instance?.AsyncInvoke(() =>
+                                {
+                                    try
+                                    {
+                                        this.PlaceGhJsonArtifact(artifactId);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        DebugLog($"[WebChatDialog] Deferred PlaceGhJsonArtifact error: {ex.Message}");
                                     }
                                 });
                                 break;

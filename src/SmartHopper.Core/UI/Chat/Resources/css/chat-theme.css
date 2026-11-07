@@ -975,3 +975,100 @@ body {
     border-color: var(--line);
     background: var(--paper-2);
 }
+
+/* GhJSON artifact card (show_ghjson) — compact card on the transcript; the
+   source preview stays collapsed behind <details>. Invalid payloads go small
+   and red with no action affordance. */
+.chat-ui[data-theme='cloud'] .ghjson-card,
+.ghjson-card {
+    border-left: 3px solid var(--product);
+    padding: 8px 10px;
+    font-size: 12px;
+    background: var(--paper);
+    border-top: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+}
+.ghjson-card.is-invalid {
+    border-left-color: var(--danger);
+}
+.ghjson-card .ghjson-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ghjson-card .ghjson-title {
+    font-weight: 600;
+    color: var(--ink);
+}
+.ghjson-card.is-invalid .ghjson-title { color: var(--danger); }
+.ghjson-card .ghjson-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border: 1px solid var(--line);
+}
+.ghjson-card .ghjson-badge.is-valid { color: var(--ok); border-color: var(--ok); }
+.ghjson-card .ghjson-badge.is-invalid { color: var(--danger); border-color: var(--danger); }
+.ghjson-card .ghjson-errors {
+    margin: 6px 0 0 14px;
+    padding: 0;
+    list-style: disc;
+    font-size: 11px;
+    color: var(--danger);
+}
+.ghjson-card .ghjson-src { margin-top: 6px; }
+.ghjson-card .ghjson-summary {
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+.ghjson-card .ghjson-pre {
+    margin: 6px 0 0;
+    padding: 8px;
+    max-height: 240px;
+    overflow: auto;
+    background: var(--paper-2);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    white-space: pre;
+}
+.ghjson-card .ghjson-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+.ghjson-card .ghjson-btn {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    cursor: pointer;
+    border-radius: 0;
+}
+.ghjson-card .ghjson-btn:hover:not(:disabled) { border-color: var(--product); color: var(--product); }
+.ghjson-card .ghjson-btn:disabled { opacity: 0.5; cursor: default; }
+.ghjson-card .ghjson-btn.is-primary {
+    border-color: var(--product);
+    background: var(--product);
+    color: var(--paper);
+}
+.ghjson-card .ghjson-btn.is-primary:hover:not(:disabled) { background: var(--product-ink); }
+.ghjson-card .ghjson-status {
+    font-size: 11px;
+    color: var(--ink-soft);
+}
+.ghjson-card .ghjson-status[data-state='ok'] { color: var(--ok); }
+.ghjson-card .ghjson-status[data-state='error'] { color: var(--danger); }
