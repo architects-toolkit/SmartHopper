@@ -40,6 +40,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Streaming;
 
 namespace SmartHopper.Providers.OpenRouter
@@ -141,7 +142,7 @@ namespace SmartHopper.Providers.OpenRouter
                 temperature = 0.5;
             }
 
-            Debug.WriteLine($"[OpenRouter] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
+            Logger.For<OpenRouterProvider>().Trace($"[OpenRouter] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
 
 #if DEBUG
             // Log interaction sequence for debugging
@@ -151,7 +152,7 @@ namespace SmartHopper.Providers.OpenRouter
                 int tc = request.Body.Interactions?.Count(i => i is AIInteractionToolCall) ?? 0;
                 int tr = request.Body.Interactions?.Count(i => i is AIInteractionToolResult) ?? 0;
                 int tx = request.Body.Interactions?.Count(i => i is AIInteractionText) ?? 0;
-                Debug.WriteLine($"[OpenRouter] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
+                Logger.For<OpenRouterProvider>().Trace($"[OpenRouter] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
             }
             catch
             {
@@ -185,7 +186,7 @@ namespace SmartHopper.Providers.OpenRouter
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[OpenRouter] Warning: Could not encode interaction: {ex.Message}");
+                    Logger.For<OpenRouterProvider>().Exception(ex, $"[OpenRouter] Warning: Could not encode interaction: {ex.Message}");
                 }
             }
 
@@ -317,15 +318,15 @@ namespace SmartHopper.Providers.OpenRouter
 #if DEBUG
             try
             {
-                Debug.WriteLine($"[OpenRouter] Request body:");
-                Debug.WriteLine(body.ToString(Newtonsoft.Json.Formatting.Indented));
+                Logger.For<OpenRouterProvider>().Trace($"[OpenRouter] Request body:");
+                Logger.For<OpenRouterProvider>().Trace(body.ToString(Newtonsoft.Json.Formatting.Indented));
             }
             catch
             {
                 // Intentionally empty
             }
 #else
-            Debug.WriteLine($"[OpenRouter] Request: {body}");
+            Logger.For<OpenRouterProvider>().Trace($"[OpenRouter] Request: {body}");
 #endif
 
             return body.ToString();
@@ -341,7 +342,7 @@ namespace SmartHopper.Providers.OpenRouter
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[OpenRouter] Encode(IAIInteraction) error: {ex.Message}");
+                Logger.For<OpenRouterProvider>().Exception(ex, $"[OpenRouter] Encode(IAIInteraction) error: {ex.Message}");
                 return string.Empty;
             }
         }
@@ -522,7 +523,7 @@ namespace SmartHopper.Providers.OpenRouter
                     var errMsg = errorObj["message"]?.ToString()
                               ?? errorObj["code"]?.ToString()
                               ?? "Provider returned an error";
-                    Debug.WriteLine($"[OpenRouter] Decode: provider error in response body: {errMsg}");
+                    Logger.For<OpenRouterProvider>().Warning($"[OpenRouter] Decode: provider error in response body: {errMsg}");
                     interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = errMsg });
                     return interactions;
                 }
@@ -671,7 +672,7 @@ namespace SmartHopper.Providers.OpenRouter
                                 }
                                 catch
                                 {
-                                    Debug.WriteLine($"[OpenRouter] Failed to parse tool call arguments: {argsString}");
+                                    Logger.For<OpenRouterProvider>().Error($"[OpenRouter] Failed to parse tool call arguments: {argsString}");
                                 }
                             }
                         }
@@ -689,7 +690,7 @@ namespace SmartHopper.Providers.OpenRouter
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.Name}] Decode error: {ex.Message}");
+                Logger.For<OpenRouterProvider>().Exception(ex, $"[{this.Name}] Decode error: {ex.Message}");
             }
 
             return interactions;

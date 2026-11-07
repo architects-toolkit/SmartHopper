@@ -39,6 +39,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Streaming;
 using SmartHopper.ProviderSdk.Utilities;
 
@@ -449,9 +450,9 @@ namespace SmartHopper.Providers.OpenAI
                 int tc = interactions?.Count(i => i is AIInteractionToolCall) ?? 0;
                 int tr = interactions?.Count(i => i is AIInteractionToolResult) ?? 0;
                 int tx = interactions?.Count(i => i is AIInteractionText) ?? 0;
-                Debug.WriteLine($"[OpenAI] BuildFormattedMessages ({formatName}): interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
+                Logger.For<OpenAIProvider>().Trace($"[OpenAI] BuildFormattedMessages ({formatName}): interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
 
-                Debug.WriteLine($"[OpenAI] Full interaction sequence:");
+                Logger.For<OpenAIProvider>().Trace($"[OpenAI] Full interaction sequence:");
                 for (int debugIdx = 0; debugIdx < interactions.Count; debugIdx++)
                 {
                     var it = interactions[debugIdx];
@@ -463,7 +464,7 @@ namespace SmartHopper.Providers.OpenAI
                         AIInteractionRuntimeMessage rm => $"Diagnostic({rm.Severity})",
                         _ => it?.GetType().Name ?? "null"
                     };
-                    Debug.WriteLine($"  [{debugIdx}] {typeStr}");
+                    Logger.For<OpenAIProvider>().Trace($"  [{debugIdx}] {typeStr}");
                 }
             }
             catch
@@ -497,7 +498,7 @@ namespace SmartHopper.Providers.OpenAI
 #if DEBUG
             try
             {
-                Debug.WriteLine($"[OpenAI] Final encoded {formatName} array ({messages.Count} items):");
+                Logger.For<OpenAIProvider>().Trace($"[OpenAI] Final encoded {formatName} array ({messages.Count} items):");
                 for (int idx = 0; idx < messages.Count; idx++)
                 {
                     var msg = messages[idx] as JObject;
@@ -512,15 +513,15 @@ namespace SmartHopper.Providers.OpenAI
                         var tcArray = msg?["tool_calls"] as JArray;
                         var tcCount = tcArray?.Count ?? 0;
                         var tcIds = tcArray?.Select(tc => tc?["id"]?.ToString()).Where(id => !string.IsNullOrEmpty(id)).ToList();
-                        Debug.WriteLine($"  [{idx}] role={role}, tool_calls={tcCount}, ids=[{string.Join(", ", tcIds ?? new List<string>())}]");
+                        Logger.For<OpenAIProvider>().Error($"  [{idx}] role={role}, tool_calls={tcCount}, ids=[{string.Join(", ", tcIds ?? new List<string>())}]");
                     }
                     else if (!string.IsNullOrEmpty(toolCallId))
                     {
-                        Debug.WriteLine($"  [{idx}] role={role}, tool_call_id={toolCallId}, content={preview}");
+                        Logger.For<OpenAIProvider>().Error($"  [{idx}] role={role}, tool_call_id={toolCallId}, content={preview}");
                     }
                     else
                     {
-                        Debug.WriteLine($"  [{idx}] role={role}, content={preview}");
+                        Logger.For<OpenAIProvider>().Error($"  [{idx}] role={role}, content={preview}");
                     }
                 }
             }
@@ -552,7 +553,7 @@ namespace SmartHopper.Providers.OpenAI
                     var msg = errorObj["message"]?.ToString()
                               ?? errorObj["type"]?.ToString()
                               ?? "Provider returned an error";
-                    Debug.WriteLine($"[OpenAI] Decode: provider error in response body: {msg}");
+                    Logger.For<OpenAIProvider>().Error($"[OpenAI] Decode: provider error in response body: {msg}");
                     interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = msg });
                     return interactions;
                 }
@@ -606,7 +607,7 @@ namespace SmartHopper.Providers.OpenAI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[OpenAI] Decode error: {ex.Message}");
+                Logger.For<OpenAIProvider>().Exception(ex, $"[OpenAI] Decode error: {ex.Message}");
             }
 
             return interactions;
@@ -720,7 +721,7 @@ namespace SmartHopper.Providers.OpenAI
             string? toolFilter = request.Body.ToolFilter;
             bool hasTools = !string.IsNullOrWhiteSpace(toolFilter);
 
-            Debug.WriteLine($"[OpenAI] FormatRequestBody - Model: {request.Model}, MaxTokens: {maxTokens}, HasTools: {hasTools}");
+            Logger.For<OpenAIProvider>().Trace($"[OpenAI] FormatRequestBody - Model: {request.Model}, MaxTokens: {maxTokens}, HasTools: {hasTools}");
 
             // Build request body for chat completions
             var requestBody = new JObject
@@ -808,11 +809,11 @@ namespace SmartHopper.Providers.OpenAI
                                 SHRuntimeMessageOrigin.Provider,
                                 SHMessageCode.SchemaRequiredAutoAdded,
                                 "Schema automatically updated: 'required' was extended to include all properties to comply with OpenAI strict mode."));
-                            Debug.WriteLine("[OpenAI] InjectRequiredForAllProperties: auto-added missing keys to required arrays");
+                            Logger.For<OpenAIProvider>().Warning("[OpenAI] InjectRequiredForAllProperties: auto-added missing keys to required arrays");
                         }
                     }))
                 {
-                    Debug.WriteLine($"[OpenAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    Logger.For<OpenAIProvider>().Trace($"[OpenAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
 
                     requestBody["response_format"] = new JObject
                     {
@@ -839,7 +840,7 @@ namespace SmartHopper.Providers.OpenAI
                 this.ApplyOpenAICompatibleToolChoice(requestBody, request, tools, "OpenAI");
             }
 
-            // Debug.WriteLine($"[OpenAI] ChatCompletions Request: {requestBody}");
+            // Logger.For<OpenAIProvider>().Trace($"[OpenAI] ChatCompletions Request: {requestBody}");
             return requestBody.ToString();
         }
 
@@ -965,7 +966,7 @@ namespace SmartHopper.Providers.OpenAI
                 }
             }
 
-            Debug.WriteLine($"[OpenAI] Responses API Request: {requestBody}");
+            Logger.For<OpenAIProvider>().Trace($"[OpenAI] Responses API Request: {requestBody}");
             return requestBody.ToString();
         }
 
@@ -1050,7 +1051,7 @@ namespace SmartHopper.Providers.OpenAI
                     size = imageRequest.ImageSize ?? "1024x1024";
                     quality = imageRequest.ImageQuality ?? "standard";
                     style = imageRequest.ImageStyle ?? "vivid";
-                    Debug.WriteLine($"[OpenAI] Image parameters extracted: prompt='{prompt.Substring(0, Math.Min(50, prompt.Length))}...', size={size}, quality={quality}, style={style}");
+                    Logger.For<OpenAIProvider>().Trace($"[OpenAI] Image parameters extracted: prompt='{prompt.Substring(0, Math.Min(50, prompt.Length))}...', size={size}, quality={quality}, style={style}");
                 }
                 else
                 {
@@ -1059,13 +1060,13 @@ namespace SmartHopper.Providers.OpenAI
                     if (firstInteraction is AIInteractionText textInteraction)
                     {
                         prompt = textInteraction.Content ?? string.Empty;
-                        Debug.WriteLine($"[OpenAI] Fallback: using text interaction as prompt: '{prompt.Substring(0, Math.Min(50, prompt.Length))}...'");
+                        Logger.For<OpenAIProvider>().Trace($"[OpenAI] Fallback: using text interaction as prompt: '{prompt.Substring(0, Math.Min(50, prompt.Length))}...'");
                     }
                 }
             }
             else
             {
-                Debug.WriteLine($"[OpenAI] No interactions found");
+                Logger.For<OpenAIProvider>().Trace($"[OpenAI] No interactions found");
             }
 
             // Build request payload for image generation
@@ -1084,7 +1085,7 @@ namespace SmartHopper.Providers.OpenAI
                 requestPayload["style"] = style;
             }
 
-            Debug.WriteLine($"[OpenAI] ImageGeneration Request: {requestPayload}");
+            Logger.For<OpenAIProvider>().Trace($"[OpenAI] ImageGeneration Request: {requestPayload}");
             return requestPayload.ToString();
         }
 
@@ -1132,7 +1133,7 @@ namespace SmartHopper.Providers.OpenAI
                 }
             }
 
-            Debug.WriteLine($"[OpenAI] AudioTranscription Request: {requestPayload}");
+            Logger.For<OpenAIProvider>().Trace($"[OpenAI] AudioTranscription Request: {requestPayload}");
             return requestPayload.ToString();
         }
 
@@ -1185,7 +1186,7 @@ namespace SmartHopper.Providers.OpenAI
                 ["speed"] = speed,
             };
 
-            Debug.WriteLine($"[OpenAI] AudioSpeech Request: model={request.Model}, voice={voice}, input length={input.Length}");
+            Logger.For<OpenAIProvider>().Trace($"[OpenAI] AudioSpeech Request: model={request.Model}, voice={voice}, input length={input.Length}");
             return requestPayload.ToString();
         }
 
@@ -1206,7 +1207,7 @@ namespace SmartHopper.Providers.OpenAI
 
             try
             {
-                Debug.WriteLine($"[OpenAI] ProcessChatCompletionsResponseData - Processing response");
+                Logger.For<OpenAIProvider>().Trace($"[OpenAI] ProcessChatCompletionsResponseData - Processing response");
 
                 // Extract response content
                 var choices = responseJson["choices"] as JArray;
@@ -1215,7 +1216,7 @@ namespace SmartHopper.Providers.OpenAI
 
                 if (message == null)
                 {
-                    Debug.WriteLine($"[OpenAI] No message in response: {responseJson}");
+                    Logger.For<OpenAIProvider>().Trace($"[OpenAI] No message in response: {responseJson}");
                     return interactions;
                 }
 
@@ -1264,9 +1265,9 @@ namespace SmartHopper.Providers.OpenAI
                 var wrapperInfo = JsonSchemaService.Instance.GetCurrentWrapperInfo();
                 if (wrapperInfo != null && wrapperInfo.IsWrapped)
                 {
-                    Debug.WriteLine($"[OpenAI] Unwrapping response content using wrapper info (central): Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    Logger.For<OpenAIProvider>().Trace($"[OpenAI] Unwrapping response content using wrapper info (central): Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
                     content = JsonSchemaService.Instance.Unwrap(content, wrapperInfo);
-                    Debug.WriteLine($"[OpenAI] Content after unwrapping: {content.Substring(0, Math.Min(100, content.Length))}...");
+                    Logger.For<OpenAIProvider>().Trace($"[OpenAI] Content after unwrapping: {content.Substring(0, Math.Min(100, content.Length))}...");
                 }
 
                 var metrics = this.DecodeMetrics(responseJson);
@@ -1311,7 +1312,7 @@ namespace SmartHopper.Providers.OpenAI
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"[OpenAI] Warning: failed to parse tool_call arguments: {ex.Message}");
+                            Logger.For<OpenAIProvider>().Exception(ex, $"[OpenAI] Warning: failed to parse tool_call arguments: {ex.Message}");
 
                             // Fallback to empty object to avoid null reference issues in tools
                             argsObj = new JObject();
@@ -1332,7 +1333,7 @@ namespace SmartHopper.Providers.OpenAI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[OpenAI] ProcessChatCompletionsResponseData error: {ex.Message}");
+                Logger.For<OpenAIProvider>().Exception(ex, $"[OpenAI] ProcessChatCompletionsResponseData error: {ex.Message}");
             }
 
             return interactions;
@@ -1348,12 +1349,12 @@ namespace SmartHopper.Providers.OpenAI
 
             try
             {
-                Debug.WriteLine("[OpenAI] ProcessResponsesApiData - Processing response");
+                Logger.For<OpenAIProvider>().Error("[OpenAI] ProcessResponsesApiData - Processing response");
 
                 var output = responseJson["output"] as JArray;
                 if (output == null)
                 {
-                    Debug.WriteLine("[OpenAI] No output array in response");
+                    Logger.For<OpenAIProvider>().Error("[OpenAI] No output array in response");
                     return interactions;
                 }
 
@@ -1443,7 +1444,7 @@ namespace SmartHopper.Providers.OpenAI
                         var arguments = item["arguments"]?.ToString() ?? "{}";
                         if (string.IsNullOrWhiteSpace(name))
                         {
-                            Debug.WriteLine($"[OpenAI] Warning: function_call item '{callId ?? "(unknown id)"}' has no name.");
+                            Logger.For<OpenAIProvider>().Trace($"[OpenAI] Warning: function_call item '{callId ?? "(unknown id)"}' has no name.");
                         }
 
                         JObject argsObj;
@@ -1498,7 +1499,7 @@ namespace SmartHopper.Providers.OpenAI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[OpenAI] ProcessResponsesApiData error: {ex.Message}");
+                Logger.For<OpenAIProvider>().Exception(ex, $"[OpenAI] ProcessResponsesApiData error: {ex.Message}");
             }
 
             return interactions;
@@ -1511,7 +1512,7 @@ namespace SmartHopper.Providers.OpenAI
         {
             try
             {
-                Debug.WriteLine($"[OpenAI] PostCall - ImageGeneration response parsed successfully");
+                Logger.For<OpenAIProvider>().Error($"[OpenAI] PostCall - ImageGeneration response parsed successfully");
 
                 var dataArray = responseJson["data"] as JArray;
                 if (dataArray == null || dataArray.Count == 0)
@@ -1541,13 +1542,13 @@ namespace SmartHopper.Providers.OpenAI
                     imageUrl: imageUrl,
                     revisedPrompt: revisedPrompt);
 
-                Debug.WriteLine($"[OpenAI] Final AIInteractionImage result: URL={imageUrl}, revisedPrompt='{revisedPrompt?.Substring(0, Math.Min(50, revisedPrompt?.Length ?? 0))}...'");
+                Logger.For<OpenAIProvider>().Trace($"[OpenAI] Final AIInteractionImage result: URL={imageUrl}, revisedPrompt='{revisedPrompt?.Substring(0, Math.Min(50, revisedPrompt?.Length ?? 0))}...'");
 
                 return new List<IAIInteraction> { resultInteraction };
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[OpenAI] PostCall - Exception: {ex.Message}");
+                Logger.For<OpenAIProvider>().Exception(ex, $"[OpenAI] PostCall - Exception: {ex.Message}");
                 throw new Exception($"Error processing OpenAI image response: {ex.Message}", ex);
             }
         }
@@ -1561,7 +1562,7 @@ namespace SmartHopper.Providers.OpenAI
 
             try
             {
-                Debug.WriteLine($"[OpenAI] ProcessAudioTranscriptionResponseData - Processing response");
+                Logger.For<OpenAIProvider>().Error($"[OpenAI] ProcessAudioTranscriptionResponseData - Processing response");
 
                 // Extract transcribed text from response
                 // OpenAI transcription response: {"text": "transcribed text", "task": "transcribe", ...}
@@ -1569,7 +1570,7 @@ namespace SmartHopper.Providers.OpenAI
 
                 if (string.IsNullOrEmpty(text))
                 {
-                    Debug.WriteLine($"[OpenAI] No transcription text in response: {responseJson}");
+                    Logger.For<OpenAIProvider>().Error($"[OpenAI] No transcription text in response: {responseJson}");
                     return interactions;
                 }
 
@@ -1588,11 +1589,11 @@ namespace SmartHopper.Providers.OpenAI
 
                 interactions.Add(interaction);
 
-                Debug.WriteLine($"[OpenAI] Transcription result: '{text.Substring(0, Math.Min(50, text.Length))}...'");
+                Logger.For<OpenAIProvider>().Trace($"[OpenAI] Transcription result: '{text.Substring(0, Math.Min(50, text.Length))}...'");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[OpenAI] ProcessAudioTranscriptionResponseData error: {ex.Message}");
+                Logger.For<OpenAIProvider>().Exception(ex, $"[OpenAI] ProcessAudioTranscriptionResponseData error: {ex.Message}");
             }
 
             return interactions;
@@ -1998,7 +1999,7 @@ namespace SmartHopper.Providers.OpenAI
                                 var name = item["name"]?.ToString();
                                 if (string.IsNullOrWhiteSpace(name))
                                 {
-                                    Debug.WriteLine($"[OpenAI] Warning: streaming function_call item '{callId ?? itemId ?? "(unknown id)"}' has no name.");
+                                    Logger.For<OpenAIStreamingAdapter>().Trace($"[OpenAI] Warning: streaming function_call item '{callId ?? itemId ?? "(unknown id)"}' has no name.");
                                 }
 
                                 if (!string.IsNullOrEmpty(itemId))
@@ -2190,7 +2191,7 @@ namespace SmartHopper.Providers.OpenAI
                                     {
                                         assistantAggregate.AppendReasoning( reasoningText);
                                         hasReasoningUpdate = true;
-                                        Debug.WriteLine($"[OpenAI] Streaming reasoning chunk: {reasoningText.Substring(0, Math.Min(50, reasoningText.Length))}...");
+                                        Logger.For<OpenAIStreamingAdapter>().Trace($"[OpenAI] Streaming reasoning chunk: {reasoningText.Substring(0, Math.Min(50, reasoningText.Length))}...");
                                     }
                                 }
                                 else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase) ||
@@ -2531,7 +2532,7 @@ namespace SmartHopper.Providers.OpenAI
             var batchId = batchResult["id"]?.ToString()
                 ?? throw new InvalidOperationException("[OpenAI] Batch creation response missing 'id'");
 
-            Debug.WriteLine($"[OpenAI] Batch submitted: batchId={batchId}, count={items.Count}");
+            Logger.For<OpenAIStreamingAdapter>().Trace($"[OpenAI] Batch submitted: batchId={batchId}, count={items.Count}");
             return new AIBatchSubmission(batchId, this.Name, firstEncodedBody, (IReadOnlyList<string>)customIds.AsReadOnly());
         }
 
@@ -2556,7 +2557,7 @@ namespace SmartHopper.Providers.OpenAI
 
             var json = JObject.Parse(content);
             var status = json["status"]?.ToString() ?? string.Empty;
-            Debug.WriteLine($"[OpenAI] Batch status check: id={submission.BatchId}, status={status}");
+            Logger.For<OpenAIStreamingAdapter>().Trace($"[OpenAI] Batch status check: id={submission.BatchId}, status={status}");
 
             switch (status.ToLowerInvariant())
             {
@@ -2630,11 +2631,11 @@ namespace SmartHopper.Providers.OpenAI
             if (!response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                Debug.WriteLine($"[OpenAI] Batch cancel failed ({(int)response.StatusCode}): {content}");
+                Logger.For<OpenAIStreamingAdapter>().Warning($"[OpenAI] Batch cancel failed ({(int)response.StatusCode}): {content}");
             }
             else
             {
-                Debug.WriteLine($"[OpenAI] Batch {submission.BatchId} cancelled successfully");
+                Logger.For<OpenAIStreamingAdapter>().Trace($"[OpenAI] Batch {submission.BatchId} cancelled successfully");
             }
         }
 

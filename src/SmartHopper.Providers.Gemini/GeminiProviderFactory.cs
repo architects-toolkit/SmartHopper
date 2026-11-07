@@ -20,6 +20,7 @@ using System;
 using System.Diagnostics;
 using SmartHopper.ProviderSdk.AIProviders;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Providers.Gemini
 {
     /// <summary>
@@ -35,23 +36,23 @@ namespace SmartHopper.Providers.Gemini
         {
             try
             {
-                Debug.WriteLine("[GeminiProviderFactory] Attempting to get AIProvider<GeminiProvider>.Instance...");
+                Logger.For<GeminiProviderFactory>().Trace("[GeminiProviderFactory] Attempting to get AIProvider<GeminiProvider>.Instance...");
                 var instance = AIProvider<GeminiProvider>.Instance;
                 if (instance == null)
                 {
-                    Debug.WriteLine("[GeminiProviderFactory] ERROR: AIProvider<GeminiProvider>.Instance returned null!");
+                    Logger.For<GeminiProviderFactory>().Warning("[GeminiProviderFactory] ERROR: AIProvider<GeminiProvider>.Instance returned null!");
                 }
                 else
                 {
-                    Debug.WriteLine($"[GeminiProviderFactory] Successfully got instance: {instance.GetType().FullName}");
+                    Logger.For<GeminiProviderFactory>().Trace($"[GeminiProviderFactory] Successfully got instance: {instance.GetType().FullName}");
                 }
 
                 return instance;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[GeminiProviderFactory] EXCEPTION: {ex.GetType().Name}: {ex.Message}");
-                Debug.WriteLine($"[GeminiProviderFactory] Stack trace: {ex.StackTrace}");
+                Logger.For<GeminiProviderFactory>().Exception(ex, $"[GeminiProviderFactory] EXCEPTION: {ex.GetType().Name}: {ex.Message}");
+                Logger.For<GeminiProviderFactory>().Exception(ex, $"[GeminiProviderFactory] Stack trace: {ex.StackTrace}");
                 throw;
             }
         }

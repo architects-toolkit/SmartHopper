@@ -27,6 +27,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Providers.MistralAI
 {
     /// <summary>
@@ -645,7 +646,7 @@ namespace SmartHopper.Providers.MistralAI
         {
             try
             {
-                Debug.WriteLine("[MistralAIProviderModels] RetrieveApiModels: preparing request to /models");
+                Logger.For<MistralAIProviderModels>().Trace("[MistralAIProviderModels] RetrieveApiModels: preparing request to /models");
                 var request = new AIRequestCall
                 {
                     Endpoint = "/models",
@@ -655,25 +656,25 @@ namespace SmartHopper.Providers.MistralAI
 
                 if (response == null)
                 {
-                    Debug.WriteLine("[MistralAIProviderModels] RetrieveApiModels: response null; returning empty list");
+                    Logger.For<MistralAIProviderModels>().Trace("[MistralAIProviderModels] RetrieveApiModels: response null; returning empty list");
                     return new List<string>();
                 }
 
                 var raw = (response as AIReturn)?.Raw;
                 if (raw == null)
                 {
-                    Debug.WriteLine("[MistralAIProviderModels] RetrieveApiModels: raw payload is null; returning empty list");
+                    Logger.For<MistralAIProviderModels>().Trace("[MistralAIProviderModels] RetrieveApiModels: raw payload is null; returning empty list");
                     return new List<string>();
                 }
 
                 var data = raw["data"] as JArray;
                 if (data == null)
                 {
-                    Debug.WriteLine($"[MistralAIProviderModels] RetrieveApiModels: 'data' array not found. Raw keys: {string.Join(", ", raw.Properties().Select(p => p.Name))}");
+                    Logger.For<MistralAIProviderModels>().Trace($"[MistralAIProviderModels] RetrieveApiModels: 'data' array not found. Raw keys: {string.Join(", ", raw.Properties().Select(p => p.Name))}");
                     return new List<string>();
                 }
 
-                Debug.WriteLine($"[MistralAIProviderModels] RetrieveApiModels: data items count = {data.Count}");
+                Logger.For<MistralAIProviderModels>().Trace($"[MistralAIProviderModels] RetrieveApiModels: data items count = {data.Count}");
 
                 var models = new List<string>();
                 int added = 0, skipped = 0, index = 0;
@@ -683,7 +684,7 @@ namespace SmartHopper.Providers.MistralAI
                     if (token is not JObject item)
                     {
                         skipped++;
-                        Debug.WriteLine($"[MistralAIProviderModels] Item #{index} is not an object (type={token?.Type}); skipping");
+                        Logger.For<MistralAIProviderModels>().Warning($"[MistralAIProviderModels] Item #{index} is not an object (type={token?.Type}); skipping");
                         continue;
                     }
 
@@ -702,13 +703,13 @@ namespace SmartHopper.Providers.MistralAI
                         {
                             skipped++;
                             var keys = string.Join(", ", item.Properties().Select(p => p.Name));
-                            Debug.WriteLine($"[MistralAIProviderModels] Item #{index} missing 'id' and 'name'. Keys: [{keys}]");
+                            Logger.For<MistralAIProviderModels>().Warning($"[MistralAIProviderModels] Item #{index} missing 'id' and 'name'. Keys: [{keys}]");
                         }
                     }
                     catch (Exception exItem)
                     {
                         skipped++;
-                        Debug.WriteLine($"[MistralAIProviderModels] Exception parsing item #{index}: {exItem.Message}");
+                        Logger.For<MistralAIProviderModels>().Error($"[MistralAIProviderModels] Exception parsing item #{index}: {exItem.Message}");
                     }
                 }
 
@@ -717,13 +718,13 @@ namespace SmartHopper.Providers.MistralAI
                     .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
-                Debug.WriteLine($"[MistralAIProviderModels] RetrieveApiModels: extracted {distinctSorted.Count} models (added={added}, skipped={skipped})");
+                Logger.For<MistralAIProviderModels>().Warning($"[MistralAIProviderModels] RetrieveApiModels: extracted {distinctSorted.Count} models (added={added}, skipped={skipped})");
 
                 return distinctSorted;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[MistralAIProviderModels] RetrieveApiModels: exception thrown; returning empty list. Details: {ex}");
+                Logger.For<MistralAIProviderModels>().Exception(ex, $"[MistralAIProviderModels] RetrieveApiModels: exception thrown; returning empty list. Details: {ex}");
                 return new List<string>();
             }
         }

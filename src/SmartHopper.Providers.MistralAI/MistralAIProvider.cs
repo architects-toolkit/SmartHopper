@@ -38,6 +38,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Streaming;
 using SmartHopper.ProviderSdk.Utilities;
 
@@ -137,7 +138,7 @@ namespace SmartHopper.Providers.MistralAI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[MistralAI] Encode error: {ex.Message}");
+                Logger.For<MistralAIProvider>().Exception(ex, $"[MistralAI] Encode error: {ex.Message}");
                 return string.Empty;
             }
         }
@@ -330,7 +331,7 @@ namespace SmartHopper.Providers.MistralAI
             string jsonSchema = request.Body.JsonOutputSchema;
             string? toolFilter = request.Body.ToolFilter;
 
-            Debug.WriteLine($"[MistralAI] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
+            Logger.For<MistralAIProvider>().Trace($"[MistralAI] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
 
             // Merge System and Summary interactions before encoding
             var mergedInteractions = this.MergeSystemAndSummary(request.Body.Interactions);
@@ -411,7 +412,7 @@ namespace SmartHopper.Providers.MistralAI
                 if (!string.Equals(reasoningEffort, "none", StringComparison.OrdinalIgnoreCase) &&
                     !string.Equals(reasoningEffort, "high", StringComparison.OrdinalIgnoreCase))
                 {
-                    Debug.WriteLine($"[MistralAIProvider] Reasoning effort '{reasoningEffort}' is not supported by Mistral; normalizing to 'high'.");
+                    Logger.For<MistralAIProvider>().Trace($"[MistralAIProvider] Reasoning effort '{reasoningEffort}' is not supported by Mistral; normalizing to 'high'.");
                     reasoningEffort = "high";
                 }
 
@@ -420,11 +421,11 @@ namespace SmartHopper.Providers.MistralAI
                 if (hasExplicitReasoningEffort || supportsReasoning)
                 {
                     requestBody["reasoning_effort"] = reasoningEffort;
-                    Debug.WriteLine($"[MistralAIProvider] Using reasoning effort: {reasoningEffort}");
+                    Logger.For<MistralAIProvider>().Trace($"[MistralAIProvider] Using reasoning effort: {reasoningEffort}");
                 }
                 else
                 {
-                    Debug.WriteLine($"[MistralAIProvider] Model '{request.Model}' does not support reasoning; omitting reasoning_effort.");
+                    Logger.For<MistralAIProvider>().Trace($"[MistralAIProvider] Model '{request.Model}' does not support reasoning; omitting reasoning_effort.");
                 }
             }
 
@@ -433,7 +434,7 @@ namespace SmartHopper.Providers.MistralAI
             {
                 if (this.TryWrapJsonSchema(jsonSchema, out var wrappedSchema, out var wrapperInfo))
                 {
-                    Debug.WriteLine($"[MistralAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    Logger.For<MistralAIProvider>().Trace($"[MistralAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
 
                     // Mistral supports json_object response_format; we guide with a system message including wrapped schema
                     requestBody["response_format"] = new JObject { ["type"] = "json_object" };
@@ -459,7 +460,7 @@ namespace SmartHopper.Providers.MistralAI
                 this.ApplyOpenAICompatibleToolChoice(requestBody, request, tools, "MistralAI");
             }
 
-            // Debug.WriteLine($"[MistralAI] Request: {requestBody}");
+            // Logger.For<MistralAIProvider>().Trace($"[MistralAI] Request: {requestBody}");
             return requestBody.ToString();
         }
 
@@ -664,7 +665,7 @@ namespace SmartHopper.Providers.MistralAI
                     var msg = errorObj["message"]?.ToString()
                               ?? errorObj["type"]?.ToString()
                               ?? "Provider returned an error";
-                    Debug.WriteLine($"[MistralAI] Decode: provider error in response body: {msg}");
+                    Logger.For<MistralAIProvider>().Warning($"[MistralAI] Decode: provider error in response body: {msg}");
                     interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = msg });
                     return interactions;
                 }
@@ -672,7 +673,7 @@ namespace SmartHopper.Providers.MistralAI
                 if (response["message"] != null && response["code"] != null)
                 {
                     var msg = response["message"]?.ToString() ?? "Provider returned an error";
-                    Debug.WriteLine($"[MistralAI] Decode: provider error in response body: {msg}");
+                    Logger.For<MistralAIProvider>().Warning($"[MistralAI] Decode: provider error in response body: {msg}");
                     interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = msg });
                     return interactions;
                 }
@@ -771,7 +772,7 @@ namespace SmartHopper.Providers.MistralAI
                 var wrapperInfo = JsonSchemaService.Instance.GetCurrentWrapperInfo();
                 if (wrapperInfo != null && wrapperInfo.IsWrapped)
                 {
-                    Debug.WriteLine($"[MistralAI] Unwrapping response content using wrapper info (central): Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    Logger.For<MistralAIProvider>().Trace($"[MistralAI] Unwrapping response content using wrapper info (central): Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
                     content = JsonSchemaService.Instance.Unwrap(content, wrapperInfo);
                 }
 
@@ -834,7 +835,7 @@ namespace SmartHopper.Providers.MistralAI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[MistralAI] Decode error: {ex.Message}");
+                Logger.For<MistralAIProvider>().Exception(ex, $"[MistralAI] Decode error: {ex.Message}");
             }
 
             return interactions;
@@ -1176,7 +1177,7 @@ namespace SmartHopper.Providers.MistralAI
                     {
                         assistantBuilder.AppendReasoning(newReasoning);
                         hasReasoningUpdate = true;
-                        Debug.WriteLine($"[MistralAI] Streaming reasoning chunk: {newReasoning.Substring(0, Math.Min(50, newReasoning.Length))}...");
+                        Logger.For<MistralAIStreamingAdapter>().Trace($"[MistralAI] Streaming reasoning chunk: {newReasoning.Substring(0, Math.Min(50, newReasoning.Length))}...");
                     }
 
                     if (!string.IsNullOrEmpty(newText))
@@ -1456,7 +1457,7 @@ namespace SmartHopper.Providers.MistralAI
             var fileId = uploadResult["id"]?.ToString()
                 ?? throw new InvalidOperationException("[MistralAI] Batch file upload response missing 'id'");
 
-            Debug.WriteLine($"[MistralAI] Batch file uploaded: fileId={fileId}, size={jsonlBytes.Length} bytes");
+            Logger.For<MistralAIStreamingAdapter>().Trace($"[MistralAI] Batch file uploaded: fileId={fileId}, size={jsonlBytes.Length} bytes");
 
             // Step 2: Create batch job with uploaded file
             var batchBody = new JObject
@@ -1482,7 +1483,7 @@ namespace SmartHopper.Providers.MistralAI
             var batchId = batchResult["id"]?.ToString()
                 ?? throw new InvalidOperationException("[MistralAI] Batch creation response missing 'id'");
 
-            Debug.WriteLine($"[MistralAI] Batch submitted: batchId={batchId}, count={items.Count}");
+            Logger.For<MistralAIStreamingAdapter>().Trace($"[MistralAI] Batch submitted: batchId={batchId}, count={items.Count}");
             return new AIBatchSubmission(batchId, this.Name, firstEncodedBody, (IReadOnlyList<string>)customIds.AsReadOnly());
         }
 
@@ -1507,7 +1508,7 @@ namespace SmartHopper.Providers.MistralAI
 
             var json = JObject.Parse(content);
             var status = json["status"]?.ToString() ?? string.Empty;
-            Debug.WriteLine($"[MistralAI] Batch status check: id={submission.BatchId}, status={status}");
+            Logger.For<MistralAIStreamingAdapter>().Trace($"[MistralAI] Batch status check: id={submission.BatchId}, status={status}");
 
             switch (status.ToUpperInvariant())
             {
@@ -1578,11 +1579,11 @@ namespace SmartHopper.Providers.MistralAI
             if (!response.IsSuccessStatusCode)
             {
                 var cancelContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                Debug.WriteLine($"[MistralAI] Batch cancel failed ({(int)response.StatusCode}): {cancelContent}");
+                Logger.For<MistralAIStreamingAdapter>().Warning($"[MistralAI] Batch cancel failed ({(int)response.StatusCode}): {cancelContent}");
             }
             else
             {
-                Debug.WriteLine($"[MistralAI] Batch job {submission.BatchId} cancelled successfully");
+                Logger.For<MistralAIStreamingAdapter>().Trace($"[MistralAI] Batch job {submission.BatchId} cancelled successfully");
             }
         }
 

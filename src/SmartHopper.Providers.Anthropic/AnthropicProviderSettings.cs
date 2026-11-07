@@ -23,6 +23,7 @@ using System.Linq;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.Anthropic
@@ -162,7 +163,7 @@ namespace SmartHopper.Providers.Anthropic
                 }
             }
 
-            Debug.WriteLine($"Validating Anthropic settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
+            Logger.For<AnthropicProviderSettings>().Trace($"Validating Anthropic settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
             return true;
         }
     }

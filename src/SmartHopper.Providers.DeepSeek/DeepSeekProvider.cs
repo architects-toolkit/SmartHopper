@@ -39,6 +39,7 @@ using SmartHopper.ProviderSdk.AICall.JsonSchemas;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Streaming;
 
 namespace SmartHopper.Providers.DeepSeek
@@ -168,7 +169,7 @@ namespace SmartHopper.Providers.DeepSeek
 
             string? toolFilter = request.Body.ToolFilter;
 
-            Debug.WriteLine($"[DeepSeek] Encode - Model: {request.Model}, MaxTokens: {maxTokens}, ReasoningEffort: {reasoningEffort}");
+            Logger.For<DeepSeekProvider>().Trace($"[DeepSeek] Encode - Model: {request.Model}, MaxTokens: {maxTokens}, ReasoningEffort: {reasoningEffort}");
 
 #if DEBUG
             // Log interaction sequence for debugging
@@ -178,7 +179,7 @@ namespace SmartHopper.Providers.DeepSeek
                 int tc = request.Body.Interactions?.Count(i => i is AIInteractionToolCall) ?? 0;
                 int tr = request.Body.Interactions?.Count(i => i is AIInteractionToolResult) ?? 0;
                 int tx = request.Body.Interactions?.Count(i => i is AIInteractionText) ?? 0;
-                Debug.WriteLine($"[DeepSeek] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
+                Logger.For<DeepSeekProvider>().Trace($"[DeepSeek] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
             }
             catch
             {
@@ -307,7 +308,7 @@ namespace SmartHopper.Providers.DeepSeek
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[DeepSeek] Warning: Could not encode interaction: {ex.Message}");
+                    Logger.For<DeepSeekProvider>().Exception(ex, $"[DeepSeek] Warning: Could not encode interaction: {ex.Message}");
                 }
             }
 
@@ -344,7 +345,7 @@ namespace SmartHopper.Providers.DeepSeek
             // Log final messages array for debugging
             try
             {
-                Debug.WriteLine($"[DeepSeek] Final encoded messages array ({convertedMessages.Count} messages):");
+                Logger.For<DeepSeekProvider>().Trace($"[DeepSeek] Final encoded messages array ({convertedMessages.Count} messages):");
                 for (int idx = 0; idx < convertedMessages.Count; idx++)
                 {
                     var msg = convertedMessages[idx] as JObject;
@@ -359,15 +360,15 @@ namespace SmartHopper.Providers.DeepSeek
                         var tcArray = msg?["tool_calls"] as JArray;
                         var tcCount = tcArray?.Count ?? 0;
                         var tcIds = tcArray?.Select(tc => tc?["id"]?.ToString()).Where(id => !string.IsNullOrEmpty(id)).ToList();
-                        Debug.WriteLine($"  [{idx}] role={role}, tool_calls={tcCount}, ids=[{string.Join(", ", tcIds ?? new List<string>())}], content='{preview}'");
+                        Logger.For<DeepSeekProvider>().Trace($"  [{idx}] role={role}, tool_calls={tcCount}, ids=[{string.Join(", ", tcIds ?? new List<string>())}], content='{preview}'");
                     }
                     else if (!string.IsNullOrEmpty(toolCallId))
                     {
-                        Debug.WriteLine($"  [{idx}] role={role}, tool_call_id={toolCallId}, content={preview}");
+                        Logger.For<DeepSeekProvider>().Trace($"  [{idx}] role={role}, tool_call_id={toolCallId}, content={preview}");
                     }
                     else
                     {
-                        Debug.WriteLine($"  [{idx}] role={role}, content={preview}");
+                        Logger.For<DeepSeekProvider>().Trace($"  [{idx}] role={role}, content={preview}");
                     }
                 }
             }
@@ -428,7 +429,7 @@ namespace SmartHopper.Providers.DeepSeek
             {
                 if (this.TryWrapJsonSchema(request.Body.JsonOutputSchema, out var wrappedSchema, out var wrapperInfo))
                 {
-                    Debug.WriteLine($"[DeepSeek] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    Logger.For<DeepSeekProvider>().Error($"[DeepSeek] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
 
                     // Enforce structured output
                     requestBody["response_format"] = new JObject { ["type"] = "json_object" };
@@ -473,7 +474,7 @@ namespace SmartHopper.Providers.DeepSeek
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[DeepSeek] Encode(IAIInteraction) error: {ex.Message}");
+                Logger.For<DeepSeekProvider>().Exception(ex, $"[DeepSeek] Encode(IAIInteraction) error: {ex.Message}");
                 return string.Empty;
             }
         }
@@ -580,7 +581,7 @@ namespace SmartHopper.Providers.DeepSeek
                     var errMsg = errorObj["message"]?.ToString()
                               ?? errorObj["type"]?.ToString()
                               ?? "Provider returned an error";
-                    Debug.WriteLine($"[DeepSeek] Decode: provider error in response body: {errMsg}");
+                    Logger.For<DeepSeekProvider>().Warning($"[DeepSeek] Decode: provider error in response body: {errMsg}");
                     interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = errMsg });
                     return interactions;
                 }
@@ -590,7 +591,7 @@ namespace SmartHopper.Providers.DeepSeek
                 var message = firstChoice?["message"] as JObject;
                 if (message == null)
                 {
-                    Debug.WriteLine("[DeepSeek] Decode: No message found in response");
+                    Logger.For<DeepSeekProvider>().Trace("[DeepSeek] Decode: No message found in response");
                     return interactions;
                 }
 
@@ -645,14 +646,14 @@ namespace SmartHopper.Providers.DeepSeek
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[DeepSeek] Decode: unwrap attempt failed: {ex.Message}");
+                    Logger.For<DeepSeekProvider>().Exception(ex, $"[DeepSeek] Decode: unwrap attempt failed: {ex.Message}");
                 }
 
                 // Then apply centralized unwrapping using stored wrapper info
                 var wrapperInfo = JsonSchemaService.Instance.GetCurrentWrapperInfo();
                 if (wrapperInfo != null && wrapperInfo.IsWrapped)
                 {
-                    Debug.WriteLine($"[DeepSeek] Unwrapping response content using wrapper info (central): Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    Logger.For<DeepSeekProvider>().Error($"[DeepSeek] Unwrapping response content using wrapper info (central): Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
                     content = JsonSchemaService.Instance.Unwrap(content, wrapperInfo);
                 }
 
@@ -689,7 +690,7 @@ namespace SmartHopper.Providers.DeepSeek
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[DeepSeek] Decode error: {ex.Message}");
+                Logger.For<DeepSeekProvider>().Exception(ex, $"[DeepSeek] Decode error: {ex.Message}");
             }
 
             return interactions;
@@ -702,7 +703,7 @@ namespace SmartHopper.Providers.DeepSeek
         /// <returns>The decoded metrics.</returns>
         private AIMetrics DecodeMetrics(JObject response)
         {
-            Debug.WriteLine("[DeepSeek] PostCall: parsed response for metrics");
+            Logger.For<DeepSeekProvider>().Trace("[DeepSeek] PostCall: parsed response for metrics");
             return this.DecodeOpenAICompatibleMetrics(response);
         }
 
@@ -735,7 +736,7 @@ namespace SmartHopper.Providers.DeepSeek
                         {
                             // Extract the array from the enum property and return as JSON array
                             var cleanedArray = enumArray.ToString(Newtonsoft.Json.Formatting.None);
-                            Debug.WriteLine($"[DeepSeek] Cleaned enum array: {cleanedArray}");
+                            Logger.For<DeepSeekProvider>().Error($"[DeepSeek] Cleaned enum array: {cleanedArray}");
                             return cleanedArray;
                         }
                     }
@@ -750,7 +751,7 @@ namespace SmartHopper.Providers.DeepSeek
 
                             // Construct a proper JSON array
                             var cleanedArray = $"[{enumContent}]";
-                            Debug.WriteLine($"[DeepSeek] Regex extracted enum array: {cleanedArray}");
+                            Logger.For<DeepSeekProvider>().Error($"[DeepSeek] Regex extracted enum array: {cleanedArray}");
                             return cleanedArray;
                         }
                     }
@@ -758,7 +759,7 @@ namespace SmartHopper.Providers.DeepSeek
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[DeepSeek] Error cleaning response: {ex.Message}");
+                Logger.For<DeepSeekProvider>().Exception(ex, $"[DeepSeek] Error cleaning response: {ex.Message}");
 
                 // Return original content if cleaning fails
             }
