@@ -26,6 +26,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.ProviderSdk.Catalogue
 {
     /// <summary>
