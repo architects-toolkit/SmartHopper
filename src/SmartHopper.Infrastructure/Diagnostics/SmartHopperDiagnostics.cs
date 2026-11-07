@@ -114,7 +114,7 @@ namespace SmartHopper.Infrastructure.Diagnostics
                 File.WriteAllText(infoPath, GenerateReport(maxLogBytes: 100000));
 
                 // diagnostics.json carries the anonymous install hash and versions so a
-                // shared zip can be joined with collector-side telemetry investigations.
+                // shared zip can be correlated when the user reports an issue.
                 var diagnosticsPath = Path.Combine(tempDirectory, "diagnostics.json");
                 File.WriteAllText(diagnosticsPath, BuildDiagnosticsJson());
 

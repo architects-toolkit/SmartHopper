@@ -372,8 +372,8 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
 
         /// <summary>
         /// Creates a standardized provider error from a caught exception and logs the
-        /// full exception (type, stack trace, inner exceptions) through the telemetry
-        /// pipeline. Use this overload in catch blocks so that unexpected failures
+        /// full exception (type, stack trace, inner exceptions) through the
+        /// logging sinks. Use this overload in catch blocks so that unexpected failures
         /// remain diagnosable instead of surviving only as a user-facing message.
         /// </summary>
         /// <param name="exception">The caught exception.</param>
@@ -390,7 +390,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
         /// <summary>
         /// Creates a standardized network error (e.g., DNS, connectivity) from a caught
         /// exception and logs the full exception (type, stack trace, inner exceptions)
-        /// through the telemetry pipeline. Use this overload in catch blocks so that
+        /// through the logging sinks. Use this overload in catch blocks so that
         /// transport failures remain diagnosable instead of surviving only as a
         /// user-facing message.
         /// </summary>
@@ -412,8 +412,8 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
 
         /// <summary>
         /// Creates a standardized tool error from a caught exception and logs the full
-        /// exception (type, stack trace, inner exceptions) through the telemetry
-        /// pipeline. Use this overload in catch blocks so that unexpected failures
+        /// exception (type, stack trace, inner exceptions) through the
+        /// logging sinks. Use this overload in catch blocks so that unexpected failures
         /// remain diagnosable instead of surviving only as a user-facing message.
         /// </summary>
         /// <param name="exception">The caught exception.</param>
