@@ -38,6 +38,7 @@ using System.Windows.Forms;
 using Grasshopper.Kernel;
 using SmartHopper.Infrastructure.Mcp;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.ComponentBase
 {
     /// <summary>
@@ -154,7 +155,7 @@ namespace SmartHopper.Core.ComponentBase
                 return;
             }
 
-            Debug.WriteLine("[AsyncComponentBase] BeforeSolveInstance - Cleaning up previous run");
+            Logger.For<AsyncComponentBase>().Trace("[AsyncComponentBase] BeforeSolveInstance - Cleaning up previous run");
 
             // Cancel any running tasks before reset
             this.TaskCancellation();
@@ -165,12 +166,12 @@ namespace SmartHopper.Core.ComponentBase
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[AsyncComponentBase] SolveInstance - State: {this._state}, Tasks: {this._tasks.Count}, SetData: {this._setData}");
+            Logger.For<AsyncComponentBase>().Trace($"[AsyncComponentBase] SolveInstance - State: {this._state}, Tasks: {this._tasks.Count}, SetData: {this._setData}");
 
             // Initial run
             if (this._state == 0 && this._tasks.Count == 0)
             {
-                Debug.WriteLine($"[AsyncComponentBase] Creating a new worker, State: {this._state}, Tasks: {this._tasks.Count}, SetData: {this._setData}, Workers: {this.Workers.Count}, CancellationSources: {this._cancellationSources.Count}, CurrentWorker: {this.CurrentWorker != null}, Message: {this.Message}");
+                Logger.For<AsyncComponentBase>().Trace($"[AsyncComponentBase] Creating a new worker, State: {this._state}, Tasks: {this._tasks.Count}, SetData: {this._setData}, Workers: {this.Workers.Count}, CancellationSources: {this._cancellationSources.Count}, CurrentWorker: {this.CurrentWorker != null}, Message: {this.Message}");
 
                 // First pass - Pre-solve
                 this.InPreSolve = true;
@@ -179,7 +180,7 @@ namespace SmartHopper.Core.ComponentBase
                 var worker = this.CreateWorker(s => this.Message = s);
                 this.Workers.Add(worker);
 
-                Debug.WriteLine("[AsyncComponentBase] Gathering input");
+                Logger.For<AsyncComponentBase>().Trace("[AsyncComponentBase] Gathering input");
 
                 // Gather input before starting the task
                 worker.GatherInput(DA, out int dataCount);
@@ -200,7 +201,7 @@ namespace SmartHopper.Core.ComponentBase
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[AsyncComponentBase] Task failed with error: {ex.Message}");
+                        Logger.For<AsyncComponentBase>().Exception(ex, $"[AsyncComponentBase] Task failed with error: {ex.Message}");
                         throw; // Re-throw to be caught by ContinueWith
                     }
                 });
@@ -221,18 +222,18 @@ namespace SmartHopper.Core.ComponentBase
             // skip output processing until the continuation sets _state and _setData.
             if (this._setData == 0 || this._state <= 0)
             {
-                Debug.WriteLine($"[AsyncComponentBase] Post-solve skipped. Tasks running or state not ready. State: {this._state}, SetData: {this._setData}");
+                Logger.For<AsyncComponentBase>().Warning($"[AsyncComponentBase] Post-solve skipped. Tasks running or state not ready. State: {this._state}, SetData: {this._setData}");
                 return;
             }
 
-            Debug.WriteLine($"[AsyncComponentBase] Post-solve - Setting output. InPreSolve: {this.InPreSolve}, State: {this._state}, SetData: {this._setData}, Workers.Count: {this.Workers.Count}");
+            Logger.For<AsyncComponentBase>().Trace($"[AsyncComponentBase] Post-solve - Setting output. InPreSolve: {this.InPreSolve}, State: {this._state}, SetData: {this._setData}, Workers.Count: {this.Workers.Count}");
 
             if (this.Workers.Count > 0)
             {
                 // Call SetOutput for each worker in reverse order
                 for (int i = this.Workers.Count - 1; i >= 0; i--)
                 {
-                    Debug.WriteLine($"[AsyncComponentBase] Setting output for worker {i + 1}/{this.Workers.Count}");
+                    Logger.For<AsyncComponentBase>().Trace($"[AsyncComponentBase] Setting output for worker {i + 1}/{this.Workers.Count}");
                     string? outMessage = null;
 
                     // Ensure SetOutput runs on UI thread
@@ -245,13 +246,13 @@ namespace SmartHopper.Core.ComponentBase
                             this.Message = outMessage;
                         }
 
-                        Debug.WriteLine($"[AsyncComponentBase] Worker {i + 1} output set, message: {outMessage}");
+                        Logger.For<AsyncComponentBase>().Trace($"[AsyncComponentBase] Worker {i + 1} output set, message: {outMessage}");
                     });
 
                     Interlocked.Decrement(ref this._state);
                 }
 
-                Debug.WriteLine($"[AsyncComponentBase] All workers output set. Final state: {this._state}");
+                Logger.For<AsyncComponentBase>().Trace($"[AsyncComponentBase] All workers output set. Final state: {this._state}");
                 this.OnSolveInstancePostSolve(DA);
 
                 // Do not expire downstream during an active solution.
@@ -275,11 +276,11 @@ namespace SmartHopper.Core.ComponentBase
 
         protected override void AfterSolveInstance()
         {
-            Debug.WriteLine($"[AsyncComponentBase] AfterSolveInstance - State: {this._state}, Tasks: {this._tasks.Count}, SetData: {this._setData}");
+            Logger.For<AsyncComponentBase>().Trace($"[AsyncComponentBase] AfterSolveInstance - State: {this._state}, Tasks: {this._tasks.Count}, SetData: {this._setData}");
 
             if (this._state == 0 && this._tasks.Count > 0 && this._setData == 0)
             {
-                Debug.WriteLine($"[AsyncComponentBase] Starting {this._tasks.Count} tasks");
+                Logger.For<AsyncComponentBase>().Trace($"[AsyncComponentBase] Starting {this._tasks.Count} tasks");
 
                 // Create a continuation task that will handle completion of all tasks
                 Task.WhenAll(this._tasks)
@@ -288,11 +289,11 @@ namespace SmartHopper.Core.ComponentBase
                     {
                         if (t.IsFaulted)
                         {
-                            Debug.WriteLine($"[AsyncComponentBase] Task exceptions occurred:");
+                            Logger.For<AsyncComponentBase>().Trace($"[AsyncComponentBase] Task exceptions occurred:");
                             var ae = t.Exception;
                             foreach (var ex in ae.InnerExceptions)
                             {
-                                Debug.WriteLine($"[AsyncComponentBase] - {ex.Message}");
+                                Logger.For<AsyncComponentBase>().Trace($"[AsyncComponentBase] - {ex.Message}");
                                 this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Task error: {ex.Message}");
                             }
 
@@ -301,7 +302,7 @@ namespace SmartHopper.Core.ComponentBase
                             {
                                 // When tasks fault, still proceed to post-solve once to surface messages
                                 int workerCount = this.Workers.Count;
-                                Debug.WriteLine($"[AsyncComponentBase] Faulted: setting state to Workers.Count ({workerCount}) and enabling output phase");
+                                Logger.For<AsyncComponentBase>().Trace($"[AsyncComponentBase] Faulted: setting state to Workers.Count ({workerCount}) and enabling output phase");
                                 Interlocked.Exchange(ref this._state, workerCount);
                                 Interlocked.Exchange(ref this._setData, 1);
 
@@ -311,7 +312,7 @@ namespace SmartHopper.Core.ComponentBase
                         }
                         else if (t.IsCanceled)
                         {
-                            Debug.WriteLine("[AsyncComponentBase] Tasks were canceled. Resetting async state and skipping output phase.");
+                            Logger.For<AsyncComponentBase>().Warning("[AsyncComponentBase] Tasks were canceled. Resetting async state and skipping output phase.");
 
                             Rhino.RhinoApp.InvokeOnUiThread(() =>
                             {
@@ -334,7 +335,7 @@ namespace SmartHopper.Core.ComponentBase
 
                                 // Process outputs in reverse (LIFO) to match expected ordering
                                 this.Workers.Reverse();
-                                Debug.WriteLine($"[AsyncComponentBase] All tasks completed. Preparing output phase: State set to {workerCount}, SetData=1");
+                                Logger.For<AsyncComponentBase>().Trace($"[AsyncComponentBase] All tasks completed. Preparing output phase: State set to {workerCount}, SetData=1");
                             }
                         }
 
@@ -367,7 +368,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         protected void ResetAsyncState()
         {
-            Debug.WriteLine($"[{this.GetType().Name}] ResetAsyncState - Before: State={this._state}, Tasks={this._tasks?.Count ?? 0}, SetData={this._setData}");
+            Logger.For<AsyncComponentBase>().Trace($"[{this.GetType().Name}] ResetAsyncState - Before: State={this._state}, Tasks={this._tasks?.Count ?? 0}, SetData={this._setData}");
 
             // Clear cancellation sources from previous runs
             this._cancellationSources?.Clear();
@@ -381,7 +382,7 @@ namespace SmartHopper.Core.ComponentBase
             this._state = 0;
             this._setData = 0;
 
-            Debug.WriteLine($"[{this.GetType().Name}] ResetAsyncState - After: State={this._state}, Tasks={this._tasks?.Count ?? 0}, SetData={this._setData}");
+            Logger.For<AsyncComponentBase>().Trace($"[{this.GetType().Name}] ResetAsyncState - After: State={this._state}, Tasks={this._tasks?.Count ?? 0}, SetData={this._setData}");
         }
 
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
@@ -415,7 +416,7 @@ namespace SmartHopper.Core.ComponentBase
 
         protected virtual void OnWorkerCompleted()
         {
-            Debug.WriteLine($"[{this.GetType().Name}] All workers completed. State: {this._state}, Tasks: {this._tasks.Count}, SetData: {this._setData}");
+            Logger.For<AsyncComponentBase>().Trace($"[{this.GetType().Name}] All workers completed. State: {this._state}, Tasks: {this._tasks.Count}, SetData: {this._setData}");
             foreach (var worker in this.Workers)
             {
                 worker.ResetCollectedMessages();
@@ -451,7 +452,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         protected virtual void ClearDataOnly()
         {
-            Debug.WriteLine($"[AsyncComponentBase] Cleaning Output Data Only");
+            Logger.For<AsyncComponentBase>().Trace($"[AsyncComponentBase] Cleaning Output Data Only");
 
             // Clear output data
             for (int i = 0; i < this.Params.Output.Count; i++)

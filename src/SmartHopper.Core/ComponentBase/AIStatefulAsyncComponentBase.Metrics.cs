@@ -31,6 +31,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.ComponentBase
 {
     /// <summary>
@@ -72,12 +73,12 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="dA">The data access object.</param>
         protected void SetMetricsOutput(IGH_DataAccess dA)
         {
-            Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - Start");
+            Logger.For<AIStatefulAsyncComponentBase>().Trace("[AIStatefulComponentBase] SetMetricsOutput - Start");
 
             if (this._metricsTree != null && this._metricsTree.DataCount > 0)
             {
                 this.SetPersistentOutput(WellKnownInputs.Metrics, this._metricsTree, dA);
-                Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics tree. Paths: {string.Join(", ", this._metricsTree.Paths.Select(p => p.ToString()))}");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics tree. Paths: {string.Join(", ", this._metricsTree.Paths.Select(p => p.ToString()))}");
                 return;
             }
 
@@ -87,7 +88,7 @@ namespace SmartHopper.Core.ComponentBase
 
             if (metricsList == null && fallbackMetrics == null)
             {
-                Debug.WriteLine("[AIStatefulComponentBase] Empty metrics, skipping");
+                Logger.For<AIStatefulAsyncComponentBase>().Warning("[AIStatefulComponentBase] Empty metrics, skipping");
                 // Clear metrics persisted by a previous run so runs without AI calls emit nothing
                 this.SetPersistentOutput(WellKnownInputs.Metrics, null, dA);
                 return;
@@ -124,7 +125,7 @@ namespace SmartHopper.Core.ComponentBase
             var ghString = new GH_String(metricsJsonString);
             this.SetPersistentOutput(WellKnownInputs.Metrics, ghString, dA);
 
-            Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsToken}");
+            Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsToken}");
         }
 
         private JObject SerializeMetricsEntry(AIMetrics metrics)
@@ -282,7 +283,7 @@ namespace SmartHopper.Core.ComponentBase
 
                     this._batchState.PersistedMetricsList = newList;
 
-                    Debug.WriteLine($"[AIStatefulAsync] FinishResults: stamped CompletionTime={completionTime:F2}s into {newList.Entries.Count} metric(s)");
+                    Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] FinishResults: stamped CompletionTime={completionTime:F2}s into {newList.Entries.Count} metric(s)");
                 }
 
                 // Also stamp into the metrics tree by updating the serialized JSON strings

@@ -38,6 +38,7 @@ using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Core.UI
@@ -119,11 +120,11 @@ namespace SmartHopper.Core.UI
                     buttonIcon = null;
 
                     isInitialized = false;
-                    Debug.WriteLine("[CanvasButton] Canvas button system disposed");
+                    Logger.Trace(typeof(CanvasButton).FullName, "[CanvasButton] Canvas button system disposed");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[CanvasButton] Error disposing canvas button: {ex.Message}");
+                    Logger.Exception(typeof(CanvasButton).FullName, ex, $"[CanvasButton] Error disposing canvas button: {ex.Message}");
                 }
             }
         }
@@ -135,7 +136,7 @@ namespace SmartHopper.Core.UI
         {
             try
             {
-                Debug.WriteLine("[CanvasButton] Auto-initialization triggered");
+                Logger.Trace(typeof(CanvasButton).FullName, "[CanvasButton] Auto-initialization triggered");
 
                 // Wait for Grasshopper to be available
                 await WaitForGrasshopperAsync().ConfigureAwait(false);
@@ -148,12 +149,12 @@ namespace SmartHopper.Core.UI
                 }
                 else
                 {
-                    Debug.WriteLine("[CanvasButton] Skipping initialization because EnableCanvasButton is disabled");
+                    Logger.Error(typeof(CanvasButton).FullName, "[CanvasButton] Skipping initialization because EnableCanvasButton is disabled");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[CanvasButton] Auto-initialization error: {ex.Message}");
+                Logger.Exception(typeof(CanvasButton).FullName, ex, $"[CanvasButton] Auto-initialization error: {ex.Message}");
             }
         }
 
@@ -173,7 +174,7 @@ namespace SmartHopper.Core.UI
                     // Check if Grasshopper is available
                     if (Instances.ActiveCanvas != null || Instances.DocumentServer != null)
                     {
-                        Debug.WriteLine("[CanvasButton] Grasshopper is available, proceeding with initialization");
+                        Logger.Error(typeof(CanvasButton).FullName, "[CanvasButton] Grasshopper is available, proceeding with initialization");
                         return;
                     }
                 }
@@ -186,7 +187,7 @@ namespace SmartHopper.Core.UI
                 totalWaited += checkIntervalMs;
             }
 
-            Debug.WriteLine("[CanvasButton] Timeout waiting for Grasshopper, proceeding anyway");
+            Logger.Trace(typeof(CanvasButton).FullName, "[CanvasButton] Timeout waiting for Grasshopper, proceeding anyway");
         }
 
         /// <summary>
@@ -216,11 +217,11 @@ namespace SmartHopper.Core.UI
                     }
 
                     isInitialized = true;
-                    Debug.WriteLine("[CanvasButton] Canvas button system initialized (auto-init)");
+                    Logger.Trace(typeof(CanvasButton).FullName, "[CanvasButton] Canvas button system initialized (auto-init)");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[CanvasButton] Error initializing canvas button: {ex.Message}");
+                    Logger.Exception(typeof(CanvasButton).FullName, ex, $"[CanvasButton] Error initializing canvas button: {ex.Message}");
                 }
             }
         }
@@ -235,12 +236,12 @@ namespace SmartHopper.Core.UI
                 using (var ms = new MemoryStream(providersResources.smarthopper_256))
                 {
                     buttonIcon = new Bitmap(ms);
-                    Debug.WriteLine("[CanvasButton] Button icon loaded successfully");
+                    Logger.Error(typeof(CanvasButton).FullName, "[CanvasButton] Button icon loaded successfully");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[CanvasButton] Error loading button icon: {ex.Message}");
+                Logger.Exception(typeof(CanvasButton).FullName, ex, $"[CanvasButton] Error loading button icon: {ex.Message}");
                 buttonIcon = CreateFallbackIcon();
             }
         }
@@ -302,11 +303,11 @@ namespace SmartHopper.Core.UI
                 canvas.MouseMove += OnCanvasMouseMove;
 
                 hookedCanvases.Add(canvas);
-                Debug.WriteLine("[CanvasButton] Canvas events hooked successfully");
+                Logger.Trace(typeof(CanvasButton).FullName, "[CanvasButton] Canvas events hooked successfully");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[CanvasButton] Error hooking canvas events: {ex.Message}");
+                Logger.Exception(typeof(CanvasButton).FullName, ex, $"[CanvasButton] Error hooking canvas events: {ex.Message}");
             }
         }
 
@@ -323,11 +324,11 @@ namespace SmartHopper.Core.UI
                 canvas.MouseMove -= OnCanvasMouseMove;
 
                 hookedCanvases.Remove(canvas);
-                Debug.WriteLine("[CanvasButton] Canvas events unhooked successfully");
+                Logger.Error(typeof(CanvasButton).FullName, "[CanvasButton] Canvas events unhooked successfully");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[CanvasButton] Error unhooking canvas events: {ex.Message}");
+                Logger.Exception(typeof(CanvasButton).FullName, ex, $"[CanvasButton] Error unhooking canvas events: {ex.Message}");
             }
         }
 
@@ -349,7 +350,7 @@ namespace SmartHopper.Core.UI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[CanvasButton] Error unhooking all canvas events: {ex.Message}");
+                Logger.Exception(typeof(CanvasButton).FullName, ex, $"[CanvasButton] Error unhooking all canvas events: {ex.Message}");
             }
         }
 
@@ -374,7 +375,7 @@ namespace SmartHopper.Core.UI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[CanvasButton] Error drawing button: {ex.Message}");
+                Logger.Exception(typeof(CanvasButton).FullName, ex, $"[CanvasButton] Error drawing button: {ex.Message}");
             }
         }
 
@@ -473,7 +474,7 @@ namespace SmartHopper.Core.UI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[CanvasButton] Error drawing button: {ex.Message}");
+                Logger.Exception(typeof(CanvasButton).FullName, ex, $"[CanvasButton] Error drawing button: {ex.Message}");
             }
             finally
             {
@@ -615,7 +616,7 @@ namespace SmartHopper.Core.UI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[CanvasButton] Error updating enabled state: {ex.Message}");
+                Logger.Exception(typeof(CanvasButton).FullName, ex, $"[CanvasButton] Error updating enabled state: {ex.Message}");
             }
         }
 
@@ -626,7 +627,7 @@ namespace SmartHopper.Core.UI
         {
             try
             {
-                Debug.WriteLine("[CanvasButton] Triggering AI chat dialog");
+                Logger.Error(typeof(CanvasButton).FullName, "[CanvasButton] Triggering AI chat dialog");
 
                 // Resolve provider and model from SmartHopperAssistant settings with fallbacks
                 var providerManager = ProviderManager.Instance;
@@ -654,7 +655,7 @@ namespace SmartHopper.Core.UI
 
                 if (provider == null)
                 {
-                    Debug.WriteLine("[CanvasButton] No AI provider available");
+                    Logger.Trace(typeof(CanvasButton).FullName, "[CanvasButton] No AI provider available");
                     StyledMessageDialog.ShowError("No available AI provider was found. Please check the SmartHopper settings to ensure that at least one AI provider is both configured and enabled.", "SmartHopper Assistant");
                     return;
                 }
@@ -669,7 +670,7 @@ namespace SmartHopper.Core.UI
                         ? requestedModel
                         : provider.GetDefaultModel(AICapability.Text2Text));
 
-                Debug.WriteLine($"[CanvasButton] Using provider: {providerName}, model: {model}");
+                Logger.Trace(typeof(CanvasButton).FullName, $"[CanvasButton] Using provider: {providerName}, model: {model}");
 
                 // Create and process the web chat worker
                 var greetingEnabled = assistant?.EnableAIGreeting == true;
@@ -686,11 +687,11 @@ namespace SmartHopper.Core.UI
 
                 await chatWorker.ProcessChatAsync(default).ConfigureAwait(false);
 
-                Debug.WriteLine("[CanvasButton] Chat dialog completed");
+                Logger.Trace(typeof(CanvasButton).FullName, "[CanvasButton] Chat dialog completed");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[CanvasButton] Error triggering chat dialog: {ex.Message}");
+                Logger.Exception(typeof(CanvasButton).FullName, ex, $"[CanvasButton] Error triggering chat dialog: {ex.Message}");
             }
         }
     }

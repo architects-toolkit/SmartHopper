@@ -39,6 +39,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.ComponentBase
 {
     /// <summary>
@@ -556,7 +557,7 @@ namespace SmartHopper.Core.ComponentBase
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[AIOutputAdapter] Batch decode error for {customId}: {ex.Message}");
+                        Logger.For<AIOutputAdapterBase>().Exception(ex, $"[AIOutputAdapter] Batch decode error for {customId}: {ex.Message}");
                         continue;
                     }
 
@@ -729,12 +730,12 @@ namespace SmartHopper.Core.ComponentBase
             {
                 try
                 {
-                    Debug.WriteLine($"[AIOutputAdapterWorker] DoWorkAsync start for {this._parent.GetType().Name}");
+                    Logger.For<AIOutputAdapterWorker>().Trace($"[AIOutputAdapterWorker] DoWorkAsync start for {this._parent.GetType().Name}");
 
                     var mappings = this._parent.GetOutputMappings();
                     if (mappings == null || mappings.Count == 0)
                     {
-                        Debug.WriteLine("[AIOutputAdapterWorker] No output mappings defined, aborting.");
+                        Logger.For<AIOutputAdapterWorker>().Trace("[AIOutputAdapterWorker] No output mappings defined, aborting.");
                         return;
                     }
 
@@ -791,11 +792,11 @@ namespace SmartHopper.Core.ComponentBase
                         this._parent.FinishResults(primaryMapping.ParamName, primaryTree, additionalOutputs.ToArray());
                     }
 
-                    Debug.WriteLine($"[AIOutputAdapterWorker] DoWorkAsync complete for {this._parent.GetType().Name}");
+                    Logger.For<AIOutputAdapterWorker>().Trace($"[AIOutputAdapterWorker] DoWorkAsync complete for {this._parent.GetType().Name}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIOutputAdapterWorker] Error: {ex.Message}");
+                    Logger.For<AIOutputAdapterWorker>().Exception(ex, $"[AIOutputAdapterWorker] Error: {ex.Message}");
                     this._parent.SetPersistentRuntimeMessage("adapter_worker_error", GH_RuntimeMessageLevel.Error, ex.Message, false);
                 }
             }

@@ -26,6 +26,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Types
 {
     /// <summary>
@@ -92,7 +93,7 @@ namespace SmartHopper.Core.Types
                 ? string.Join(",", contextFilters)
                 : "-*";  // Default: no context if none specified
 
-            Debug.WriteLine($"[AIInputPayloadMerger] Merged {payloadList.Count} payloads into {mergedInteractions.Count} interactions, context filter: {contextFilter}");
+            Logger.Trace(typeof(AIInputPayloadMerger).FullName, $"[AIInputPayloadMerger] Merged {payloadList.Count} payloads into {mergedInteractions.Count} interactions, context filter: {contextFilter}");
 
             // Create the merged AIBody
             var builder = new AIBodyBuilder();
@@ -183,7 +184,7 @@ namespace SmartHopper.Core.Types
                 }
             }
 
-            Debug.WriteLine($"[AIInputPayloadMerger] Merged {payloadTree.DataCount} payloads across {result.Count} branch paths");
+            Logger.Trace(typeof(AIInputPayloadMerger).FullName, $"[AIInputPayloadMerger] Merged {payloadTree.DataCount} payloads across {result.Count} branch paths");
 
             return result;
         }

@@ -31,6 +31,7 @@ using Grasshopper.Kernel;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.UI.Chat
 {
     /// <summary>
@@ -124,7 +125,7 @@ namespace SmartHopper.Core.UI.Chat
                         reporter?.Invoke("Chatting...");
 
                         // Propagate snapshot to caller if provided
-                        try { this.onUpdateCallback?.Invoke(snapshot); } catch (Exception cbEx) { System.Diagnostics.Debug.WriteLine($"[WebChatWorker] onUpdate callback error: {cbEx.Message}"); }
+                        try { this.onUpdateCallback?.Invoke(snapshot); } catch (Exception cbEx) { Logger.For<WebChatWorker>().Warning($"[WebChatWorker] onUpdate callback error: {cbEx.Message}"); }
                     },
                     generateGreeting: this.generateGreeting).ConfigureAwait(false);
                 reporter?.Invoke("Run me!");

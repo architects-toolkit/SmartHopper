@@ -30,6 +30,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.UI.Chat
 {
     // Keep observer as a nested type inside the partial WebChatDialog for private member access
@@ -121,7 +122,7 @@ namespace SmartHopper.Core.UI.Chat
             [Conditional("DEBUG")]
             private static void DebugLog(string message)
             {
-                Debug.WriteLine(message);
+                Logger.For<SegmentState>().Trace(message);
             }
 
             /// <summary>
