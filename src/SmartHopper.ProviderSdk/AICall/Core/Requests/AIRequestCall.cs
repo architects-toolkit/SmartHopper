@@ -372,9 +372,10 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                 errorResult.CreateProviderError("Call cancelled or timed out", this);
                 return errorResult;
             }
-            catch (TimeoutException)
+            catch (TimeoutException ex)
             {
                 stopwatch.Stop();
+                Logger.For<AIRequestCall>().Exception(ex, "[AIRequest.Exec] Call timed out");
                 var errorResult = new AIReturn();
                 errorResult.CreateProviderError("Call cancelled or timed out", this);
                 return errorResult;
@@ -382,6 +383,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
             catch (HttpRequestException ex)
             {
                 stopwatch.Stop();
+                Logger.For<AIRequestCall>().Exception(ex, "[AIRequest.Exec] HTTP request failed");
 
                 // Network-related issues (DNS, connectivity). Keep raw but standardize user-facing message.
                 var raw = this.ExtractProviderErrorMessage(ex);
@@ -401,6 +403,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
             catch (Exception ex)
             {
                 stopwatch.Stop();
+                Logger.For<AIRequestCall>().Exception(ex, "[AIRequest.Exec] Call failed");
 
                 // Preserve raw provider/unknown error and standardize
                 var error = this.ExtractProviderErrorMessage(ex);

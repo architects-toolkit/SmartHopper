@@ -232,17 +232,15 @@ namespace SmartHopper.Infrastructure.AICall.Tools
             catch (HttpRequestException ex)
             {
                 // Network/DNS issues from tools that make HTTP calls
-                var raw = ex.InnerException?.Message ?? ex.Message;
                 var errorResult = new AIReturn();
-                errorResult.CreateNetworkError(raw, this);
+                errorResult.CreateNetworkError(ex, this);
                 return errorResult;
             }
             catch (Exception ex)
             {
                 // Preserve raw tool error
-                var raw = ex.InnerException?.Message ?? ex.Message;
                 var errorResult = new AIReturn();
-                errorResult.CreateToolError(raw, this);
+                errorResult.CreateToolError(ex, this);
                 return errorResult;
             }
         }

@@ -290,7 +290,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 })).ConfigureAwait(false);
 
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: Provider '{Path.GetFileName(assemblyPath)}' blocked - hash repository unavailable in Strict mode");
-                                Logger.For<ProviderManager>().Trace($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash unavailable (Strict mode)");
+                                Logger.For<ProviderManager>().Warning($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash unavailable (Strict mode)");
                                 return;
                             }
                             else
@@ -324,7 +324,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 })).ConfigureAwait(false);
 
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' blocked - hash not found in {effectiveMode} mode");
-                                Logger.For<ProviderManager>().Trace($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash not found ({effectiveMode} mode)");
+                                Logger.For<ProviderManager>().Warning($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash not found ({effectiveMode} mode)");
                                 return;
                             }
                             else
@@ -332,7 +332,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 // Soft mode: Log warning but allow
                                 this._unknownProviders[nfAsmName] = true;
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' is not known - enable only if you trust this source.");
-                                Logger.For<ProviderManager>().Trace($"[ProviderManager] Hash not found for {Path.GetFileName(assemblyPath)}, allowing in Soft mode");
+                                Logger.For<ProviderManager>().Warning($"[ProviderManager] Hash not found for {Path.GetFileName(assemblyPath)}, allowing in Soft mode");
                             }
 
                             break;
@@ -469,9 +469,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 }
                 catch (Exception ex)
                 {
-                    var msg = $"[SmartHopper] Error initializing provider {provider.Name}: {ex.Message}";
-                    Logger.For<ProviderManager>().Error(msg);
-                    Rhino.RhinoApp.WriteLine(msg);
+                    Logger.For<ProviderManager>().Exception(ex, $"[ProviderManager] Error initializing provider {provider.Name}: {ex.Message}");
                 }
             });
         }

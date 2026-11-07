@@ -175,16 +175,19 @@ namespace SmartHopper.Infrastructure.AIProviders
             catch (BadImageFormatException ex)
             {
                 diagnostic = $"Provider '{Path.GetFileName(assemblyPath)}' is not a valid managed assembly: {ex.Message}";
+                Logger.Warning(typeof(ProviderAssemblyLoader).FullName, $"[ProviderAssemblyLoader] {diagnostic}");
                 return ProviderLoadOutcome.InvalidAssembly;
             }
             catch (FileLoadException ex)
             {
                 diagnostic = $"Provider '{Path.GetFileName(assemblyPath)}' failed to load: {ex.Message}";
+                Logger.Warning(typeof(ProviderAssemblyLoader).FullName, $"[ProviderAssemblyLoader] {diagnostic}");
                 return ProviderLoadOutcome.InvalidAssembly;
             }
             catch (Exception ex)
             {
                 diagnostic = $"Unexpected error loading provider '{Path.GetFileName(assemblyPath)}': {ex.Message}";
+                Logger.Exception(typeof(ProviderAssemblyLoader).FullName, ex, $"[ProviderAssemblyLoader] {diagnostic}");
                 return ProviderLoadOutcome.InvalidAssembly;
             }
 

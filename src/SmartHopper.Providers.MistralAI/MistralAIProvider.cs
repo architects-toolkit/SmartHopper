@@ -894,7 +894,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     bodyObj = new JObject();
                     bodyError = new AIReturn();
-                    bodyError.CreateProviderError($"Failed to prepare streaming body: {ex.Message}", request);
+                    bodyError.CreateProviderError(ex, request, "Failed to prepare streaming body");
                 }
 
                 if (bodyError != null)
@@ -915,7 +915,7 @@ namespace SmartHopper.Providers.MistralAI
                 catch (Exception ex)
                 {
                     authError = new AIReturn();
-                    authError.CreateProviderError(ex.Message, request);
+                    authError.CreateProviderError(ex, request);
                 }
 
                 if (authError != null)
@@ -934,7 +934,7 @@ namespace SmartHopper.Providers.MistralAI
                 catch (Exception ex)
                 {
                     sendError = new AIReturn();
-                    sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
+                    sendError.CreateNetworkError(ex, request);
                     response = null!;
                 }
 

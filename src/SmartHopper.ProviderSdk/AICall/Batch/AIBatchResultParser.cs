@@ -19,6 +19,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.Diagnostics;
 
@@ -79,7 +80,23 @@ namespace SmartHopper.ProviderSdk.AICall.Batch
             }
 
             JArray resultArray;
-            var token = JToken.Parse(content);
+            JToken token;
+            try
+            {
+                token = JToken.Parse(content);
+            }
+            catch (JsonException ex)
+            {
+                // A malformed payload is a data problem, not an exception per poll tick:
+                // surface it as an item error so the batch can terminate cleanly.
+                messages.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Provider,
+                    SHMessageCode.BatchItemError,
+                    $"Batch result payload is not valid JSON: {ex.Message}"));
+                return new AIBatchStatus(batchId, results, messages);
+            }
+
             if (token is JArray array)
             {
                 resultArray = array;
@@ -98,8 +115,18 @@ namespace SmartHopper.ProviderSdk.AICall.Batch
                 return new AIBatchStatus(batchId, results, messages);
             }
 
-            foreach (var item in resultArray.OfType<JObject>())
+            foreach (var token2 in resultArray)
             {
+                if (token2 is not JObject item)
+                {
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Provider,
+                        SHMessageCode.BatchItemError,
+                        "Batch result item is not a JSON object and was skipped."));
+                    continue;
+                }
+
                 AddResultItem(item, results, messages);
             }
 
@@ -135,6 +162,11 @@ namespace SmartHopper.ProviderSdk.AICall.Batch
             var customId = item["custom_id"]?.ToString();
             if (string.IsNullOrWhiteSpace(customId))
             {
+                messages.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Provider,
+                    SHMessageCode.BatchItemError,
+                    "Batch result item is missing 'custom_id' and was skipped."));
                 return;
             }
 

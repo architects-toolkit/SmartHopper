@@ -173,7 +173,7 @@ namespace SmartHopper.Core.Grasshopper.GhJsonSpec
                     throw;
                 }
 
-                Logger.Warning(typeof(GhJsonSpecLoader).FullName, $"[GhJsonSpecLoader] Online load failed for '{fileName}', falling back to embedded: {ex.Message}");
+                Logger.Warning(typeof(GhJsonSpecLoader).FullName, $"[GhJsonSpecLoader] Online load failed for '{fileName}', falling back to embedded: {ex}");
                 return LoadEmbedded(fileName);
             }
         }
