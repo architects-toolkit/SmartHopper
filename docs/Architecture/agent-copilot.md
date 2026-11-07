@@ -8,7 +8,7 @@ SmartHopper WebChat can propose explicit plans and all supported AI-driven canva
 
 | Property | Value |
 | --- | --- |
-| **Source Code** | `src/SmartHopper.Infrastructure/Consent/`, `src/SmartHopper.Core/UI/Chat/`, `src/SmartHopper.Core.Grasshopper/AITools/` |
+| **Source Code** | `src/SmartHopper.Infrastructure/Consent/`, `src/SmartHopper.Infrastructure/AICall/Subagents/`, `src/SmartHopper.Core/UI/Chat/`, `src/SmartHopper.Core.Grasshopper/AITools/` |
 | **Since Version** | 2.1.0 |
 | **Last Updated** | 2026-09-13 |
 | **Documentation Maintainer** | Devin AI |
@@ -55,6 +55,10 @@ The same graphical review applies when a mutating tool is triggered by WebChat, 
 | `CanvasPointerRequest` | Replayable pan/zoom/highlight target for `canvas_point` |
 | `ICanvasPointerPresenter` | UI adapter that renders the pointer card (canvas owned by Core.Grasshopper) |
 | `CanvasPointerBridge` | Process-wide handler seam letting chat replay a pointer without Grasshopper references |
+| `ISubagentHost` | Per-session conductor contract carried on `MutationInvocationContext` |
+| `SubagentHost` | Owns the session's subagents; launches child `ConversationSession` runs and raises `RunFinished` |
+| `Subagent`/`SubagentRun` | Worker record plus one run per instruction; `Delivered` tracks whether the outcome reached the conductor |
+| `SubagentRunReport` | Terminal-run payload handed to the chat host (evidence line + wake trigger) |
 
 ### Execution flow
 
@@ -73,7 +77,7 @@ caller -> AIToolCall / mutation operation
 ### Tool surfaces
 
 - Existing ordinary tools default to all surfaces for compatibility.
-- `plan_propose`, `plan_tasks`, and `ask_user` are Chat-only and are rejected by MCP and batch execution.
+- `plan_propose`, `plan_tasks`, `ask_user`, and the four conductor tools (`spawn_subagent`, `send_to_subagent`, `wait_subagents`, `list_subagents`) are Chat-only and are rejected by MCP and batch execution.
 - `AIMutatingTool` excludes Batch by default.
 - Surface checks occur both when formatting/discovering tools and immediately before execution.
 
@@ -90,6 +94,8 @@ Consent is invocation-scoped rather than conversation-scoped because SmartHopper
 Task plan visualization rides the same invocation-context presenter seam as consent but never blocks on a decision. `plan_tasks` sends a complete `TaskPlan` snapshot on every call; the WebChat presenter renders it into the persistent `#task-plan-panel` docked under the autonomy overlay so progress is visible without scrolling the transcript. Because no consent is involved, the tool call returns immediately after the update is queued.
 
 `ask_user` uses the same seam in the blocking direction: the tool awaits the presenter's `Task` until the user picks an option, submits free text, or the run's cancellation token fires. `canvas_point` is the Grasshopper-side counterpart — the tool executes the pan/zoom/highlight via `CanvasPointerService` on the Rhino UI thread, registers the request by pointer id, and the WebChat card replays it through `CanvasPointerBridge` so `SmartHopper.Core` never references Grasshopper APIs.
+
+Subagents ride the same invocation-context channel without a presenter: `MutationInvocationContext.SubagentHost` carries the session's `ISubagentHost` into every tool call, so the conductor tools resolve their owning host the way consent proposals resolve their presenter. Each `spawn_subagent` clones the parent request (provider, model, endpoint, tool filter minus the conductor tools — a depth cap of 1) into a child `ConversationSession` that receives **no presenters and no subagent host**: consent-gated canvas mutations fail closed (`Unavailable`) and workers cannot spawn recursively. A finished run raises `SubagentHost.RunFinished`; WebChat then appends a visible evidence line and, when no turn is in flight, drives a wake turn whose transcript keeps a terse user marker while the full worker report rides as a system interaction. `wait_subagents` marks a run `Delivered` when its outcome is collected inline, which is what suppresses the automatic wake. Runs are in-memory (they do not survive a Rhino restart), bounded to `MaxSubagents`/`MaxConcurrentRuns` (8 each), and cancelled when the chat closes.
 
 Plan approval and mutation approval are deliberately separate. A textual plan cannot authorize a later concrete graph whose arguments or affected objects may differ.
 

@@ -283,6 +283,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     CanvasPointerPresenter = this.CanvasPointerPresenter,
                     UserQuestionPresenter = this.UserQuestionPresenter,
                     ToolScopeFilter = this.Request.Body?.ToolFilter,
+                    SubagentHost = this.SubagentHost,
                 },
             };
             toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);

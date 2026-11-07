@@ -213,6 +213,12 @@ namespace SmartHopper.Core.UI.Chat
             };
         }
 
+        private const string ConductorNote =
+            "You orchestrate background subagents through the spawn_subagent, send_to_subagent, wait_subagents, and list_subagents tools. " +
+            "A spawned subagent works its own conversation and reports back automatically: when it finishes, the chat " +
+            "resumes with its report even if you already ended your turn. You may therefore stop and let workers finish " +
+            "instead of polling; use wait_subagents only when you need a result inside the current turn.";
+
         internal static AIRequestCall CreateWebChatRequest(
             string providerName,
             string modelName,
@@ -222,6 +228,10 @@ namespace SmartHopper.Core.UI.Chat
         {
             var requiredCapabilities = ComputeRequiredCapabilities(toolFilter);
             var composedSystemPrompt = AgentKnowledgeCatalog.ComposeGrasshopperSystemPrompt(systemPrompt);
+            if (!string.Equals(toolFilter, "-*", StringComparison.Ordinal))
+            {
+                composedSystemPrompt += " " + ConductorNote;
+            }
 
             var request = new AIRequestCall
             {

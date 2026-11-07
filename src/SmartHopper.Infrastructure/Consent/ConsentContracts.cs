@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.AICall.Subagents;
 using SmartHopper.Infrastructure.Interaction;
 using SmartHopper.Infrastructure.Planning;
 using SmartHopper.ProviderSdk.Hosting;
@@ -154,6 +155,13 @@ namespace SmartHopper.Infrastructure.Consent
         /// </summary>
         public string? ToolScopeFilter { get; set; }
 
+        /// <summary>
+        /// Gets or sets the owning session's subagent host, when the session has one.
+        /// Conductor tools (spawn/send/wait/list) resolve their registry through it;
+        /// child sessions carry no host, which keeps subagent depth at one level.
+        /// </summary>
+        public ISubagentHost? SubagentHost { get; set; }
+
         /// <summary>Creates a defensive copy for one tool call.</summary>
         public MutationInvocationContext ForTool(string? toolCallId, string? toolName)
         {
@@ -171,6 +179,7 @@ namespace SmartHopper.Infrastructure.Consent
                 CanvasPointerPresenter = this.CanvasPointerPresenter,
                 UserQuestionPresenter = this.UserQuestionPresenter,
                 ToolScopeFilter = this.ToolScopeFilter,
+                SubagentHost = this.SubagentHost,
             };
         }
     }
