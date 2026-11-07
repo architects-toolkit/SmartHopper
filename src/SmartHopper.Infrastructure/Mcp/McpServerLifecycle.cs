@@ -67,7 +67,7 @@ namespace SmartHopper.Infrastructure.Mcp
                 }
                 else if (OptionsDiffer(slot.Server.Options, options))
                 {
-                    Debug.WriteLine($"[Mcp] Port {options.Port} is already served with different options; the running configuration stays in effect for every holder.");
+                    Logger.Trace(typeof(McpServerLifecycle).FullName, $"[Mcp] Port {options.Port} is already served with different options; the running configuration stays in effect for every holder.");
                 }
 
                 slot.Holders.Add(key);

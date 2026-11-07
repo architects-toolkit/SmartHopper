@@ -251,10 +251,10 @@ namespace SmartHopper.Infrastructure.Mcp
                     catch (Exception ex)
                     {
                         var errors = Interlocked.Increment(ref this.acceptErrors);
-                        Debug.WriteLine($"[Mcp] Accept error: {ex.Message}");
+                        Logger.For<McpServer>().Exception(ex, $"[Mcp] Accept error: {ex.Message}");
                         if (errors >= MaxConsecutiveAcceptErrors)
                         {
-                            Debug.WriteLine("[Mcp] Accept loop stopped after repeated errors; disable and re-enable the component to restart the server.");
+                            Logger.For<McpServer>().Trace("[Mcp] Accept loop stopped after repeated errors; disable and re-enable the component to restart the server.");
                             break;
                         }
 
@@ -303,7 +303,7 @@ namespace SmartHopper.Infrastructure.Mcp
                 var remote = (client.Client.RemoteEndPoint as IPEndPoint)?.Address;
                 if (remote == null || !IPAddress.IsLoopback(remote))
                 {
-                    Debug.WriteLine($"[Mcp] Rejected non-loopback request from {remote}");
+                    Logger.For<McpServer>().Trace($"[Mcp] Rejected non-loopback request from {remote}");
                     await WriteStatusAsync(client, 403, "Non-loopback origin", ct).ConfigureAwait(false);
                     return;
                 }
@@ -313,7 +313,7 @@ namespace SmartHopper.Infrastructure.Mcp
                 // send neither — or loopback values only.
                 if (!IsAllowedHost(head) || !IsAllowedOrigin(head))
                 {
-                    Debug.WriteLine("[Mcp] Rejected cross-origin request");
+                    Logger.For<McpServer>().Trace("[Mcp] Rejected cross-origin request");
                     await WriteStatusAsync(client, 403, "Cross-origin requests are not allowed", ct).ConfigureAwait(false);
                     return;
                 }
@@ -340,7 +340,7 @@ namespace SmartHopper.Infrastructure.Mcp
 
                 if (!this.AuthorizeRequest(head, out var authError))
                 {
-                    Debug.WriteLine($"[Mcp] Rejected unauthorized request: {authError}");
+                    Logger.For<McpServer>().Trace($"[Mcp] Rejected unauthorized request: {authError}");
                     await WriteStatusAsync(client, 401, authError, ct).ConfigureAwait(false);
                     return;
                 }
@@ -380,7 +380,7 @@ namespace SmartHopper.Infrastructure.Mcp
             {
                 // Server stopping, or the client stalled past the I/O timeout —
                 // either way the connection is torn down in finally.
-                Debug.WriteLine(ct.IsCancellationRequested
+                Logger.For<McpServer>().Trace(ct.IsCancellationRequested
                     ? "[Mcp] Request aborted: server stopping"
                     : "[Mcp] Request aborted: client I/O timed out");
             }

@@ -29,6 +29,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -110,7 +111,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                Debug.WriteLine($"[GhObjTools] GhSetValueAsync: guid={guid}, param={paramName ?? "<null>"}, value={value}");
+                Logger.For<gh_set_value>().Trace($"[GhObjTools] GhSetValueAsync: guid={guid}, param={paramName ?? "<null>"}, value={value}");
 
                 var (allowedGuids, protectedGuids) = CanvasProtection.FilterProtectedGuids(new List<Guid> { guid });
 

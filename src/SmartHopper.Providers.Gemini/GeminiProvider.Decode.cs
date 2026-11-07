@@ -170,7 +170,7 @@ namespace SmartHopper.Providers.Gemini
                                             MimeType = effectiveMimeType,
                                             Metrics = audioMetrics,
                                         });
-                                        Debug.WriteLine($"[GeminiProvider] Decoded audio response: {mimeType}");
+                                        Logger.For<GeminiProvider>().Trace($"[GeminiProvider] Decoded audio response: {mimeType}");
                                     }
                                     else
                                     {
