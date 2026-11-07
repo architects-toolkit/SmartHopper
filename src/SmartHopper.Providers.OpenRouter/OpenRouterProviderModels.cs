@@ -56,6 +56,96 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
+                    Model = "openai/gpt-6.1-terra",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9660,
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 10, 26),
+                    Pricing = new AIModelPricing
+                    {
+                        TextInput = 0.000001m,
+                        TextOutput = 0.000005m,
+                        CacheRead = 0.00000005m,
+                        CacheWrite = 0.00000125m,
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        TextInput = 0.0000005m,
+                        TextOutput = 0.0000025m,
+                        CacheRead = 0.000000025m,
+                        CacheWrite = 0.000000625m,
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "openai/gpt-6.1-terra:batch" },
+                },
+new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-6.1-terra-pro",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9665,
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 10, 26),
+                    Pricing = new AIModelPricing
+                    {
+                        TextInput = 0.000001m,
+                        TextOutput = 0.000005m,
+                        CacheRead = 0.00000005m,
+                        CacheWrite = 0.00000125m,
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        TextInput = 0.0000005m,
+                        TextOutput = 0.0000025m,
+                        CacheRead = 0.000000025m,
+                        CacheWrite = 0.000000625m,
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "openai/gpt-6.1-terra-pro:batch" },
+                },
+new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "particle-ai/particle-1",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9850,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 10, 28),
+                    Pricing = new AIModelPricing
+                    {
+                        TextInput = 0.00000005m,
+                        TextOutput = 0.0000005m,
+                        CacheRead = 0.000000003m,
+                    },
+                },
+new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "prism-ml/ternary-bonsai-2-9b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9940,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 10, 16),
+                    Pricing = new AIModelPricing
+                    {
+                        TextInput = 0.00000008m,
+                        TextOutput = 0.00000013m,
+                        CacheRead = 0.00000004m,
+                    },
+                },
+new AIModelCapabilities
+                {
+                    Provider = provider,
                     Model = "typesafe/jev-router",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
