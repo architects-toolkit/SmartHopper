@@ -59,7 +59,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AIMutatingTool(
                 name: this.toolName,
-                description: "Stage components from GhJSON, show the user an in-canvas visual diff, and apply only accepted changes. Use this to create component networks, update existing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. A component whose instanceGuid matches an existing canvas object updates that object in place (preserving identity, position unless pivot overrides it, and existing wires) instead of adding a duplicate; omit instanceGuid to place new components. Connections in the GhJSON are document-scoped: they wire components inside the same document by their id values (including ones updated in place); to connect objects already on the canvas use gh_connect instead. The result reports how many staged changes were actually applied (acceptedChanges) versus not applied (rejectedChanges: user rejections plus apply failures). Component-specific state (e.g. Number Slider values under componentState.extensions['gh.numberslider'].value using the format 'current<min~max>', Panel text under componentState.extensions['gh.panel'].text) is preserved. Example: gh_put({ ghjson: '...' }) or gh_put({ ghjson: 'C:/path/to/file.ghjson' }). See also: gh_get, gh_connect, script_generate_and_place_on_canvas.",
+                description: "Stage components from GhJSON, show the user an in-canvas visual diff, and apply only accepted changes. Use this to create component networks, update existing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. A component whose instanceGuid matches an existing canvas object updates that object in place (preserving identity, position unless pivot overrides it, and existing wires) instead of adding a duplicate; omit instanceGuid to place new components. Connections in the GhJSON are document-scoped: they wire components inside the same document by their id values (including ones updated in place); to connect objects already on the canvas use gh_connect instead. The result reports how many staged changes were actually applied (acceptedChanges) versus not applied (rejectedChanges: user rejections plus apply failures). Component-specific state (e.g. Number Slider values under componentState.extensions['gh.numberslider'].value using the format 'current<min~max>', Panel text under componentState.extensions['gh.panel'].text) is preserved. Example: gh_put({ ghjson: '...' }) or gh_put({ ghjson: 'C:/path/to/file.ghjson' }). Never invent or copy GUID values: omit componentGuid entirely for new components (the name selects the component type) and set instanceGuid only when intentionally updating an object that is already on the canvas. See also: gh_get, gh_connect, script_generate_and_place_on_canvas.",
                 category: "GhJSON.Tools",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -96,12 +96,20 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var json = ExtractGhJsonString(args["ghjson"]);
                 var editMode = args["editMode"]?.ToObject<bool>() ?? false;
 
-                GhJson.IsValid(json, out analysisMsg);
                 var document = GhJson.FromJson(json);
 
                 // Apply fixes to normalize AI-generated JSON
                 var fixResult = GhJson.Fix(document);
                 document = fixResult.Document;
+
+                // Validate the normalized document: malformed GhJSON (for example connections
+                // referencing undeclared component ids) must fail back to the caller instead
+                // of silently dropping data during placement.
+                if (document != null && !GhJson.IsValid(GhJson.ToJson(document), out analysisMsg))
+                {
+                    output.CreateError($"Invalid GhJSON: {analysisMsg}");
+                    return output;
+                }
 
                 if (document?.Components == null)
                 {

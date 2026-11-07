@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Eto.Drawing;
@@ -91,9 +92,17 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 TextColor = Colors.Gray,
             };
 
-            var acceptAllButton = new Button { Text = "Accept all" };
+            var acceptAllButton = new Button
+            {
+                Text = "Select all",
+                ToolTip = "Check every change in the list. Nothing is applied until you click \"Apply selected\".",
+            };
             acceptAllButton.Click += (_, _) => this.SetAll(true);
-            var rejectAllButton = new Button { Text = "Reject all" };
+            var rejectAllButton = new Button
+            {
+                Text = "Select none",
+                ToolTip = "Uncheck every change in the list.",
+            };
             rejectAllButton.Click += (_, _) => this.SetAll(false);
             var cancelButton = new Button { Text = "Cancel" };
             cancelButton.Click += (_, _) => this.Close();
@@ -265,7 +274,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             };
             var detailLabel = new Label
             {
-                Text = item.Detail,
+                Text = BuildDetailText(item),
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 9),
                 Wrap = WrapMode.Word,
@@ -275,7 +284,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 DefaultSpacing = new Size(0, 2),
             };
             textLayout.Add(titleLabel);
-            if (!string.IsNullOrWhiteSpace(item.Detail))
+            if (!string.IsNullOrWhiteSpace(detailLabel.Text))
             {
                 textLayout.Add(detailLabel);
             }
@@ -316,9 +325,40 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             this.UpdateSummary();
         }
 
+        private string BuildDetailText(CanvasChangeReviewItem item)
+        {
+            var detail = item.Detail;
+
+            // Surface when the proposed component resolves to a different Grasshopper
+            // type than its name suggests (for example a wrong componentGuid silently
+            // winning over the name during deserialization).
+            if (item.ComponentId.HasValue &&
+                this.session.TryGetResolvedComponentName(item.ComponentId.Value, out var resolvedName) &&
+                !string.IsNullOrWhiteSpace(resolvedName))
+            {
+                var proposedName = this.session.ProposedDocument.Components?
+                    .FirstOrDefault(c => c.Id == item.ComponentId.Value)?.Name;
+                if (!string.Equals(proposedName, resolvedName, StringComparison.OrdinalIgnoreCase))
+                {
+                    var mismatch = $"Resolves to \"{resolvedName}\".";
+                    detail = string.IsNullOrWhiteSpace(detail) ? mismatch : $"{mismatch} {detail}";
+                }
+            }
+
+            return detail;
+        }
+
         private void UpdateSummary()
         {
-            this.summaryLabel.Text = $"{this.session.AcceptedCount} of {this.session.Items.Count} changes selected. Applied changes are recorded in Grasshopper's undo history.";
+            var blocked = this.session.Items.Count(item =>
+                item.IsAccepted && !this.session.IsEffectivelyAccepted(item));
+            var text = $"{this.session.AcceptedCount} of {this.session.Items.Count} changes selected. Applied changes are recorded in Grasshopper's undo history.";
+            if (blocked > 0)
+            {
+                text += $" {blocked} selected change(s) will not apply because their required changes are unchecked.";
+            }
+
+            this.summaryLabel.Text = text;
         }
 
         private static string GetKindLabel(CanvasChangeKind kind)

@@ -245,8 +245,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     };
 
                     // Append only if this tool_call was not already persisted (avoid introducing duplicates ourselves).
+                    // Tool results derive from the call type and must not satisfy this check.
                     var exists = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?
-                        .Any(x => !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
+                        .Any(x => x is not AIInteractionToolResult && !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
 
                     if (!exists)
                     {
@@ -564,9 +565,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                     Logger.For<ConversationSession>().Trace($"[ConversationSession.MergeNewToSessionBody] appending: type={interaction.GetType().Name}, agent={interaction.Agent.ToString()}, content={contentPreview}");
 
-                    if (interaction is AIInteractionToolCall tc2)
+                    if (interaction is AIInteractionToolCall tc2 && tc2 is not AIInteractionToolResult)
                     {
-                        var existingToolCalls = this.Request.Body?.Interactions?.OfType<AIInteractionToolCall>()?.ToList() ?? new List<AIInteractionToolCall>();
+                        var existingToolCalls = this.Request.Body?.Interactions?.OfType<AIInteractionToolCall>()?.Where(x => x is not AIInteractionToolResult)?.ToList() ?? new List<AIInteractionToolCall>();
                         var dupCount = existingToolCalls.Count(x => string.Equals(x?.Id, tc2.Id, StringComparison.Ordinal));
                         if (dupCount > 0)
                         {
@@ -734,6 +735,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             this.Observer?.OnError(error);
         }
 
+        private readonly object _historyAppendGate = new object();
+
         /// <summary>
         /// Appends a single interaction to the session history without marking it as new.
         /// </summary>
@@ -759,11 +762,36 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             catch { }
 #endif
 
-            var builder = AIBodyBuilder.FromImmutable(this.Request.Body)
-                .ClearNewMarkers()
-                .AsHistory();
-            builder.Add(interaction, markAsNew: false);
-            this.Request.Body = builder.Build();
+            lock (this._historyAppendGate)
+            {
+                // Tool calls and results are keyed by Id across the whole pipeline: the same
+                // Id must never occupy two slots or every subsequent provider request sends
+                // the call (and its arguments) twice. A repeated call merges into the
+                // existing slot so streamed argument growth still lands.
+                // AIInteractionToolResult derives from AIInteractionToolCall, so results must
+                // be handled in a separate branch and never reach call matching.
+                var existing = this.Request?.Body?.Interactions;
+                if (interaction is AIInteractionToolResult toolResult)
+                {
+                    if (!string.IsNullOrWhiteSpace(toolResult.Id) &&
+                        existing?.OfType<AIInteractionToolResult>().Any(x => string.Equals(x.Id, toolResult.Id, StringComparison.Ordinal)) == true)
+                    {
+                        return;
+                    }
+                }
+                else if (interaction is AIInteractionToolCall toolCall && !string.IsNullOrWhiteSpace(toolCall.Id) &&
+                    existing?.OfType<AIInteractionToolCall>().Any(x => x is not AIInteractionToolResult && string.Equals(x.Id, toolCall.Id, StringComparison.Ordinal)) == true)
+                {
+                    this.UpdateToolCallInHistory(toolCall);
+                    return;
+                }
+
+                var builder = AIBodyBuilder.FromImmutable(this.Request.Body)
+                    .ClearNewMarkers()
+                    .AsHistory();
+                builder.Add(interaction, markAsNew: false);
+                this.Request.Body = builder.Build();
+            }
 
 #if DEBUG
             try
@@ -791,62 +819,69 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 return false;
             }
 
-            var interactions = this.Request?.Body?.Interactions;
-            if (interactions == null || interactions.Count == 0)
+            // Same read-modify-write as AppendToSessionHistory â€” serialize with it
+            // so an injected interaction appended mid-update is not dropped.
+            lock (this._historyAppendGate)
             {
-                return false;
-            }
-
-            // Find the existing tool call by ID
-            var existingIndex = -1;
-            for (int i = 0; i < interactions.Count; i++)
-            {
-                if (interactions[i] is AIInteractionToolCall tc &&
-                    string.Equals(tc.Id, updatedToolCall.Id, StringComparison.Ordinal))
+                var interactions = this.Request?.Body?.Interactions;
+                if (interactions == null || interactions.Count == 0)
                 {
-                    existingIndex = i;
-                    break;
+                    return false;
                 }
-            }
 
-            if (existingIndex < 0)
-            {
-                return false;
-            }
+                // Find the existing tool call by ID (tool results derive from the call
+                // type and must not be confused for one)
+                var existingIndex = -1;
+                for (int i = 0; i < interactions.Count; i++)
+                {
+                    if (interactions[i] is AIInteractionToolCall tc &&
+                        tc is not AIInteractionToolResult &&
+                        string.Equals(tc.Id, updatedToolCall.Id, StringComparison.Ordinal))
+                    {
+                        existingIndex = i;
+                        break;
+                    }
+                }
 
-            // Only update if the new arguments are more complete
-            var existingTc = (AIInteractionToolCall)interactions[existingIndex];
-            var existingArgsLen = existingTc.Arguments?.ToString()?.Length ?? 0;
-            var newArgsLen = updatedToolCall.Arguments?.ToString()?.Length ?? 0;
+                if (existingIndex < 0)
+                {
+                    return false;
+                }
 
-            if (newArgsLen <= existingArgsLen)
-            {
-                // New arguments are not more complete, skip update
-                return false;
-            }
+                // Only update if the new arguments are more complete
+                var existingTc = (AIInteractionToolCall)interactions[existingIndex];
+                var existingArgsLen = existingTc.Arguments?.ToString()?.Length ?? 0;
+                var newArgsLen = updatedToolCall.Arguments?.ToString()?.Length ?? 0;
+
+                if (newArgsLen <= existingArgsLen)
+                {
+                    // New arguments are not more complete, skip update
+                    return false;
+                }
 
 #if DEBUG
-            Logger.For<ConversationSession>().Trace($"[ConversationSession.UpdateToolCallInHistory] Updating tool call {updatedToolCall.Id}: argsLen {existingArgsLen} -> {newArgsLen}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.UpdateToolCallInHistory] Updating tool call {updatedToolCall.Id}: argsLen {existingArgsLen} -> {newArgsLen}");
 #endif
 
-            // Replace the interaction at the existing index
-            var newInteractions = new List<IAIInteraction>(interactions);
-            newInteractions[existingIndex] = updatedToolCall;
+                // Replace the interaction at the existing index
+                var newInteractions = new List<IAIInteraction>(interactions);
+                newInteractions[existingIndex] = updatedToolCall;
 
-            // Rebuild from scratch with updated list
-            var newBuilder = AIBodyBuilder.Create()
-                .WithToolFilter(this.Request.Body?.ToolFilter)
-                .WithContextFilter(this.Request.Body?.ContextFilter)
-                .WithJsonOutputSchema(this.Request.Body?.JsonOutputSchema)
-                .AsHistory();
+                // Rebuild from scratch with updated list
+                var newBuilder = AIBodyBuilder.Create()
+                    .WithToolFilter(this.Request.Body?.ToolFilter)
+                    .WithContextFilter(this.Request.Body?.ContextFilter)
+                    .WithJsonOutputSchema(this.Request.Body?.JsonOutputSchema)
+                    .AsHistory();
 
-            foreach (var interaction in newInteractions)
-            {
-                newBuilder.Add(interaction, markAsNew: false);
+                foreach (var interaction in newInteractions)
+                {
+                    newBuilder.Add(interaction, markAsNew: false);
+                }
+
+                this.Request.Body = newBuilder.Build();
+                return true;
             }
-
-            this.Request.Body = newBuilder.Build();
-            return true;
         }
 
 #if DEBUG
@@ -921,7 +956,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             try
             {
-                var toolCalls = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?.ToList() ?? new List<AIInteractionToolCall>();
+                // AIInteractionToolResult derives from AIInteractionToolCall and must be
+                // excluded, otherwise every call+result pair reports as a false duplicate.
+                var toolCalls = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?.Where(tc => tc is not AIInteractionToolResult)?.ToList() ?? new List<AIInteractionToolCall>();
                 var total = toolCalls.Count;
                 var dupGroups = toolCalls
                     .GroupBy(tc => tc?.Id ?? string.Empty)

@@ -57,7 +57,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Generate a GhJSON document from natural language instructions. Returns a valid GhJSON string describing Grasshopper components, positions, state, and connections. Pass the result to gh_put to place it on the canvas. Example: gh_generate({ instructions: 'Create a number slider connected to a panel' }).",
+                description: "Generate a GhJSON document from natural language instructions. Returns a valid GhJSON string describing Grasshopper components, positions, state, and connections. Pass the result to gh_put to place it on the canvas. Components are identified by name plus integer id only; the generated GhJSON must not contain componentGuid or instanceGuid values. Example: gh_generate({ instructions: 'Create a number slider connected to a panel' }).",
                 category: "GhJSON.Generation",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -83,7 +83,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             yield return new AITool(
                 name: this.wrapperToolName,
-                description: "Generate a GhJSON document from instructions and immediately place it on the canvas. This wraps gh_generate followed by gh_put with editMode=false. Example: gh_generate_and_place_on_canvas({ instructions: 'Create a number slider connected to a panel' }).",
+                description: "Generate a GhJSON document from instructions and immediately place it on the canvas. This wraps gh_generate followed by gh_put with editMode=false. Components are identified by name plus integer id only; no componentGuid or instanceGuid values are generated. Example: gh_generate_and_place_on_canvas({ instructions: 'Create a number slider connected to a panel' }).",
                 category: "GhJSON.Generation",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -340,6 +340,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 You are a Grasshopper GhJSON generator for Rhino 3D. Your job is to translate natural language descriptions of Grasshopper component networks into a valid GhJSON document string.
 
 Follow the GhJSON specification below precisely.
+
+Identify new components by their `name` and an integer `id` only. NEVER emit `componentGuid` or `instanceGuid` fields: the deserializer resolves the component type from `name` and assigns instance GUIDs itself. A wrong or invented GUID silently places a different component than the name suggests.
 
 {reference}
 
