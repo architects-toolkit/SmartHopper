@@ -549,7 +549,7 @@ namespace SmartHopper.Providers.MistralAI
                 }
             }
 
-            Debug.WriteLine($"[MistralAI] AudioSpeech Request: model={request.Model}, voice_id={voiceId ?? "(default)"}, input length={input.Length}");
+            Logger.For<MistralAIProvider>().Trace($"[MistralAI] AudioSpeech Request: model={request.Model}, voice_id={voiceId ?? "(default)"}, input length={input.Length}");
             return requestPayload.ToString();
         }
 
@@ -642,7 +642,7 @@ namespace SmartHopper.Providers.MistralAI
                 }
             }
 
-            Debug.WriteLine($"[MistralAI] AudioTranscription Request: model={request.Model}");
+            Logger.For<MistralAIProvider>().Trace($"[MistralAI] AudioTranscription Request: model={request.Model}");
             return requestPayload.ToString();
         }
 

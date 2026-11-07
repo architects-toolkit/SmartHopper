@@ -231,7 +231,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ComponentManipulation] PulseObject failed for {guid}: {ex.Message}");
+                Logger.Exception(typeof(ComponentManipulation).FullName, ex, $"[ComponentManipulation] PulseObject failed for {guid}: {ex.Message}");
                 return ObjectManipulationResult.Unsupported;
             }
 
@@ -402,7 +402,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ComponentManipulation] SetObjectValue failed for {guid}: {ex.Message}");
+                Logger.Exception(typeof(ComponentManipulation).FullName, ex, $"[ComponentManipulation] SetObjectValue failed for {guid}: {ex.Message}");
                 return (ObjectManipulationResult.Failed, ex.Message);
             }
 
@@ -633,7 +633,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ComponentManipulation] Numeric conversion failed: {ex.Message}");
+                Logger.Exception(typeof(ComponentManipulation).FullName, ex, $"[ComponentManipulation] Numeric conversion failed: {ex.Message}");
             }
 
             result = 0m;

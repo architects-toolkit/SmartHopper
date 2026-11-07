@@ -184,7 +184,7 @@ namespace SmartHopper.Infrastructure.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AIToolManager] Failed to resolve default provider/model for tool '{toolInfo.Name}': {ex.Message}");
+                Logger.Exception(typeof(AIToolManager).FullName, ex, $"[AIToolManager] Failed to resolve default provider/model for tool '{toolInfo.Name}': {ex.Message}");
             }
 
             // Normalize a null arguments object to an empty JObject when the tool schema has no
