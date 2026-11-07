@@ -21,6 +21,7 @@ using System.Drawing;
 using System.Globalization;
 using Grasshopper.Kernel;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Converters
 {
     public class StringConverter
@@ -175,7 +176,7 @@ namespace SmartHopper.Core.Grasshopper.Converters
                 case 2:
                     return GH_DataMapping.Graft;
                 default:
-                    System.Diagnostics.Debug.WriteLine($"Unknown GH_DataMapping value: {value}");
+                    Logger.For<StringConverter>().Error($"Unknown GH_DataMapping value: {value}");
                     return GH_DataMapping.None;
             }
         }

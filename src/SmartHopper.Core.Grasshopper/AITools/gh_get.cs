@@ -38,6 +38,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -377,7 +378,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
-                Debug.WriteLine($"[gh_get] internalized: {includeInternalizedData}, runtime: {includeRuntimeData}, messages: {includeMessages}, depth: {connectionDepth}, metadata: {includeMetadata}, viewportOnly: {viewportOnly}, page: {page}, pageSize: {pageSize}, detail: {detail}");
+                Logger.For<gh_get>().Trace($"[gh_get] internalized: {includeInternalizedData}, runtime: {includeRuntimeData}, messages: {includeMessages}, depth: {connectionDepth}, metadata: {includeMetadata}, viewportOnly: {viewportOnly}, page: {page}, pageSize: {pageSize}, detail: {detail}");
 
                 // Build the query using CanvasSelector
                 // Document: active canvas by default, or another open document by documentId
@@ -410,7 +411,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                     else
                     {
-                        Debug.WriteLine("[gh_get] viewportOnly requested but no active canvas viewport available.");
+                        Logger.For<gh_get>().Trace("[gh_get] viewportOnly requested but no active canvas viewport available.");
                         output.AddRuntimeMessage(SHRuntimeMessageSeverity.Warning, SHRuntimeMessageOrigin.Tool, "viewportOnly was requested but no active canvas viewport was available. Returning all components.");
                     }
                 }
@@ -478,7 +479,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         .ToList();
                 }
 
-                Debug.WriteLine($"[gh_get] Query returned {resultObjects.Count} objects");
+                Logger.For<gh_get>().Trace($"[gh_get] Query returned {resultObjects.Count} objects");
 
                 // Serialize the result
                 var serOptions = new SerializationOptions
@@ -533,11 +534,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                     .ToList();
                             }
 
-                            Debug.WriteLine("[gh_get] Applied metadata overrides from file context provider");
+                            Logger.For<gh_get>().Trace("[gh_get] Applied metadata overrides from file context provider");
                         }
                         catch (Exception metaEx)
                         {
-                            Debug.WriteLine($"[gh_get] Error applying file-metadata overrides: {metaEx.Message}");
+                            Logger.For<gh_get>().Error($"[gh_get] Error applying file-metadata overrides: {metaEx.Message}");
                         }
                     }
                 }

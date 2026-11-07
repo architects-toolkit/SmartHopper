@@ -35,6 +35,7 @@ using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -165,7 +166,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 
                 if (!selected.Any())
                 {
-                    Debug.WriteLine("[GhObjTools] GhTidyUpAsync: No matching components found after filtering.");
+                    Logger.For<gh_tidy_up>().Trace("[GhObjTools] GhTidyUpAsync: No matching components found after filtering.");
                     output.CreateError("No matching components found.");
                     return output;
                 }
@@ -210,7 +211,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (positions.Count == 0)
                 {
-                    Debug.WriteLine("[GhObjTools] GhTidyUpAsync: Layout produced no positions.");
+                    Logger.For<gh_tidy_up>().Trace("[GhObjTools] GhTidyUpAsync: Layout produced no positions.");
                     output.CreateError("Layout produced no positions for the selected components.");
                     return output;
                 }
@@ -254,7 +255,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var guid = kvp.Key;
                     var target = kvp.Value;
                     var ok = CanvasAccess.MoveInstance(guid, target, relative: false);
-                    Debug.WriteLine(ok
+                    Logger.For<gh_tidy_up>().Warning(ok
                         ? $"[GhObjTools] GhTidyUpAsync: Moved {guid} to ({target.X},{target.Y})"
                         : $"[GhObjTools] GhTidyUpAsync: Failed to move {guid}, not found");
                     if (ok) moved.Add(guid.ToString());
@@ -313,7 +314,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             if (!selectedObjects.Any())
             {
-                Debug.WriteLine("[GhObjTools] GhTidyUpSelectedAsync: No selected components visible in viewport.");
+                Logger.For<gh_tidy_up>().Trace("[GhObjTools] GhTidyUpSelectedAsync: No selected components visible in viewport.");
                 var earlyOutput = new AIReturn() { Request = toolCall };
                 earlyOutput.CreateError("No selected components are visible in the current viewport.");
                 return earlyOutput;

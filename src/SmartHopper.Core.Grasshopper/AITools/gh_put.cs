@@ -38,6 +38,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -222,7 +223,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
 
                     capturedConnections = GhJsonGrasshopper.CaptureExternalConnections(componentsToReplace).ToList();
-                    Debug.WriteLine($"[gh_put] Captured {capturedConnections.Count} external connections");
+                    Logger.For<gh_put>().Trace($"[gh_put] Captured {capturedConnections.Count} external connections");
                 }
 
                 if (document.Components.Count == 0)
@@ -231,7 +232,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Put operation must run on UI thread.
-                Debug.WriteLine("[gh_put] Putting document on canvas");
+                Logger.For<gh_put>().Trace("[gh_put] Putting document on canvas");
                 PutResult putResult = null;
                 var externalConnectionsCreated = 0;
                 var placeTcs = new TaskCompletionSource<bool>();
@@ -270,7 +271,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                     // IsolateObject cleans up connections before removal
                                     existing.IsolateObject();
                                     ghDoc.RemoveObject(existing, false);
-                                    Debug.WriteLine($"[gh_put] Removed existing component '{existing.Name}' with GUID {guid}");
+                                    Logger.For<gh_put>().Trace($"[gh_put] Removed existing component '{existing.Name}' with GUID {guid}");
                                 }
                             }
                         }
@@ -334,7 +335,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         // Restore captured external connections
                         if (capturedConnections.Count > 0)
                         {
-                            Debug.WriteLine("[gh_put] Restoring captured external connections");
+                            Logger.For<gh_put>().Trace("[gh_put] Restoring captured external connections");
                             int restored = 0;
 
                             foreach (var conn in capturedConnections)
@@ -359,11 +360,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 }
                                 catch (Exception ex)
                                 {
-                                    Debug.WriteLine($"[gh_put] Error restoring connection {conn.SourceGuid}.{conn.SourceParamName} -> {conn.TargetGuid}.{conn.TargetParamName}: {ex.Message}");
+                                    Logger.For<gh_put>().Exception(ex, $"[gh_put] Error restoring connection {conn.SourceGuid}.{conn.SourceParamName} -> {conn.TargetGuid}.{conn.TargetParamName}: {ex.Message}");
                                 }
                             }
 
-                            Debug.WriteLine($"[gh_put] Restored {restored}/{capturedConnections.Count} external connections");
+                            Logger.For<gh_put>().Trace($"[gh_put] Restored {restored}/{capturedConnections.Count} external connections");
 
                             if (restored > 0)
                             {
@@ -388,7 +389,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 await placeTcs.Task
                     .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
 
-                Debug.WriteLine("[gh_put] Placement complete");
+                Logger.For<gh_put>().Trace("[gh_put] Placement complete");
 
                 // Collect actual instanceGuids of placed components
                 var placedGuids = putResult.PlacedObjects
@@ -485,14 +486,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .AddToolResult(toolResult)
                     .Build();
 
-                Debug.WriteLine("[gh_put] Creating success output");
+                Logger.For<gh_put>().Trace("[gh_put] Creating success output");
                 output.CreateSuccess(body, toolCall);
-                Debug.WriteLine("[gh_put] Returning from GhPutToolAsync");
+                Logger.For<gh_put>().Trace("[gh_put] Returning from GhPutToolAsync");
                 return output;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[PutTools] Error in GhPutToolAsync: {ex.Message}");
+                Logger.For<gh_put>().Exception(ex, $"[PutTools] Error in GhPutToolAsync: {ex.Message}");
                 var combined = string.IsNullOrEmpty(analysisMsg)
                     ? ex.Message
                     : analysisMsg + "\nException: " + ex.Message;

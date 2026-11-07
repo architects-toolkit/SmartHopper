@@ -27,6 +27,7 @@ using SmartHopper.Infrastructure.Interaction;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -137,7 +138,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[canvas_point] Presenter failed: {ex.Message}");
+                        Logger.For<canvas_point>().Exception(ex, $"[canvas_point] Presenter failed: {ex.Message}");
                     }
                 }
 

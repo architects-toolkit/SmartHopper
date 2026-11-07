@@ -34,6 +34,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Hosting;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -111,7 +112,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine("[ListTools] Running TextList2Boolean tool");
+                Logger.For<textlist2boolean>().Trace("[ListTools] Running TextList2Boolean tool");
 
                 // Extract parameters
                 string providerName = toolCall.Provider;
@@ -132,7 +133,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                Debug.WriteLine($"[ListTools.TextList2Boolean] Fallback value: '{fallback?.ToString() ?? "null"}'");
+                Logger.For<textlist2boolean>().Trace($"[ListTools.TextList2Boolean] Fallback value: '{fallback?.ToString() ?? "null"}'");
 
                 // Normalize list input
                 var items = NormalizeListInput(toolInfo);
@@ -174,11 +175,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                Debug.WriteLine($"[ListTools.TextList2Boolean] AI response: '{response}'");
+                Logger.For<textlist2boolean>().Trace($"[ListTools.TextList2Boolean] AI response: '{response}'");
 
                 // Centralized parse + fallback resolution (shared with batch path).
                 var toolResult = BooleanResultResolver.BuildToolResult(response, fallback);
-                Debug.WriteLine($"[ListTools.TextList2Boolean] Resolved: {toolResult}");
+                Logger.For<textlist2boolean>().Trace($"[ListTools.TextList2Boolean] Resolved: {toolResult}");
 
                 var toolBody = AIBodyBuilder.Create()
                     .AddToolResult(toolResult, id: toolInfo?.Id, name: this.toolName, metrics: result.Metrics, messages: result.Messages)
@@ -189,7 +190,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ListTools] Error in TextList2Boolean: {ex.Message}");
+                Logger.For<textlist2boolean>().Exception(ex, $"[ListTools] Error in TextList2Boolean: {ex.Message}");
 
                 output.CreateError($"Error: {ex.Message}");
                 return output;

@@ -28,6 +28,7 @@ using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -115,7 +116,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.GetArgumentsOrEmpty();
                 var guids = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
                 var previewOn = args["previewOn"]?.ToObject<bool>() ?? false;
-                Debug.WriteLine($"[GhObjTools] GhTogglePreviewAsync: previewOn={previewOn}, guids count={guids.Count}");
+                Logger.For<gh_component_toggle_preview>().Trace($"[GhObjTools] GhTogglePreviewAsync: previewOn={previewOn}, guids count={guids.Count}");
                 var requested = guids
                     .Select(value => Guid.TryParse(value, out var guid) ? (Guid?)guid : null)
                     .OfType<Guid>()

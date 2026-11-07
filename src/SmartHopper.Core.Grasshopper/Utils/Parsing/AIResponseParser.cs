@@ -24,6 +24,7 @@ using System.Text.RegularExpressions;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Utilities;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Parsing
@@ -473,7 +474,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
                 result = "{" + string.Join(",", stringList.Select((value, index) => $"\"{index}\":\"{value}\"")) + "}";
             }
 
-            Debug.WriteLine($"[AIResponseParser] Concatenated JSON: {result}");
+            Logger.Trace(typeof(AIResponseParser).FullName, $"[AIResponseParser] Concatenated JSON: {result}");
 
             return result;
         }

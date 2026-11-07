@@ -33,6 +33,7 @@ using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -202,7 +203,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             try
                             {
                                 groupColor = StringConverter.StringToColor(colorStr);
-                                Debug.WriteLine($"[gh_group] Group color set to {groupColor}");
+                                Logger.For<gh_group>().Trace($"[gh_group] Group color set to {groupColor}");
                             }
                             catch
                             {
@@ -212,7 +213,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         else
                         {
                             groupColor = System.Drawing.Color.FromArgb(255, 0, 200, 0);
-                            Debug.WriteLine("[gh_group] No color provided, using default color");
+                            Logger.For<gh_group>().Trace("[gh_group] No color provided, using default color");
                         }
 
                         // Create group

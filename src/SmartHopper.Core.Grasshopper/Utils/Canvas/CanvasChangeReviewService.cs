@@ -30,6 +30,7 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.Consent;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
     /// <summary>
@@ -485,7 +486,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[CanvasChangeReviewService] Proposed bounds measurement skipped: {ex.Message}");
+                Logger.Exception(typeof(CanvasChangeReviewService).FullName, ex, $"[CanvasChangeReviewService] Proposed bounds measurement skipped: {ex.Message}");
             }
         }
 

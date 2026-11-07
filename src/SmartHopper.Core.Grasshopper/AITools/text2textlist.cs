@@ -34,6 +34,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -156,7 +157,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ListTools] Could not unwrap response: {ex.Message}");
+                Logger.For<text2textlist>().Exception(ex, $"[ListTools] Could not unwrap response: {ex.Message}");
             }
 
             return response;
@@ -229,7 +230,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine("[ListTools] Running GenerateList tool");
+                Logger.For<text2textlist>().Trace("[ListTools] Running GenerateList tool");
 
                 // Extract parameters
                 string providerName = toolCall.Provider;
@@ -291,7 +292,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     iteration++;
                     var stillNeeded = count - allItems.Count;
-                    Debug.WriteLine($"[ListTools] Iteration {iteration}: Need {stillNeeded} more items (have {allItems.Count}/{count})");
+                    Logger.For<text2textlist>().Trace($"[ListTools] Iteration {iteration}: Need {stillNeeded} more items (have {allItems.Count}/{count})");
 
                     // 2. Execute the AIRequestCall
                     result = await request.Exec().ConfigureAwait(false);
@@ -300,7 +301,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     if (result.Metrics != null)
                     {
                         accumulatedMetrics = accumulatedMetrics.WithCombined(result.Metrics);
-                        Debug.WriteLine($"[ListTools] Iteration {iteration} metrics: Tokens In={result.Metrics.InputTokensPrompt}, Out={result.Metrics.OutputTokensGeneration}, Time={result.Metrics.CompletionTime:F2}s");
+                        Logger.For<text2textlist>().Trace($"[ListTools] Iteration {iteration} metrics: Tokens In={result.Metrics.InputTokensPrompt}, Out={result.Metrics.OutputTokensGeneration}, Time={result.Metrics.CompletionTime:F2}s");
                     }
 
                     // Accumulate messages from this iteration
@@ -312,12 +313,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     // Check if first attempt was truncated due to token limits (check BEFORE success check)
                     if (iteration == 1 && result.Metrics?.FinishReason?.Equals("length", StringComparison.OrdinalIgnoreCase) == true)
                     {
-                        Debug.WriteLine($"[ListTools] First attempt truncated (finish_reason=length). Attempting to parse partial response and restart with batch strategy.");
+                        Logger.For<text2textlist>().Trace($"[ListTools] First attempt truncated (finish_reason=length). Attempting to parse partial response and restart with batch strategy.");
 
                         // Try to parse and save any valid items from the truncated response
                         var assistantTruncated = result.Body.GetLastInteraction(AIAgent.Assistant) as AIInteractionText;
                         var responseTruncated = assistantTruncated?.Content ?? string.Empty;
-                        Debug.WriteLine($"[ListTools] Truncated response length: {responseTruncated.Length} chars");
+                        Logger.For<text2textlist>().Trace($"[ListTools] Truncated response length: {responseTruncated.Length} chars");
 
                         List<string> partialItems = new List<string>();
                         if (!string.IsNullOrWhiteSpace(responseTruncated))
@@ -327,11 +328,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 // Try to unwrap and parse partial response
                                 responseTruncated = UnwrapResponseIfNeeded(responseTruncated);
                                 partialItems = AIResponseParser.ParseStringArrayFromResponse(responseTruncated);
-                                Debug.WriteLine($"[ListTools] Successfully parsed {partialItems.Count} items from truncated response");
+                                Logger.For<text2textlist>().Trace($"[ListTools] Successfully parsed {partialItems.Count} items from truncated response");
                             }
                             catch (Exception ex)
                             {
-                                Debug.WriteLine($"[ListTools] Could not parse truncated response: {ex.Message}. Starting fresh.");
+                                Logger.For<text2textlist>().Exception(ex, $"[ListTools] Could not parse truncated response: {ex.Message}. Starting fresh.");
                                 partialItems.Clear();
                             }
                         }
@@ -340,21 +341,21 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         if (partialItems.Count > 0)
                         {
                             allItems.AddRange(partialItems);
-                            Debug.WriteLine($"[ListTools] Saved {partialItems.Count} items from truncated response. Total now: {allItems.Count}");
+                            Logger.For<text2textlist>().Trace($"[ListTools] Saved {partialItems.Count} items from truncated response. Total now: {allItems.Count}");
                         }
 
                         // If we already have all items needed, we're done
                         if (allItems.Count >= count)
                         {
                             TrimToCount(allItems, count);
-                            Debug.WriteLine($"[ListTools] Target count {count} reached from truncated response");
+                            Logger.For<text2textlist>().Trace($"[ListTools] Target count {count} reached from truncated response");
                             break;
                         }
 
                         // Calculate a safe batch size based on what was received
                         int receivedCount = partialItems.Count;
                         currentBatchSize = CalculateBatchSize(receivedCount, count);
-                        Debug.WriteLine($"[ListTools] Parsed {receivedCount} items from truncated response. Setting batch size to {currentBatchSize} for remaining items");
+                        Logger.For<text2textlist>().Trace($"[ListTools] Parsed {receivedCount} items from truncated response. Setting batch size to {currentBatchSize} for remaining items");
 
                         // Start a new conversation with a batch-based approach
                         int batchStart = allItems.Count + 1;
@@ -374,7 +375,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         request.Body = requestBody;
 
                         // Reset iteration counter to restart the loop with new strategy
-                        Debug.WriteLine($"[ListTools] Restarting with batch strategy: requesting {batchCount} items (range {batchStart}-{batchEnd})");
+                        Logger.For<text2textlist>().Trace($"[ListTools] Restarting with batch strategy: requesting {batchCount} items (range {batchStart}-{batchEnd})");
                         iteration = 0;
                         continue;
                     }
@@ -382,7 +383,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     // Check for general failure (non-truncation errors)
                     if (!result.Success)
                     {
-                        Debug.WriteLine($"[ListTools] Request failed: {result.Messages?.FirstOrDefault()?.Message ?? "Unknown error"}");
+                        Logger.For<text2textlist>().Warning($"[ListTools] Request failed: {result.Messages?.FirstOrDefault()?.Message ?? "Unknown error"}");
                         output.Messages = result.Messages;
                         return output;
                     }
@@ -390,7 +391,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     // 3. Parse the output and check if count is reached
                     var assistant = result.Body.GetLastInteraction(AIAgent.Assistant) as AIInteractionText;
                     var response = assistant?.Content ?? string.Empty;
-                    Debug.WriteLine($"[ListTools] AI response: {response}");
+                    Logger.For<text2textlist>().Trace($"[ListTools] AI response: {response}");
 
                     if (string.IsNullOrWhiteSpace(response))
                     {
@@ -416,14 +417,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                     catch (Exception parseEx)
                     {
-                        Debug.WriteLine($"[ListTools] Error parsing response in iteration {iteration}: {parseEx.Message}");
-                        Debug.WriteLine($"[ListTools] Raw response: {response}");
+                        Logger.For<text2textlist>().Error($"[ListTools] Error parsing response in iteration {iteration}: {parseEx.Message}");
+                        Logger.For<text2textlist>().Error($"[ListTools] Raw response: {response}");
 
                         // If we have some items already, return what we have
                         if (allItems.Count > 0)
                         {
-                            Debug.WriteLine($"[ListTools] Returning partial list with {allItems.Count} items due to parsing error");
-                            Debug.WriteLine($"[ListTools] Partial accumulated metrics: Tokens In={accumulatedMetrics.InputTokensPrompt}, Out={accumulatedMetrics.OutputTokensGeneration}, Time={accumulatedMetrics.CompletionTime:F2}s");
+                            Logger.For<text2textlist>().Error($"[ListTools] Returning partial list with {allItems.Count} items due to parsing error");
+                            Logger.For<text2textlist>().Error($"[ListTools] Partial accumulated metrics: Tokens In={accumulatedMetrics.InputTokensPrompt}, Out={accumulatedMetrics.OutputTokensGeneration}, Time={accumulatedMetrics.CompletionTime:F2}s");
 
                             var partialResult = this.CreateToolResultWithEnvelope(allItems, providerName, modelName, toolInfo?.Id);
                             var partialBody = AIBodyBuilder.Create()
@@ -439,7 +440,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         return output;
                     }
 
-                    Debug.WriteLine($"[ListTools] Iteration {iteration} generated {newItems.Count} items: {string.Join(", ", newItems)}");
+                    Logger.For<text2textlist>().Trace($"[ListTools] Iteration {iteration} generated {newItems.Count} items: {string.Join(", ", newItems)}");
 
                     // Add new items to our collection
                     foreach (var item in newItems)
@@ -451,21 +452,21 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     if (allItems.Count >= count)
                     {
                         TrimToCount(allItems, count);
-                        Debug.WriteLine($"[ListTools] Target count {count} reached after {iteration} iterations");
+                        Logger.For<text2textlist>().Trace($"[ListTools] Target count {count} reached after {iteration} iterations");
                         break;
                     }
 
                     // 4. If count not reached, build conversation for next iteration
                     // Use the request from the last return and add assistant + user interactions
                     stillNeeded = count - allItems.Count;
-                    Debug.WriteLine($"[ListTools] Requesting {stillNeeded} more items in next iteration");
+                    Logger.For<text2textlist>().Trace($"[ListTools] Requesting {stillNeeded} more items in next iteration");
 
                     // Check if this iteration was also truncated - reduce batch size further
                     if (result.Metrics?.FinishReason?.Equals("length", StringComparison.OrdinalIgnoreCase) == true)
                     {
                         int itemsReceived = newItems.Count;
                         currentBatchSize = Math.Max(MinReducedBatchSize, itemsReceived / 2);
-                        Debug.WriteLine($"[ListTools] Iteration {iteration} truncated. Reducing batch size to {currentBatchSize}");
+                        Logger.For<text2textlist>().Trace($"[ListTools] Iteration {iteration} truncated. Reducing batch size to {currentBatchSize}");
                     }
 
                     // Calculate next batch size
@@ -494,7 +495,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
 
                     diagMessage += "This may indicate the response was truncated and retry logic failed.";
-                    Debug.WriteLine($"[ListTools] {diagMessage}");
+                    Logger.For<text2textlist>().Trace($"[ListTools] {diagMessage}");
                     output.CreateError(diagMessage);
                     return output;
                 }
@@ -502,12 +503,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Final safety check: trim list if it's longer than requested
                 if (allItems.Count > count)
                 {
-                    Debug.WriteLine($"[ListTools] Trimming final list from {allItems.Count} to {count} items");
+                    Logger.For<text2textlist>().Trace($"[ListTools] Trimming final list from {allItems.Count} to {count} items");
                     TrimToCount(allItems, count);
                 }
 
-                Debug.WriteLine($"[ListTools] Final result: {allItems.Count} items generated: {string.Join(", ", allItems)}");
-                Debug.WriteLine($"[ListTools] Total accumulated metrics: Tokens In={accumulatedMetrics.InputTokensPrompt}, Out={accumulatedMetrics.OutputTokensGeneration}, Time={accumulatedMetrics.CompletionTime:F2}s, Iterations={iteration}");
+                Logger.For<text2textlist>().Trace($"[ListTools] Final result: {allItems.Count} items generated: {string.Join(", ", allItems)}");
+                Logger.For<text2textlist>().Trace($"[ListTools] Total accumulated metrics: Tokens In={accumulatedMetrics.InputTokensPrompt}, Out={accumulatedMetrics.OutputTokensGeneration}, Time={accumulatedMetrics.CompletionTime:F2}s, Iterations={iteration}");
 
                 // Success case - use accumulated metrics from all iterations
                 var toolResult = this.CreateToolResultWithEnvelope(allItems, providerName, modelName, toolInfo?.Id);
@@ -520,7 +521,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ListTools] Error in GenerateList: {ex.Message}");
+                Logger.For<text2textlist>().Exception(ex, $"[ListTools] Error in GenerateList: {ex.Message}");
 
                 output.CreateError($"Error: {ex.Message}");
                 return output;

@@ -38,6 +38,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -210,14 +211,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         componentData["outputCount"] = props.OutputSettings?.Count ?? 0;
                         componentData["codeLines"] = scriptCode.Split('\n').Length;
 
-                        Debug.WriteLine($"[script_review] Extracted via GhJsonSerializer: {language}, {scriptCode.Length} chars");
+                        Logger.For<script_review>().Trace($"[script_review] Extracted via GhJsonSerializer: {language}, {scriptCode.Length} chars");
                     }
                     else
                     {
                         // Fallback to direct access
                         scriptCode = ScriptComponentReflection.GetScriptText(target);
                         language = ScriptComponentRegistry.GetLanguageKey((activeTarget as IGH_Component)?.ComponentGuid);
-                        Debug.WriteLine($"[script_review] Using fallback extraction");
+                        Logger.For<script_review>().Trace($"[script_review] Using fallback extraction");
                     }
                 }
                 catch (Exception ex)
@@ -225,7 +226,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     // Fallback if serialization fails
                     scriptCode = ScriptComponentReflection.GetScriptText(target);
                     language = target is IGH_ActiveObject ao ? ScriptComponentRegistry.GetLanguageKey((ao as IGH_Component)?.ComponentGuid) : "unknown";
-                    Debug.WriteLine($"[script_review] Serialization failed, using fallback: {ex.Message}");
+                    Logger.For<script_review>().Exception(ex, $"[script_review] Serialization failed, using fallback: {ex.Message}");
                 }
 
                 // Validate we actually got script code

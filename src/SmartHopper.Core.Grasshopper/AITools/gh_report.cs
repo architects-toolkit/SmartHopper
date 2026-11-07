@@ -43,6 +43,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -99,7 +100,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.GetArgumentsOrEmpty();
                 var includeSummary = args["includeSummary"]?.ToObject<bool>() ?? false;
 
-                Debug.WriteLine($"[gh_report] includeSummary: {includeSummary}");
+                Logger.For<gh_report>().Trace($"[gh_report] includeSummary: {includeSummary}");
 
                 // Gather all canvas data on UI thread
                 var canvasData = GatherCanvasData();
@@ -171,7 +172,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_report] Error: {ex.Message}");
+                Logger.For<gh_report>().Exception(ex, $"[gh_report] Error: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
@@ -333,7 +334,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[gh_report] Error serializing in-view components: {ex.Message}");
+                    Logger.For<gh_report>().Exception(ex, $"[gh_report] Error serializing in-view components: {ex.Message}");
                     data.InViewGhJson = null;
                 }
             }
@@ -370,7 +371,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[gh_report] Error extracting metadata: {ex.Message}");
+                Logger.For<gh_report>().Exception(ex, $"[gh_report] Error extracting metadata: {ex.Message}");
             }
 
             return data;
