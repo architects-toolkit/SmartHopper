@@ -30,6 +30,7 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AIProviders;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.AI
 {
     /// <summary>
@@ -92,7 +93,7 @@ namespace SmartHopper.Components.AI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AIExtraSettingsComponent] Infrastructure check failed: {ex.Message}");
+                Logger.For<AIExtraSettingsComponent>().Exception(ex, $"[AIExtraSettingsComponent] Infrastructure check failed: {ex.Message}");
                 return false;
             }
         }
@@ -251,7 +252,7 @@ namespace SmartHopper.Components.AI
             // Guard: don't attempt to rebuild if infrastructure isn't ready
             if (!this.IsInfrastructureReady())
             {
-                Debug.WriteLine("[AIExtraSettingsComponent] Skipping RebuildInputParams - infrastructure not ready");
+                Logger.For<AIExtraSettingsComponent>().Warning("[AIExtraSettingsComponent] Skipping RebuildInputParams - infrastructure not ready");
                 return;
             }
 
@@ -318,14 +319,14 @@ namespace SmartHopper.Components.AI
                             }
                             catch (Exception ex)
                             {
-                                Debug.WriteLine($"[AIExtraSettingsComponent] Error during solution expiration: {ex.Message}");
+                                Logger.For<AIExtraSettingsComponent>().Exception(ex, $"[AIExtraSettingsComponent] Error during solution expiration: {ex.Message}");
                                 this._retryScheduled = false;
                             }
                         });
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[AIExtraSettingsComponent] Error during retry scheduling: {ex.Message}");
+                        Logger.For<AIExtraSettingsComponent>().Exception(ex, $"[AIExtraSettingsComponent] Error during retry scheduling: {ex.Message}");
                         this._retryScheduled = false;
                     }
                 }, System.Threading.Tasks.TaskScheduler.Default);

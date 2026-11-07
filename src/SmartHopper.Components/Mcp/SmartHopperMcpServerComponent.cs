@@ -22,6 +22,7 @@ using Grasshopper.Kernel;
 using SmartHopper.Core.Grasshopper.Contracts;
 using SmartHopper.Infrastructure.Mcp;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Mcp
 {
     /// <summary>
@@ -172,7 +173,7 @@ namespace SmartHopper.Components.Mcp
             {
                 this.lastStatus = $"Error: {ex.Message}";
                 this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, this.lastStatus);
-                Debug.WriteLine($"[Mcp] Component error: {ex.Message}");
+                Logger.For<SmartHopperMcpServerComponent>().Exception(ex, $"[Mcp] Component error: {ex.Message}");
             }
 
             var server = this.acquired ? McpServerLifecycle.Find(this.currentPort) : null;

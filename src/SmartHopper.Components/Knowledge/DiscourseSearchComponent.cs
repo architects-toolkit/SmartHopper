@@ -35,6 +35,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
@@ -125,7 +126,7 @@ namespace SmartHopper.Components.Knowledge
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Base URL and Query are required.");
                 }
 
-                Debug.WriteLine($"[DiscourseSearchWorker] GatherInput - BaseUrl={this.baseUrl}, QueryTreeCount={queryTree?.DataCount ?? 0}, HasWork={this.hasWork}");
+                Logger.For<DiscourseSearchWorker>().Trace($"[DiscourseSearchWorker] GatherInput - BaseUrl={this.baseUrl}, QueryTreeCount={queryTree?.DataCount ?? 0}, HasWork={this.hasWork}");
 
                 dataCount = 0;
             }
@@ -134,7 +135,7 @@ namespace SmartHopper.Components.Knowledge
             {
                 if (!this.hasWork)
                 {
-                    Debug.WriteLine("[DiscourseSearchWorker] DoWorkAsync called with hasWork=false, exiting.");
+                    Logger.For<DiscourseSearchWorker>().Trace("[DiscourseSearchWorker] DoWorkAsync called with hasWork=false, exiting.");
                     return;
                 }
 
@@ -162,7 +163,7 @@ namespace SmartHopper.Components.Knowledge
                                     continue;
                                 }
 
-                                Debug.WriteLine($"[DiscourseSearchWorker] DoWorkAsync starting. Query='{queryValue}'");
+                                Logger.For<DiscourseSearchWorker>().Trace($"[DiscourseSearchWorker] DoWorkAsync starting. Query='{queryValue}'");
                                 var parameters = new JObject
                                 {
                                     ["base_url"] = this.baseUrl,
@@ -191,15 +192,15 @@ namespace SmartHopper.Components.Knowledge
                                 }
                                 catch (Exception ex)
                                 {
-                                    Debug.WriteLine($"[DiscourseSearchWorker] Error executing tool: {ex}");
+                                    Logger.For<DiscourseSearchWorker>().Exception(ex, $"[DiscourseSearchWorker] Error executing tool: {ex}");
                                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                                     continue;
                                 }
 
-                                Debug.WriteLine($"[DiscourseSearchWorker] Tool call completed. Success={aiResult?.Success}, Status={aiResult?.Status}, HasBody={aiResult?.Body != null}");
+                                Logger.For<DiscourseSearchWorker>().Trace($"[DiscourseSearchWorker] Tool call completed. Success={aiResult?.Success}, Status={aiResult?.Status}, HasBody={aiResult?.Body != null}");
                                 if (aiResult?.Body != null)
                                 {
-                                    Debug.WriteLine($"[DiscourseSearchWorker] Body interactions count={aiResult.Body.Interactions?.Count ?? 0}");
+                                    Logger.For<DiscourseSearchWorker>().Error($"[DiscourseSearchWorker] Body interactions count={aiResult.Body.Interactions?.Count ?? 0}");
                                 }
 
                                 var toolResult = ToolCallResult.FromAIReturn(aiResult);
@@ -210,7 +211,7 @@ namespace SmartHopper.Components.Knowledge
                                 }
 
                                 var resultsArray = toolResult["results"] as JArray ?? new JArray();
-                                Debug.WriteLine($"[DiscourseSearchWorker] Parsed results array. Count={resultsArray.Count}");
+                                Logger.For<DiscourseSearchWorker>().Trace($"[DiscourseSearchWorker] Parsed results array. Count={resultsArray.Count}");
                                 foreach (var post in resultsArray)
                                 {
                                     outputs["DiscoursePosts"].Add(new GH_String(post?.ToString() ?? string.Empty));
@@ -230,7 +231,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[DiscourseSearchWorker] Error: {ex}");
+                    Logger.For<DiscourseSearchWorker>().Exception(ex, $"[DiscourseSearchWorker] Error: {ex}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
@@ -238,7 +239,7 @@ namespace SmartHopper.Components.Knowledge
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
                 var postsTree = this.resultPosts ?? new GH_Structure<GH_String>();
-                Debug.WriteLine($"[DiscourseSearchWorker] SetOutput - resultPosts.DataCount={postsTree.DataCount}");
+                Logger.For<DiscourseSearchWorker>().Trace($"[DiscourseSearchWorker] SetOutput - resultPosts.DataCount={postsTree.DataCount}");
                 this.parent.SetPersistentOutput("Discourse Posts", postsTree, DA);
                 message = postsTree.DataCount == 0 ? "No search executed" : "Search completed";
             }

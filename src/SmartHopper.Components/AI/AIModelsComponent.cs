@@ -35,6 +35,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.AI
 {
     /// <summary>
@@ -195,7 +196,7 @@ namespace SmartHopper.Components.AI
                             ?? "Error occurred while retrieving models";
                         this._result["Success"] = false;
                         this._result["Error"] = errMsg;
-                        Debug.WriteLine("[AIModelsComponent] " + errMsg);
+                        Logger.For<AIModelsWorker>().Trace("[AIModelsComponent] " + errMsg);
                         return;
                     }
 
@@ -233,14 +234,14 @@ namespace SmartHopper.Components.AI
                     if (resultJson["warning"]?.ToString() is string warnMsg && !string.IsNullOrWhiteSpace(warnMsg))
                     {
                         this._result["Warning"] = warnMsg;
-                        Debug.WriteLine("[AIModelsComponent] " + warnMsg);
+                        Logger.For<AIModelsWorker>().Trace("[AIModelsComponent] " + warnMsg);
                     }
                 }
                 catch (Exception ex)
                 {
                     this._result["Success"] = false;
                     this._result["Error"] = ex.Message;
-                    Debug.WriteLine("[AIModelsComponent] Error: " + ex.Message);
+                    Logger.For<AIModelsWorker>().Exception(ex, "[AIModelsComponent] Error: " + ex.Message);
                 }
             }
 

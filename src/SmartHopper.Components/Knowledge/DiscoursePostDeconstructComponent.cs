@@ -24,6 +24,7 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
@@ -149,7 +150,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[DiscoursePostDeconstruct] Failed to parse JSON at index {index}: {ex.Message}");
+                    Logger.For<DiscoursePostDeconstructComponent>().Exception(ex, $"[DiscoursePostDeconstruct] Failed to parse JSON at index {index}: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Failed to parse JSON at index {index}: {ex.Message}");
 
                     ids.Add(0);

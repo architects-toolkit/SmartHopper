@@ -29,6 +29,7 @@ using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Output
 {
     /// <summary>
@@ -157,7 +158,7 @@ namespace SmartHopper.Components.Output
                 }
                 catch (Newtonsoft.Json.JsonException ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[AI2JsonComponent] Invalid Fallback JSON ignored: {ex.Message}");
+                    Logger.For<AI2JsonComponent>().Exception(ex, $"[AI2JsonComponent] Invalid Fallback JSON ignored: {ex.Message}");
                 }
             }
         }
@@ -186,7 +187,7 @@ namespace SmartHopper.Components.Output
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[AI2JsonComponent] Error applying schema: {ex.Message}");
+                        Logger.For<AI2JsonComponent>().Exception(ex, $"[AI2JsonComponent] Error applying schema: {ex.Message}");
                     }
                 }
             }

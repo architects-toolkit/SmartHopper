@@ -35,6 +35,7 @@ using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Script
 {
     /// <summary>
@@ -214,14 +215,14 @@ namespace SmartHopper.Components.Script
                         if (this.isEditMode)
                         {
                             var guid = this.normalizedGuids[i]?.Value ?? string.Empty;
-                            Debug.WriteLine($"[AIScriptGenerateWorker] Edit mode: processing {i + 1}/{this.iterationCount} (guid={guid})");
+                            Logger.For<AIScriptGenerateWorker>().Trace($"[AIScriptGenerateWorker] Edit mode: processing {i + 1}/{this.iterationCount} (guid={guid})");
 
                             var result = await this.EditExistingScriptAsync(guid, prompt, token).ConfigureAwait(false);
                             this.StoreResult(path, result, isEdit: true);
                         }
                         else
                         {
-                            Debug.WriteLine($"[AIScriptGenerateWorker] Create mode: processing prompt {i + 1}/{this.iterationCount}");
+                            Logger.For<AIScriptGenerateWorker>().Trace($"[AIScriptGenerateWorker] Create mode: processing prompt {i + 1}/{this.iterationCount}");
 
                             var result = await this.GenerateNewScriptAsync(prompt, token).ConfigureAwait(false);
                             this.StoreResult(path, result, isEdit: false);
@@ -230,7 +231,7 @@ namespace SmartHopper.Components.Script
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIScriptGenerateWorker] Error: {ex.Message}");
+                    Logger.For<AIScriptGenerateWorker>().Exception(ex, $"[AIScriptGenerateWorker] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
@@ -286,7 +287,7 @@ namespace SmartHopper.Components.Script
             /// </summary>
             private async Task<ToolCallResult> GenerateNewScriptAsync(string prompt, CancellationToken token)
             {
-                Debug.WriteLine("[AIScriptGenerateWorker] Create mode: calling script_generate");
+                Logger.For<AIScriptGenerateWorker>().Trace("[AIScriptGenerateWorker] Create mode: calling script_generate");
 
                 var parameters = new JObject
                 {
@@ -302,7 +303,7 @@ namespace SmartHopper.Components.Script
             /// </summary>
             private async Task<ToolCallResult> EditExistingScriptAsync(string guid, string prompt, CancellationToken token)
             {
-                Debug.WriteLine($"[AIScriptGenerateWorker] Edit mode: getting GhJSON for {guid}");
+                Logger.For<AIScriptGenerateWorker>().Trace($"[AIScriptGenerateWorker] Edit mode: getting GhJSON for {guid}");
 
                 // Step 1: Get existing component GhJSON using gh_get with instanceGuids
                 var getParams = new JObject
@@ -325,7 +326,7 @@ namespace SmartHopper.Components.Script
                     return ToolCallResult.FromError($"Could not retrieve GhJSON for component {guid}");
                 }
 
-                Debug.WriteLine($"[AIScriptGenerateWorker] Retrieved GhJSON, length: {existingGhJson.Length}");
+                Logger.For<AIScriptGenerateWorker>().Trace($"[AIScriptGenerateWorker] Retrieved GhJSON, length: {existingGhJson.Length}");
 
                 // Step 2: Edit the script using script_edit
                 var editParams = new JObject

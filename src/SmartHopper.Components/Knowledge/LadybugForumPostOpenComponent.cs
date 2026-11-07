@@ -27,6 +27,7 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
@@ -163,14 +164,14 @@ namespace SmartHopper.Components.Knowledge
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[LadybugForumPostOpenWorker] Error opening browser: {ex.Message}");
+                        Logger.For<LadybugForumPostOpenWorker>().Exception(ex, $"[LadybugForumPostOpenWorker] Error opening browser: {ex.Message}");
                         this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                         this.resultUrl = string.Empty;
                     }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[LadybugForumPostOpenWorker] Error parsing JSON: {ex.Message}");
+                    Logger.For<LadybugForumPostOpenWorker>().Exception(ex, $"[LadybugForumPostOpenWorker] Error parsing JSON: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                     this.resultUrl = string.Empty;
                 }
