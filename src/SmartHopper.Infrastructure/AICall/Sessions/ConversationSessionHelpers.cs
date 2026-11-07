@@ -739,8 +739,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             this.Observer?.OnError(error);
         }
 
-        private readonly object _historyAppendGate = new object();
-
         /// <summary>
         /// Serializes history appends: the turn loop, observer-driven writes and
         /// externally injected interactions (e.g. a subagent steer delivered
