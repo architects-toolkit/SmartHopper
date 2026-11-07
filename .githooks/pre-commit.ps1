@@ -3,7 +3,7 @@
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $anonymizeScript = Join-Path $repoRoot "tools\Anonymize-SmartHopperPublicKey.ps1"
 $versionScript = Join-Path $repoRoot "tools\Change-SolutionVersion.ps1"
-$csprojPath = Join-Path $repoRoot "src\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj"
+$csprojPath = Join-Path $repoRoot "Directory.Build.props"
 $solutionPropsPath = Join-Path $repoRoot "Solution.props"
 $readmePath = Join-Path $repoRoot "README.md"
 $changelogPath = Join-Path $repoRoot "CHANGELOG.md"
@@ -150,13 +150,13 @@ else {
 # ===== Step 4: Anonymize SmartHopperPublicKey =====
 Write-Host "`nStep 4: Anonymizing SmartHopperPublicKey..." -ForegroundColor Cyan
 
-# Check if SmartHopper.Infrastructure.csproj is staged for commit
+# Check if Directory.Build.props is staged for commit
 $stagedFiles = git diff --cached --name-only
-$csprojRelativePath = "src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj"
+$csprojRelativePath = "Directory.Build.props"
 $csprojIsStaged = $stagedFiles -contains $csprojRelativePath
 
 if (-not $csprojIsStaged) {
-    Write-Host "SmartHopper.Infrastructure.csproj is not staged - skipping anonymization." -ForegroundColor Yellow
+    Write-Host "Directory.Build.props is not staged - skipping anonymization." -ForegroundColor Yellow
     Write-Host "`nAll pre-commit checks passed. Proceeding with commit." -ForegroundColor Green
     exit 0
 }
@@ -167,7 +167,7 @@ if (-not (Test-Path $anonymizeScript)) {
 }
 
 if (-not (Test-Path $csprojPath)) {
-    Write-Error "Target csproj not found at $csprojPath"
+    Write-Error "Target props file not found at $csprojPath"
     exit 1
 }
 
@@ -181,10 +181,10 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-# Stage only changed lines in Infrastructure.csproj (similar to CHANGELOG.md)
+# Stage only changed lines in Directory.Build.props (similar to CHANGELOG.md)
 $csprojAfter = if (Test-Path $csprojPath) { Get-Content $csprojPath -Raw -Encoding utf8 } else { $null }
 if ($csprojBefore -ne $csprojAfter) {
-    Write-Host "Staging only changed lines in SmartHopper.Infrastructure.csproj..." -ForegroundColor Cyan
+    Write-Host "Staging only changed lines in Directory.Build.props..." -ForegroundColor Cyan
 
     # Get the diff and apply only the actual changes (not the entire file)
     $diffOutput = git diff $csprojPath
@@ -193,7 +193,7 @@ if ($csprojBefore -ne $csprojAfter) {
         # This stages only the specific lines that changed
         $diffOutput | git apply --cached - 2>$null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "Staged only changed lines in SmartHopper.Infrastructure.csproj." -ForegroundColor Green
+            Write-Host "Staged only changed lines in Directory.Build.props." -ForegroundColor Green
         }
         else {
             Write-Warning "Failed to stage selective changes, falling back to full file staging."
