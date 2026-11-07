@@ -79,11 +79,17 @@ namespace SmartHopper.ProviderSdk.AIProviders
         });
 
         /// <summary>
+        /// Gets the typed logger for this provider.
+        /// </summary>
+        protected new ILogger<T> Log { get; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="AIProvider{T}"/> class.
         /// Protected constructor to enforce the singleton pattern.
         /// </summary>
         protected AIProvider()
         {
+            this.Log = Logger.For<T>();
         }
 
         /// <summary>
@@ -143,6 +149,19 @@ namespace SmartHopper.ProviderSdk.AIProviders
         // Streaming adapter cache to avoid reflection on every streaming request
         private IStreamingAdapter _cachedStreamingAdapter;
         private bool _streamingAdapterProbed;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AIProvider"/> class.
+        /// </summary>
+        protected AIProvider()
+        {
+            this.Log = Logger.For(this.GetType());
+        }
+
+        /// <summary>
+        /// Gets a typed logger using the concrete provider type as category.
+        /// </summary>
+        protected ILogger Log { get; }
 
         /// <inheritdoc/>
         public abstract string Name { get; }
