@@ -152,7 +152,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             {
                 if (DateTime.UtcNow - cached.fetched < CacheExpiration)
                 {
-                    Logger.For<ProviderHashVerifier>().Error($"[ProviderHashVerifier] ReadHashManifest: Using cached manifest for version {version}");
+                    Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] ReadHashManifest: Using cached manifest for version {version}");
                     return cached.manifest;
                 }
 
@@ -249,7 +249,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             {
                 // Calculate local hash
                 result.LocalHash = CalculateFileHash(dllPath);
-                Logger.For<ProviderHashVerifier>().Error($"[ProviderHashVerifier] Local hash for {Path.GetFileName(dllPath)}: {result.LocalHash}");
+                Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] Local hash for {Path.GetFileName(dllPath)}: {result.LocalHash}");
 
                 // Fetch public hashes
                 var publicHashes = await ReadHashManifest(version).ConfigureAwait(false);
@@ -258,7 +258,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 {
                     result.Status = ProviderVerificationStatus.Unavailable;
                     result.ErrorMessage = $"Failed to retrieve the public hash manifest for version {version}. This may be due to network connectivity issues, or the hash manifest for this version has not been published yet.";
-                    Logger.For<ProviderHashVerifier>().Error($"[ProviderHashVerifier] Public hashes unavailable for version {version}");
+                    Logger.For<ProviderHashVerifier>().Warning($"[ProviderHashVerifier] Public hashes unavailable for version {version}");
                     return result;
                 }
 
@@ -273,7 +273,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     {
                         result.Status = ProviderVerificationStatus.NotFound;
                         result.ErrorMessage = $"Hash not found in public manifest for {dllName} ({platform})";
-                        Logger.For<ProviderHashVerifier>().Error($"[ProviderHashVerifier] Hash not found for {hashKey}");
+                        Logger.For<ProviderHashVerifier>().Warning($"[ProviderHashVerifier] Hash not found for {hashKey}");
                         return result;
                     }
                 }

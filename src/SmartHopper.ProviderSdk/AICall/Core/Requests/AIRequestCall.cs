@@ -355,7 +355,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                 await ProviderSdkHost.PolicyPipeline.ApplyResponsePoliciesAsync(air).ConfigureAwait(false);
                 try
                 {
-                    Logger.For<AIRequestCall>().Error($"[AIRequest.Exec] after policies: interactions={air?.Body?.InteractionsCount ?? 0}, new={string.Join(",", air?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
+                    Logger.For<AIRequestCall>().Trace($"[AIRequest.Exec] after policies: interactions={air?.Body?.InteractionsCount ?? 0}, new={string.Join(",", air?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
                 }
                 catch
                 {
@@ -438,7 +438,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                 // Reset the streaming intent so provider PreCall does not pick an SSE endpoint
                 // that the non-streaming CallApi pipeline cannot parse.
                 this.WantsStreaming = false;
-                Logger.For<AIRequestCall>().Error($"[AIRequest.ExecStreamingInternal] No streaming adapter for provider '{this.Provider}', falling back to non-streaming");
+                Logger.For<AIRequestCall>().Warning($"[AIRequest.ExecStreamingInternal] No streaming adapter for provider '{this.Provider}', falling back to non-streaming");
                 var result = await this.ProviderInstance.Call(this, cancellationToken).ConfigureAwait(false);
                 return (AIReturn)result;
             }
@@ -481,7 +481,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
             }
             catch (OperationCanceledException)
             {
-                Logger.For<AIRequestCall>().Error("[AIRequest.ExecStreamingInternal] Streaming cancelled");
+                Logger.For<AIRequestCall>().Warning("[AIRequest.ExecStreamingInternal] Streaming cancelled");
                 finalReturn.CreateProviderError("Streaming cancelled", this);
             }
             catch (Exception ex)

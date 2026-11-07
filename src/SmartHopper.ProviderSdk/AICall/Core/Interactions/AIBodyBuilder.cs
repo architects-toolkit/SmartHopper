@@ -97,7 +97,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 
                 try
                 {
-                    Logger.For<AIBodyBuilder>().Error($"[AIBodyBuilder.FromImmutable] preserved new markers: {string.Join(",", b.interactionsNew)}");
+                    Logger.For<AIBodyBuilder>().Trace($"[AIBodyBuilder.FromImmutable] preserved new markers: {string.Join(",", b.interactionsNew)}");
                 }
                 catch
                 {
@@ -752,7 +752,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                     try
                     {
                         var it = items[i];
-                        Logger.For<AIBodyBuilder>().Error($"[AIBodyBuilder.ReplaceLastRange(slice,flag)] idx={startIndex + i}, type={it.GetType().Name}, agent={it.Agent.ToString()}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(markAsNew ? 1 : 0)}");
+                        Logger.For<AIBodyBuilder>().Trace($"[AIBodyBuilder.ReplaceLastRange(slice,flag)] idx={startIndex + i}, type={it.GetType().Name}, agent={it.Agent.ToString()}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(markAsNew ? 1 : 0)}");
                     }
                     catch
                     {
@@ -800,7 +800,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                     try
                     {
                         var it = items[i].interaction;
-                        Logger.For<AIBodyBuilder>().Error($"[AIBodyBuilder.ReplaceLastRange(reset,mixed)] idx={i}, type={it.GetType().Name}, agent={it.Agent.ToString()}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(items[i].isNew ? 1 : 0)}");
+                        Logger.For<AIBodyBuilder>().Trace($"[AIBodyBuilder.ReplaceLastRange(reset,mixed)] idx={i}, type={it.GetType().Name}, agent={it.Agent.ToString()}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(items[i].isNew ? 1 : 0)}");
                     }
                     catch
                     {
@@ -823,7 +823,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                     try
                     {
                         var it = items[i].interaction;
-                        Logger.For<AIBodyBuilder>().Error($"[AIBodyBuilder.ReplaceLastRange(slice,mixed)] idx={startIndex + i}, type={it.GetType().Name}, agent={it.Agent.ToString()}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(items[i].isNew ? 1 : 0)}");
+                        Logger.For<AIBodyBuilder>().Trace($"[AIBodyBuilder.ReplaceLastRange(slice,mixed)] idx={startIndex + i}, type={it.GetType().Name}, agent={it.Agent.ToString()}, content={(it is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(items[i].isNew ? 1 : 0)}");
                     }
                     catch
                     {
