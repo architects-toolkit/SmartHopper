@@ -173,6 +173,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <param name="taskPlanPresenter">Optional presenter for invocation-specific task plan updates.</param>
         /// <param name="canvasPointerPresenter">Optional presenter for invocation-specific canvas pointer cards.</param>
         /// <param name="userQuestionPresenter">Optional presenter for invocation-specific user questions.</param>
+        /// <param name="ghJsonArtifactPresenter">Optional presenter for invocation-specific GhJSON artifact cards.</param>
         /// <param name="subagentHost">Optional subagent host for conductor tools; child sessions receive none.</param>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="request"/> is null.</exception>
         public ConversationSession(
@@ -184,6 +185,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             ITaskPlanPresenter? taskPlanPresenter = null,
             ICanvasPointerPresenter? canvasPointerPresenter = null,
             IUserQuestionPresenter? userQuestionPresenter = null,
+            IGhJsonArtifactPresenter? ghJsonArtifactPresenter = null,
             ISubagentHost? subagentHost = null)
         {
             this.Request = request ?? throw new ArgumentNullException(nameof(request));
@@ -195,6 +197,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             this.TaskPlanPresenter = taskPlanPresenter;
             this.CanvasPointerPresenter = canvasPointerPresenter;
             this.UserQuestionPresenter = userQuestionPresenter;
+            this.GhJsonArtifactPresenter = ghJsonArtifactPresenter;
             this.SubagentHost = subagentHost;
 
             // Initialize _lastReturn with initial request body
@@ -651,6 +654,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// Gets the invocation-specific user question presenter.
         /// </summary>
         public IUserQuestionPresenter? UserQuestionPresenter { get; }
+
+        /// <summary>
+        /// Gets the invocation-specific GhJSON artifact presenter.
+        /// </summary>
+        public IGhJsonArtifactPresenter? GhJsonArtifactPresenter { get; }
 
         /// <summary>
         /// Gets the session's subagent host, when this session acts as a conductor.

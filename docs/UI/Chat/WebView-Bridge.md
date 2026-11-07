@@ -43,6 +43,7 @@ The WebView sends actions to the host by navigating to custom URL schemes (navig
 - `sh://event?type=queue&action=remove|edit|submit-now&id=...` (`edit` also carries `&text=...`)
 - `sh://event?type=consent&id=...&decision=approve|reject`
 - `sh://event?type=canvas_pointer&id=...`
+- `sh://event?type=ghjson_place&id=...`
 - `sh://event?type=question&id=...&choice=N` or `...&text=...`
 - `sh://event?type=extend_autonomy`
 - `sh://event?type=model&model=...` (emitted by the composer model picker once `setModels` feeds it; opt-in — the host currently logs it as an unknown event type)
@@ -91,6 +92,9 @@ The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
 - **canvas_pointer**
   - JS → host: `sh://event?type=canvas_pointer&id=...`
   - Host resolves the pointer id through `CanvasPointerBridge.ReplayHandler` (assigned by `CanvasPointerService` in `SmartHopper.Core.Grasshopper`) and replays the pan/zoom/highlight on the canvas. Missing/expired targets produce a toast instead of an error.
+- **ghjson_place**
+  - JS → host: `sh://event?type=ghjson_place&id=...` (from the place button on a valid `show_ghjson` artifact card).
+  - Host `PlaceGhJsonArtifact` resolves the id against the artifacts retained by `WebChatGhJsonArtifactPresenter` and places the document on the active canvas through `CanvasGhJsonPlacer` → `GhJsonGrasshopper.Put` (undo recorded). Only valid artifacts get the button; missing/expired ids produce a status note instead of an error.
 - **question**
   - JS → host: `sh://event?type=question&id=...&choice=N` for a predefined option, or `...&text=...` for the free-text answer.
   - Host completes the pending `ask_user` `TaskCompletionSource` (`ResolveUserQuestion`), which unblocks the waiting tool call. The card has no dismiss action; it resolves only on an answer or when the run is cancelled.
@@ -211,6 +215,7 @@ JavaScript functions (in `js/chat-bridge.js`, the compatibility layer that mount
 - `showAutonomyContinue(payload)` / `resolveAutonomyContinue(id)` — Same `card:approval` shape (`consent-<autonomy-N>`), pushed by the host after a run stops on the autonomy budgets; the description names the reached limit(s) (time and/or tokens) and the buttons are labelled `Continue working`/`Stop`. Decisions ride the shared `type=consent` route with the `autonomy-` id prefix.
 - `updateTaskPlan(plan)` — Render the current `plan_tasks` plan as a `card:task_plan` interaction (`sh-task-plan`) in the message list — one plan at a time via same-key upsert. The card shows the goal with a `completed/total` suffix and each task's pending/active/done state (`in_progress`→`active`, `completed`→`done`); the final state stays visible until `resetMessages()` (or `hideTaskPlanPanel()`).
 - `showCanvasPointer({id, message})` — Append an `evidence` line (`pointer-<id>`) carrying the `canvas_point` message plus a `meta.actions` "Show on canvas" button that reports `canvas_pointer` through `messageAction` → `sh://event?type=canvas_pointer&id=...`.
+- `showGhJsonArtifact(artifact)` / `resolveGhJsonArtifact(id, ok, message)` — Append a `ghjson` part interaction (`ghjson-<id>`) rendered by `renderGhJsonPart`: a card with the artifact title, a ✓/✗ validity badge, collapsed source, copy button and — for valid documents — a "Place on canvas" action that emits `type=ghjson_place&id=...`. Invalid artifacts render compact red cards listing the `GhJsonValidator` errors and expose no placement. `resolveGhJsonArtifact` freezes the place button and stamps the host-side outcome on the card's status line.
 - `showUserQuestion({id, question, options})` / `resolveUserQuestion(id)` — Append a `card:question` interaction (`question-<id>`): option chips plus an always-present free-text field. Chip clicks navigate to `type=question&choice=N` (the bridge registry maps the reported answer label back to its index); the free-text field submits `type=question&text=...`. `resolveUserQuestion(id)` freezes the card in place.
 - `showSuggestedPrompts(suggestions)` / `clearSuggestedPrompts()` — Render up to 3 follow-up chips as a `suggestions` part interaction (`sh-suggestions`) at the end of the transcript. A chip reports `suggestion` through `messageAction`, which fills the composer input (`#user-input`, through the toolkit `setComposerText` handle) and focuses it — it never sends automatically. Chips are cleared on send and on `resetMessages()`.
 - `setModels(models, selected)` — Feed the composer model picker (`features.modelPicker`); entries are `{id, label?, hint?}` objects or bare strings. Selection changes emit `sh://event?type=model&model=<id>` via `transport.selectModel`. No C# call site yet — forward-compat global.

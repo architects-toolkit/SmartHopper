@@ -221,7 +221,7 @@ Every tool declares a hierarchical `Category` in `Group.Subgroup` form. Filters 
 | `Canvas.ViewControl` | `canvas_point`, `canvas_view`, `gh_document_switch` |
 | `Canvas.Documents` | `gh_document_list`, `gh_document_new`, `gh_document_open`, `gh_document_save` (see [Document Tools](./gh_document.md)) |
 | `GhJSON.Generation` | `gh_generate` |
-| `GhJSON.Tools` | `gh_put`, `gh_diff`, `gh_merge`, `gh_patch_apply`, `gh_patch_validate` |
+| `GhJSON.Tools` | `gh_put`, `gh_diff`, `gh_merge`, `gh_patch_apply`, `gh_patch_validate`, `show_ghjson` |
 | `Knowledge.SmartHopper` | `smarthopper_readme`, `smarthopper_workflows`, `smarthopper_tool_help`, `smarthopper_ghjson_reference` |
 | `Knowledge.McNeelForum` / `Knowledge.LadybugForum` / `Knowledge.Discourse` | `mcneel_*`, `ladybug_*`, `discourse_*` forum readers |
 | `Knowledge.Web` / `Knowledge.Files` | `web2md`, `file2md` |
