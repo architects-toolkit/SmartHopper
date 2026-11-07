@@ -49,6 +49,7 @@ namespace SmartHopper.Menu.Dialogs
         private readonly ProvidersSettingsPage _providersPage;
         private readonly AssistantSettingsPage _assistantPage;
         private readonly List<GenericProviderSettingsPage> _providerPages;
+        private TabControl _tabControl;
 
         // Settings models
         private readonly GeneralSettings _generalSettings;
@@ -126,7 +127,7 @@ namespace SmartHopper.Menu.Dialogs
             // Create tab pages
             this._generalPage = new GeneralSettingsPage(this._providers);
             this._assistantPage = new AssistantSettingsPage(this._providers);
-            this._providersPage = new ProvidersSettingsPage(this._providers);
+            this._providersPage = new ProvidersSettingsPage(this._providers, this.ShowProviderSettings);
             this._providerPages = new List<GenericProviderSettingsPage>();
 
             // Create provider-specific tabs
@@ -150,6 +151,7 @@ namespace SmartHopper.Menu.Dialogs
         private void CreateTabLayout()
         {
             var tabControl = new TabControl();
+            this._tabControl = tabControl;
 
             // Add General tab
             tabControl.Pages.Add(new TabPage
@@ -211,6 +213,28 @@ namespace SmartHopper.Menu.Dialogs
             // Handle button clicks
             saveButton.Click += (sender, e) => this.SaveSettings();
             cancelButton.Click += (sender, e) => this.Close();
+        }
+
+        /// <summary>
+        /// Switches to the given provider's settings tab.
+        /// </summary>
+        /// <param name="provider">The provider whose settings tab should be shown.</param>
+        private void ShowProviderSettings(IAIProvider provider)
+        {
+            if (provider == null || this._tabControl == null)
+            {
+                return;
+            }
+
+            // Provider tabs follow the fixed tabs (General, Providers, Canvas Assistant)
+            for (int i = 0; i < this._providers.Length; i++)
+            {
+                if (ReferenceEquals(this._providers[i], provider) || this._providers[i].Name == provider.Name)
+                {
+                    this._tabControl.SelectedIndex = i + 3;
+                    return;
+                }
+            }
         }
 
         /// <summary>
