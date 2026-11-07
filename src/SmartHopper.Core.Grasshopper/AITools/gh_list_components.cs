@@ -30,6 +30,7 @@ using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -195,7 +196,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[gh_list_components] Skipping introspection for proxy '{p.Desc?.Name}' ({p.Guid}): {ex.Message}");
+                        Logger.For<gh_list_components>().Exception(ex, $"[gh_list_components] Skipping introspection for proxy '{p.Desc?.Name}' ({p.Guid}): {ex.Message}");
                     }
 
                     // Build component object based on includeDetails selection
