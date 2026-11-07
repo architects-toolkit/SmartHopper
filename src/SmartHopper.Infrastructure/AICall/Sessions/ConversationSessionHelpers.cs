@@ -285,6 +285,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     TaskPlanPresenter = this.TaskPlanPresenter,
                     CanvasPointerPresenter = this.CanvasPointerPresenter,
                     UserQuestionPresenter = this.UserQuestionPresenter,
+                    GhJsonArtifactPresenter = this.GhJsonArtifactPresenter,
                     ToolScopeFilter = this.Request.Body?.ToolFilter,
                     SubagentHost = this.SubagentHost,
                 },

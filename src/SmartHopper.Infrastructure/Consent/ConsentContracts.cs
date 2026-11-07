@@ -147,6 +147,9 @@ namespace SmartHopper.Infrastructure.Consent
         /// <summary>Gets or sets an invocation-specific user question presenter.</summary>
         public IUserQuestionPresenter? UserQuestionPresenter { get; set; }
 
+        /// <summary>Gets or sets an invocation-specific GhJSON artifact presenter.</summary>
+        public IGhJsonArtifactPresenter? GhJsonArtifactPresenter { get; set; }
+
         /// <summary>
         /// Gets or sets the tool filter that scoped the originating request's
         /// inline tool set. Discovery tools (search_tools) re-resolve it to
@@ -178,6 +181,7 @@ namespace SmartHopper.Infrastructure.Consent
                 TaskPlanPresenter = this.TaskPlanPresenter,
                 CanvasPointerPresenter = this.CanvasPointerPresenter,
                 UserQuestionPresenter = this.UserQuestionPresenter,
+                GhJsonArtifactPresenter = this.GhJsonArtifactPresenter,
                 ToolScopeFilter = this.ToolScopeFilter,
                 SubagentHost = this.SubagentHost,
             };

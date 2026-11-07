@@ -2470,6 +2470,143 @@ function showCanvasPointer(ptr) {
 }
 
 /**
+ * Custom part renderer for GhJSON artifact cards (show_ghjson tool): compact
+ * header with a validity badge, an error list for invalid payloads, a
+ * collapsed source preview, a copy button, and — valid documents only — a
+ * place-on-canvas action routed through sh://event?type=ghjson_place&id=... .
+ * @param {{artifact:object}} part - { id, title?, ghjson, valid, components, connections, errors[] }
+ * @param {{message:object, ownerDocument:Document}} ctx
+ * @returns {HTMLElement}
+ */
+function renderGhJsonPart(part, ctx) {
+    const doc = (ctx && ctx.ownerDocument) || document;
+    const data = (part && part.artifact) || {};
+    const id = typeof data.id === 'string' ? data.id : '';
+    const valid = data.valid === true;
+
+    const card = doc.createElement('section');
+    card.className = 'cui-card ghjson-card' + (valid ? '' : ' is-invalid');
+    if (id) card.dataset.ghjsonId = id;
+
+    const head = doc.createElement('header');
+    head.className = 'ghjson-head';
+    const title = doc.createElement('span');
+    title.className = 'ghjson-title';
+    title.textContent = data.title || 'GhJSON definition';
+    head.appendChild(title);
+    const badge = doc.createElement('span');
+    badge.className = 'ghjson-badge ' + (valid ? 'is-valid' : 'is-invalid');
+    badge.textContent = valid
+        ? `${data.components || 0} components · ${data.connections || 0} wires`
+        : 'invalid GhJSON';
+    head.appendChild(badge);
+    card.appendChild(head);
+
+    if (!valid && Array.isArray(data.errors) && data.errors.length) {
+        const ul = doc.createElement('ul');
+        ul.className = 'ghjson-errors';
+        data.errors.slice(0, 8).forEach(e => {
+            const li = doc.createElement('li');
+            li.textContent = `${e && e.path ? e.path + ': ' : ''}${(e && e.message) || 'schema error'}`;
+            ul.appendChild(li);
+        });
+        card.appendChild(ul);
+    }
+
+    const src = doc.createElement('details');
+    src.className = 'ghjson-src';
+    const summary = doc.createElement('summary');
+    summary.className = 'ghjson-summary';
+    summary.textContent = 'Source';
+    src.appendChild(summary);
+    const pre = doc.createElement('pre');
+    pre.className = 'ghjson-pre';
+    pre.textContent = typeof data.ghjson === 'string' ? data.ghjson : '';
+    src.appendChild(pre);
+    card.appendChild(src);
+
+    const foot = doc.createElement('footer');
+    foot.className = 'ghjson-actions';
+    const status = doc.createElement('span');
+    status.className = 'ghjson-status';
+
+    const copy = doc.createElement('button');
+    copy.type = 'button';
+    copy.className = 'ghjson-btn';
+    copy.textContent = 'Copy JSON';
+    copy.addEventListener('click', () => {
+        const write = (navigator.clipboard && navigator.clipboard.writeText)
+            ? navigator.clipboard.writeText(data.ghjson || '')
+            : Promise.reject();
+        write.then(() => {
+            copy.textContent = 'Copied';
+            setTimeout(() => { if (copy.isConnected) copy.textContent = 'Copy JSON'; }, 1500);
+        }).catch(() => {});
+    });
+    foot.appendChild(copy);
+
+    if (valid) {
+        const place = doc.createElement('button');
+        place.type = 'button';
+        place.className = 'ghjson-btn ghjson-place is-primary';
+        place.textContent = 'Place on canvas';
+        place.addEventListener('click', () => {
+            place.disabled = true;
+            status.textContent = 'Placing…';
+            emitShEvent(`sh://event?type=ghjson_place&id=${encodeURIComponent(id)}`);
+        });
+        foot.appendChild(place);
+    }
+
+    foot.appendChild(status);
+    card.appendChild(foot);
+    return card;
+}
+
+/**
+ * Pushes a show_ghjson artifact card into the transcript.
+ * Toolkit shell: a 'ghjson' custom part rendered by renderGhJsonPart; the
+ * legacy fallback builds a minimal equivalent card.
+ * @param {object} artifact - { id, title?, ghjson, valid, components, connections, errors[] }
+ */
+function showGhJsonArtifact(artifact) {
+    if (!artifact || !artifact.id) return;
+
+    if (_view) {
+        pushPluginInteraction(`ghjson-${artifact.id}`, artifact.id, 'ghjson', 'assistant',
+            [{ type: 'ghjson', artifact }]);
+        scrollToBottom();
+        return;
+    }
+
+    const container = document.getElementById('chat-container');
+    if (!container) return;
+    const card = renderGhJsonPart({ artifact }, { ownerDocument: document });
+    card.dataset.ghjsonId = artifact.id;
+    insertAboveThinkingIfPresent(container, card);
+    scrollToBottom();
+}
+
+/**
+ * Resolves a GhJSON card after the host-side place attempt: freezes the place
+ * button and stamps the outcome on the card's status line.
+ * @param {string} id - artifact id
+ * @param {boolean} ok - whether placement succeeded
+ * @param {string} message - user-facing outcome text
+ */
+function resolveGhJsonArtifact(id, ok, message) {
+    const msg = pluginMsgEl(`ghjson-${id}`) || document.querySelector(`[data-ghjson-id="${id}"]`);
+    const card = msg ? (msg.classList && msg.classList.contains('ghjson-card') ? msg : msg.querySelector('.ghjson-card')) : null;
+    if (!card) return;
+    const status = card.querySelector('.ghjson-status');
+    if (status) {
+        status.textContent = message || (ok ? 'Placed' : 'Placement failed');
+        status.dataset.state = ok ? 'ok' : 'error';
+    }
+    card.querySelectorAll('button.ghjson-place').forEach(b => { b.disabled = !ok; });
+}
+
+/**
  * Renders a blocking question card: question text, 2-4 option buttons and an
  * always-present free-text field. Answers travel back via the sh:// bridge.
  * Toolkit shell: a card:question — chip clicks and the free-text field report
@@ -2863,6 +3000,7 @@ function initChatUiShell() {
         },
         partRenderers: {
             html: renderHtmlPart,
+            ghjson: renderGhJsonPart,
         },
     });
     window._chatView = _view;
