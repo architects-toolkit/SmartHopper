@@ -17,7 +17,6 @@
  */
 
 using System;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Dialogs;
@@ -82,14 +81,6 @@ namespace SmartHopper.Menu.Items
                 SmartHopperDiagnostics.CopyToClipboard(report);
                 StyledMessageDialog.ShowInfo(
                     "Diagnostics report copied to the clipboard.",
-                    "Diagnostics - SmartHopper");
-            }
-            catch (ExternalException ex) when (ex.ErrorCode == SmartHopperDiagnostics.ClipboardInUseErrorCode)
-            {
-                Logger.Exception(typeof(DiagnosticsMenuItem).FullName ?? "SmartHopper.Menu.Diagnostics", ex, "Failed to copy diagnostics");
-                StyledMessageDialog.ShowError(
-                    "The clipboard is in use by another application (e.g. Remote Desktop or a clipboard manager)." +
-                    $"{Environment.NewLine}Wait a moment and try again, or use 'Generate Diagnostic Zip' instead.",
                     "Diagnostics - SmartHopper");
             }
             catch (Exception ex)

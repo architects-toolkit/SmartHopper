@@ -23,12 +23,14 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs.Models
     /// <summary>
     /// Model for the Logging settings tab.
     /// </summary>
-    /// <remarks>
-    /// Local, on-machine logging only: these properties tune the individual sinks
-    /// and nothing leaves the machine.
-    /// </remarks>
     public class LogSettings
     {
+        /// <summary>
+        /// Gets or sets the local logging consent override: null follows the
+        /// diagnostics consent, true/false forces local logging on/off.
+        /// </summary>
+        public bool? LoggingEnabled { get; set; }
+
         /// <summary>Gets or sets whether log entries echo to Rhino's command-line output.</summary>
         public bool LiveOutputEnabled { get; set; } = true;
 
@@ -43,5 +45,14 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs.Models
 
         /// <summary>Gets or sets how many days log files are retained.</summary>
         public int LogRetentionDays { get; set; } = 3;
+
+        /// <summary>
+        /// Gets or sets whether log entries are shipped to the telemetry collector
+        /// (effective only while diagnostics consent is granted).
+        /// </summary>
+        public bool OtlpLogEnabled { get; set; } = true;
+
+        /// <summary>Gets or sets the minimum level shipped to the telemetry collector.</summary>
+        public ProviderLogLevel OtlpLogLevel { get; set; } = ProviderLogLevel.Warning;
     }
 }
