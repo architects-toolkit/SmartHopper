@@ -31,6 +31,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Providers.Gemini
 {
     public sealed partial class GeminiProvider : IAIBatchProvider
@@ -105,13 +106,13 @@ namespace SmartHopper.Providers.Gemini
                     throw new InvalidOperationException("No operation name in batch submission response");
                 }
 
-                Debug.WriteLine($"[{this.Name}] Batch submitted: {operationName}");
+                Logger.For<GeminiProvider>().Trace($"[{this.Name}] Batch submitted: {operationName}");
 
                 return new AIBatchSubmission(operationName, this.Name, serializedRequest, customIds);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.Name}] Batch submission error: {ex.Message}");
+                Logger.For<GeminiProvider>().Exception(ex, $"[{this.Name}] Batch submission error: {ex.Message}");
                 throw;
             }
         }
@@ -207,7 +208,7 @@ namespace SmartHopper.Providers.Gemini
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.Name}] Batch status error: {ex.Message}");
+                Logger.For<GeminiProvider>().Exception(ex, $"[{this.Name}] Batch status error: {ex.Message}");
                 return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, ex.Message);
             }
         }
@@ -223,11 +224,11 @@ namespace SmartHopper.Providers.Gemini
             try
             {
                 await this.SendBatchRequestAsync(HttpMethod.Post, $"/{submission.BatchId}:cancel", cancellationToken).ConfigureAwait(false);
-                Debug.WriteLine($"[{this.Name}] Batch cancel response: success");
+                Logger.For<GeminiProvider>().Error($"[{this.Name}] Batch cancel response: success");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[{this.Name}] Batch cancel error: {ex.Message}");
+                Logger.For<GeminiProvider>().Exception(ex, $"[{this.Name}] Batch cancel error: {ex.Message}");
             }
         }
 

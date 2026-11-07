@@ -26,6 +26,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Providers.Gemini
 {
     public sealed partial class GeminiProvider
@@ -49,7 +50,7 @@ namespace SmartHopper.Providers.Gemini
                     var errMsg = errorObj["message"]?.ToString()
                               ?? errorObj["status"]?.ToString()
                               ?? "Provider returned an error";
-                    Debug.WriteLine($"[Gemini] Decode: provider error in response body: {errMsg}");
+                    Logger.For<GeminiProvider>().Warning($"[Gemini] Decode: provider error in response body: {errMsg}");
                     result.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = errMsg });
                     return result;
                 }
@@ -200,7 +201,7 @@ namespace SmartHopper.Providers.Gemini
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error decoding Gemini response: {ex.Message}");
+                Logger.For<GeminiProvider>().Exception(ex, $"Error decoding Gemini response: {ex.Message}");
                 return new List<IAIInteraction>();
             }
         }
@@ -316,12 +317,12 @@ namespace SmartHopper.Providers.Gemini
                         Metrics = metrics,
                     };
                     interactions.Add(metricsInteraction);
-                    Debug.WriteLine($"[GeminiProvider] Extracted usage metadata: InputTokens={metrics.InputTokensPrompt}, OutputTokens={metrics.OutputTokensGeneration}, ReasoningTokens={metrics.OutputTokensReasoning}");
+                    Logger.For<GeminiProvider>().Trace($"[GeminiProvider] Extracted usage metadata: InputTokens={metrics.InputTokensPrompt}, OutputTokens={metrics.OutputTokensGeneration}, ReasoningTokens={metrics.OutputTokensReasoning}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[GeminiProvider] Error extracting usage metadata: {ex.Message}");
+                Logger.For<GeminiProvider>().Exception(ex, $"[GeminiProvider] Error extracting usage metadata: {ex.Message}");
             }
         }
     }

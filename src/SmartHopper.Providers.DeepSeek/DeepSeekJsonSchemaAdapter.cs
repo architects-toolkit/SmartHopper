@@ -22,6 +22,7 @@ using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.JsonSchemas;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Providers.DeepSeek
 {
     /// <summary>
@@ -67,7 +68,7 @@ namespace SmartHopper.Providers.DeepSeek
                     if (obj["enum"] is JArray enumArray)
                     {
                         var cleanedArray = enumArray.ToString(Newtonsoft.Json.Formatting.None);
-                        Debug.WriteLine($"[DeepSeekAdapter] Cleaned enum array: {cleanedArray}");
+                        Logger.For<DeepSeekJsonSchemaAdapter>().Trace($"[DeepSeekAdapter] Cleaned enum array: {cleanedArray}");
                         return cleanedArray;
                     }
                 }
@@ -85,7 +86,7 @@ namespace SmartHopper.Providers.DeepSeek
                 {
                     var inner = match.Groups[1].Value;
                     var cleaned = $"[{inner}]";
-                    Debug.WriteLine($"[DeepSeekAdapter] Regex extracted enum array: {cleaned}");
+                    Logger.For<DeepSeekJsonSchemaAdapter>().Error($"[DeepSeekAdapter] Regex extracted enum array: {cleaned}");
                     return cleaned;
                 }
             }

@@ -22,6 +22,7 @@ using System.Diagnostics;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.LocalAI
@@ -110,7 +111,7 @@ namespace SmartHopper.Providers.LocalAI
         /// <inheritdoc/>
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            Debug.WriteLine($"[LocalAI] ValidateSettings called. Settings null? {settings == null}");
+            Logger.For<LocalAIProviderSettings>().Trace($"[LocalAI] ValidateSettings called. Settings null? {settings == null}");
 
             if (settings == null)
             {

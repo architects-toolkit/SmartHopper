@@ -23,6 +23,7 @@ using System.Linq;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.OpenAI
@@ -122,7 +123,7 @@ namespace SmartHopper.Providers.OpenAI
         /// <inheritdoc/>
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            Debug.WriteLine($"[OpenAI] ValidateSettings called. Settings null? {settings == null}");
+            Logger.For<OpenAIProviderSettings>().Trace($"[OpenAI] ValidateSettings called. Settings null? {settings == null}");
             if (settings == null)
             {
                 return false;
@@ -140,7 +141,7 @@ namespace SmartHopper.Providers.OpenAI
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
                 apiKey = apiKeyObj.ToString();
-                Debug.WriteLine($"[OpenAI] API key extracted (length: {apiKey.Length})");
+                Logger.For<OpenAIProviderSettings>().Trace($"[OpenAI] API key extracted (length: {apiKey.Length})");
 
                 // Skip API key validation since any value is valid
             }
@@ -149,7 +150,7 @@ namespace SmartHopper.Providers.OpenAI
             if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
             {
                 model = modelObj.ToString();
-                Debug.WriteLine($"[OpenAI] Model extracted: {model}");
+                Logger.For<OpenAIProviderSettings>().Trace($"[OpenAI] Model extracted: {model}");
 
                 // Skip model validation since any value is valid
             }
@@ -158,12 +159,12 @@ namespace SmartHopper.Providers.OpenAI
             if (settings.TryGetValue("ReasoningEffort", out var reasoningEffortObj) && reasoningEffortObj != null)
             {
                 reasoningEffort = reasoningEffortObj.ToString();
-                Debug.WriteLine($"[OpenAI] ReasoningEffort extracted: {reasoningEffort}");
+                Logger.For<OpenAIProviderSettings>().Trace($"[OpenAI] ReasoningEffort extracted: {reasoningEffort}");
 
                 // Check if reasoning effort is valid
                 if (string.IsNullOrWhiteSpace(reasoningEffort) || !new[] { "low", "medium", "high" }.Contains(reasoningEffort))
                 {
-                    Debug.WriteLine($"[OpenAI] Invalid reasoning effort value: {reasoningEffort}");
+                    Logger.For<OpenAIProviderSettings>().Warning($"[OpenAI] Invalid reasoning effort value: {reasoningEffort}");
 
                     if (showErrorDialogs)
                     {
@@ -184,7 +185,7 @@ namespace SmartHopper.Providers.OpenAI
                 return false;
             }
 
-            Debug.WriteLine($"Validating OpenAI settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}, Reasoning Effort: {reasoningEffort}");
+            Logger.For<OpenAIProviderSettings>().Trace($"Validating OpenAI settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}, Reasoning Effort: {reasoningEffort}");
 
             return true;
         }

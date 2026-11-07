@@ -40,6 +40,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Streaming;
 using SmartHopper.ProviderSdk.Utilities;
 using SmartHopper.ProviderSdk.Utils;
@@ -152,7 +153,7 @@ namespace SmartHopper.Providers.Anthropic
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[Anthropic] Encode(IAIInteraction) error: {ex.Message}");
+                Logger.For<AnthropicProvider>().Exception(ex, $"[Anthropic] Encode(IAIInteraction) error: {ex.Message}");
                 return string.Empty;
             }
         }
@@ -216,7 +217,7 @@ namespace SmartHopper.Providers.Anthropic
 #if DEBUG
             if (textBlocks.Count > 0 && toolUseBlocks.Count > 0)
             {
-                Debug.WriteLine($"[Anthropic] SortContentBlocks: Reordered {textBlocks.Count} text + {toolUseBlocks.Count} tool_use blocks");
+                Logger.For<AnthropicProvider>().Trace($"[Anthropic] SortContentBlocks: Reordered {textBlocks.Count} text + {toolUseBlocks.Count} tool_use blocks");
             }
 
 #endif
@@ -446,7 +447,7 @@ namespace SmartHopper.Providers.Anthropic
             bool requiresJsonOutput = !string.IsNullOrWhiteSpace(jsonSchema);
             bool supportsStructuredOutputs = requiresJsonOutput && SupportsStructuredOutputs(request.Model);
 
-            Debug.WriteLine($"[Anthropic] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
+            Logger.For<AnthropicProvider>().Trace($"[Anthropic] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
 
 #if DEBUG
             // Log interaction sequence for debugging
@@ -456,7 +457,7 @@ namespace SmartHopper.Providers.Anthropic
                 int tc = request.Body.Interactions?.Count(i => i is AIInteractionToolCall) ?? 0;
                 int tr = request.Body.Interactions?.Count(i => i is AIInteractionToolResult) ?? 0;
                 int tx = request.Body.Interactions?.Count(i => i is AIInteractionText) ?? 0;
-                Debug.WriteLine($"[Anthropic] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
+                Logger.For<AnthropicProvider>().Trace($"[Anthropic] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
             }
             catch
             {
@@ -532,7 +533,7 @@ namespace SmartHopper.Providers.Anthropic
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[Anthropic] Warning: Could not encode interaction: {ex.Message}");
+                    Logger.For<AnthropicProvider>().Exception(ex, $"[Anthropic] Warning: Could not encode interaction: {ex.Message}");
                 }
             }
 
@@ -552,14 +553,14 @@ namespace SmartHopper.Providers.Anthropic
             // Log final messages array for debugging
             try
             {
-                Debug.WriteLine($"[Anthropic] Final encoded messages array ({messages.Count} messages):");
+                Logger.For<AnthropicProvider>().Trace($"[Anthropic] Final encoded messages array ({messages.Count} messages):");
                 for (int idx = 0; idx < messages.Count; idx++)
                 {
                     var msg = messages[idx] as JObject;
                     var role = msg?["role"]?.ToString() ?? "?";
                     var content = msg?["content"] as JArray;
                     var blockTypes = content?.Select(b => (b as JObject)?["type"]?.ToString()).Where(t => !string.IsNullOrEmpty(t)).ToList();
-                    Debug.WriteLine($"  [{idx}] role={role}, blocks=[{string.Join(", ", blockTypes ?? new List<string>())}]");
+                    Logger.For<AnthropicProvider>().Error($"  [{idx}] role={role}, blocks=[{string.Join(", ", blockTypes ?? new List<string>())}]");
                 }
             }
             catch
@@ -615,7 +616,7 @@ namespace SmartHopper.Providers.Anthropic
             if (!string.IsNullOrWhiteSpace(effort))
             {
                 outputConfig ??= new JObject();
-                Debug.WriteLine($"[AnthropicProvider] Using reasoning effort: {effort}");
+                Logger.For<AnthropicProvider>().Trace($"[AnthropicProvider] Using reasoning effort: {effort}");
                 outputConfig["effort"] = effort;
             }
 
@@ -629,7 +630,7 @@ namespace SmartHopper.Providers.Anthropic
             if (!string.IsNullOrWhiteSpace(serviceTier))
             {
                 requestBody["service_tier"] = serviceTier;
-                Debug.WriteLine($"[AnthropicProvider] Using service tier: {serviceTier}");
+                Logger.For<AnthropicProvider>().Trace($"[AnthropicProvider] Using service tier: {serviceTier}");
             }
 
             // Add JSON schema if provided (centralized wrapping)
@@ -673,7 +674,7 @@ namespace SmartHopper.Providers.Anthropic
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[Anthropic] Failed to parse JSON schema: {ex.Message}");
+                    Logger.For<AnthropicProvider>().Exception(ex, $"[Anthropic] Failed to parse JSON schema: {ex.Message}");
                     JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
                 }
             }
@@ -776,7 +777,7 @@ namespace SmartHopper.Providers.Anthropic
                                     ["type"] = "tool",
                                     ["name"] = request.ForceToolName,
                                 };
-                                Debug.WriteLine($"[Anthropic] Forcing tool call: {request.ForceToolName}");
+                                Logger.For<AnthropicProvider>().Trace($"[Anthropic] Forcing tool call: {request.ForceToolName}");
                             }
                             else
                             {
@@ -791,15 +792,15 @@ namespace SmartHopper.Providers.Anthropic
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[Anthropic] Tools mapping error: {ex.Message}");
+                    Logger.For<AnthropicProvider>().Exception(ex, $"[Anthropic] Tools mapping error: {ex.Message}");
                 }
             }
 
 #if DEBUG
             try
             {
-                Debug.WriteLine($"[Anthropic] Request body:");
-                Debug.WriteLine(requestBody.ToString(Formatting.Indented));
+                Logger.For<AnthropicProvider>().Trace($"[Anthropic] Request body:");
+                Logger.For<AnthropicProvider>().Trace(requestBody.ToString(Formatting.Indented));
             }
             catch
             {
@@ -829,7 +830,7 @@ namespace SmartHopper.Providers.Anthropic
                     var msg = errorObj["message"]?.ToString()
                               ?? errorObj["type"]?.ToString()
                               ?? "Provider returned an error";
-                    Debug.WriteLine($"[Anthropic] Decode: provider error in response body: {msg}");
+                    Logger.For<AnthropicProvider>().Error($"[Anthropic] Decode: provider error in response body: {msg}");
                     interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = msg });
                     return interactions;
                 }
@@ -879,7 +880,7 @@ namespace SmartHopper.Providers.Anthropic
                                 Arguments = block["input"] as JObject ?? new JObject(),
                                 Agent = AIAgent.ToolCall,
                             };
-                            Debug.WriteLine($"[Anthropic] Decoded tool_use: id={toolCall.Id}, name={toolCall.Name}");
+                            Logger.For<AnthropicProvider>().Trace($"[Anthropic] Decoded tool_use: id={toolCall.Id}, name={toolCall.Name}");
                             toolCalls.Add(toolCall);
                         }
                         else if (string.Equals(type, "tool_result", StringComparison.OrdinalIgnoreCase))
@@ -937,27 +938,27 @@ namespace SmartHopper.Providers.Anthropic
                     Metrics = this.DecodeMetrics(response),
                 };
 
-                Debug.WriteLine($"[Anthropic] Decode creating text interaction: content='{contentText.Substring(0, Math.Min(50, contentText.Length))}...', toolCalls={toolCalls.Count}, toolResults={toolResults.Count}");
+                Logger.For<AnthropicProvider>().Trace($"[Anthropic] Decode creating text interaction: content='{contentText.Substring(0, Math.Min(50, contentText.Length))}...', toolCalls={toolCalls.Count}, toolResults={toolResults.Count}");
 
                 interactions.Add(interaction);
 
                 if (toolCalls.Count > 0)
                 {
-                    Debug.WriteLine($"[Anthropic] Decode adding {toolCalls.Count} tool calls");
+                    Logger.For<AnthropicProvider>().Trace($"[Anthropic] Decode adding {toolCalls.Count} tool calls");
                     interactions.AddRange(toolCalls.Cast<IAIInteraction>());
                 }
 
                 if (toolResults.Count > 0)
                 {
-                    Debug.WriteLine($"[Anthropic] Decode adding {toolResults.Count} tool results");
+                    Logger.For<AnthropicProvider>().Trace($"[Anthropic] Decode adding {toolResults.Count} tool results");
                     interactions.AddRange(toolResults.Cast<IAIInteraction>());
                 }
 
-                Debug.WriteLine($"[Anthropic] Decode returning {interactions.Count} total interactions");
+                Logger.For<AnthropicProvider>().Trace($"[Anthropic] Decode returning {interactions.Count} total interactions");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[Anthropic] Decode error: {ex.Message}");
+                Logger.For<AnthropicProvider>().Exception(ex, $"[Anthropic] Decode error: {ex.Message}");
             }
 
             return interactions;
@@ -996,7 +997,7 @@ namespace SmartHopper.Providers.Anthropic
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[Anthropic] DecodeMetrics error: {ex.Message}");
+                Logger.For<AnthropicProvider>().Exception(ex, $"[Anthropic] DecodeMetrics error: {ex.Message}");
             }
 
             return new AIMetrics();
@@ -1147,7 +1148,7 @@ namespace SmartHopper.Providers.Anthropic
                     }
 
                     var type = parsed["type"]?.ToString();
-                    Debug.WriteLine($"[Anthropic] Streaming event type: {type}");
+                    Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] Streaming event type: {type}");
 
                     if (string.Equals(type, "content_block_start", StringComparison.OrdinalIgnoreCase))
                     {
@@ -1155,7 +1156,7 @@ namespace SmartHopper.Providers.Anthropic
                         var contentBlock = parsed["content_block"] as JObject;
                         var blockType = contentBlock?["type"]?.ToString();
                         var blockIndex = parsed["index"]?.Value<int>();
-                        Debug.WriteLine($"[Anthropic] content_block_start: index={blockIndex}, type={blockType}");
+                        Logger.For<AnthropicStreamingAdapter>().Error($"[Anthropic] content_block_start: index={blockIndex}, type={blockType}");
 
                         if (contentBlock != null && string.Equals(blockType, "tool_use", StringComparison.OrdinalIgnoreCase))
                         {
@@ -1169,7 +1170,7 @@ namespace SmartHopper.Providers.Anthropic
                             };
 
                             toolArgsBuffer.Clear();
-                            Debug.WriteLine($"[Anthropic] Tool call initialized: id={currentToolCall.Id}, name={currentToolCall.Name}, currentToolCall set to non-null");
+                            Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] Tool call initialized: id={currentToolCall.Id}, name={currentToolCall.Name}, currentToolCall set to non-null");
                         }
                     }
                     else if (string.Equals(type, "content_block_delta", StringComparison.OrdinalIgnoreCase))
@@ -1207,20 +1208,20 @@ namespace SmartHopper.Providers.Anthropic
                             if (!string.IsNullOrEmpty(partialJson))
                             {
                                 toolArgsBuffer.Append(partialJson);
-                                Debug.WriteLine($"[Anthropic] Streaming tool input delta: {partialJson}");
+                                Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] Streaming tool input delta: {partialJson}");
                             }
                         }
                     }
                     else if (string.Equals(type, "content_block_stop", StringComparison.OrdinalIgnoreCase))
                     {
                         var blockIndex = parsed["index"]?.Value<int>();
-                        Debug.WriteLine($"[Anthropic] content_block_stop: index={blockIndex}, hasCurrentToolCall={currentToolCall != null}");
+                        Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] content_block_stop: index={blockIndex}, hasCurrentToolCall={currentToolCall != null}");
 
                         // Tool arguments are complete - parse and store
                         if (currentToolCall != null)
                         {
                             var argsJson = toolArgsBuffer.ToString();
-                            Debug.WriteLine($"[Anthropic] Tool arguments complete: {argsJson}");
+                            Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] Tool arguments complete: {argsJson}");
 
                             JObject args;
                             try
@@ -1229,14 +1230,14 @@ namespace SmartHopper.Providers.Anthropic
                             }
                             catch (Exception ex)
                             {
-                                Debug.WriteLine($"[Anthropic] Failed to parse tool arguments: {ex.Message}");
+                                Logger.For<AnthropicStreamingAdapter>().Exception(ex, $"[Anthropic] Failed to parse tool arguments: {ex.Message}");
                                 args = new JObject();
                             }
 
                             currentToolCall = currentToolCall with { Arguments = args };
 
                             toolCalls.Add(currentToolCall);
-                            Debug.WriteLine($"[Anthropic] Added tool call to list: id={currentToolCall.Id}, name={currentToolCall.Name}, args={currentToolCall.Arguments}");
+                            Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] Added tool call to list: id={currentToolCall.Id}, name={currentToolCall.Name}, args={currentToolCall.Arguments}");
 
                             // Yield the tool call
                             var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
@@ -1248,7 +1249,7 @@ namespace SmartHopper.Providers.Anthropic
                         }
                         else
                         {
-                            Debug.WriteLine($"[Anthropic] content_block_stop but no currentToolCall (likely text block)");
+                            Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] content_block_stop but no currentToolCall (likely text block)");
                         }
                     }
                     else if (string.Equals(type, "message_start", StringComparison.OrdinalIgnoreCase))
@@ -1272,7 +1273,7 @@ namespace SmartHopper.Providers.Anthropic
                     }
                     else if (string.Equals(type, "message_delta", StringComparison.OrdinalIgnoreCase))
                     {
-                        Debug.WriteLine($"[Anthropic] message_delta full event: {parsed}");
+                        Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] message_delta full event: {parsed}");
 
                         if (parsed["usage"] is JObject usage)
                         {
@@ -1293,19 +1294,19 @@ namespace SmartHopper.Providers.Anthropic
                         // The stop_reason is nested under "delta" in message_delta events
                         var delta = parsed["delta"] as JObject;
                         var stopReason = delta?["stop_reason"]?.ToString();
-                        Debug.WriteLine($"[Anthropic] message_delta delta object: {delta}");
-                        Debug.WriteLine($"[Anthropic] message_delta stop_reason from delta: {stopReason}");
+                        Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] message_delta delta object: {delta}");
+                        Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] message_delta stop_reason from delta: {stopReason}");
 
                         if (!string.IsNullOrWhiteSpace(stopReason))
                         {
                             lastFinishReason = stopReason;
-                            Debug.WriteLine($"[Anthropic] Setting lastFinishReason to: {stopReason}");
+                            Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] Setting lastFinishReason to: {stopReason}");
                         }
                     }
                     else if (string.Equals(type, "message_stop", StringComparison.OrdinalIgnoreCase))
                     {
                         lastFinishReason = lastFinishReason ?? "stop";
-                        Debug.WriteLine($"[Anthropic] message_stop, final stop_reason: {lastFinishReason}");
+                        Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] message_stop, final stop_reason: {lastFinishReason}");
                         break;
                     }
                 }
@@ -1318,7 +1319,7 @@ namespace SmartHopper.Providers.Anthropic
                 var final = new AIReturn { Request = request, Status = finalStatus };
                 streamMetrics = streamMetrics with { FinishReason = lastFinishReason ?? streamMetrics.FinishReason };
 
-                Debug.WriteLine($"[Anthropic] Stream complete: textLen={textBuffer.Length}, toolCalls={toolCalls.Count}, finishReason={streamMetrics.FinishReason}, in={streamMetrics.InputTokensPrompt}, out={streamMetrics.OutputTokensGeneration}");
+                Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] Stream complete: textLen={textBuffer.Length}, toolCalls={toolCalls.Count}, finishReason={streamMetrics.FinishReason}, in={streamMetrics.InputTokensPrompt}, out={streamMetrics.OutputTokensGeneration}");
 
                 // Build final body with text and tool calls
                 var finalBuilder = AIBodyBuilder.Create();
@@ -1339,7 +1340,7 @@ namespace SmartHopper.Providers.Anthropic
                 // Add tool calls if present (already marked as NOT new since they were yielded)
                 foreach (var tc in toolCalls)
                 {
-                    Debug.WriteLine($"[Anthropic] Including tool call in final: {tc.Name}");
+                    Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] Including tool call in final: {tc.Name}");
                     finalBuilder.Add(tc, markAsNew: false);
                 }
 
@@ -1426,13 +1427,13 @@ namespace SmartHopper.Providers.Anthropic
 
             if (!supportsXhigh && string.Equals(effort, "xhigh", StringComparison.OrdinalIgnoreCase))
             {
-                Debug.WriteLine($"[AnthropicProvider] Model '{model}' does not support effort='xhigh'; falling back to 'high'.");
+                Logger.For<AnthropicStreamingAdapter>().Trace($"[AnthropicProvider] Model '{model}' does not support effort='xhigh'; falling back to 'high'.");
                 return "high";
             }
 
             if (!supportsMax && string.Equals(effort, "max", StringComparison.OrdinalIgnoreCase))
             {
-                Debug.WriteLine($"[AnthropicProvider] Model '{model}' does not support effort='max'; falling back to 'high'.");
+                Logger.For<AnthropicStreamingAdapter>().Trace($"[AnthropicProvider] Model '{model}' does not support effort='max'; falling back to 'high'.");
                 return "high";
             }
 
@@ -1493,7 +1494,7 @@ namespace SmartHopper.Providers.Anthropic
             var batchId = result["id"]?.ToString()
                 ?? throw new InvalidOperationException("[Anthropic] Batch creation response missing 'id'");
 
-            Debug.WriteLine($"[Anthropic] Batch submitted: id={batchId}, count={items.Count}");
+            Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] Batch submitted: id={batchId}, count={items.Count}");
             return new AIBatchSubmission(batchId, this.Name, firstEncodedBody, (IReadOnlyList<string>)customIds.AsReadOnly());
         }
 
@@ -1518,7 +1519,7 @@ namespace SmartHopper.Providers.Anthropic
 
             var json = JObject.Parse(content);
             var processingStatus = json["processing_status"]?.ToString() ?? string.Empty;
-            Debug.WriteLine($"[Anthropic] Batch status check: id={submission.BatchId}, processing_status={processingStatus}");
+            Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] Batch status check: id={submission.BatchId}, processing_status={processingStatus}");
 
             switch (processingStatus.ToLowerInvariant())
             {
@@ -1584,11 +1585,11 @@ namespace SmartHopper.Providers.Anthropic
             if (!response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                Debug.WriteLine($"[Anthropic] Batch cancel failed ({(int)response.StatusCode}): {content}");
+                Logger.For<AnthropicStreamingAdapter>().Warning($"[Anthropic] Batch cancel failed ({(int)response.StatusCode}): {content}");
             }
             else
             {
-                Debug.WriteLine($"[Anthropic] Batch {submission.BatchId} cancelled successfully");
+                Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] Batch {submission.BatchId} cancelled successfully");
             }
         }
 
