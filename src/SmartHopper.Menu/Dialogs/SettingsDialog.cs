@@ -98,8 +98,6 @@ namespace SmartHopper.Menu.Dialogs
                 DefaultAIProvider = this._settings.DefaultAIProvider,
                 DebounceTime = this._settings.DebounceTime,
                 BatchPollIntervalSeconds = this._settings.BatchPollIntervalSeconds,
-                TelemetryEnabled = this._settings.TelemetryEnabled,
-                DiagnosticsEnabled = this._settings.DiagnosticsEnabled,
             };
 
             this._logSettings = new LogSettings
@@ -109,8 +107,6 @@ namespace SmartHopper.Menu.Dialogs
                 LogFileEnabled = this._settings.LogFileEnabled,
                 LogFileLevel = this._settings.LogFileLevel,
                 LogRetentionDays = this._settings.LogRetentionDays,
-                OtlpLogEnabled = this._settings.OtlpLogEnabled,
-                OtlpLogLevel = this._settings.OtlpLogLevel,
             };
 
             this._trustedProvidersSettings = new TrustedProvidersSettings(this._settings.TrustedProviders);
@@ -239,15 +235,11 @@ namespace SmartHopper.Menu.Dialogs
                 this._settings.DefaultAIProvider = this._generalSettings.DefaultAIProvider;
                 this._settings.DebounceTime = this._generalSettings.DebounceTime;
                 this._settings.BatchPollIntervalSeconds = this._generalSettings.BatchPollIntervalSeconds;
-                this._settings.TelemetryEnabled = this._generalSettings.TelemetryEnabled;
-                this._settings.DiagnosticsEnabled = this._generalSettings.DiagnosticsEnabled;
                 this._settings.LiveOutputEnabled = this._logSettings.LiveOutputEnabled;
                 this._settings.LiveOutputLevel = this._logSettings.LiveOutputLevel;
                 this._settings.LogFileEnabled = this._logSettings.LogFileEnabled;
                 this._settings.LogFileLevel = this._logSettings.LogFileLevel;
                 this._settings.LogRetentionDays = this._logSettings.LogRetentionDays;
-                this._settings.OtlpLogEnabled = this._logSettings.OtlpLogEnabled;
-                this._settings.OtlpLogLevel = this._logSettings.OtlpLogLevel;
                 this._settings.SmartHopperAssistant.EnableCanvasButton = this._assistantSettings.EnableCanvasButton;
                 this._settings.SmartHopperAssistant.EnableAIGreeting = this._assistantSettings.EnableAIGreeting;
                 this._settings.SmartHopperAssistant.EnableSuggestedPrompts = this._assistantSettings.EnableSuggestedPrompts;
