@@ -46,10 +46,8 @@ namespace SmartHopper.Menu.Dialogs
 
         // Tab pages
         private readonly GeneralSettingsPage _generalPage;
-        private readonly LogSettingsPage _logPage;
         private readonly ProvidersSettingsPage _providersPage;
         private readonly AssistantSettingsPage _assistantPage;
-        private readonly FallbackSettingsPage _fallbackPage;
         private readonly List<GenericProviderSettingsPage> _providerPages;
 
         // Settings models
@@ -131,10 +129,8 @@ namespace SmartHopper.Menu.Dialogs
 
             // Create tab pages
             this._generalPage = new GeneralSettingsPage(this._providers);
-            this._logPage = new LogSettingsPage();
             this._assistantPage = new AssistantSettingsPage(this._providers);
             this._providersPage = new ProvidersSettingsPage(this._providers);
-            this._fallbackPage = new FallbackSettingsPage(this._providers);
             this._providerPages = new List<GenericProviderSettingsPage>();
 
             // Create provider-specific tabs
@@ -145,11 +141,9 @@ namespace SmartHopper.Menu.Dialogs
             }
 
             // Load settings into pages
-            this._generalPage.LoadSettings(this._generalSettings);
-            this._logPage.LoadSettings(this._logSettings);
+            this._generalPage.LoadSettings(this._generalSettings, this._logSettings, this._settings.ModalityFallback, this._settings.FallbackProviderPins);
             this._providersPage.LoadSettings(this._trustedProvidersSettings, this._providerIntegrityCheckMode);
             this._assistantPage.LoadSettings(this._assistantSettings);
-            this._fallbackPage.LoadSettings(this._settings.ModalityFallback, this._settings.FallbackProviderPins);
 
             this.CreateTabLayout();
         }
@@ -168,13 +162,6 @@ namespace SmartHopper.Menu.Dialogs
                 Content = this._generalPage,
             });
 
-            // Add Logging tab
-            tabControl.Pages.Add(new TabPage
-            {
-                Text = "Logging",
-                Content = this._logPage,
-            });
-
             // Add Providers tab
             tabControl.Pages.Add(new TabPage
             {
@@ -187,13 +174,6 @@ namespace SmartHopper.Menu.Dialogs
             {
                 Text = "Canvas Assistant",
                 Content = this._assistantPage,
-            });
-
-            // Add Fallback tab
-            tabControl.Pages.Add(new TabPage
-            {
-                Text = "Fallback",
-                Content = this._fallbackPage,
             });
 
             // Add provider-specific tabs
@@ -245,8 +225,7 @@ namespace SmartHopper.Menu.Dialogs
             try
             {
                 // Save settings from each tab page
-                this._generalPage.SaveSettings(this._generalSettings);
-                this._logPage.SaveSettings(this._logSettings);
+                this._generalPage.SaveSettings(this._generalSettings, this._logSettings, out var fallbackMode, out var fallbackPins);
                 this._providersPage.SaveSettings(this._trustedProvidersSettings, out var providerIntegrityCheckMode);
                 this._assistantPage.SaveSettings(this._assistantSettings);
 
@@ -280,7 +259,6 @@ namespace SmartHopper.Menu.Dialogs
                 this._settings.ProviderIntegrityCheckMode = providerIntegrityCheckMode;
 
                 // Save fallback settings
-                this._fallbackPage.SaveSettings(out var fallbackMode, out var fallbackPins);
                 this._settings.ModalityFallback = fallbackMode;
                 this._settings.FallbackProviderPins = fallbackPins;
 

@@ -30,8 +30,8 @@ Providers get a typed logger via `AIProvider.Log` (`ILogger` on the base class,
 
 ## UI
 
-- `Settings → Logging` exposes every per-sink toggle and level; the collector
-  shipping switch (`OtlpLogEnabled`/`OtlpLogLevel`) only ships while
+- `Settings → General` (Logs section) exposes every per-sink toggle and level; the
+  collector shipping switch (`OtlpLogEnabled`/`OtlpLogLevel`) only ships while
   `DiagnosticsEnabled` is on.
 - `SmartHopper → Diagnostics` offers: Open Log Folder (Debug builds), Copy
   Diagnostics for GitHub (a scrubbed markdown report on the clipboard), and
