@@ -84,15 +84,11 @@
     Generate InternalsVisibleTo attributes at build time.
     This grants internal access to official SmartHopper assemblies only,
     preventing external third-party code from using internal types like StyledMessageDialog.
-    
-    The PublicKey is updated by tools/Update-InternalsVisibleTo.ps1 which extracts it from signing.snk.
+
+    The PublicKey comes from Directory.Build.props (SmartHopperPublicKeyForIvt) and is
+    updated by tools/Update-InternalsVisibleTo.ps1 which extracts it from signing.snk.
     Run that script after generating or updating the signing key.
   -->
-  <PropertyGroup>
-    <SmartHopperPublicKey>This value is automatically replaced by the build tooling before official builds.</SmartHopperPublicKey>
-    <!-- Only emit a strong-name public key for InternalsVisibleTo when the assembly is actually signed. -->
-    <SmartHopperPublicKeyForIvt Condition="'$(SignAssembly)' != 'false'">$(SmartHopperPublicKey)</SmartHopperPublicKeyForIvt>
-  </PropertyGroup>
   <ItemGroup>
     <!-- Core assemblies -->
     <InternalsVisibleTo Include="SmartHopper.Core" Key="$(SmartHopperPublicKeyForIvt)" />
