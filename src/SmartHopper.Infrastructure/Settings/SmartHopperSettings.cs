@@ -591,7 +591,7 @@ namespace SmartHopper.Infrastructure.Settings
                     }
                     else
                     {
-                        Logger.For<SmartHopperSettings>().Error("[Decryption] Encryption key not found for decryption");
+                        Logger.For<SmartHopperSettings>().Warning("[Decryption] Encryption key not found for decryption");
                         return null;
                     }
                 }
@@ -622,7 +622,7 @@ namespace SmartHopper.Infrastructure.Settings
                 var existingKey = GetSecureData(keyName);
                 if (existingKey != null && existingKey.Length == 32)
                 {
-                    Logger.For<SmartHopperSettings>().Error("[SecureStore] Retrieved existing encryption key from OS secure store");
+                    Logger.For<SmartHopperSettings>().Trace("[SecureStore] Retrieved existing encryption key from OS secure store");
                     return existingKey;
                 }
 
@@ -635,7 +635,7 @@ namespace SmartHopper.Infrastructure.Settings
                     // Store the key securely
                     if (StoreSecureData(keyName, newKey))
                     {
-                        Logger.For<SmartHopperSettings>().Error("[SecureStore] Generated and stored new encryption key in OS secure store");
+                        Logger.For<SmartHopperSettings>().Trace("[SecureStore] Generated and stored new encryption key in OS secure store");
                         return newKey;
                     }
                     else
@@ -871,7 +871,7 @@ namespace SmartHopper.Infrastructure.Settings
             var key = GetOrCreateEncryptionKey();
             if (key == null)
             {
-                Logger.For<SmartHopperSettings>().Error("[Migration] Cannot migrate legacy secrets to SH04: secure store key unavailable.");
+                Logger.For<SmartHopperSettings>().Warning("[Migration] Cannot migrate legacy secrets to SH04: secure store key unavailable.");
                 return;
             }
 
@@ -1085,10 +1085,10 @@ namespace SmartHopper.Infrastructure.Settings
                 // Log TrustedProviders content
                 if (this.TrustedProviders != null)
                 {
-                    Logger.For<SmartHopperSettings>().Error($"[Settings] TrustedProviders count: {this.TrustedProviders.Count}");
+                    Logger.For<SmartHopperSettings>().Trace($"[Settings] TrustedProviders count: {this.TrustedProviders.Count}");
                     foreach (var kvp in this.TrustedProviders)
                     {
-                        Logger.For<SmartHopperSettings>().Error($"[Settings]   - {kvp.Key} = {kvp.Value}");
+                        Logger.For<SmartHopperSettings>().Trace($"[Settings]   - {kvp.Key} = {kvp.Value}");
                     }
                 }
                 else
@@ -1100,7 +1100,7 @@ namespace SmartHopper.Infrastructure.Settings
                 {
                     foreach (var providerKvp in this.ProviderSettings)
                     {
-                        Logger.For<SmartHopperSettings>().Error($"[Settings] Provider '{providerKvp.Key}' has {providerKvp.Value?.Count ?? 0} settings");
+                        Logger.For<SmartHopperSettings>().Trace($"[Settings] Provider '{providerKvp.Key}' has {providerKvp.Value?.Count ?? 0} settings");
                         if (providerKvp.Value != null)
                         {
                             foreach (var settingKvp in providerKvp.Value)
@@ -1109,7 +1109,7 @@ namespace SmartHopper.Infrastructure.Settings
                                 var isSecret = this.GetProviderDescriptors(providerKvp.Key)
                                     .FirstOrDefault(d => d.Name == settingKvp.Key)?.IsSecret ?? false;
 
-                                Logger.For<SmartHopperSettings>().Error($"[Settings]   - {settingKvp.Key} = {(isSecret ? "<secret>" : settingKvp.Value)}");
+                                Logger.For<SmartHopperSettings>().Trace($"[Settings]   - {settingKvp.Key} = {(isSecret ? "<secret>" : settingKvp.Value)}");
                             }
                         }
                     }

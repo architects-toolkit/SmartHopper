@@ -370,7 +370,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 {
                                     try
                                     {
-                                        Logger.For<StreamProcessingResult>().Error("[ConversationSession] Retrying provider turn after summarization (non-streaming exception)");
+                                        Logger.For<StreamProcessingResult>().Warning("[ConversationSession] Retrying provider turn after summarization (non-streaming exception)");
                                         nsPrepared = await this.ExecuteProviderTurnAsync(options, turnId, linkedCts.Token).ConfigureAwait(false);
                                         lastReturn = nsPrepared;
 
@@ -537,7 +537,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             {
                                 try
                                 {
-                                    Logger.For<StreamProcessingResult>().Error("[ConversationSession] Retrying as non-streaming after summarization (streaming exception)");
+                                    Logger.For<StreamProcessingResult>().Warning("[ConversationSession] Retrying as non-streaming after summarization (streaming exception)");
                                     var composite = await this.ExecuteProviderTurnAsync(options, state.TurnId, linkedCts.Token).ConfigureAwait(false);
                                     lastReturn = composite;
                                     this.NotifyFinal(composite);

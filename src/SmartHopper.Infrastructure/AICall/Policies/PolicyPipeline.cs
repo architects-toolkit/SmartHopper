@@ -174,7 +174,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies
                     await policy.ApplyAsync(context).ConfigureAwait(false);
                     try
                     {
-                        Logger.For<PolicyPipeline>().Error($"[PolicyPipeline] after  {policy.GetType().Name}: interactions={response.Body?.InteractionsCount ?? 0}, new={string.Join(",", response.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
+                        Logger.For<PolicyPipeline>().Trace($"[PolicyPipeline] after  {policy.GetType().Name}: interactions={response.Body?.InteractionsCount ?? 0}, new={string.Join(",", response.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
                     }
                     catch
                     {

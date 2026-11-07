@@ -92,7 +92,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             if (this._summarizationAttempted)
             {
-                Logger.For<ConversationSession>().Error($"[ConversationSession] Reactive summarization skipped (already attempted this turn). Reason: {reason}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession] Reactive summarization skipped (already attempted this turn). Reason: {reason}");
                 return false;
             }
 
@@ -100,7 +100,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var summarized = await this.TrySummarizeContextAsync(ct).ConfigureAwait(false);
             if (!summarized)
             {
-                Logger.For<ConversationSession>().Error("[ConversationSession] Reactive summarization failed (TrySummarizeContextAsync returned false). Not retrying.");
+                Logger.For<ConversationSession>().Warning("[ConversationSession] Reactive summarization failed (TrySummarizeContextAsync returned false). Not retrying.");
                 return false;
             }
 
@@ -629,7 +629,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var newInteractions = ret.Body.GetNewInteractions();
             try
             {
-                Logger.For<ConversationSession>().Error($"[ConversationSession] NotifyInteractionCompleted: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession] NotifyInteractionCompleted: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
 #if DEBUG
                 try
                 {
@@ -657,7 +657,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             try
             {
-                Logger.For<ConversationSession>().Error($"[ConversationSession] NotifyFinal: total={ret?.Body?.Interactions?.Count ?? 0}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession] NotifyFinal: total={ret?.Body?.Interactions?.Count ?? 0}");
 #if DEBUG
                 try
                 {
@@ -928,7 +928,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     .Select(g => $"{g.Key} x{g.Count()} [{string.Join(",", g.Select(t => t?.Name ?? string.Empty))}]");
 
                 var dupSummary = dupGroups.Any() ? string.Join("; ", dupGroups) : "none";
-                Logger.For<ConversationSession>().Error($"[ConversationSession.Debug] {phase}: tool_calls total={total}, duplicates={dupSummary}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.Debug] {phase}: tool_calls total={total}, duplicates={dupSummary}");
             }
             catch
             {
