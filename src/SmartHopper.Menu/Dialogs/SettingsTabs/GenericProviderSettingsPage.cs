@@ -40,6 +40,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         private readonly Dictionary<string, Control> _controls;
         private readonly Dictionary<string, string> _originalValues;
         private readonly Dictionary<Type, Func<SettingDescriptor, Control>> _controlFactories;
+        private UITimer? _refreshTimer;
 
         // Bound each control's preferred width: drop-downs size to their longest
         // item, and inside the Scrollable every scaled row stretches to the
