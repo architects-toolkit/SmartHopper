@@ -434,6 +434,35 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
+                    Model = "gpt-6.1-terra",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9995,
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 10, 26),
+                    Pricing = new AIModelPricing
+                    {
+                        TextInput = 0.000001m,
+                        TextOutput = 0.000005m,
+                        CacheRead = 0.00000005m,
+                        CacheWrite = 0.00000125m,
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        TextInput = 0.0000005m,
+                        TextOutput = 0.0000025m,
+                        CacheRead = 0.000000025m,
+                        CacheWrite = 0.000000625m,
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "gpt-6.1-terra:batch" },
+                },
+new AIModelCapabilities
+                {
+                    Provider = provider,
                     Model = "gpt-audio-mini-2025-12-15",
                     Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
                     Default = AICapability.Audio2Text,
