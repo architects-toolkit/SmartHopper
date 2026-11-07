@@ -69,13 +69,10 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             };
 
             this.CreateLayout();
-<<<<<<< HEAD
-=======
             this._refreshTimer = new UITimer { Interval = 2 };
             this._refreshTimer.Elapsed += (sender, e) => this.SafeReloadProviderSettings();
             this._refreshTimer.Start();
             this.UnLoad += (sender, e) => this._refreshTimer?.Stop();
->>>>>>> 4d1cfab1 (fix(settings): add thread-safety to provider settings, normalize stale Cloud status, guard periodic refresh)
         }
 
         /// <summary>
