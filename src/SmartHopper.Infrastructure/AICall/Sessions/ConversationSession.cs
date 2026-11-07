@@ -1093,11 +1093,19 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 result.AccumulatedText = TextStreamCoalescer.Coalesce(result.AccumulatedText, textDelta, turnId, preserveMetrics: false);
                                 textInteractions.Add(textDelta);
                             }
+                            else if (interaction is AIInteractionToolResult)
+                            {
+                                // AIInteractionToolResult derives from AIInteractionToolCall and must be
+                                // handled before the call branch: a result is not an updatable call.
+                                this.AppendToSessionHistory(interaction);
+                                nonTextInteractions.Add(interaction);
+                            }
                             else if (interaction is AIInteractionToolCall tc)
                             {
-                                // Check if this tool call already exists in history
+                                // Check if this tool call already exists in history (excluding results,
+                                // which share the call base type and Id keyspace)
                                 var exists = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?
-                                    .Any(x => !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
+                                    .Any(x => x is not AIInteractionToolResult && !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
 
                                 if (!exists)
                                 {
