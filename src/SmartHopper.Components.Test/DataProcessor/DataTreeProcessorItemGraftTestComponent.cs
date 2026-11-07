@@ -28,6 +28,7 @@ using Grasshopper.Kernel.Types;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Test.DataProcessor
 {
     /// <summary>
@@ -123,7 +124,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                     };
 
                     var (dataCount, iterations) = DataTreeProcessor.CalculateProcessingMetrics(trees, options);
-                    Debug.WriteLine($"[ItemGraft] Iterations: {iterations}, DataCount: {dataCount}");
+                    Logger.For<Worker>().Trace($"[ItemGraft] Iterations: {iterations}, DataCount: {dataCount}");
 
                     // ItemGraft: function receives one item from each tree at a time
                     async Task<Dictionary<string, List<GH_Integer>>> Func(Dictionary<string, List<GH_Integer>> items)

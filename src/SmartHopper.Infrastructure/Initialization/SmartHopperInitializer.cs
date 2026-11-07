@@ -28,6 +28,7 @@ using SmartHopper.Infrastructure.Utils;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Catalogue;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 using SmartHopper.ProviderSdk.Utils;
 namespace SmartHopper.Infrastructure.Initialization
@@ -60,7 +61,7 @@ namespace SmartHopper.Infrastructure.Initialization
 
                 try
                 {
-                    Debug.WriteLine("[SmartHopperInitializer] Starting initialization sequence");
+                    Logger.Error(typeof(SmartHopperInitializer).FullName, "[SmartHopperInitializer] Starting initialization sequence");
 
                     // Wire Provider SDK host adapters so SDK code paths delegate to SmartHopper infrastructure.
                     ProviderSdkHost.ProviderTrust = new SmartHopperProviderTrustHost();
@@ -75,20 +76,20 @@ namespace SmartHopper.Infrastructure.Initialization
 
                     // Step 1: Load settings first (but don't refresh providers yet)
                     var settings = SmartHopperSettings.Instance;
-                    Debug.WriteLine("[SmartHopperInitializer] Settings loaded");
+                    Logger.Error(typeof(SmartHopperInitializer).FullName, "[SmartHopperInitializer] Settings loaded");
 
                     var displayVersion = VersionHelper.GetDisplayVersion();
                     var fullVersion = VersionHelper.GetFullVersion();
-                    Debug.WriteLine($"[SmartHopperInitializer] Version (display): {displayVersion}");
-                    Debug.WriteLine($"[SmartHopperInitializer] Version (full): {fullVersion}");
+                    Logger.Error(typeof(SmartHopperInitializer).FullName, $"[SmartHopperInitializer] Version (display): {displayVersion}");
+                    Logger.Error(typeof(SmartHopperInitializer).FullName, $"[SmartHopperInitializer] Version (full): {fullVersion}");
                     RhinoApp.WriteLine($"Loading SmartHopper {displayVersion}");
 
                     // Step 2: Access the ProviderManager to initialize it
                     var providerManager = ProviderManager.Instance;
-                    Debug.WriteLine("[SmartHopperInitializer] Provider manager initialized");
+                    Logger.Error(typeof(SmartHopperInitializer).FullName, "[SmartHopperInitializer] Provider manager initialized");
 
                     // Step 3: Now that both are initialized independently, refresh providers with settings
-                    Debug.WriteLine("[SmartHopperInitializer] Refreshing providers asynchronously");
+                    Logger.Error(typeof(SmartHopperInitializer).FullName, "[SmartHopperInitializer] Refreshing providers asynchronously");
 
                     // Fire-and-forget async initialization outside the lock
                     _ = Task.Run(async () =>
@@ -108,22 +109,22 @@ namespace SmartHopper.Infrastructure.Initialization
                             // every platform; on macOS an unrecoverable SH02: value simply fails to
                             // decrypt, stays in place, and is still cleared by the menu warning flow.
                             settings.MigrateLegacySecretsToSH04();
-                            Debug.WriteLine("[SmartHopperInitializer] Legacy secrets to SH04: migration check completed");
+                            Logger.Trace(typeof(SmartHopperInitializer).FullName, ("[SmartHopperInitializer] Legacy secrets to SH04: migration check completed");
 
                             // Step 5: Now that both settings and providers are fully initialized, run integrity check
                             // Run integrity check on UI thread as it may interact with Rhino/Grasshopper
                             RhinoApp.InvokeOnUiThread(() =>
                             {
                                 settings.IntegrityCheck();
-                                Debug.WriteLine("[SmartHopperInitializer] Settings integrity check completed");
+                                Logger.Trace(typeof(SmartHopperInitializer).FullName, "[SmartHopperInitializer] Settings integrity check completed");
                             });
 
-                            Debug.WriteLine("[SmartHopperInitializer] Initialization complete");
+                            Logger.Trace(typeof(SmartHopperInitializer).FullName, ("[SmartHopperInitializer] Initialization complete");
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"[SmartHopperInitializer] Async initialization error: {ex.Message}");
-                            Debug.WriteLine($"[SmartHopperInitializer] Stack trace: {ex.StackTrace}");
+                            Logger.Exception(typeof(SmartHopperInitializer).FullName, ex, $"[SmartHopperInitializer] Async initialization error: {ex.Message}");
+                            Logger.Exception(typeof(SmartHopperInitializer).FullName, ex, $"[SmartHopperInitializer] Stack trace: {ex.StackTrace}");
                         }
                     });
 
@@ -131,8 +132,8 @@ namespace SmartHopper.Infrastructure.Initialization
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[SmartHopperInitializer] Initialization error: {ex.Message}");
-                    Debug.WriteLine($"[SmartHopperInitializer] Stack trace: {ex.StackTrace}");
+                    Logger.Exception(typeof(SmartHopperInitializer).FullName, ex, $"[SmartHopperInitializer] Initialization error: {ex.Message}");
+                    Logger.Exception(typeof(SmartHopperInitializer).FullName, ex, $"[SmartHopperInitializer] Stack trace: {ex.StackTrace}");
                 }
             }
         }
@@ -147,7 +148,7 @@ namespace SmartHopper.Infrastructure.Initialization
             {
                 try
                 {
-                    Debug.WriteLine("[SmartHopperInitializer] Reinitializing SmartHopper");
+                    Logger.Error(typeof(SmartHopperInitializer).FullName, "[SmartHopperInitializer] Reinitializing SmartHopper");
 
                     var providerManager = ProviderManager.Instance;
                     var settings = SmartHopperSettings.Instance;
@@ -164,12 +165,12 @@ namespace SmartHopper.Infrastructure.Initialization
                     RhinoApp.InvokeOnUiThread(() =>
                     {
                         settings.RefreshProvidersLocalStorage();
-                        Debug.WriteLine("[SmartHopperInitializer] Reinitialization complete");
+                        Logger.Error(typeof(SmartHopperInitializer).FullName, "[SmartHopperInitializer] Reinitialization complete");
                     });
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[SmartHopperInitializer] Reinitialization error: {ex.Message}");
+                    Logger.Exception(typeof(SmartHopperInitializer).FullName, ex, $"[SmartHopperInitializer] Reinitialization error: {ex.Message}");
                 }
             });
         }

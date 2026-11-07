@@ -24,6 +24,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
 using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Metadata;
 namespace SmartHopper.Infrastructure.AIProviders
 {
@@ -197,7 +198,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             catch (ReflectionTypeLoadException ex)
             {
                 exportedTypes = ex.Types.Where(t => t != null).ToArray()!;
-                Debug.WriteLine($"[ProviderAssemblyLoader] ReflectionTypeLoadException in {Path.GetFileName(assemblyPath)}: {ex.Message}");
+                Logger.Exception(typeof(ProviderAssemblyLoader).FullName, ex, $"[ProviderAssemblyLoader] ReflectionTypeLoadException in {Path.GetFileName(assemblyPath)}: {ex.Message}");
             }
 
             var factoryTypeFromHost = typeof(IAIProviderFactory);
@@ -238,7 +239,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     diagnostic = compatDiagnostic;
                     return ProviderLoadOutcome.SdkVersionIncompatible;
                 case SdkCompatibility.CompatibilityResult.MissingMetadata:
-                    Debug.WriteLine($"[ProviderAssemblyLoader] {compatDiagnostic}");
+                    Logger.Error(typeof(ProviderAssemblyLoader).FullName, $"[ProviderAssemblyLoader] {compatDiagnostic}");
                     break;
             }
 

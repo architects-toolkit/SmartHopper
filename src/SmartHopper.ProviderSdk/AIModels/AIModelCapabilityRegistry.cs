@@ -21,6 +21,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.ProviderSdk.AIModels
 {
     /// <summary>
@@ -279,7 +280,7 @@ namespace SmartHopper.ProviderSdk.AIModels
         {
             if (string.IsNullOrWhiteSpace(provider) || requiredCapability == AICapability.None)
             {
-                Debug.WriteLine($"[AIModelCapabilityRegistry.SelectBestModel] Invalid args -> provider='{provider}', required='{requiredCapability.ToDetailedString()}'");
+                Logger.For<AIModelCapabilityRegistry>().Warning($"[AIModelCapabilityRegistry.SelectBestModel] Invalid args -> provider='{provider}', required='{requiredCapability.ToDetailedString()}'");
                 return string.Empty;
             }
 

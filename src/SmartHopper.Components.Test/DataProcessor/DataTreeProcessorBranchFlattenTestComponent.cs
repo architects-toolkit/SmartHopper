@@ -29,6 +29,7 @@ using Grasshopper.Kernel.Types;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Test.DataProcessor
 {
     /// <summary>
@@ -114,7 +115,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                     };
 
                     var (dataCount, iterations) = DataTreeProcessor.CalculateProcessingMetrics(trees, options);
-                    Debug.WriteLine($"[BranchFlatten] Iterations: {iterations}, DataCount: {dataCount}");
+                    Logger.For<Worker>().Trace($"[BranchFlatten] Iterations: {iterations}, DataCount: {dataCount}");
 
                     // BranchFlatten: function receives ALL items from ALL branches as a single flattened list
                     async Task<Dictionary<string, List<GH_Integer>>> Func(Dictionary<string, List<GH_Integer>> branches)

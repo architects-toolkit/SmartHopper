@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Infrastructure.Mcp
 {
     /// <summary>
@@ -104,7 +105,7 @@ namespace SmartHopper.Infrastructure.Mcp
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[Mcp] Error disposing server on port {port}: {ex.Message}");
+                    Logger.Exception(typeof(McpServerLifecycle).FullName, ex, $"[Mcp] Error disposing server on port {port}: {ex.Message}");
                 }
 
                 Slots.Remove(port);

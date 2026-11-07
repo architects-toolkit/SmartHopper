@@ -30,6 +30,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
     using SmartHopper.ProviderSdk.AIModels;
+    using SmartHopper.ProviderSdk.Logging;
     /// <summary>
     /// ConversationSession partial class containing context management and auto-summarization logic.
     /// </summary>
@@ -76,7 +77,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             if (this.ShouldSummarizeContext())
             {
                 var usage = this.Request?.Body?.Metrics?.ContextUsagePercent;
-                Debug.WriteLine($"[ConversationSession] Context usage at {usage:P1}, triggering pre-emptive summarization");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession] Context usage at {usage:P1}, triggering pre-emptive summarization");
                 await this.TrySummarizeContextAsync(ct).ConfigureAwait(false);
             }
         }
@@ -91,7 +92,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         {
             if (this._summarizationAttempted)
             {
-                Debug.WriteLine("[ConversationSession.ContextManagement] Summarization already attempted this turn, skipping");
+                Logger.For<ConversationSession>().Warning("[ConversationSession.ContextManagement] Summarization already attempted this turn, skipping");
                 return false;
             }
 
@@ -109,7 +110,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     ? AIModelCapabilityRegistry.Instance.GetCapabilities(provider, model)?.ContextLimit
                     : null;
 
-                Debug.WriteLine($"[ConversationSession.ContextManagement] Starting context summarization: tokens={currentTokens}/{contextLimit}, usage={usage:P1}");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.ContextManagement] Starting context summarization: tokens={currentTokens}/{contextLimit}, usage={usage:P1}");
 
                 // Get the current conversation history
                 var interactions = this.Request?.Body?.Interactions?.ToList() ?? new List<IAIInteraction>();
@@ -119,7 +120,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 if (lastUserMessage == null)
                 {
-                    Debug.WriteLine("[ConversationSession.ContextManagement] No user message found in history, cannot summarize");
+                    Logger.For<ConversationSession>().Warning("[ConversationSession.ContextManagement] No user message found in history, cannot summarize");
                     return false;
                 }
 
@@ -133,7 +134,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 if (conversationToSummarize.Count < 2)
                 {
-                    Debug.WriteLine("[ConversationSession.ContextManagement] Not enough conversation history to summarize");
+                    Logger.For<ConversationSession>().Trace("[ConversationSession.ContextManagement] Not enough conversation history to summarize");
                     return false;
                 }
 
@@ -158,7 +159,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 if (summaryResult?.Status != AICallStatus.Finished)
                 {
-                    Debug.WriteLine($"[ConversationSession.ContextManagement] Summarization failed: {summaryResult?.Messages?.FirstOrDefault()?.Message}");
+                    Logger.For<ConversationSession>().Warning($"[ConversationSession.ContextManagement] Summarization failed: {summaryResult?.Messages?.FirstOrDefault()?.Message}");
                     return false;
                 }
 
@@ -172,13 +173,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                 var newTokens = this.Request?.Body?.GetEffectiveTokenCount() ?? 0;
                 var newUsage = this.Request?.Body?.Metrics?.ContextUsagePercent;
-                Debug.WriteLine($"[ConversationSession.ContextManagement] Summarization complete: {currentTokens} -> {newTokens} tokens ({usage:P1} -> {newUsage:P1})");
+                Logger.For<ConversationSession>().Trace($"[ConversationSession.ContextManagement] Summarization complete: {currentTokens} -> {newTokens} tokens ({usage:P1} -> {newUsage:P1})");
 
                 return true;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession.ContextManagement] Error during summarization: {ex.Message}");
+                Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession.ContextManagement] Error during summarization: {ex.Message}");
                 return false;
             }
         }
@@ -257,7 +258,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ConversationSession.Debug] Error appending summarized marker: {ex.Message}");
+                Logger.For<ConversationSession>().Exception(ex, $"[ConversationSession.Debug] Error appending summarized marker: {ex.Message}");
             }
         }
 

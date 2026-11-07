@@ -20,6 +20,7 @@ using System;
 using System.Diagnostics;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Infrastructure.Utils
 {
     /// <summary>
@@ -43,7 +44,7 @@ namespace SmartHopper.Infrastructure.Utils
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[VersionHelper] Error getting full version: {ex.Message}");
+                Logger.Exception(typeof(VersionHelper).FullName, ex, $"[VersionHelper] Error getting full version: {ex.Message}");
                 return "Unknown";
             }
         }
@@ -69,7 +70,7 @@ namespace SmartHopper.Infrastructure.Utils
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[VersionHelper] Error getting display version: {ex.Message}");
+                Logger.Exception(typeof(VersionHelper).FullName, ex, $"[VersionHelper] Error getting display version: {ex.Message}");
                 return "Unknown";
             }
         }

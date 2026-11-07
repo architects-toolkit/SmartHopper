@@ -24,6 +24,7 @@ using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 namespace SmartHopper.Infrastructure.AICall.Fallback
 {
@@ -54,7 +55,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
         {
             if (fallback == null) throw new ArgumentNullException(nameof(fallback));
             RegisteredFallbacks.Add(fallback);
-            Debug.WriteLine($"[FallbackResolver] Registered: {fallback.Name} (handles {fallback.Handles})");
+            Logger.For<ModalityFallbackResolver>().Trace($"[FallbackResolver] Registered: {fallback.Name} (handles {fallback.Handles})");
         }
 
         /// <summary>
@@ -154,7 +155,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                     isPinned = true;
                     if (!fb.IsAvailable(pin.Provider))
                     {
-                        Debug.WriteLine($"[FallbackResolver] Pinned provider '{pin.Provider}' cannot perform {fb.Name}");
+                        Logger.For<ModalityFallbackResolver>().Warning($"[FallbackResolver] Pinned provider '{pin.Provider}' cannot perform {fb.Name}");
                         return null;
                     }
 

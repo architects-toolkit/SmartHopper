@@ -26,6 +26,7 @@ using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Initialization;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Menu.Items;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Menu
@@ -38,14 +39,14 @@ namespace SmartHopper.Menu
         public override GH_LoadingInstruction PriorityLoad()
         {
             // Initialize the SmartHopper system before we do anything else
-            Debug.WriteLine("SmartHopper initializing during assembly load");
+            Logger.For<SmartHopperMenu>().Trace("SmartHopper initializing during assembly load");
             try
             {
                 SmartHopperInitializer.Initialize();
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error initializing SmartHopper: {ex.Message}");
+                Logger.For<SmartHopperMenu>().Exception(ex, $"Error initializing SmartHopper: {ex.Message}");
             }
 
             // Start a timer to check for the editor
@@ -96,7 +97,7 @@ namespace SmartHopper.Menu
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[SmartHopperMenu] Failed to show macOS key upgrade warning: {ex.Message}");
+                Logger.For<SmartHopperMenu>().Exception(ex, $"[SmartHopperMenu] Failed to show macOS key upgrade warning: {ex.Message}");
             }
         }
 
@@ -117,7 +118,7 @@ namespace SmartHopper.Menu
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Failed to add menu: {ex.Message}");
+                Logger.For<SmartHopperMenu>().Exception(ex, $"Failed to add menu: {ex.Message}");
             }
         }
 
