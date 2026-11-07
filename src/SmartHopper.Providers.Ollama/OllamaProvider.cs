@@ -34,6 +34,7 @@ using SmartHopper.ProviderSdk.AICall.JsonSchemas;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Streaming;
 
 namespace SmartHopper.Providers.Ollama
@@ -149,7 +150,7 @@ namespace SmartHopper.Providers.Ollama
             double temperature = p?.Temperature ?? this.GetSetting<double>("Temperature");
             string? toolFilter = request.Body.ToolFilter;
 
-            Debug.WriteLine($"[Ollama] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
+            Logger.For<OllamaProvider>().Trace($"[Ollama] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
 
             // Simple sequential encoding (same approach as OpenAI/MistralAI/DeepSeek providers).
             var convertedMessages = new JArray();
@@ -177,7 +178,7 @@ namespace SmartHopper.Providers.Ollama
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[Ollama] Warning: Could not encode interaction: {ex.Message}");
+                    Logger.For<OllamaProvider>().Exception(ex, $"[Ollama] Warning: Could not encode interaction: {ex.Message}");
                 }
             }
 
@@ -224,7 +225,7 @@ namespace SmartHopper.Providers.Ollama
             {
                 if (this.TryWrapJsonSchema(request.Body.JsonOutputSchema, out var wrappedSchema, out var wrapperInfo))
                 {
-                    Debug.WriteLine($"[Ollama] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    Logger.For<OllamaProvider>().Error($"[Ollama] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
 
                     // Ollama supports json_object response_format on its OpenAI-compatible endpoint
                     requestBody["response_format"] = new JObject { ["type"] = "json_object" };
@@ -268,7 +269,7 @@ namespace SmartHopper.Providers.Ollama
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[Ollama] Encode(IAIInteraction) error: {ex.Message}");
+                Logger.For<OllamaProvider>().Exception(ex, $"[Ollama] Encode(IAIInteraction) error: {ex.Message}");
                 return string.Empty;
             }
         }
@@ -364,7 +365,7 @@ namespace SmartHopper.Providers.Ollama
                     var errMsg = errorObj["message"]?.ToString()
                               ?? errorObj["type"]?.ToString()
                               ?? "Provider returned an error";
-                    Debug.WriteLine($"[Ollama] Decode: provider error in response body: {errMsg}");
+                    Logger.For<OllamaProvider>().Warning($"[Ollama] Decode: provider error in response body: {errMsg}");
                     interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = errMsg });
                     return interactions;
                 }
@@ -374,7 +375,7 @@ namespace SmartHopper.Providers.Ollama
                 var message = firstChoice?["message"] as JObject;
                 if (message == null)
                 {
-                    Debug.WriteLine("[Ollama] Decode: No message found in response");
+                    Logger.For<OllamaProvider>().Trace("[Ollama] Decode: No message found in response");
                     return interactions;
                 }
 
@@ -407,7 +408,7 @@ namespace SmartHopper.Providers.Ollama
                 var wrapperInfo = JsonSchemaService.Instance.GetCurrentWrapperInfo();
                 if (wrapperInfo != null && wrapperInfo.IsWrapped)
                 {
-                    Debug.WriteLine($"[Ollama] Unwrapping response content using wrapper info (central): Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    Logger.For<OllamaProvider>().Trace($"[Ollama] Unwrapping response content using wrapper info (central): Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
                     content = JsonSchemaService.Instance.Unwrap(content, wrapperInfo);
                 }
 
@@ -464,7 +465,7 @@ namespace SmartHopper.Providers.Ollama
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[Ollama] Decode error: {ex.Message}");
+                Logger.For<OllamaProvider>().Exception(ex, $"[Ollama] Decode error: {ex.Message}");
             }
 
             return interactions;

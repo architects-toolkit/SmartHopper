@@ -34,6 +34,7 @@ using SmartHopper.ProviderSdk.AICall.JsonSchemas;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Streaming;
 
 namespace SmartHopper.Providers.LocalAI
@@ -148,7 +149,7 @@ namespace SmartHopper.Providers.LocalAI
             double temperature = p?.Temperature ?? this.GetSetting<double>("Temperature");
             string? toolFilter = request.Body.ToolFilter;
 
-            Debug.WriteLine($"[LocalAI] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
+            Logger.For<LocalAIProvider>().Trace($"[LocalAI] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
 
             // Simple sequential encoding (same approach as OpenAI/MistralAI/DeepSeek providers).
             var convertedMessages = new JArray();
@@ -176,7 +177,7 @@ namespace SmartHopper.Providers.LocalAI
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[LocalAI] Warning: Could not encode interaction: {ex.Message}");
+                    Logger.For<LocalAIProvider>().Exception(ex, $"[LocalAI] Warning: Could not encode interaction: {ex.Message}");
                 }
             }
 
@@ -218,7 +219,7 @@ namespace SmartHopper.Providers.LocalAI
             {
                 if (this.TryWrapJsonSchema(request.Body.JsonOutputSchema, out var wrappedSchema, out var wrapperInfo))
                 {
-                    Debug.WriteLine($"[LocalAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    Logger.For<LocalAIProvider>().Error($"[LocalAI] Schema wrapper info stored (central): IsWrapped={wrapperInfo.IsWrapped}, Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
 
                     // LocalAI llama.cpp backends honor json_object response_format
                     requestBody["response_format"] = new JObject { ["type"] = "json_object" };
@@ -262,7 +263,7 @@ namespace SmartHopper.Providers.LocalAI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[LocalAI] Encode(IAIInteraction) error: {ex.Message}");
+                Logger.For<LocalAIProvider>().Exception(ex, $"[LocalAI] Encode(IAIInteraction) error: {ex.Message}");
                 return string.Empty;
             }
         }
@@ -358,7 +359,7 @@ namespace SmartHopper.Providers.LocalAI
                     var errMsg = errorObj["message"]?.ToString()
                               ?? errorObj["type"]?.ToString()
                               ?? "Provider returned an error";
-                    Debug.WriteLine($"[LocalAI] Decode: provider error in response body: {errMsg}");
+                    Logger.For<LocalAIProvider>().Warning($"[LocalAI] Decode: provider error in response body: {errMsg}");
                     interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = errMsg });
                     return interactions;
                 }
@@ -368,7 +369,7 @@ namespace SmartHopper.Providers.LocalAI
                 var message = firstChoice?["message"] as JObject;
                 if (message == null)
                 {
-                    Debug.WriteLine("[LocalAI] Decode: No message found in response");
+                    Logger.For<LocalAIProvider>().Trace("[LocalAI] Decode: No message found in response");
                     return interactions;
                 }
 
@@ -401,7 +402,7 @@ namespace SmartHopper.Providers.LocalAI
                 var wrapperInfo = JsonSchemaService.Instance.GetCurrentWrapperInfo();
                 if (wrapperInfo != null && wrapperInfo.IsWrapped)
                 {
-                    Debug.WriteLine($"[LocalAI] Unwrapping response content using wrapper info (central): Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
+                    Logger.For<LocalAIProvider>().Trace($"[LocalAI] Unwrapping response content using wrapper info (central): Type={wrapperInfo.WrapperType}, Property={wrapperInfo.PropertyName}");
                     content = JsonSchemaService.Instance.Unwrap(content, wrapperInfo);
                 }
 
@@ -458,7 +459,7 @@ namespace SmartHopper.Providers.LocalAI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[LocalAI] Decode error: {ex.Message}");
+                Logger.For<LocalAIProvider>().Exception(ex, $"[LocalAI] Decode error: {ex.Message}");
             }
 
             return interactions;

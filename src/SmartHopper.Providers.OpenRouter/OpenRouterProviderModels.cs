@@ -27,6 +27,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Providers.OpenRouter
 {
     /// <summary>
@@ -11235,7 +11236,7 @@ namespace SmartHopper.Providers.OpenRouter
 
                 var response = await this.openRouterProvider.Call(request).ConfigureAwait(false);
 
-                Debug.WriteLine("[OpenRouterProviderModels] RetrieveApiModels response received: " + (response != null));
+                Logger.For<OpenRouterProviderModels>().Trace("[OpenRouterProviderModels] RetrieveApiModels response received: " + (response != null));
 
                 if (response == null)
                 {

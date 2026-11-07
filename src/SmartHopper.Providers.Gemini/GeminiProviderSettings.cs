@@ -22,6 +22,7 @@ using System.Diagnostics;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.Gemini
@@ -142,7 +143,7 @@ namespace SmartHopper.Providers.Gemini
                 return false;
             }
 
-            Debug.WriteLine($"Validating Gemini settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
+            Logger.For<GeminiProviderSettings>().Trace($"Validating Gemini settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
             return true;
         }
     }

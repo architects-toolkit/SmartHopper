@@ -23,6 +23,7 @@ using System.Linq;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.MistralAI
@@ -111,7 +112,7 @@ namespace SmartHopper.Providers.MistralAI
         /// <inheritdoc/>
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            Debug.WriteLine($"[MistralAI] ValidateSettings called. Settings null? {settings == null}");
+            Logger.For<MistralAIProviderSettings>().Trace($"[MistralAI] ValidateSettings called. Settings null? {settings == null}");
 
             if (settings == null)
             {
@@ -129,7 +130,7 @@ namespace SmartHopper.Providers.MistralAI
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
                 apiKey = apiKeyObj.ToString();
-                Debug.WriteLine($"[MistralAI] API key extracted (length: {apiKey.Length})");
+                Logger.For<MistralAIProviderSettings>().Trace($"[MistralAI] API key extracted (length: {apiKey.Length})");
 
                 // Skip API key validation since any value is valid
             }
@@ -138,7 +139,7 @@ namespace SmartHopper.Providers.MistralAI
             if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
             {
                 model = modelObj.ToString();
-                Debug.WriteLine($"[MistralAI] Model extracted: {model}");
+                Logger.For<MistralAIProviderSettings>().Trace($"[MistralAI] Model extracted: {model}");
 
                 // Skip model validation since any value is valid
             }
@@ -168,7 +169,7 @@ namespace SmartHopper.Providers.MistralAI
                 }
             }
 
-            Debug.WriteLine($"Validating MistralAI settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
+            Logger.For<MistralAIProviderSettings>().Trace($"Validating MistralAI settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}");
 
             return true;
         }

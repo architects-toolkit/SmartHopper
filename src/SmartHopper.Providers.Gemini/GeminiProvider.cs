@@ -37,6 +37,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Logging;
 
 namespace SmartHopper.Providers.Gemini
 {
@@ -305,7 +306,7 @@ namespace SmartHopper.Providers.Gemini
                     {
                         // Fallback: add URL as text if fetch fails
                         parts.Add(new JObject { { "text", imageInteraction.ImageUrl.ToString() } });
-                        Debug.WriteLine($"[GeminiProvider] Warning: Failed to fetch image from URL, sending URL as text: {imageInteraction.ImageUrl}");
+                        Logger.For<GeminiProvider>().Warning($"[GeminiProvider] Warning: Failed to fetch image from URL, sending URL as text: {imageInteraction.ImageUrl}");
                     }
                 }
             }
@@ -343,7 +344,7 @@ namespace SmartHopper.Providers.Gemini
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[GeminiProvider] Error reading audio file: {ex.Message}");
+                        Logger.For<GeminiProvider>().Exception(ex, $"[GeminiProvider] Error reading audio file: {ex.Message}");
                     }
                 }
 
@@ -359,7 +360,7 @@ namespace SmartHopper.Providers.Gemini
                             }
                         },
                     });
-                    Debug.WriteLine($"[GeminiProvider] Encoded audio input: {mimeType}");
+                    Logger.For<GeminiProvider>().Trace($"[GeminiProvider] Encoded audio input: {mimeType}");
                 }
             }
 
@@ -489,7 +490,7 @@ namespace SmartHopper.Providers.Gemini
                     if (imageConfig.Count > 0)
                     {
                         generationConfig["imageConfig"] = imageConfig;
-                        Debug.WriteLine($"[GeminiProvider] Image config: aspectRatio={imageInteraction.AspectRatio}, imageSize={imageInteraction.ImageSize}");
+                        Logger.For<GeminiProvider>().Trace($"[GeminiProvider] Image config: aspectRatio={imageInteraction.AspectRatio}, imageSize={imageInteraction.ImageSize}");
                     }
                 }
             }
@@ -565,7 +566,7 @@ namespace SmartHopper.Providers.Gemini
                                 ["allowedFunctionNames"] = new JArray { request.ForceToolName }
                             }
                         };
-                        Debug.WriteLine($"[Gemini] Forcing tool call: {request.ForceToolName}");
+                        Logger.For<GeminiProvider>().Trace($"[Gemini] Forcing tool call: {request.ForceToolName}");
                     }
                     else
                     {
@@ -694,7 +695,7 @@ namespace SmartHopper.Providers.Gemini
                 !string.Equals(serviceTier, "standard", StringComparison.OrdinalIgnoreCase))
             {
                 jObject["service_tier"] = serviceTier.ToUpperInvariant();
-                Debug.WriteLine($"[GeminiProvider] Using service tier: {serviceTier}");
+                Logger.For<GeminiProvider>().Trace($"[GeminiProvider] Using service tier: {serviceTier}");
             }
         }
 
@@ -786,13 +787,13 @@ namespace SmartHopper.Providers.Gemini
                     });
                 }
 
-                Debug.WriteLine($"[GetFormattedTools] {declarations.Count} Gemini tools formatted");
+                Logger.For<GeminiProvider>().Trace($"[GetFormattedTools] {declarations.Count} Gemini tools formatted");
 
                 return declarations;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error formatting tools: {ex.Message}");
+                Logger.For<GeminiProvider>().Exception(ex, $"Error formatting tools: {ex.Message}");
                 return null;
             }
         }
@@ -823,7 +824,7 @@ namespace SmartHopper.Providers.Gemini
         {
             try
             {
-                Debug.WriteLine($"[GeminiProvider] Fetching image from URL: {imageUrl}");
+                Logger.For<GeminiProvider>().Error($"[GeminiProvider] Fetching image from URL: {imageUrl}");
 
                 using var cts = new System.Threading.CancellationTokenSource(
                     TimeSpan.FromSeconds(TimeoutDefaults.DefaultTimeoutSeconds));
@@ -836,14 +837,14 @@ namespace SmartHopper.Providers.Gemini
                 if (response.Content.Headers.ContentLength is long contentLength &&
                     contentLength > MaxInlineImageBytes)
                 {
-                    Debug.WriteLine($"[GeminiProvider] Image at {imageUrl} exceeds {MaxInlineImageBytes} bytes (Content-Length={contentLength}); skipping inline.");
+                    Logger.For<GeminiProvider>().Error($"[GeminiProvider] Image at {imageUrl} exceeds {MaxInlineImageBytes} bytes (Content-Length={contentLength}); skipping inline.");
                     return (string.Empty, "image/png");
                 }
 
                 byte[] imageBytes = response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
                 if (imageBytes.LongLength > MaxInlineImageBytes)
                 {
-                    Debug.WriteLine($"[GeminiProvider] Image at {imageUrl} exceeds {MaxInlineImageBytes} bytes after download ({imageBytes.LongLength}); skipping inline.");
+                    Logger.For<GeminiProvider>().Error($"[GeminiProvider] Image at {imageUrl} exceeds {MaxInlineImageBytes} bytes after download ({imageBytes.LongLength}); skipping inline.");
                     return (string.Empty, "image/png");
                 }
 
@@ -855,18 +856,18 @@ namespace SmartHopper.Providers.Gemini
 
                 string base64Data = Convert.ToBase64String(imageBytes);
 
-                Debug.WriteLine($"[GeminiProvider] Successfully fetched image: {imageBytes.Length} bytes, MIME type: {mimeType}");
+                Logger.For<GeminiProvider>().Trace($"[GeminiProvider] Successfully fetched image: {imageBytes.Length} bytes, MIME type: {mimeType}");
 
                 return (base64Data, mimeType);
             }
             catch (OperationCanceledException)
             {
-                Debug.WriteLine($"[GeminiProvider] Timed out fetching image from URL {imageUrl} after {TimeoutDefaults.DefaultTimeoutSeconds}s");
+                Logger.For<GeminiProvider>().Error($"[GeminiProvider] Timed out fetching image from URL {imageUrl} after {TimeoutDefaults.DefaultTimeoutSeconds}s");
                 return (string.Empty, "image/png");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[GeminiProvider] Error fetching image from URL {imageUrl}: {ex.Message}");
+                Logger.For<GeminiProvider>().Exception(ex, $"[GeminiProvider] Error fetching image from URL {imageUrl}: {ex.Message}");
                 return (string.Empty, "image/png");
             }
         }

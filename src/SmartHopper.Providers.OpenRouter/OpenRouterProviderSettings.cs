@@ -23,6 +23,7 @@ using System.Linq;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.OpenRouter
@@ -130,7 +131,7 @@ namespace SmartHopper.Providers.OpenRouter
         /// <inheritdoc/>
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            Debug.WriteLine($"[OpenRouter] ValidateSettings called. Settings null? {settings == null}");
+            Logger.For<OpenRouterProviderSettings>().Trace($"[OpenRouter] ValidateSettings called. Settings null? {settings == null}");
             if (settings == null)
             {
                 return false;
@@ -148,14 +149,14 @@ namespace SmartHopper.Providers.OpenRouter
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
                 apiKey = apiKeyObj.ToString();
-                Debug.WriteLine($"[OpenRouter] API key extracted (length: {apiKey?.Length ?? 0})");
+                Logger.For<OpenRouterProviderSettings>().Trace($"[OpenRouter] API key extracted (length: {apiKey?.Length ?? 0})");
             }
 
             // Model (no strict validation here)
             if (settings.TryGetValue("Model", out var modelObj) && modelObj != null)
             {
                 model = modelObj.ToString();
-                Debug.WriteLine($"[OpenRouter] Model extracted: {model}");
+                Logger.For<OpenRouterProviderSettings>().Trace($"[OpenRouter] Model extracted: {model}");
             }
 
             if (!this.ValidateMaxTokens(settings, showErrorDialogs))
@@ -209,7 +210,7 @@ namespace SmartHopper.Providers.OpenRouter
                 }
             }
 
-            Debug.WriteLine($"Validating OpenRouter settings: API Key: {(string.IsNullOrEmpty(apiKey) ? "<empty>" : "<provided>")}, Model: {model}");
+            Logger.For<OpenRouterProviderSettings>().Trace($"Validating OpenRouter settings: API Key: {(string.IsNullOrEmpty(apiKey) ? "<empty>" : "<provided>")}, Model: {model}");
 
             return true;
         }
