@@ -164,6 +164,44 @@ namespace SmartHopper.Infrastructure.Settings
         [JsonProperty]
         public int EncryptionVersion { get; set; } = CurrentEncryptionVersion;
 
+        /// <summary>
+        /// Gets or sets an opaque random salt used to derive the anonymous installation hash
+        /// embedded in locally generated diagnostics exports. The hash cannot be traced to a
+        /// specific installation or user.
+        /// </summary>
+        [JsonProperty]
+        public string DiagnosticsInstallationSalt { get; set; } = Guid.NewGuid().ToString("N");
+
+        /// <summary>
+        /// Gets or sets whether log entries are echoed to Rhino's command-line output.
+        /// </summary>
+        [JsonProperty]
+        public bool LiveOutputEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the minimum level echoed to the live output.
+        /// </summary>
+        [JsonProperty]
+        public SmartHopper.ProviderSdk.Logging.ProviderLogLevel LiveOutputLevel { get; set; } = SmartHopper.ProviderSdk.Logging.ProviderLogLevel.Info;
+
+        /// <summary>
+        /// Gets or sets whether log entries are written to the rolling log file.
+        /// </summary>
+        [JsonProperty]
+        public bool LogFileEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the minimum level written to the log file.
+        /// </summary>
+        [JsonProperty]
+        public SmartHopper.ProviderSdk.Logging.ProviderLogLevel LogFileLevel { get; set; } = SmartHopper.ProviderSdk.Logging.ProviderLogLevel.Trace;
+
+        /// <summary>
+        /// Gets or sets how many days log files are retained before deletion.
+        /// </summary>
+        [JsonProperty]
+        public int LogRetentionDays { get; set; } = 3;
+
         private static SmartHopperSettings? instance;
 
         /// <summary>
