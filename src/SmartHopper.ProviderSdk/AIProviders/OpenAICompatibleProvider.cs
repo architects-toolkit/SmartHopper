@@ -172,7 +172,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
             }
             catch (Exception ex)
             {
-                Logger.For<for>().Exception(ex, $"[{this.Name}] Failed to parse transcription metadata body: {ex.Message}");
+                Logger.For<OpenAICompatibleProvider<T>>().Exception(ex, $"[{this.Name}] Failed to parse transcription metadata body: {ex.Message}");
             }
 
             var hasFileUrl = !string.IsNullOrWhiteSpace(metadata?["file_url"]?.ToString());
@@ -198,7 +198,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 // body also carries audio data.
                 if (hasAudioBytes)
                 {
-                    Logger.For<for>().Trace($"[{this.Name}] Transcription request has both audio data and 'file_url'; using 'file_url' as the audio source.");
+                    Logger.For<OpenAICompatibleProvider<T>>().Trace($"[{this.Name}] Transcription request has both audio data and 'file_url'; using 'file_url' as the audio source.");
                 }
             }
             else

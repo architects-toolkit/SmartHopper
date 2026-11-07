@@ -19,8 +19,9 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using SmartHopper.ProviderSdk.Logging;
 using Newtonsoft.Json.Linq;
+using SmartHopper.ProviderSdk.Logging;
+
 namespace SmartHopper.ProviderSdk.Catalogue
 {
     /// <summary>
