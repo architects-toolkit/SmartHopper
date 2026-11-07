@@ -109,7 +109,7 @@ namespace SmartHopper.Infrastructure.Initialization
                             // every platform; on macOS an unrecoverable SH02: value simply fails to
                             // decrypt, stays in place, and is still cleared by the menu warning flow.
                             settings.MigrateLegacySecretsToSH04();
-                            Logger.Trace(typeof(SmartHopperInitializer).FullName, ("[SmartHopperInitializer] Legacy secrets to SH04: migration check completed");
+                            Logger.Trace(typeof(SmartHopperInitializer).FullName, "[SmartHopperInitializer] Legacy secrets to SH04: migration check completed");
 
                             // Step 5: Now that both settings and providers are fully initialized, run integrity check
                             // Run integrity check on UI thread as it may interact with Rhino/Grasshopper
@@ -119,7 +119,7 @@ namespace SmartHopper.Infrastructure.Initialization
                                 Logger.Trace(typeof(SmartHopperInitializer).FullName, "[SmartHopperInitializer] Settings integrity check completed");
                             });
 
-                            Logger.Trace(typeof(SmartHopperInitializer).FullName, ("[SmartHopperInitializer] Initialization complete");
+                            Logger.Trace(typeof(SmartHopperInitializer).FullName, "[SmartHopperInitializer] Initialization complete");
                         }
                         catch (Exception ex)
                         {
