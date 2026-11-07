@@ -51,7 +51,7 @@ namespace SmartHopper.Components.Input
 
         public override Guid ComponentGuid => new Guid("D9853750-B9ED-4955-95AA-F172F5ADCD84");
 
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Resources.McNeelTopic2AI;
 
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 

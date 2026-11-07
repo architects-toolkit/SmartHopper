@@ -46,7 +46,7 @@ namespace SmartHopper.Components.Output
 
         public override Guid ComponentGuid => new Guid("2B31E711-CE62-4EBF-8D67-A56569BBE9E8");
 
-        protected override Bitmap Icon => Resources.aitointlist;
+        protected override Bitmap Icon => Resources.AI2IntegerList;
 
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2text" };
 

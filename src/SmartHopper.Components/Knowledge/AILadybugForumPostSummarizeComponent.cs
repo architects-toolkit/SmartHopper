@@ -41,7 +41,7 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("6AA04A82-DD11-49B8-BF02-45CF5B9E98AE");
 
-        protected override Bitmap Icon => Resources.ladybugpostsummarize;
+        protected override Bitmap Icon => Resources.AILadybugForumPostSummarize;
 
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 

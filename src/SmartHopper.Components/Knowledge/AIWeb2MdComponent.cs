@@ -77,7 +77,7 @@ namespace SmartHopper.Components.Knowledge
         public override Guid ComponentGuid => new Guid("2FADA1EA-E6E2-43AC-B411-228D999F92A8");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.webtomd;
+        protected override Bitmap Icon => Resources.AIWeb2Md;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.primary;

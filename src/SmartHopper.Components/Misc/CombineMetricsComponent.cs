@@ -48,7 +48,7 @@ namespace SmartHopper.Components.Misc
         /// <summary>
         /// Gets the component's icon.
         /// </summary>
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Properties.Resources.CombineMetrics;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

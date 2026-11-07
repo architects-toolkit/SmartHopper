@@ -49,7 +49,7 @@ namespace SmartHopper.Components.Script
         public override Guid ComponentGuid => new Guid("9C82B8C7-7F66-4E6C-9F6E-0C58C1C2A345");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.scriptreview;
+        protected override Bitmap Icon => Resources.AIScriptReview;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.primary;

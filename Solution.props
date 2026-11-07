@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project>
   <PropertyGroup>
+<<<<<<< HEAD
     <SolutionVersion>2.0.0-dev.261105</SolutionVersion>
+=======
+    <SolutionVersion>2.0.0-dev.261107</SolutionVersion>
+>>>>>>> 0ca3bc72 (feat: rename and update with new desing style all component icon resources to PascalCase class names)
   </PropertyGroup>
 </Project>

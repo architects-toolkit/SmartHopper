@@ -50,7 +50,7 @@ namespace SmartHopper.Components.Grasshopper
         public override Guid ComponentGuid => new Guid("B76708B2-C0CA-41B1-A437-885BFF5FE4E2");
 
         /// <inheritdoc/>
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.SaveGhPatch;
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

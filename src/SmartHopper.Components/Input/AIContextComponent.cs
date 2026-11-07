@@ -48,7 +48,7 @@ namespace SmartHopper.Components.Input
         /// <summary>
         /// Gets the icon for this component.
         /// </summary>
-        protected override System.Drawing.Bitmap Icon => Resources.toaicontext;
+        protected override System.Drawing.Bitmap Icon => Resources.AIContext;
 
         /// <summary>
         /// Registers input parameters.

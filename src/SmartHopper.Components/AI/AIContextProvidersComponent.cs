@@ -42,7 +42,7 @@ namespace SmartHopper.Components.AI
         public override Guid ComponentGuid => new Guid("F8A2C4D1-3B5E-4A7F-9C0D-1E2F3A4B5C6D");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.contextproviders;
+        protected override Bitmap Icon => Resources.AIContextProviders;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.secondary;

@@ -56,7 +56,7 @@ namespace SmartHopper.Components.Grasshopper
         public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Properties.Resources.GhValidate;
 
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)

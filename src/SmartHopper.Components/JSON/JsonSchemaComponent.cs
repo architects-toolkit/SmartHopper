@@ -38,7 +38,7 @@ namespace SmartHopper.Components.JSON
         public override Guid ComponentGuid => new Guid("288B86E1-E748-4503-A9C9-986F4279F8CA");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.jsonschema;
+        protected override Bitmap Icon => Resources.JsonSchema;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.quinary;

@@ -59,7 +59,7 @@ namespace SmartHopper.Components.Grasshopper
         public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.ghjsonpatch;
+        protected override Bitmap Icon => Resources.GhPatchApply;
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

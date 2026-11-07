@@ -57,7 +57,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the component icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.aitojson;
+        protected override Bitmap Icon => Resources.AI2Json;
 
         /// <summary>
         /// Gets the AI tools used by this component.

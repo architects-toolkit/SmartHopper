@@ -51,7 +51,7 @@ namespace SmartHopper.Components.Input
 
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 
-        protected override Bitmap Icon => Resources.toaidiscoursepost;
+        protected override Bitmap Icon => Resources.DiscoursePost2AI;
 
         public DiscoursePost2AIComponent()
             : base(

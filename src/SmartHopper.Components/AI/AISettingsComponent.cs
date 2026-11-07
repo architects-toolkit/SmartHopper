@@ -56,7 +56,7 @@ namespace SmartHopper.Components.AI
         public override Guid ComponentGuid => new Guid("133A3D6E-1DF0-4FD3-92B5-F686C2FD587D");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.settings;
+        protected override Bitmap Icon => Resources.AISettings;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.tertiary;

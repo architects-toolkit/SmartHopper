@@ -47,7 +47,7 @@ namespace SmartHopper.Components.Text
     {
         public override Guid ComponentGuid => new ("D3EB06A8-C219-46E3-854E-15EC798AD63A");
 
-        protected override CommonDrawing::Bitmap Icon => Resources.textevaluate;
+        protected override CommonDrawing::Bitmap Icon => Resources.AIText2Boolean;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 

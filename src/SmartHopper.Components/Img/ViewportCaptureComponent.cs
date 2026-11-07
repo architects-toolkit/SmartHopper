@@ -57,7 +57,7 @@ namespace SmartHopper.Components.Img
         };
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.aitoimg;
+        protected override Bitmap Icon => Resources.ViewportCapture;
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

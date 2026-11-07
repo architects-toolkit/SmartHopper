@@ -67,79 +67,737 @@ namespace SmartHopper.Components.Properties {
         /// <summary>
         ///   Looks up a localized resource of type Bitmap.
         /// </summary>
-        internal static Bitmap ghget {
+        internal static Bitmap AI2Boolean {
             get {
-                object obj = ResourceManager.GetObject("ghget", resourceCulture);
+                object obj = ResourceManager.GetObject("AI2Boolean", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
 
-        internal static Bitmap ghput {
+        internal static Bitmap AI2BooleanList {
             get {
-                object obj = ResourceManager.GetObject("ghput", resourceCulture);
+                object obj = ResourceManager.GetObject("AI2BooleanList", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
 
-        internal static Bitmap ghmerge {
+        internal static Bitmap AI2GhJson {
             get {
-                object obj = ResourceManager.GetObject("ghmerge", resourceCulture);
+                object obj = ResourceManager.GetObject("AI2GhJson", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
 
-        internal static Bitmap listevaluate {
+        internal static Bitmap AI2Img {
             get {
-                object obj = ResourceManager.GetObject("listevaluate", resourceCulture);
+                object obj = ResourceManager.GetObject("AI2Img", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
 
-        internal static Bitmap listfilter {
+        internal static Bitmap AI2Integer {
             get {
-                object obj = ResourceManager.GetObject("listfilter", resourceCulture);
+                object obj = ResourceManager.GetObject("AI2Integer", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
 
-        internal static Bitmap textevaluate {
+        internal static Bitmap AI2IntegerList {
             get {
-                object obj = ResourceManager.GetObject("textevaluate", resourceCulture);
+                object obj = ResourceManager.GetObject("AI2IntegerList", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
 
-        internal static Bitmap textgenerate {
+        internal static Bitmap AI2Json {
             get {
-                object obj = ResourceManager.GetObject("textgenerate", resourceCulture);
+                object obj = ResourceManager.GetObject("AI2Json", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
 
-        internal static Bitmap textlistgenerate {
+        internal static Bitmap AI2Markdown {
             get {
-                object obj = ResourceManager.GetObject("textlistgenerate", resourceCulture);
+                object obj = ResourceManager.GetObject("AI2Markdown", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
 
-        internal static Bitmap audio {
+        internal static Bitmap AI2Number {
             get {
-                object obj = ResourceManager.GetObject("audio", resourceCulture);
+                object obj = ResourceManager.GetObject("AI2Number", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
 
-        internal static Bitmap aichat {
+        internal static Bitmap AI2NumberList {
             get {
-                object obj = ResourceManager.GetObject("aichat", resourceCulture);
+                object obj = ResourceManager.GetObject("AI2NumberList", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
 
-        internal static Bitmap aimodels {
+        internal static Bitmap AI2Script {
             get {
-                object obj = ResourceManager.GetObject("aimodels", resourceCulture);
+                object obj = ResourceManager.GetObject("AI2Script", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AI2Speech {
+            get {
+                object obj = ResourceManager.GetObject("AI2Speech", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AI2Text {
+            get {
+                object obj = ResourceManager.GetObject("AI2Text", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AI2TextList {
+            get {
+                object obj = ResourceManager.GetObject("AI2TextList", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIChat {
+            get {
+                object obj = ResourceManager.GetObject("AIChat", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIContext {
+            get {
+                object obj = ResourceManager.GetObject("AIContext", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIContextProviders {
+            get {
+                object obj = ResourceManager.GetObject("AIContextProviders", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIDiscoursePostSummarize {
+            get {
+                object obj = ResourceManager.GetObject("AIDiscoursePostSummarize", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIDiscourseTopicSummarize {
+            get {
+                object obj = ResourceManager.GetObject("AIDiscourseTopicSummarize", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIExtraSettings {
+            get {
+                object obj = ResourceManager.GetObject("AIExtraSettings", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIFile2Md {
+            get {
+                object obj = ResourceManager.GetObject("AIFile2Md", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIFileMetadata {
+            get {
+                object obj = ResourceManager.GetObject("AIFileMetadata", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIGhConnect {
+            get {
+                object obj = ResourceManager.GetObject("AIGhConnect", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIGhReport {
+            get {
+                object obj = ResourceManager.GetObject("AIGhReport", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIImg2Text {
+            get {
+                object obj = ResourceManager.GetObject("AIImg2Text", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AILadybugForumPostSummarize {
+            get {
+                object obj = ResourceManager.GetObject("AILadybugForumPostSummarize", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AILadybugForumTopicSummarize {
+            get {
+                object obj = ResourceManager.GetObject("AILadybugForumTopicSummarize", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIList2Boolean {
+            get {
+                object obj = ResourceManager.GetObject("AIList2Boolean", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIListFilter {
+            get {
+                object obj = ResourceManager.GetObject("AIListFilter", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIMcNeelForumPostSummarize {
+            get {
+                object obj = ResourceManager.GetObject("AIMcNeelForumPostSummarize", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIMcNeelForumTopicSummarize {
+            get {
+                object obj = ResourceManager.GetObject("AIMcNeelForumTopicSummarize", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIModels {
+            get {
+                object obj = ResourceManager.GetObject("AIModels", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIPrompt {
+            get {
+                object obj = ResourceManager.GetObject("AIPrompt", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIScriptGenerate {
+            get {
+                object obj = ResourceManager.GetObject("AIScriptGenerate", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIScriptReview {
+            get {
+                object obj = ResourceManager.GetObject("AIScriptReview", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AISettings {
+            get {
+                object obj = ResourceManager.GetObject("AISettings", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIText2Boolean {
+            get {
+                object obj = ResourceManager.GetObject("AIText2Boolean", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIText2Img {
+            get {
+                object obj = ResourceManager.GetObject("AIText2Img", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIText2Json {
+            get {
+                object obj = ResourceManager.GetObject("AIText2Json", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIText2Text {
+            get {
+                object obj = ResourceManager.GetObject("AIText2Text", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIText2TextList {
+            get {
+                object obj = ResourceManager.GetObject("AIText2TextList", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AIWeb2Md {
+            get {
+                object obj = ResourceManager.GetObject("AIWeb2Md", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap Audio2AI {
+            get {
+                object obj = ResourceManager.GetObject("Audio2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap AudioViewer {
+            get {
+                object obj = ResourceManager.GetObject("AudioViewer", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap Boolean2AI {
+            get {
+                object obj = ResourceManager.GetObject("Boolean2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap BooleanList2AI {
+            get {
+                object obj = ResourceManager.GetObject("BooleanList2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap CanvasCapture {
+            get {
+                object obj = ResourceManager.GetObject("CanvasCapture", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap CombineMetrics {
+            get {
+                object obj = ResourceManager.GetObject("CombineMetrics", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap DeconstructMetrics {
+            get {
+                object obj = ResourceManager.GetObject("DeconstructMetrics", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap DiscoursePost2AI {
+            get {
+                object obj = ResourceManager.GetObject("DiscoursePost2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap DiscoursePostDeconstruct {
+            get {
+                object obj = ResourceManager.GetObject("DiscoursePostDeconstruct", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap DiscoursePostGet {
+            get {
+                object obj = ResourceManager.GetObject("DiscoursePostGet", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap DiscoursePostOpen {
+            get {
+                object obj = ResourceManager.GetObject("DiscoursePostOpen", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap DiscourseSearch {
+            get {
+                object obj = ResourceManager.GetObject("DiscourseSearch", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap DiscourseTopic2AI {
+            get {
+                object obj = ResourceManager.GetObject("DiscourseTopic2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap File2AI {
+            get {
+                object obj = ResourceManager.GetObject("File2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap File2Md {
+            get {
+                object obj = ResourceManager.GetObject("File2Md", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap GhDiff {
+            get {
+                object obj = ResourceManager.GetObject("GhDiff", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap GhGet {
+            get {
+                object obj = ResourceManager.GetObject("GhGet", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap GhJSON2AI {
+            get {
+                object obj = ResourceManager.GetObject("GhJSON2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap GhMerge {
+            get {
+                object obj = ResourceManager.GetObject("GhMerge", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap GhPatchApply {
+            get {
+                object obj = ResourceManager.GetObject("GhPatchApply", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap GhPatchApplyToCanvas {
+            get {
+                object obj = ResourceManager.GetObject("GhPatchApplyToCanvas", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap GhPut {
+            get {
+                object obj = ResourceManager.GetObject("GhPut", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap GhRetrieve {
+            get {
+                object obj = ResourceManager.GetObject("GhRetrieve", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap GhTidyUp {
+            get {
+                object obj = ResourceManager.GetObject("GhTidyUp", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap GhValidate {
+            get {
+                object obj = ResourceManager.GetObject("GhValidate", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap ImageViewer {
+            get {
+                object obj = ResourceManager.GetObject("ImageViewer", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap Img2AI {
+            get {
+                object obj = ResourceManager.GetObject("Img2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap Integer2AI {
+            get {
+                object obj = ResourceManager.GetObject("Integer2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap IntegerList2AI {
+            get {
+                object obj = ResourceManager.GetObject("IntegerList2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap Json2AI {
+            get {
+                object obj = ResourceManager.GetObject("Json2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap JsonArray {
+            get {
+                object obj = ResourceManager.GetObject("JsonArray", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap JsonArray2TextList {
+            get {
+                object obj = ResourceManager.GetObject("JsonArray2TextList", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap JsonGetValue {
+            get {
+                object obj = ResourceManager.GetObject("JsonGetValue", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap JsonMerge {
+            get {
+                object obj = ResourceManager.GetObject("JsonMerge", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap JsonObject {
+            get {
+                object obj = ResourceManager.GetObject("JsonObject", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap JsonObject2Text {
+            get {
+                object obj = ResourceManager.GetObject("JsonObject2Text", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap JsonSanitizer {
+            get {
+                object obj = ResourceManager.GetObject("JsonSanitizer", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap JsonSchema {
+            get {
+                object obj = ResourceManager.GetObject("JsonSchema", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap JsonSchemaObject {
+            get {
+                object obj = ResourceManager.GetObject("JsonSchemaObject", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap JsonSchemaProp {
+            get {
+                object obj = ResourceManager.GetObject("JsonSchemaProp", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap JsonSetValue {
+            get {
+                object obj = ResourceManager.GetObject("JsonSetValue", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap LadybugForumPostGet {
+            get {
+                object obj = ResourceManager.GetObject("LadybugForumPostGet", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap LadybugForumPostOpen {
+            get {
+                object obj = ResourceManager.GetObject("LadybugForumPostOpen", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap LadybugForumSearch {
+            get {
+                object obj = ResourceManager.GetObject("LadybugForumSearch", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap LadybugPost2AI {
+            get {
+                object obj = ResourceManager.GetObject("LadybugPost2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap LadybugTopic2AI {
+            get {
+                object obj = ResourceManager.GetObject("LadybugTopic2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap McNeelForumPostGet {
+            get {
+                object obj = ResourceManager.GetObject("McNeelForumPostGet", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap McNeelForumPostOpen {
+            get {
+                object obj = ResourceManager.GetObject("McNeelForumPostOpen", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap McNeelForumSearch {
+            get {
+                object obj = ResourceManager.GetObject("McNeelForumSearch", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap McNeelPost2AI {
+            get {
+                object obj = ResourceManager.GetObject("McNeelPost2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap McNeelTopic2AI {
+            get {
+                object obj = ResourceManager.GetObject("McNeelTopic2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap Number2AI {
+            get {
+                object obj = ResourceManager.GetObject("Number2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap NumberList2AI {
+            get {
+                object obj = ResourceManager.GetObject("NumberList2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap OpenGhJSON {
+            get {
+                object obj = ResourceManager.GetObject("OpenGhJSON", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap OpenGhPatch {
+            get {
+                object obj = ResourceManager.GetObject("OpenGhPatch", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap SaveGhJSON {
+            get {
+                object obj = ResourceManager.GetObject("SaveGhJSON", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap SaveGhPatch {
+            get {
+                object obj = ResourceManager.GetObject("SaveGhPatch", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap SmartHopperMcpServer {
+            get {
+                object obj = ResourceManager.GetObject("SmartHopperMcpServer", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap Text2AI {
+            get {
+                object obj = ResourceManager.GetObject("Text2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap TextList2AI {
+            get {
+                object obj = ResourceManager.GetObject("TextList2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap ViewportCapture {
+            get {
+                object obj = ResourceManager.GetObject("ViewportCapture", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap Web2AI {
+            get {
+                object obj = ResourceManager.GetObject("Web2AI", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap Web2Md {
+            get {
+                object obj = ResourceManager.GetObject("Web2Md", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
@@ -147,608 +805,6 @@ namespace SmartHopper.Components.Properties {
         internal static Bitmap smarthopper {
             get {
                 object obj = ResourceManager.GetObject("smarthopper", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap context {
-            get {
-                object obj = ResourceManager.GetObject("context", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap components {
-            get {
-                object obj = ResourceManager.GetObject("components", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap metricsdeconstruct {
-            get {
-                object obj = ResourceManager.GetObject("metricsdeconstruct", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap tidyup {
-            get {
-                object obj = ResourceManager.GetObject("tidyup", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap imggenerate {
-            get {
-                object obj = ResourceManager.GetObject("imggenerate", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap imgviewer {
-            get {
-                object obj = ResourceManager.GetObject("imgviewer", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap mcneelforumsearch {
-            get {
-                object obj = ResourceManager.GetObject("mcneelforumsearch", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap ladybugforumsearch {
-            get {
-                object obj = ResourceManager.GetObject("ladybugforumsearch", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap discourseforumsearch {
-            get {
-                object obj = ResourceManager.GetObject("discourseforumsearch", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap discoursepostdeconstruct {
-            get {
-                object obj = ResourceManager.GetObject("discoursepostdeconstruct", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap ladybugpostget {
-            get {
-                object obj = ResourceManager.GetObject("ladybugpostget", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap mcneelpostget {
-            get {
-                object obj = ResourceManager.GetObject("mcneelpostget", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap discoursepostget {
-            get {
-                object obj = ResourceManager.GetObject("discoursepostget", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap mcneelpostopen {
-            get {
-                object obj = ResourceManager.GetObject("mcneelpostopen", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap ladybugpostopen {
-            get {
-                object obj = ResourceManager.GetObject("ladybugpostopen", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap discoursepostopen {
-            get {
-                object obj = ResourceManager.GetObject("discoursepostopen", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap mcneelpostsummarize {
-            get {
-                object obj = ResourceManager.GetObject("mcneelpostsummarize", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap ladybugpostsummarize {
-            get {
-                object obj = ResourceManager.GetObject("ladybugpostsummarize", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap discoursepostsummarize {
-            get {
-                object obj = ResourceManager.GetObject("discoursepostsummarize", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap mcneeltopicsummarize {
-            get {
-                object obj = ResourceManager.GetObject("mcneeltopicsummarize", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap ladybugtopicsummarize {
-            get {
-                object obj = ResourceManager.GetObject("ladybugtopicsummarize", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap discoursetopicsummarize {
-            get {
-                object obj = ResourceManager.GetObject("discoursetopicsummarize", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap websummarize {
-            get {
-                object obj = ResourceManager.GetObject("websummarize", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap scriptgenerate {
-            get {
-                object obj = ResourceManager.GetObject("scriptgenerate", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap scriptreview {
-            get {
-                object obj = ResourceManager.GetObject("scriptreview", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap filetomd {
-            get {
-                object obj = ResourceManager.GetObject("filetomd", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap fileai {
-            get {
-                object obj = ResourceManager.GetObject("fileai", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap webtomd {
-            get {
-                object obj = ResourceManager.GetObject("webtomd", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap jsonschemaprop {
-            get {
-                object obj = ResourceManager.GetObject("jsonschemaprop", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap jsonarray {
-            get {
-                object obj = ResourceManager.GetObject("jsonarray", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap jsonobj {
-            get {
-                object obj = ResourceManager.GetObject("jsonobj", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap jsonai {
-            get {
-                object obj = ResourceManager.GetObject("jsonai", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap jsonmerge {
-            get {
-                object obj = ResourceManager.GetObject("jsonmerge", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap jsonschema {
-            get {
-                object obj = ResourceManager.GetObject("jsonschema", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap jsonschemaobj {
-            get {
-                object obj = ResourceManager.GetObject("jsonschemaobj", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap settings {
-            get {
-                object obj = ResourceManager.GetObject("settings", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap settingsextra {
-            get {
-                object obj = ResourceManager.GetObject("settingsextra", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap text2ai {
-            get {
-                object obj = ResourceManager.GetObject("text2ai", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap aiprompt {
-            get {
-                object obj = ResourceManager.GetObject("aiprompt", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap json2ai {
-            get {
-                object obj = ResourceManager.GetObject("json2ai", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap img2ai {
-            get {
-                object obj = ResourceManager.GetObject("img2ai", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap audio2ai {
-            get {
-                object obj = ResourceManager.GetObject("audio2ai", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap mcneelpost2ai {
-            get {
-                object obj = ResourceManager.GetObject("mcneelpost2ai", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap ladybugpost2ai {
-            get {
-                object obj = ResourceManager.GetObject("ladybugpost2ai", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap discoursepost2ai {
-            get {
-                object obj = ResourceManager.GetObject("discoursepost2ai", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap ladybugtopic2ai {
-            get {
-                object obj = ResourceManager.GetObject("ladybugtopic2ai", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap mcneeltopic2ai {
-            get {
-                object obj = ResourceManager.GetObject("mcneeltopic2ai", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap discoursetopic2ai {
-            get {
-                object obj = ResourceManager.GetObject("discoursetopic2ai", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap aitotext {
-            get {
-                object obj = ResourceManager.GetObject("aitotext", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap aitotextlist {
-            get {
-                object obj = ResourceManager.GetObject("aitotextlist", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap aitonumeric {
-            get {
-                object obj = ResourceManager.GetObject("aitonumeric", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap aitointeger {
-            get {
-                object obj = ResourceManager.GetObject("aitointeger", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap aitonumericlist {
-            get {
-                object obj = ResourceManager.GetObject("aitonumericlist", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap aitointlist {
-            get {
-                object obj = ResourceManager.GetObject("aitointlist", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap aitojson {
-            get {
-                object obj = ResourceManager.GetObject("aitojson", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap aitomd {
-            get {
-                object obj = ResourceManager.GetObject("aitomd", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap aitoscript {
-            get {
-                object obj = ResourceManager.GetObject("aitoscript", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap aitospeech {
-            get {
-                object obj = ResourceManager.GetObject("aitospeech", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap aitobool {
-            get {
-                object obj = ResourceManager.GetObject("aitobool", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap aitoboollist {
-            get {
-                object obj = ResourceManager.GetObject("aitoboollist", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap aitoimg {
-            get {
-                object obj = ResourceManager.GetObject("aitoimg", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap aitogh {
-            get {
-                object obj = ResourceManager.GetObject("aitogh", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap toaitext {
-            get {
-                object obj = ResourceManager.GetObject("toaitext", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap toailist {
-            get {
-                object obj = ResourceManager.GetObject("toailist", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap toaibool {
-            get {
-                object obj = ResourceManager.GetObject("toaibool", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap toainumeric {
-            get {
-                object obj = ResourceManager.GetObject("toainumeric", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap toaiinteger {
-            get {
-                object obj = ResourceManager.GetObject("toaiinteger", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap toaiprompt {
-            get {
-                object obj = ResourceManager.GetObject("toaiprompt", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap toaicontext {
-            get {
-                object obj = ResourceManager.GetObject("toaicontext", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap toaiaudio {
-            get {
-                object obj = ResourceManager.GetObject("toaiaudio", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap toaifile {
-            get {
-                object obj = ResourceManager.GetObject("toaifile", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap toaiimg {
-            get {
-                object obj = ResourceManager.GetObject("toaiimg", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap toaighjson {
-            get {
-                object obj = ResourceManager.GetObject("toaighjson", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap toaijson {
-            get {
-                object obj = ResourceManager.GetObject("toaijson", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap toaiweb {
-            get {
-                object obj = ResourceManager.GetObject("toaiweb", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap toaidiscoursepost {
-            get {
-                object obj = ResourceManager.GetObject("toaidiscoursepost", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap toaidiscoursetopic {
-            get {
-                object obj = ResourceManager.GetObject("toaidiscoursetopic", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap texttoimg {
-            get {
-                object obj = ResourceManager.GetObject("texttoimg", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap jsonitem {
-            get {
-                object obj = ResourceManager.GetObject("jsonitem", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap jsonclean {
-            get {
-                object obj = ResourceManager.GetObject("jsonclean", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap jsonarraytolist {
-            get {
-                object obj = ResourceManager.GetObject("jsonarraytolist", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap imgtotext {
-            get {
-                object obj = ResourceManager.GetObject("imgtotext", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap ghjsonpatch {
-            get {
-                object obj = ResourceManager.GetObject("ghjsonpatch", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap ghdiff {
-            get {
-                object obj = ResourceManager.GetObject("ghdiff", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap contextproviders {
-            get {
-                object obj = ResourceManager.GetObject("contextproviders", resourceCulture);
-                return ((Bitmap)(obj));
-            }
-        }
-
-        internal static Bitmap jsontotext {
-            get {
-                object obj = ResourceManager.GetObject("jsontotext", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }

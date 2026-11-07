@@ -45,7 +45,7 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Gets the component's icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.context;
+        protected override Bitmap Icon => Resources.AIFileMetadata;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.secondary;

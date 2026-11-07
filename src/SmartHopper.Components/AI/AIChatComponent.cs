@@ -204,7 +204,7 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Gets the component's icon.
         /// </summary>
-        protected override Bitmap Icon => Properties.Resources.aichat;
+        protected override Bitmap Icon => Properties.Resources.AIChat;
 
         /// <summary>
         /// Gets the unique ID for this component type.

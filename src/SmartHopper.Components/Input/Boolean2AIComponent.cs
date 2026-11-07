@@ -32,7 +32,7 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("9E466D19-E898-4A81-AFFA-3E26693647B8");
 
-        protected override Bitmap Icon => Resources.toaibool;
+        protected override Bitmap Icon => Resources.Boolean2AI;
 
         public Boolean2AIComponent()
             : base(

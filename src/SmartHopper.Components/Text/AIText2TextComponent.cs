@@ -44,7 +44,7 @@ namespace SmartHopper.Components.Text
     {
         public override Guid ComponentGuid => new ("EB073C7A-A500-4265-A45B-B1BFB38BA58E");
 
-        protected override Bitmap Icon => Resources.textgenerate;
+        protected override Bitmap Icon => Resources.AIText2Text;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 

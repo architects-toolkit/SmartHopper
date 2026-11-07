@@ -77,6 +77,9 @@ namespace SmartHopper.Components.Mcp
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.SmartHopperMcpServer;
+
+        /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddBooleanParameter(

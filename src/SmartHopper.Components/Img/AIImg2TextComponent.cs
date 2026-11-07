@@ -52,7 +52,7 @@ namespace SmartHopper.Components.Img
         public override Guid ComponentGuid => new Guid("6498B5BA-D781-42B6-8D74-25DA73E32004");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.imgtotext;
+        protected override Bitmap Icon => Resources.AIImg2Text;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {

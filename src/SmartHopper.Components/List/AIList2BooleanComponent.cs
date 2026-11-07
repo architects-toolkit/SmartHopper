@@ -47,7 +47,7 @@ namespace SmartHopper.Components.List
     {
         public override Guid ComponentGuid => new ("A8BAD48D-8723-42AD-B13C-A875F940B69C");
 
-        protected override Bitmap Icon => Resources.listevaluate;
+        protected override Bitmap Icon => Resources.AIList2Boolean;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 

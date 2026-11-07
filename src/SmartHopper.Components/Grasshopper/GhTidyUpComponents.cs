@@ -57,7 +57,7 @@ namespace SmartHopper.Components.Grasshopper
         public override Guid ComponentGuid => new Guid("8B6F904F-8B96-45F5-B4DE-80B53C4FBA10");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Properties.Resources.tidyup;
+        protected override Bitmap Icon => Properties.Resources.GhTidyUp;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
