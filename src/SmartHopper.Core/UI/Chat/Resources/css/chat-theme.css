@@ -596,6 +596,32 @@ body {
     z-index: 1;
 }
 
+/* Tool cards keep a visible byline: .message-sender carries the activity/result
+   sentence (cui-tool-title), which is the primary way the user identifies the
+   running/finished tool. Restore the header to normal flow so it sits left of
+   the chevron instead of the floating top-right dock. */
+.chat-ui[data-theme='cloud'] .message.tool .message-sender {
+    display: inline;
+    color: var(--ink-soft);
+    font-size: var(--cui-font-size-sm);
+    font-style: italic;
+    font-weight: normal;
+}
+.chat-ui[data-theme='cloud'] .message.tool .message-header {
+    position: static;
+}
+
+/* Collapsed tool cards show only the byline (activity/result sentence +
+   chevron); the body stays hidden until expanded. max-height:0 — not
+   display:none — keeps scrollHeight non-zero so the chevron's overflow
+   detection still engages. */
+.chat-ui[data-theme='cloud'] .message.tool:not(.expanded) .message-content {
+    max-height: 0;
+}
+.chat-ui[data-theme='cloud'] .message.tool:not(.expanded) .message-content::after {
+    display: none;
+}
+
 /* Sender byline + timestamp on bubbled rows — cloud .cui-byline language. */
 .chat-ui[data-theme='cloud'] .message-sender {
     font-size: 12px;

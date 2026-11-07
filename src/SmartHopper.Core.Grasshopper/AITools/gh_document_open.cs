@@ -54,7 +54,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "document", "open", "file" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""alreadyOpen"": { ""type"": ""boolean"" }, ""document"": { ""type"": ""object"" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: false, openWorldHint: true),
-                surfaces: GhDocumentTools.InteractiveSurfaces);
+                surfaces: GhDocumentTools.InteractiveSurfaces,
+                activityLabel: "opening a document",
+                resultLabel: "opened a document");
         }
 
         private static Task<AIReturn> OpenAsync(AIToolCall toolCall)

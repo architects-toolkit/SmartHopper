@@ -63,7 +63,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""instructions"": { ""type"": ""string"", ""description"": ""Markdown-formatted reference documentation for the requested topic."" }
                     },
                     ""required"": [""topic"", ""instructions""]
-                }");
+                }",
+                activityLabel: "reading GhJSON reference",
+                resultLabel: "read GhJSON reference");
         }
 
         private async Task<AIReturn> ExecuteAsync(AIToolCall toolCall)

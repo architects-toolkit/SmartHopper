@@ -88,7 +88,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     destructiveHint: false,
                     idempotentHint: true,
                     openWorldHint: false,
-                    title: "Show GhJSON"));
+                    title: "Show GhJSON"),
+                activityLabel: "preparing GhJSON preview",
+                resultLabel: "prepared GhJSON preview");
         }
 
         private async Task<AIReturn> ShowGhJsonAsync(AIToolCall toolCall)

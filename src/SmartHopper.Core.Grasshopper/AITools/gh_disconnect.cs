@@ -88,7 +88,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 enabled: true,
                 tags: new[] { "canvas", "components", "mutating", "connections", "disconnect" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""successful"": { ""type"": ""array"", ""items"": { ""type"": ""object"" } }, ""failed"": { ""type"": ""array"", ""items"": { ""type"": ""object"" } }, ""successCount"": { ""type"": ""integer"" }, ""failCount"": { ""type"": ""integer"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: true));
+                annotations: new AIToolAnnotations(destructiveHint: true),
+                activityLabel: "unwiring components",
+                resultLabel: "unwired components");
         }
 
         /// <summary>

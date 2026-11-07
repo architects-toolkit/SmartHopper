@@ -70,7 +70,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhToggleLockAsync,
                 tags: new[] { "canvas", "components", "mutating", "state" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "toggling component lock",
+                resultLabel: "toggled component lock");
 
             // Specialized wrapper: gh_lock_selected
             yield return new AIMutatingTool(
@@ -84,7 +86,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: (toolCall) => this.GhToggleLockSelectedAsync(toolCall, locked: true),
                 tags: new[] { "canvas", "components", "mutating", "state" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "toggling component lock",
+                resultLabel: "toggled component lock");
 
             // Specialized wrapper: gh_unlock_selected
             yield return new AIMutatingTool(
@@ -98,7 +102,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: (toolCall) => this.GhToggleLockSelectedAsync(toolCall, locked: false),
                 tags: new[] { "canvas", "components", "mutating", "state" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "toggling component lock",
+                resultLabel: "toggled component lock");
         }
 
         private async Task<AIReturn> GhToggleLockAsync(AIToolCall toolCall)

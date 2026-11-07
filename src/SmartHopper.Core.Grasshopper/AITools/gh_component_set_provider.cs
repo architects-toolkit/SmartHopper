@@ -69,7 +69,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 enabled: true,
                 tags: new[] { "canvas", "components", "mutating", "settings", "provider", "model" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""providerSet"": { ""type"": ""boolean"" }, ""selectedProvider"": { ""type"": ""string"" }, ""provider"": { ""type"": ""string"" }, ""panelConnected"": { ""type"": ""boolean"" }, ""panelGuid"": { ""type"": ""string"" }, ""model"": { ""type"": ""string"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "setting component AI provider",
+                resultLabel: "set component AI provider");
         }
 
         private async Task<AIReturn> GhComponentSetProviderAsync(AIToolCall toolCall)

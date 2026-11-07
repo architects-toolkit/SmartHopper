@@ -111,7 +111,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "canvas", "components", "ghjson", "mutating", "ai-generation" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""ghjson"": { ""type"": [""string"", ""null""] }, ""instanceGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""components"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""message"": { ""type"": ""string"" } }, ""required"": [""success""] }",
                 annotations: new AIToolAnnotations(destructiveHint: false, openWorldHint: true),
-                surfaces: SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp);
+                surfaces: SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp,
+                activityLabel: "generating canvas document",
+                resultLabel: "generated canvas document");
         }
 
         private async Task<AIReturn> ExecuteGenerateAsync(AIToolCall toolCall)

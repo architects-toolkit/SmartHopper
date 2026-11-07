@@ -112,7 +112,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""reasoning"": { ""type"": ""string"" }, ""suggestedConnections"": { ""type"": ""array"" }, ""connectionResult"": { ""type"": ""object"" } } }",
                 requiredCapabilities: AICapability.TextInput | AICapability.TextOutput,
                 annotations: new AIToolAnnotations(destructiveHint: false),
-                surfaces: SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp);
+                surfaces: SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp,
+                activityLabel: "suggesting smart connections",
+                resultLabel: "suggested smart connections");
         }
 
         /// <summary>

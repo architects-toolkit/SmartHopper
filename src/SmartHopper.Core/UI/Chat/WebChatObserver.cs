@@ -658,7 +658,10 @@ namespace SmartHopper.Core.UI.Chat
 
             /// <summary>
             /// Notifies that a tool call is being executed.
-            /// Updates the status bar to reflect the ongoing tool name.
+            /// Updates the status bar to reflect the ongoing tool name and flips
+            /// the matching card's <c>data-state</c> from <c>pending</c> (queued)
+            /// to <c>running</c>, which swaps the hollow-circle glyph for the
+            /// spinner via CSS — no re-render needed.
             /// </summary>
             /// <param name="toolCall">The tool call interaction.</param>
             public void OnToolCall(AIInteractionToolCall toolCall)
@@ -670,6 +673,15 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     this._dialog.PushAutonomyUsage();
                     this._dialog.ExecuteScript($"setStatus({Newtonsoft.Json.JsonConvert.SerializeObject($"Calling tool: {toolCall.Name}")});");
+
+                    // Flip the queued card's status glyph to running. The call id
+                    // is normalized the same way as AIInteractionToolCall's
+                    // data-callid sanitize (markup-unsafe chars stripped).
+                    var callId = Newtonsoft.Json.JsonConvert.SerializeObject(toolCall.Id ?? string.Empty);
+                    this._dialog.ExecuteScript(
+                        "(function(){var id=" + callId + ".replace(/[<>&\"'`*\\r\\n]/g,'');" +
+                        "document.querySelectorAll('.cui-tool-title[data-state=\"pending\"]')" +
+                        ".forEach(function(el){if(el.dataset.callid===id)el.dataset.state='running';});})();");
 
                     // Mark a boundary so the next assistant text begins a new segment.
                     var turnKey = GetTurnBaseKey(toolCall?.TurnId);

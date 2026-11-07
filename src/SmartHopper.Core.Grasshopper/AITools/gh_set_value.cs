@@ -76,7 +76,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhSetValueAsync,
                 tags: new[] { "canvas", "components", "mutating", "values" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "setting component values",
+                resultLabel: "set component values");
         }
 
         private async Task<AIReturn> GhSetValueAsync(AIToolCall toolCall)

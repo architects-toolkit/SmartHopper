@@ -100,7 +100,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "text", "json", "data-processing", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""object"", ""description"": ""Generated JSON object conforming to the provided schema."" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
-                surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
+                surfaces: AIToolSurface.Direct | AIToolSurface.Batch,
+                activityLabel: "converting text to JSON",
+                resultLabel: "converted text to JSON");
         }
 
         /// <summary>

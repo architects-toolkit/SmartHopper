@@ -67,7 +67,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "components-retrieval", "components", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""categories"": { ""type"": ""array"", ""description"": ""List of available Grasshopper component categories."" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                activityLabel: "listing component categories",
+                resultLabel: "listed component categories");
         }
 
         /// <summary>

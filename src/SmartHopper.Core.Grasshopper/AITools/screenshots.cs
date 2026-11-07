@@ -211,7 +211,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     destructiveHint: false,
                     idempotentHint: false,
                     openWorldHint: false,
-                    title: "Grasshopper Canvas Screenshot"));
+                    title: "Grasshopper Canvas Screenshot"),
+                activityLabel: "capturing canvas screenshot",
+                resultLabel: "captured canvas screenshot");
 
             yield return new AITool(
                 name: ViewportToolName,
@@ -227,7 +229,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     destructiveHint: false,
                     idempotentHint: false,
                     openWorldHint: false,
-                    title: "Rhino Viewport Screenshot"));
+                    title: "Rhino Viewport Screenshot"),
+                activityLabel: "capturing viewport screenshot",
+                resultLabel: "captured viewport screenshot");
 
             yield return new AITool(
                 name: HiResToolName,
@@ -243,7 +247,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     destructiveHint: false,
                     idempotentHint: false,
                     openWorldHint: false,
-                    title: "Grasshopper Canvas Hi-Res Screenshot"));
+                    title: "Grasshopper Canvas Hi-Res Screenshot"),
+                activityLabel: "capturing hi-res screenshot",
+                resultLabel: "captured hi-res screenshot");
         }
 
         private static int ReadDimension(JObject args, string propertyName, int defaultValue)

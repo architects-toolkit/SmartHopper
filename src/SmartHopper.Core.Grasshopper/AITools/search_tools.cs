@@ -61,7 +61,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 enabled: true,
                 tags: new[] { "meta", "discovery", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""tools"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true, destructiveHint: false));
+                annotations: new AIToolAnnotations(readOnlyHint: true, destructiveHint: false),
+                activityLabel: "searching available tools",
+                resultLabel: "searched available tools");
         }
 
         /// <summary>

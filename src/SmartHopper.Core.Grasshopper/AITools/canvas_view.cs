@@ -119,7 +119,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     destructiveHint: false,
                     idempotentHint: true,
                     openWorldHint: false,
-                    title: "Grasshopper Canvas View"));
+                    title: "Grasshopper Canvas View"),
+                activityLabel: "reading canvas view",
+                resultLabel: "read canvas view");
         }
 
         private async Task<AIReturn> CanvasViewAsync(AIToolCall toolCall)

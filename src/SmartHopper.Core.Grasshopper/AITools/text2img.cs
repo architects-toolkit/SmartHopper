@@ -89,7 +89,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "image", "ai-generation", "read-only", "external" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""image"": { ""type"": ""string"", ""description"": ""Base64-encoded generated image or URL."" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
-                surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
+                surfaces: AIToolSurface.Direct | AIToolSurface.Batch,
+                activityLabel: "generating image",
+                resultLabel: "generated image");
         }
 
         /// <summary>

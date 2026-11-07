@@ -72,8 +72,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 execute: this.GhPutToolAsync,
                 tags: new[] { "canvas", "components", "mutating", "ghjson" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""components"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Names of the placed or replaced components."" }, ""instanceGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the placed or replaced components."" }, ""acceptedChanges"": { ""type"": ""integer"", ""description"": ""Number of staged changes actually applied to the canvas."" }, ""rejectedChanges"": { ""type"": ""integer"", ""description"": ""Number of staged changes not applied: user rejections plus apply failures."" }, ""analysis"": { ""type"": [""string"", ""null""], ""description"": ""Validation, review, error, or warning summary. Null when nothing notable happened."" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""components"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Names of the placed or replaced components."" }, ""instanceGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the placed or replaced components."" }, ""acceptedChanges"": { ""type"": ""integer"", ""description"": ""Number of staged changes actually applied to the canvas."" }, ""rejectedChanges"": { ""type"": ""integer"", ""description"": ""Number of staged changes not applied: user rejections plus apply failures."" }, ""summary"": { ""type"": [""string"", ""null""], ""description"": ""Short sentence (fewer than seven words) describing the outcome, shown as the completed title of this tool's chat card."" }, ""analysis"": { ""type"": [""string"", ""null""], ""description"": ""Validation, review, error, or warning summary. Null when nothing notable happened."" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "placing components on the canvas",
+                resultLabel: "placed components on the canvas");
         }
 
         private async Task<AIReturn> GhPutToolAsync(AIToolCall toolCall)
@@ -478,6 +480,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["instanceGuids"] = JArray.FromObject(placedGuids),
                     ["acceptedChanges"] = appliedChanges,
                     ["rejectedChanges"] = rejectedChanges,
+                    ["summary"] = rejectedChanges > 0
+                        ? $"applied {appliedChanges} of {appliedChanges + rejectedChanges} changes"
+                        : $"applied {appliedChanges} canvas changes",
                     ["analysis"] = combinedAnalysis,
                 };
 

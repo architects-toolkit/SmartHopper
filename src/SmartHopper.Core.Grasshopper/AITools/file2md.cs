@@ -156,7 +156,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "file", "knowledge", "text", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""text"": { ""type"": ""string"", ""description"": ""Markdown representation of the file contents."" }, ""fileType"": { ""type"": ""string"" }, ""images"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
+                activityLabel: "converting file to markdown",
+                resultLabel: "converted file to markdown");
         }
 
         private async Task<AIReturn> File2MdAsync(AIToolCall toolCall)
