@@ -64,7 +64,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.ButtonClickToolAsync,
                 tags: new[] { "canvas", "components", "mutating", "button" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""clickedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""notFoundGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "clicking canvas button",
+                resultLabel: "clicked canvas button");
         }
 
         private async Task<AIReturn> ButtonClickToolAsync(AIToolCall toolCall)

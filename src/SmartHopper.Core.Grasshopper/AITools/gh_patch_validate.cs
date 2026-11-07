@@ -58,7 +58,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "canvas", "components", "patch", "validation", "read-only", "ghjson" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""isValid"": { ""type"": ""boolean"" }, ""errors"": { ""type"": ""array"" }, ""warnings"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                activityLabel: "validating canvas patch",
+                resultLabel: "validated canvas patch");
         }
 
         private async Task<AIReturn> GhPatchValidateToolAsync(AIToolCall toolCall)

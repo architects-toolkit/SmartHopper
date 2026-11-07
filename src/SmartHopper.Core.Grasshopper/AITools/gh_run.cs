@@ -66,7 +66,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhRunAsync,
                 tags: new[] { "canvas", "components", "mutating", "execute" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""runGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""skippedGuids"": { ""type"": ""object"" }, ""protectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "running canvas solution",
+                resultLabel: "ran canvas solution");
         }
 
         private async Task<AIReturn> GhRunAsync(AIToolCall toolCall)

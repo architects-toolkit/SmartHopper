@@ -109,6 +109,9 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// outcome — e.g. "found 12 components"), the model-written <c>aim_done</c>
         /// argument from the call, the tool's deterministic <c>ResultLabel</c>, and
         /// finally "Tool Result: {name}". All sentences must stay under seven words.
+        /// Emits <c>data-state="error"</c> when the result reports a failure
+        /// (<c>error</c> field or <c>success: false</c>) so the status glyph
+        /// renders a cross instead of a tick.
         /// </summary>
         public override string GetDisplayNameForRender()
         {
@@ -119,7 +122,28 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 ?? (string.IsNullOrWhiteSpace(this.Name) ? "Tool Result" : $"Tool Result: {this.Name}");
 
             var callId = SanitizeActivityLabel(this.Id) ?? string.Empty;
-            return $"<span class=\"cui-tool-title\" data-callid=\"{callId}\" data-state=\"done\">{title}</span>";
+            var state = this.IsErrorResult() ? "error" : "done";
+            return $"<span class=\"cui-tool-title\" data-callid=\"{callId}\" data-state=\"{state}\">{title}</span>";
+        }
+
+        /// <summary>
+        /// Detects a failed tool result: tools report failures either through an
+        /// <c>error</c> message field (consent rejections, validation failures) or
+        /// an explicit <c>success: false</c> (synthetic fallback results).
+        /// </summary>
+        private bool IsErrorResult()
+        {
+            if (this.Result == null)
+            {
+                return false;
+            }
+
+            if (this.Result["error"] != null)
+            {
+                return true;
+            }
+
+            return this.Result["success"] is JValue { Type: JTokenType.Boolean } success && !success.Value<bool>();
         }
 
         /// <summary>

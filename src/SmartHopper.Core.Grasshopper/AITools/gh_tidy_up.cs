@@ -85,7 +85,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhTidyUpAsync,
                 tags: new[] { "canvas", "components", "mutating", "layout" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""moved"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved."" }, ""affectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved (alias for moved)."" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "tidying up the canvas",
+                resultLabel: "tidied up the canvas");
 
             // Specialized wrapper: gh_tidy_up_selected
             yield return new AIMutatingTool(
@@ -113,7 +115,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhTidyUpSelectedAsync,
                 tags: new[] { "canvas", "components", "mutating", "layout" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""moved"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved."" }, ""affectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved (alias for moved)."" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "tidying selected components",
+                resultLabel: "tidied selected components");
         }
 
         /// <summary>

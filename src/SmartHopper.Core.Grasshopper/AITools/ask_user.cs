@@ -70,7 +70,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "planning", "question", "user-input", "interactive" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""answered"": { ""type"": ""boolean"" }, ""answer"": { ""type"": ""string"" }, ""isFreeText"": { ""type"": ""boolean"" } } }",
-                surfaces: AIToolSurface.Chat);
+                surfaces: AIToolSurface.Chat,
+                activityLabel: "asking the user",
+                resultLabel: "asked the user");
         }
 
         private async Task<AIReturn> ExecuteAsync(AIToolCall toolCall)

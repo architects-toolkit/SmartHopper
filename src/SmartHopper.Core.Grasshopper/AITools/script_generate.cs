@@ -175,7 +175,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "scripting", "script", "canvas", "mutating", "ghjson" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON of the placed component."" }, ""instanceGuid"": { ""type"": ""string"" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false, openWorldHint: true),
-                surfaces: SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp);
+                surfaces: SmartHopper.ProviderSdk.Hosting.AIToolSurface.Chat | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Direct | SmartHopper.ProviderSdk.Hosting.AIToolSurface.Mcp,
+                activityLabel: "generating script component",
+                resultLabel: "generated script component");
         }
 
         private async Task<AIReturn> ExecuteAsync(AIToolCall toolCall)

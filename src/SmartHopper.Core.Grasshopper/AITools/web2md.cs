@@ -102,7 +102,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "web", "knowledge", "text", "read-only", "external" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""content"": { ""type"": ""string"", ""description"": ""Markdown representation of the web page."" }, ""source"": { ""type"": ""string"", ""description"": ""The URL that was fetched."" }, ""retrievedAt"": { ""type"": ""string"", ""format"": ""date-time"", ""description"": ""UTC ISO 8601 timestamp when the page was retrieved."" }, ""metadata"": { ""type"": ""object"" }, ""warnings"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
+                activityLabel: "fetching web page",
+                resultLabel: "fetched web page");
         }
 
         private async Task<AIReturn> Web2MdAsync(AIToolCall toolCall)

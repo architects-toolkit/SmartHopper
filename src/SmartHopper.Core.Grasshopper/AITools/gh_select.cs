@@ -83,7 +83,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""missingGuids"": { ""type"": ""array"" }
                     }
                 }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "selecting canvas components",
+                resultLabel: "selected canvas components");
         }
 
         private async Task<AIReturn> GhSelectAsync(AIToolCall toolCall)

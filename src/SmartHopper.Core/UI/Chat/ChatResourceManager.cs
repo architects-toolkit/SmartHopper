@@ -664,7 +664,10 @@ namespace SmartHopper.Core.UI.Chat
 
             // Decide whether to show metrics icon. Hide when metrics are missing or not meaningful (e.g., during streaming).
             // Consider metrics meaningful if we have token counts or provider+model info.
+            // Tool cards inherit the turn's metrics — surfacing them under every
+            // tool row duplicates what the assistant bubble already reports.
             bool hasMeaningfulMetrics =
+                roleClass != "tool" &&
                 (interaction.Metrics != null) &&
                 ((inTokens > 0) || (outTokens > 0) ||
                  (!string.IsNullOrWhiteSpace(provider) && !string.IsNullOrWhiteSpace(model)));

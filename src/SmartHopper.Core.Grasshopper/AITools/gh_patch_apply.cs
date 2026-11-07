@@ -65,7 +65,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "canvas", "components", "patch", "read-only", "ghjson" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Resulting GhJSON after applying the patch."" }, ""success"": { ""type"": ""boolean"" }, ""hasConflicts"": { ""type"": ""boolean"" }, ""conflicts"": { ""type"": ""array"" }, ""componentsAdded"": { ""type"": ""integer"" }, ""componentsRemoved"": { ""type"": ""integer"" }, ""componentsModified"": { ""type"": ""integer"" }, ""connectionsAdded"": { ""type"": ""integer"" }, ""connectionsRemoved"": { ""type"": ""integer"" }, ""groupsAdded"": { ""type"": ""integer"" }, ""groupsRemoved"": { ""type"": ""integer"" }, ""groupsModified"": { ""type"": ""integer"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                activityLabel: "applying patch to canvas",
+                resultLabel: "applied patch to canvas");
         }
 
         private async Task<AIReturn> GhPatchApplyToolAsync(AIToolCall toolCall)

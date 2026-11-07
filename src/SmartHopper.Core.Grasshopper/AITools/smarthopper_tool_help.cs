@@ -90,7 +90,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             }
                         }
                     }
-                }");
+                }",
+                activityLabel: "reading tool help",
+                resultLabel: "read tool help");
         }
 
         private Task<AIReturn> ExecuteAsync(AIToolCall toolCall)

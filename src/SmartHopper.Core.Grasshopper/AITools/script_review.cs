@@ -138,7 +138,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "scripting", "script", "review", "read-only", "ghjson" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""review"": { ""type"": ""string"", ""description"": ""AI-generated code review."" }, ""warnings"": { ""type"": ""array"" }, ""errors"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
+                activityLabel: "reviewing script code",
+                resultLabel: "reviewed script code");
         }
 
         /// <summary>

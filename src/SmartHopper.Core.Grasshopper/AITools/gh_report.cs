@@ -84,7 +84,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "canvas", "components", "read-only", "report" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""report"": { ""type"": ""string"", ""description"": ""Structured markdown report of the canvas status."" }, ""aiSummary"": { ""type"": ""string"", ""description"": ""AI-generated summary of the file purpose and current view."" } } }",
                 requiredCapabilities: AICapability.TextInput | AICapability.TextOutput,
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                activityLabel: "generating canvas report",
+                resultLabel: "generated canvas report");
         }
 
         /// <summary>

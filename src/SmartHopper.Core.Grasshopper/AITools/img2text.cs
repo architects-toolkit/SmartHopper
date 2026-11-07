@@ -92,7 +92,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "image", "vision", "text", "read-only", "external" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""string"", ""description"": ""Text description or analysis of the image."" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
+                activityLabel: "describing image",
+                resultLabel: "described image");
         }
 
         /// <summary>

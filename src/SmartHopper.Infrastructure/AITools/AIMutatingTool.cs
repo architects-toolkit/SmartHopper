@@ -45,7 +45,9 @@ namespace SmartHopper.Infrastructure.AITools
             IReadOnlyList<string>? tags = null,
             string? outputSchema = null,
             AIToolAnnotations? annotations = null,
-            AIToolSurface surfaces = AIToolSurface.Chat | AIToolSurface.Direct | AIToolSurface.Mcp)
+            AIToolSurface surfaces = AIToolSurface.Chat | AIToolSurface.Direct | AIToolSurface.Mcp,
+            string? activityLabel = null,
+            string? resultLabel = null)
             : base(
                 name,
                 description,
@@ -59,7 +61,9 @@ namespace SmartHopper.Infrastructure.AITools
                 tags,
                 outputSchema,
                 annotations,
-                surfaces & ~AIToolSurface.Batch)
+                surfaces & ~AIToolSurface.Batch,
+                activityLabel,
+                resultLabel)
         {
         }
     }

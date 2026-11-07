@@ -100,7 +100,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     destructiveHint: false,
                     idempotentHint: true,
                     openWorldHint: false,
-                    title: "Point at Canvas"));
+                    title: "Point at Canvas"),
+                activityLabel: "reading canvas position",
+                resultLabel: "read canvas position");
         }
 
         private async Task<AIReturn> CanvasPointAsync(AIToolCall toolCall)

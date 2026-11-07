@@ -90,7 +90,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "text", "data-processing", "read-only", "ai-generation" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""string"", ""description"": ""Generated text response."" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
-                surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
+                surfaces: AIToolSurface.Direct | AIToolSurface.Batch,
+                activityLabel: "generating text",
+                resultLabel: "generated text");
         }
 
         /// <summary>
