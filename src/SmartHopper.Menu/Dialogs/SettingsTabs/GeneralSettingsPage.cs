@@ -30,9 +30,9 @@ using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Menu.Dialogs.SettingsTabs
 {
     /// <summary>
-    /// Settings page for general SmartHopper configuration, organized in AI, Telemetry,
+    /// Settings page for general SmartHopper configuration, organized in AI
     /// and Logs sections: default provider, debounce and batch poll interval, modality
-    /// fallback, consent opt-ins, and log sink toggles/levels/retention.
+    /// fallback, and log sink toggles/levels/retention.
     /// </summary>
     public class GeneralSettingsPage : Panel
     {
@@ -47,8 +47,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         private readonly DropDown _defaultProviderComboBox;
         private readonly NumericStepper _debounceControl;
         private readonly NumericStepper _batchPollIntervalControl;
-        private readonly CheckBox _telemetryCheckBox;
-        private readonly CheckBox _diagnosticsCheckBox;
         private readonly IAIProvider[] _providers;
 
         // Modality fallback controls (AI section)
@@ -64,8 +62,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         private readonly CheckBox _logFileCheckBox;
         private readonly DropDown _logFileLevelDropDown;
         private readonly NumericStepper _retentionControl;
-        private readonly CheckBox _otlpCheckBox;
-        private readonly DropDown _otlpLevelDropDown;
 
         /// <summary>
         /// Initializes a new instance of the GeneralSettingsPage class
@@ -91,8 +87,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 Increment = 5,
             };
 
-            this._telemetryCheckBox = new CheckBox { Text = "Share anonymous community stats" };
-            this._diagnosticsCheckBox = new CheckBox { Text = "Share diagnostics" };
 
             this._fallbackModeDropDown = new DropDown();
             this._fallbackModeDropDown.Items.Add(new ListItem { Text = "Disabled", Key = "0" });
@@ -104,8 +98,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             this._liveOutputLevelDropDown = BuildLogLevelDropDown();
             this._logFileCheckBox = new CheckBox { Text = "Write logs to file" };
             this._logFileLevelDropDown = BuildLogLevelDropDown();
-            this._otlpCheckBox = new CheckBox { Text = "Share logs with the telemetry collector" };
-            this._otlpLevelDropDown = BuildLogLevelDropDown();
             this._retentionControl = new NumericStepper { MinValue = 1, MaxValue = 90, Increment = 1 };
 
             foreach (var provider in this._providers)
@@ -280,72 +272,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             this._fallbackPinsContainer = new Panel { Content = pinsLayout };
             layout.Add(this._fallbackPinsContainer);
 
-            // Telemetry section
-            layout.Add(new Panel { Height = 20 });
-            layout.Add(new Label
-            {
-                Text = "Telemetry",
-                Font = new Font(SystemFont.Bold, 12),
-            });
-
-            layout.Add(new Panel { Height = 5 });
-
-            // Community statistics consent (strictly opt-in; disabled by default)
-            var telemetryRowLayout = new TableLayout
-            {
-                Spacing = new Size(10, 0),
-            };
-
-            telemetryRowLayout.Rows.Add(new TableRow(
-                new TableCell(new Label { Text = "Community stats:", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
-                new TableCell(this._telemetryCheckBox, true)));
-
-            layout.Add(telemetryRowLayout);
-
-            layout.Add(new Label
-            {
-                Text = "Share anonymous usage statistics: which components you use and which AI providers and models you run. Opt-in; never includes prompts, responses, file paths, geometry, or document content.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
-
-            // Diagnostics consent (independent opt-in: logs, warnings, errors, stack traces)
-#if DEBUG
-            this._diagnosticsCheckBox.Enabled = false;
-#endif
-            var diagnosticsRowLayout = new TableLayout
-            {
-                Spacing = new Size(10, 0),
-            };
-
-            diagnosticsRowLayout.Rows.Add(new TableRow(
-                new TableCell(new Label { Text = "Diagnostics:", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
-                new TableCell(this._diagnosticsCheckBox, true)));
-
-            layout.Add(diagnosticsRowLayout);
-
-#if DEBUG
-            layout.Add(new Label
-            {
-                Text = "⚠ DEBUG BUILD: Diagnostics sharing is enforced ON regardless of the setting above.",
-                TextColor = Colors.Orange,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
-#endif
-
-            layout.Add(new Label
-            {
-                Text = "Share logs, warnings, errors and stack traces to help improve SmartHopper, including automated investigation by our telemetry processor. Opt-in; stack traces are stripped of file paths before leaving this machine.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
-
             // Logs section
             layout.Add(new Panel { Height = 20 });
             layout.Add(new Label
@@ -356,7 +282,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             layout.Add(new Panel { Height = 5 });
 
-            AddDescription(layout, "Local (on-machine) logging follows the Share diagnostics consent in the Telemetry section above — the sinks below are active only while it is enabled.");
+            AddDescription(layout, "Local, on-machine logging only — nothing leaves this machine unless you export a diagnostics zip yourself.");
             layout.Add(new Panel { Height = 10 });
 
             layout.Add(this._liveOutputCheckBox);
@@ -369,10 +295,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             AddRow(layout, "Retention (days):", this._retentionControl);
             AddDescription(layout, "Writes log entries at or above the selected level to a rolling per-day log file under the diagnostics folder, keeping the last N days.");
             layout.Add(new Panel { Height = 10 });
-
-            layout.Add(this._otlpCheckBox);
-            AddRow(layout, "Share level:", this._otlpLevelDropDown);
-            AddDescription(layout, "Ships log entries at or above the selected level to the telemetry collector for automated investigation. Requires 'Share diagnostics' in the Telemetry section above — nothing leaves this machine without that consent. Messages are scrubbed of personal data and stack traces are stripped of file paths.");
 
             // Add end spacing
             layout.Add(new Panel { Height = 10 });
@@ -414,15 +336,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Set batch poll interval
             this._batchPollIntervalControl.Value = settings.BatchPollIntervalSeconds;
 
-            // Set telemetry consent
-            this._telemetryCheckBox.Checked = settings.TelemetryEnabled;
-
-            // Set diagnostics consent (forced on and locked in DEBUG builds)
-#if DEBUG
-            this._diagnosticsCheckBox.Checked = true;
-#else
-            this._diagnosticsCheckBox.Checked = settings.DiagnosticsEnabled;
-#endif
+            // Set diagnostics consent (forced on and locked in DEBUG builds)#else
 
             // Set modality fallback mode and pins
             this._fallbackModeDropDown.SelectedIndex = (int)fallbackMode;
@@ -467,8 +381,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             this._logFileCheckBox.Checked = logSettings.LogFileEnabled;
             SetLogLevel(this._logFileLevelDropDown, logSettings.LogFileLevel);
             this._retentionControl.Value = logSettings.LogRetentionDays;
-            this._otlpCheckBox.Checked = logSettings.OtlpLogEnabled;
-            SetLogLevel(this._otlpLevelDropDown, logSettings.OtlpLogLevel);
         }
 
         /// <summary>
@@ -492,12 +404,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Save batch poll interval
             settings.BatchPollIntervalSeconds = (int)this._batchPollIntervalControl.Value;
 
-            // Save telemetry consent
-            settings.TelemetryEnabled = this._telemetryCheckBox.Checked == true;
-
             // Save diagnostics consent (the control is locked in DEBUG builds — keep the stored value)
 #if !DEBUG
-            settings.DiagnosticsEnabled = this._diagnosticsCheckBox.Checked == true;
 #endif
 
             // Save modality fallback mode and pins
@@ -530,8 +438,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             logSettings.LogFileEnabled = this._logFileCheckBox.Checked == true;
             logSettings.LogFileLevel = LogLevels[this._logFileLevelDropDown.SelectedIndex].Level;
             logSettings.LogRetentionDays = (int)this._retentionControl.Value;
-            logSettings.OtlpLogEnabled = this._otlpCheckBox.Checked == true;
-            logSettings.OtlpLogLevel = LogLevels[this._otlpLevelDropDown.SelectedIndex].Level;
         }
 
         private void OnFallbackModeChanged(object sender, EventArgs e)

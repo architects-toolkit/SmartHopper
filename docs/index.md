@@ -70,6 +70,7 @@ This is the root documentation hub for SmartHopper. It organizes all guides, ref
 - [AIRequestParameters](Architecture/AIRequestParameters.md) -- request customization
 - [VersatileAudio](Architecture/VersatileAudio.md) -- audio type system
 - [Agentic Copilot and Consent](Architecture/agent-copilot.md) -- planning, tool surfaces, and graphical mutation approval
+- [Structured Logging](Architecture/logging.md) -- Logger facade, scopes, local sinks, and scrubbing
 - [Design Decisions](DESIGN_DECISIONS/index.md) -- rationale behind key choices
 
 #### Context & Tools

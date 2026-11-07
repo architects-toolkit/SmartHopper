@@ -69,17 +69,13 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Logging
         }
 
         /// <summary>
-        /// Logging should be disabled when the master logging switch is off.
-        /// In DEBUG builds diagnostics consent is forced on, so this scenario
-        /// cannot occur — the test is compiled out.
+        /// Logging should be disabled when every local sink is off.
         /// </summary>
-#if !DEBUG
         [Fact]
         public void IsEnabled_ReturnsFalse_WhenLoggingDisabled()
         {
             var settings = new SmartHopperSettings
             {
-                DiagnosticsEnabled = false,
                 LiveOutputEnabled = false,
                 LogFileEnabled = false,
             };
@@ -90,7 +86,6 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Logging
                 Assert.False(ProviderSdkHost.Logger.IsEnabled(ProviderLogLevel.Error));
             }
         }
-#endif
 
         /// <summary>
         /// Only log levels at or above the configured sink level should be enabled.
@@ -104,7 +99,6 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Logging
         {
             var settings = new SmartHopperSettings
             {
-                DiagnosticsEnabled = true,
                 LiveOutputEnabled = false,
                 LogFileEnabled = true,
                 LogFileLevel = fileLevel,
@@ -124,7 +118,6 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Logging
         {
             var settings = new SmartHopperSettings
             {
-                DiagnosticsEnabled = true,
                 LiveOutputEnabled = false,
                 LogFileEnabled = true,
                 LogFileLevel = ProviderLogLevel.Trace,
@@ -149,7 +142,6 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Logging
         {
             var settings = new SmartHopperSettings
             {
-                DiagnosticsEnabled = true,
                 LiveOutputEnabled = false,
                 LogFileEnabled = true,
                 LogFileLevel = ProviderLogLevel.Warning,
@@ -178,7 +170,6 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Logging
         {
             var settings = new SmartHopperSettings
             {
-                DiagnosticsEnabled = true,
                 LiveOutputEnabled = false,
                 LogFileEnabled = true,
                 LogFileLevel = ProviderLogLevel.Info,
@@ -204,7 +195,6 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Logging
         {
             var settings = new SmartHopperSettings
             {
-                DiagnosticsEnabled = true,
                 LiveOutputEnabled = false,
                 LogFileEnabled = true,
                 LogFileLevel = ProviderLogLevel.Trace,
@@ -236,7 +226,6 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Logging
         {
             var settings = new SmartHopperSettings
             {
-                DiagnosticsEnabled = true,
                 LiveOutputEnabled = false,
                 LogFileEnabled = true,
                 LogFileLevel = ProviderLogLevel.Error,
@@ -264,7 +253,6 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Logging
         {
             var settings = new SmartHopperSettings
             {
-                DiagnosticsEnabled = true,
                 LiveOutputEnabled = false,
                 LogFileEnabled = true,
                 LogFileLevel = ProviderLogLevel.Trace,
