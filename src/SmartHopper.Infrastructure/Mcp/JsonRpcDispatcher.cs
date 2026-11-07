@@ -28,6 +28,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Infrastructure.Mcp
 {
     /// <summary>
@@ -93,6 +94,7 @@ namespace SmartHopper.Infrastructure.Mcp
             }
             catch (JsonReaderException ex)
             {
+                Logger.Warning(typeof(JsonRpcDispatcher).FullName, $"[JsonRpcDispatcher] Rejected malformed JSON-RPC payload: {ex.Message}");
                 return SerializeError(null, ParseError, $"Parse error: {ex.Message}");
             }
 
@@ -163,6 +165,7 @@ namespace SmartHopper.Infrastructure.Mcp
             }
             catch (Exception ex)
             {
+                Logger.Exception(typeof(JsonRpcDispatcher).FullName, ex, $"[JsonRpcDispatcher] Unhandled error dispatching '{method}': {ex.Message}");
                 return SerializeError(id, InternalError, $"Internal error: {ex.Message}");
             }
             finally

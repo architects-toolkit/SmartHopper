@@ -148,7 +148,7 @@ namespace SmartHopper.Providers.Gemini
                     catch (Exception ex)
                     {
                         bodyError = new AIReturn();
-                        bodyError.CreateProviderError($"Failed to create request body: {ex.Message}", request);
+                        bodyError.CreateProviderError(ex, request, "Failed to create request body");
                     }
 
                     if (bodyError != null)
@@ -171,7 +171,7 @@ namespace SmartHopper.Providers.Gemini
                     catch (Exception ex)
                     {
                         sendError = new AIReturn();
-                        sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
+                        sendError.CreateNetworkError(ex, request);
                     }
 
                     if (responseError != null)

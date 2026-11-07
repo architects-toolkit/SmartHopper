@@ -371,6 +371,68 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
         }
 
         /// <summary>
+        /// Creates a standardized provider error from a caught exception and logs the
+        /// full exception (type, stack trace, inner exceptions) through the telemetry
+        /// pipeline. Use this overload in catch blocks so that unexpected failures
+        /// remain diagnosable instead of surviving only as a user-facing message.
+        /// </summary>
+        /// <param name="exception">The caught exception.</param>
+        /// <param name="request">The request context.</param>
+        /// <param name="context">Optional prefix describing the failing operation; prepended to the exception message.</param>
+        public void CreateProviderError(Exception exception, IAIRequest? request = null, string? context = null)
+        {
+            Logger.Exception(request?.Provider ?? nameof(AIReturn), exception, context ?? "Provider call failed");
+
+            var message = string.IsNullOrEmpty(context) ? exception.Message : $"{context}: {exception.Message}";
+            this.CreateProviderError(message, request);
+        }
+
+        /// <summary>
+        /// Creates a standardized network error (e.g., DNS, connectivity) from a caught
+        /// exception and logs the full exception (type, stack trace, inner exceptions)
+        /// through the telemetry pipeline. Use this overload in catch blocks so that
+        /// transport failures remain diagnosable instead of surviving only as a
+        /// user-facing message.
+        /// </summary>
+        /// <param name="exception">The caught exception.</param>
+        /// <param name="request">The request context.</param>
+        /// <param name="context">Optional prefix describing the failing operation; prepended to the exception message.</param>
+        public void CreateNetworkError(Exception exception, IAIRequest? request = null, string? context = null)
+        {
+            Logger.Exception(request?.Provider ?? nameof(AIReturn), exception, context ?? "Network call failed");
+
+            var message = exception.InnerException?.Message ?? exception.Message;
+            if (!string.IsNullOrEmpty(context))
+            {
+                message = $"{context}: {message}";
+            }
+
+            this.CreateNetworkError(message, request);
+        }
+
+        /// <summary>
+        /// Creates a standardized tool error from a caught exception and logs the full
+        /// exception (type, stack trace, inner exceptions) through the telemetry
+        /// pipeline. Use this overload in catch blocks so that unexpected failures
+        /// remain diagnosable instead of surviving only as a user-facing message.
+        /// </summary>
+        /// <param name="exception">The caught exception.</param>
+        /// <param name="request">The request context.</param>
+        /// <param name="context">Optional prefix describing the failing operation; prepended to the exception message.</param>
+        public void CreateToolError(Exception exception, IAIRequest? request = null, string? context = null)
+        {
+            Logger.Exception(request?.Provider ?? nameof(AIReturn), exception, context ?? "Tool call failed");
+
+            var message = exception.InnerException?.Message ?? exception.Message;
+            if (!string.IsNullOrEmpty(context))
+            {
+                message = $"{context}: {message}";
+            }
+
+            this.CreateToolError(message, request);
+        }
+
+        /// <summary>
         /// Creates a standardized tool error.
         /// Adds a structured message with Tool origin.
         /// </summary>

@@ -968,7 +968,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 : $"Tool execution was aborted by an error: {ex.Message}");
 
             var error = new AIReturn();
-            error.CreateProviderError(errorMessage, this.Request);
+            if (cancelled)
+            {
+                error.CreateProviderError(errorMessage, this.Request);
+            }
+            else
+            {
+                error.CreateProviderError(ex, this.Request);
+            }
 
             // Surface error interactions from the body before calling OnError
             var errorInteractions = error.Body?.Interactions;

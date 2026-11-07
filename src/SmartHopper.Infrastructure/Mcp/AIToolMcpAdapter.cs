@@ -37,6 +37,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Infrastructure.Mcp
 {
     /// <summary>
@@ -221,6 +222,7 @@ namespace SmartHopper.Infrastructure.Mcp
             }
             catch (Exception ex)
             {
+                Logger.Exception(typeof(AIToolMcpAdapter).FullName, ex, $"[AIToolMcpAdapter] Tool '{toolName}' threw an exception: {ex.Message}");
                 return McpToolCallResult.Error($"Tool '{toolName}' threw an exception: {ex.Message}");
             }
 

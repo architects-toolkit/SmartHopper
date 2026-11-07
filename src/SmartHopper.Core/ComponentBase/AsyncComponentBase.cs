@@ -289,11 +289,10 @@ namespace SmartHopper.Core.ComponentBase
                     {
                         if (t.IsFaulted)
                         {
-                            Logger.For<AsyncComponentBase>().Trace($"[AsyncComponentBase] Task exceptions occurred:");
                             var ae = t.Exception;
                             foreach (var ex in ae.InnerExceptions)
                             {
-                                Logger.For<AsyncComponentBase>().Trace($"[AsyncComponentBase] - {ex.Message}");
+                                Logger.For<AsyncComponentBase>().Exception(ex, "[AsyncComponentBase] Background task faulted");
                                 this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Task error: {ex.Message}");
                             }
 

@@ -1676,7 +1676,7 @@ namespace SmartHopper.Providers.OpenAI
                 catch (Exception ex)
                 {
                     authError = new AIReturn();
-                    authError.CreateProviderError(ex.Message, request);
+                    authError.CreateProviderError(ex, request);
                 }
 
                 if (authError != null)
@@ -1696,7 +1696,7 @@ namespace SmartHopper.Providers.OpenAI
                 catch (Exception ex)
                 {
                     sendError = new AIReturn();
-                    sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
+                    sendError.CreateNetworkError(ex, request);
                     response = null!;
                 }
 

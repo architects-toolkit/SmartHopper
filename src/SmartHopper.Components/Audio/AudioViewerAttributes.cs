@@ -24,6 +24,7 @@ using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
 using SmartHopper.Core.Types;
+using SmartHopper.ProviderSdk.Logging;
 
 namespace SmartHopper.Components.Audio
 {
@@ -207,9 +208,10 @@ namespace SmartHopper.Components.Audio
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Silently fail waveform rendering
+                // Rendering-only failure — keep it out of the error stream but traceable.
+                Logger.For<AudioViewerAttributes>().Trace($"[AudioViewerAttributes] Waveform rendering failed: {ex.Message}");
             }
         }
 
