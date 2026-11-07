@@ -35,6 +35,7 @@ using SmartHopper.ProviderSdk.AICall.Batch;
 using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AIProviders;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.ComponentBase
 {
     /// <summary>
@@ -72,7 +73,7 @@ namespace SmartHopper.Core.ComponentBase
                     _removingDocumentIds.Add(doc.DocumentID);
                 }
 
-                Debug.WriteLine($"[AIStatefulAsync] Document {doc.DocumentID} removed - shutdown detected for that document");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] Document {doc.DocumentID} removed - shutdown detected for that document");
             };
         }
 
@@ -117,7 +118,7 @@ namespace SmartHopper.Core.ComponentBase
                         false);
                 }
 
-                Debug.WriteLine($"[AIStatefulAsyncComponentBase] Settings parsed: Model={parsed.Model}, MaxTokens={parsed.MaxTokens}, Temperature={parsed.Temperature}");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsyncComponentBase] Settings parsed: Model={parsed.Model}, MaxTokens={parsed.MaxTokens}, Temperature={parsed.Temperature}");
                 this.SetParameters(parsed);
             }
             else
@@ -161,7 +162,7 @@ namespace SmartHopper.Core.ComponentBase
             // The poll timer (started in Read()) drives completion; no new work should begin.
             if (this._batchState.Submission != null)
             {
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] OnStateProcessing: batch active, skipping worker spawn");
+                Logger.For<AIStatefulAsyncComponentBase>().Warning("[AIStatefulAsyncComponentBase] OnStateProcessing: batch active, skipping worker spawn");
                 return;
             }
 
@@ -177,7 +178,7 @@ namespace SmartHopper.Core.ComponentBase
             // (queue, sentinel ids, progress, unsupported flag, timings, persisted metrics)
             // while preserving the two cross-run survivors (Submission, SentinelTrees) so an
             // in-flight remote batch keeps polling and saved-batch reload remains correct.
-            Debug.WriteLine($"[AIStatefulAsyncComponentBase] OnEnteringNeedsRun: resetting per-run state, SentinelTrees count={this._batchState.SentinelTrees?.Count ?? 0}");
+            Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsyncComponentBase] OnEnteringNeedsRun: resetting per-run state, SentinelTrees count={this._batchState.SentinelTrees?.Count ?? 0}");
             this.AIReturnSnapshot = null;
             this._batchState.ResetForNextRun();
             this._currentProcessingPath = null;
@@ -285,7 +286,7 @@ namespace SmartHopper.Core.ComponentBase
             // Skip output if batch is still active - outputs will be set after batch completes
             if (this._batchState.Submission != null)
             {
-                Debug.WriteLine("[AIStatefulAsync] OnSolveInstancePostSolve: Batch still active, skipping output");
+                Logger.For<AIStatefulAsyncComponentBase>().Warning("[AIStatefulAsync] OnSolveInstancePostSolve: Batch still active, skipping output");
                 return;
             }
 
@@ -307,7 +308,7 @@ namespace SmartHopper.Core.ComponentBase
             // If a batch is actively being processed, skip restoration of sentinel trees
             if (this._batchState.Submission != null)
             {
-                Debug.WriteLine("[AIStatefulAsync] RestorePersistentOutputs: Batch submission active, skipping sentinel tree output");
+                Logger.For<AIStatefulAsyncComponentBase>().Warning("[AIStatefulAsync] RestorePersistentOutputs: Batch submission active, skipping sentinel tree output");
                 return;
             }
 
@@ -327,20 +328,20 @@ namespace SmartHopper.Core.ComponentBase
                 if (shuttingDown)
                 {
                     // Document/Rhino closing: preserve batch, just stop polling
-                    Debug.WriteLine($"[AIStatefulAsync] RemovedFromDocument (shutdown): Preserving batch {this._batchState.Submission.BatchId}");
+                    Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] RemovedFromDocument (shutdown): Preserving batch {this._batchState.Submission.BatchId}");
                     this.StopBatchPollTimer();
                 }
                 else
                 {
                     // Manual component removal: cancel the batch (no UI update needed as component is being destroyed)
                     var batchId = this._batchState.Submission.BatchId;
-                    Debug.WriteLine($"[AIStatefulAsync] RemovedFromDocument (manual removal): Cancelling batch {batchId}");
+                    Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] RemovedFromDocument (manual removal): Cancelling batch {batchId}");
                     _ = this.CancelRemoteBatchAsync(batchId);
                 }
             }
             else if (this._batchPollTimer != null)
             {
-                Debug.WriteLine($"[AIStatefulAsync] RemovedFromDocument: Stopping batch poll timer");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] RemovedFromDocument: Stopping batch poll timer");
                 this.StopBatchPollTimer();
             }
 
@@ -354,7 +355,7 @@ namespace SmartHopper.Core.ComponentBase
             // The batch polling will handle the transition when results are ready.
             if (this._batchState.Submission != null)
             {
-                Debug.WriteLine($"[AIStatefulAsync] OnWorkerCompleted: Batch submission active ({this._batchState.Submission.BatchId}), staying in Processing state");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] OnWorkerCompleted: Batch submission active ({this._batchState.Submission.BatchId}), staying in Processing state");
 
                 // Stay in Processing state - batch polling will transition to Completed
                 // Still commit hashes so we don't re-trigger processing
@@ -381,7 +382,7 @@ namespace SmartHopper.Core.ComponentBase
             if (this._batchState.Submission != null)
             {
                 var batchId = this._batchState.Submission.BatchId;
-                Debug.WriteLine($"[AIStatefulAsync] OnTasksCancelDetected: Cancelling remote batch {batchId}");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] OnTasksCancelDetected: Cancelling remote batch {batchId}");
 
                 // Add immediate feedback that cancellation is in progress
                 this.SetPersistentRuntimeMessage(
@@ -418,19 +419,19 @@ namespace SmartHopper.Core.ComponentBase
                     {
                         await batchProvider.CancelBatchAsync(submission, CancellationToken.None).ConfigureAwait(false);
                         cancelledSuccessfully = true;
-                        Debug.WriteLine($"[AIStatefulAsync] Remote batch cancelled successfully: {batchId}");
+                        Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] Remote batch cancelled successfully: {batchId}");
                     }
                     else
                     {
                         errorMessage = "Provider does not support batch cancellation";
-                        Debug.WriteLine($"[AIStatefulAsync] Provider does not support batch cancellation: {submission.ProviderName}");
+                        Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] Provider does not support batch cancellation: {submission.ProviderName}");
                     }
                 }
             }
             catch (Exception ex)
             {
                 errorMessage = ex.Message;
-                Debug.WriteLine($"[AIStatefulAsync] Error cancelling remote batch {batchId}: {ex.Message}");
+                Logger.For<AIStatefulAsyncComponentBase>().Exception(ex, $"[AIStatefulAsync] Error cancelling remote batch {batchId}: {ex.Message}");
             }
             finally
             {

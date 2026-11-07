@@ -30,6 +30,7 @@ using Grasshopper.Kernel;
 using SmartHopper.Core.ComponentBase.Attributes;
 using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.UI;
+using SmartHopper.ProviderSdk.Logging;
 using Timer = System.Timers.Timer;
 
 namespace SmartHopper.Core.ComponentBase.Cores
@@ -96,7 +97,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 if (reader.ItemExists(PersistenceKeys.SelectedObjectsCount))
                 {
                     int count = reader.GetInt32(PersistenceKeys.SelectedObjectsCount);
-                    System.Diagnostics.Debug.WriteLine($"[SelectingComponentCore] Read: Loading {count} selected object GUIDs");
+                    Logger.For<SelectingComponentCore>().Error($"[SelectingComponentCore] Read: Loading {count} selected object GUIDs");
 
                     for (int i = 0; i < count; i++)
                     {
@@ -105,14 +106,14 @@ namespace SmartHopper.Core.ComponentBase.Cores
                         {
                             Guid objectGuid = reader.GetGuid(key);
                             this.pendingSelectionGuids.Add(objectGuid);
-                            System.Diagnostics.Debug.WriteLine($"[SelectingComponentCore] Read: Stored GUID {objectGuid}");
+                            Logger.For<SelectingComponentCore>().Error($"[SelectingComponentCore] Read: Stored GUID {objectGuid}");
                         }
                     }
 
                     if (this.pendingSelectionGuids.Count > 0)
                     {
                         this.hasPendingRestore = true;
-                        System.Diagnostics.Debug.WriteLine($"[SelectingComponentCore] Read: Marked {this.pendingSelectionGuids.Count} GUIDs for deferred restoration");
+                        Logger.For<SelectingComponentCore>().Trace($"[SelectingComponentCore] Read: Marked {this.pendingSelectionGuids.Count} GUIDs for deferred restoration");
                     }
 
                     this.TryRestoreSelection();
@@ -122,7 +123,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[SelectingComponentCore] Read: Exception - {ex.Message}");
+                Logger.For<SelectingComponentCore>().Exception(ex, $"[SelectingComponentCore] Read: Exception - {ex.Message}");
                 return false;
             }
         }
@@ -137,7 +138,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
             var canvas = Instances.ActiveCanvas;
             if (canvas?.Document == null)
             {
-                System.Diagnostics.Debug.WriteLine("[SelectingComponentCore] TryRestoreSelection: No active canvas/document");
+                Logger.For<SelectingComponentCore>().Error("[SelectingComponentCore] TryRestoreSelection: No active canvas/document");
                 return;
             }
 
@@ -154,13 +155,13 @@ namespace SmartHopper.Core.ComponentBase.Cores
                     {
                         this.selectingComponent.SelectedObjects.Add(foundObject);
                         foundCount++;
-                        System.Diagnostics.Debug.WriteLine($"[SelectingComponentCore] TryRestoreSelection: Found object {objectGuid}");
+                        Logger.For<SelectingComponentCore>().Error($"[SelectingComponentCore] TryRestoreSelection: Found object {objectGuid}");
                     }
                 }
                 else
                 {
                     remainingGuids.Add(objectGuid);
-                    System.Diagnostics.Debug.WriteLine($"[SelectingComponentCore] TryRestoreSelection: Object {objectGuid} not found yet");
+                    Logger.For<SelectingComponentCore>().Trace($"[SelectingComponentCore] TryRestoreSelection: Object {objectGuid} not found yet");
                 }
             }
 
@@ -171,7 +172,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
 
             if (foundCount > 0)
             {
-                System.Diagnostics.Debug.WriteLine($"[SelectingComponentCore] TryRestoreSelection: Restored {foundCount} objects, {this.pendingSelectionGuids.Count} still pending");
+                Logger.For<SelectingComponentCore>().Trace($"[SelectingComponentCore] TryRestoreSelection: Restored {foundCount} objects, {this.pendingSelectionGuids.Count} still pending");
                 this.owner.ExpireSolution(true);
             }
         }
@@ -180,7 +181,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
         {
             if (doc != null && doc == this.owner.OnPingDocument())
             {
-                System.Diagnostics.Debug.WriteLine("[SelectingComponentCore] OnDocumentAdded: Document loaded, attempting deferred restoration");
+                Logger.For<SelectingComponentCore>().Trace("[SelectingComponentCore] OnDocumentAdded: Document loaded, attempting deferred restoration");
 
                 var timer = new Timer(100) { AutoReset = false };
                 timer.Elapsed += (s, e) =>
@@ -195,7 +196,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[SelectingComponentCore] OnDocumentAdded: Exception during deferred restoration - {ex.Message}");
+                        Logger.For<SelectingComponentCore>().Exception(ex, $"[SelectingComponentCore] OnDocumentAdded: Exception during deferred restoration - {ex.Message}");
                     }
                 };
                 timer.Start();

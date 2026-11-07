@@ -27,6 +27,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using SmartHopper.Infrastructure.AIContext;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.AIContext
 {
     /// <summary>
@@ -65,11 +66,11 @@ namespace SmartHopper.Core.AIContext
                     AIContextManager.RegisterProvider(new SelectionContextProvider());
                     AIContextManager.RegisterProvider(new ViewportContextProvider());
                     _initialized = true;
-                    Debug.WriteLine("[AIContextBootstrapper] Context providers initialized");
+                    Logger.Trace(typeof(AIContextBootstrapper).FullName, "[AIContextBootstrapper] Context providers initialized");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIContextBootstrapper] Initialization error: {ex.Message}");
+                    Logger.Exception(typeof(AIContextBootstrapper).FullName, ex, $"[AIContextBootstrapper] Initialization error: {ex.Message}");
                 }
             }
         }

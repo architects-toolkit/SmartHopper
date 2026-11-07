@@ -45,6 +45,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Streaming;
 
 namespace SmartHopper.Core.UI.Chat
@@ -155,7 +156,7 @@ namespace SmartHopper.Core.UI.Chat
         [Conditional("DEBUG")]
         private static void DebugLog(string message)
         {
-            Debug.WriteLine(message);
+            Logger.For<PendingImage>().Trace(message);
         }
 
         /// <summary>

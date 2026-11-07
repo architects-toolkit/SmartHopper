@@ -51,6 +51,7 @@ using SmartHopper.Core.Diagnostics;
 using SmartHopper.Core.IO;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Core.ComponentBase
@@ -185,7 +186,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="newState">The new state.</param>
         private void OnStateManagerStateChanged(ComponentState oldState, ComponentState newState)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] StateManager: {oldState} -> {newState}");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] StateManager: {oldState} -> {newState}");
 
             // Update component message
             this.Message = this.GetStateMessage();
@@ -216,7 +217,7 @@ namespace SmartHopper.Core.ComponentBase
                 case ComponentState.Processing:
                     if (oldState != ComponentState.Processing)
                     {
-                        Debug.WriteLine($"[{this.GetType().Name}] Resetting async state for fresh Processing transition");
+                        Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Resetting async state for fresh Processing transition");
                         this.ResetAsyncState();
                         this.ResetProgress();
 
@@ -269,7 +270,7 @@ namespace SmartHopper.Core.ComponentBase
 
                 if (this.StateManager.CurrentState == ComponentState.Processing && this.Workers.Count == 0)
                 {
-                    Debug.WriteLine($"[{this.GetType().Name}] Processing state without workers after delay, forcing ExpireSolution");
+                    Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Processing state without workers after delay, forcing ExpireSolution");
                     Rhino.RhinoApp.InvokeOnUiThread(() =>
                     {
                         this.ExpireSolution(true);
@@ -324,7 +325,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             if (this.StateManager.CurrentState == ComponentState.Processing)
             {
-                Debug.WriteLine("[StatefulComponentBase] Processing state... jumping to SolveInstance");
+                Logger.For<StatefulComponentBase>().Trace("[StatefulComponentBase] Processing state... jumping to SolveInstance");
                 return;
             }
 
@@ -342,7 +343,7 @@ namespace SmartHopper.Core.ComponentBase
             // Handle first solve after restoration - clear suppression
             if (this.StateManager.IsSuppressingInputChanges)
             {
-                Debug.WriteLine($"[{this.GetType().Name}] First solve after restoration, clearing suppression");
+                Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] First solve after restoration, clearing suppression");
                 this.StateManager.ClearSuppressionAfterFirstSolve();
 
                 // If we have persistent outputs, stay in Completed state
@@ -368,7 +369,7 @@ namespace SmartHopper.Core.ComponentBase
             // Track the last observed Run value to detect button pulses reliably.
             bool runValueChanged = !this.hasPreviousRun || this.previousRun != this.run;
 
-            Debug.WriteLine($"[{this.GetType().Name}] SolveInstance - State: {this.StateManager.CurrentState}, InPreSolve: {this.InPreSolve}, Run: {this.run}");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] SolveInstance - State: {this.StateManager.CurrentState}, InPreSolve: {this.InPreSolve}, Run: {this.run}");
 
             // Calculate current input hashes
             this.UpdatePendingInputHashes();
@@ -448,7 +449,7 @@ namespace SmartHopper.Core.ComponentBase
             // even if the Run? input is driven by volatile data (e.g. GH_Button).
             if (!this.RunOnlyOnInputChanges && runValueChanged && this.run)
             {
-                Debug.WriteLine($"[{this.GetType().Name}] Run value changed to true (volatile-aware), transitioning to Processing");
+                Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Run value changed to true (volatile-aware), transitioning to Processing");
                 this.StateManager.RequestTransition(ComponentState.Processing, TransitionReason.RunEnabled);
                 return;
             }
@@ -456,14 +457,14 @@ namespace SmartHopper.Core.ComponentBase
             // If only Run parameter changed to false, stay in current state
             if (changedInputs.Count == 1 && changedInputs[0] == WellKnownInputs.Run && !this.run)
             {
-                Debug.WriteLine($"[{this.GetType().Name}] Only Run changed to false, staying in current state");
+                Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Only Run changed to false, staying in current state");
                 return;
             }
 
             // If only Run parameter changed to true
             if (changedInputs.Count == 1 && changedInputs[0] == WellKnownInputs.Run && this.run)
             {
-                Debug.WriteLine($"[{this.GetType().Name}] Only Run changed to true");
+                Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Only Run changed to true");
 
                 if (this.RunOnlyOnInputChanges)
                 {
@@ -486,7 +487,7 @@ namespace SmartHopper.Core.ComponentBase
                 // regardless of Run parameter value, so user explicitly triggers recalculation
                 if (changedInputs.Contains(WellKnownInputs.AIProvider))
                 {
-                    Debug.WriteLine($"[{this.GetType().Name}] AI Provider changed, forcing transition to NeedsRun");
+                    Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] AI Provider changed, forcing transition to NeedsRun");
                     this.StateManager.CancelDebounce(); // Cancel any pending timer
                     this.StateManager.RequestTransition(ComponentState.NeedsRun, TransitionReason.InputChanged);
                     return;
@@ -494,12 +495,12 @@ namespace SmartHopper.Core.ComponentBase
 
                 if (!this.run)
                 {
-                    Debug.WriteLine($"[{this.GetType().Name}] Inputs changed, starting debounce to NeedsRun");
+                    Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Inputs changed, starting debounce to NeedsRun");
                     this.StateManager.StartDebounce(ComponentState.NeedsRun, this.GetDebounceTime());
                 }
                 else
                 {
-                    Debug.WriteLine($"[{this.GetType().Name}] Inputs changed with Run=true, starting debounce to Processing");
+                    Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Inputs changed with Run=true, starting debounce to Processing");
                     this.StateManager.StartDebounce(ComponentState.Processing, this.GetDebounceTime());
                 }
             }
@@ -536,7 +537,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             base.OnWorkerCompleted();
-            Debug.WriteLine("[StatefulComponentBase] Worker completed, expiring solution");
+            Logger.For<StatefulComponentBase>().Trace("[StatefulComponentBase] Worker completed, expiring solution");
             this.ExpireSolution(true);
         }
 
@@ -561,7 +562,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected virtual void OnStateCompleted(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] OnStateCompleted");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] OnStateCompleted");
 
             this.Message = ComponentState.Completed.ToMessageString();
             this.ApplyPersistentRuntimeMessages();
@@ -578,7 +579,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected virtual void OnStateWaiting(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] OnStateWaiting");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] OnStateWaiting");
 
             this.ApplyPersistentRuntimeMessages();
 
@@ -594,7 +595,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected virtual void OnStateNeedsRun(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] OnStateNeedsRun");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] OnStateNeedsRun");
 
             bool runInput = false;
             DA.GetData(WellKnownInputs.Run, ref runInput);
@@ -617,7 +618,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected virtual void OnStateProcessing(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] OnStateProcessing");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] OnStateProcessing");
 
             // Delegate to AsyncComponentBase
             base.SolveInstance(DA);
@@ -678,7 +679,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected virtual void OnStateCancelled(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] OnStateCancelled");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] OnStateCancelled");
 
             this.ApplyPersistentRuntimeMessages();
             this.SetPersistentRuntimeMessage("cancelled", GH_RuntimeMessageLevel.Error, "The execution was manually cancelled", false);
@@ -695,7 +696,7 @@ namespace SmartHopper.Core.ComponentBase
             // If a provider change arrived while cancelled, force a re-run request regardless of Run.
             if (changedInputs.Contains(WellKnownInputs.AIProvider))
             {
-                Debug.WriteLine($"[{this.GetType().Name}] OnStateCancelled: AI Provider changed, transitioning to NeedsRun");
+                Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] OnStateCancelled: AI Provider changed, transitioning to NeedsRun");
                 this.StateManager.CancelDebounce();
                 this.StateManager.RequestTransition(ComponentState.NeedsRun, TransitionReason.InputChanged);
                 return;
@@ -714,7 +715,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected virtual void OnStateError(IGH_DataAccess DA)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] OnStateError");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] OnStateError");
             this.ApplyPersistentRuntimeMessages();
         }
 
@@ -767,7 +768,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="transitionToError">If true and level is Error, transitions to Error state.</param>
         protected void SetPersistentRuntimeMessage(string key, GH_RuntimeMessageLevel level, string message, bool transitionToError = true)
         {
-            Debug.WriteLine($"[{this.GetType().Name}] [PersistentMessage] key='{key}', level={level}, message='{message}'");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] [PersistentMessage] key='{key}', level={level}, message='{message}'");
             this.runtimeMessages[key] = (level, message);
 
             if (transitionToError && level == GH_RuntimeMessageLevel.Error)
@@ -811,7 +812,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         protected void ApplyPersistentRuntimeMessages()
         {
-            Debug.WriteLine($"[{this.GetType().Name}] Applying {this.runtimeMessages.Count} runtime messages");
+            Logger.For<StatefulComponentBase>().Trace($"[{this.GetType().Name}] Applying {this.runtimeMessages.Count} runtime messages");
             foreach (var (level, message) in this.runtimeMessages.Values)
             {
                 this.AddRuntimeMessage(level, message);
@@ -1160,7 +1161,7 @@ namespace SmartHopper.Core.ComponentBase
                         if (v2Outputs.TryGetValue(p.InstanceGuid, out var tree))
                         {
                             this.persistentOutputs[p.Name] = tree;
-                            Debug.WriteLine($"[StatefulComponentBase] [Read] Restored output '{p.Name}' paths={tree.PathCount}");
+                            Logger.For<StatefulComponentBase>().Error($"[StatefulComponentBase] [Read] Restored output '{p.Name}' paths={tree.PathCount}");
                         }
                     }
                 }
@@ -1169,7 +1170,7 @@ namespace SmartHopper.Core.ComponentBase
                 // restore through ReadOutputsV2 above. Pre-V2 alpha files lose persistent
                 // outputs on first open; users must re-run those components once.
 
-                Debug.WriteLine($"[StatefulComponentBase] [Read] Restored with {this.persistentOutputs.Count} outputs");
+                Logger.For<StatefulComponentBase>().Trace($"[StatefulComponentBase] [Read] Restored with {this.persistentOutputs.Count} outputs");
 
                 return true;
             }
@@ -1186,7 +1187,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected virtual void RestorePersistentOutputs(IGH_DataAccess DA)
         {
-            Debug.WriteLine("[StatefulComponentBase] Restoring persistent outputs");
+            Logger.For<StatefulComponentBase>().Trace("[StatefulComponentBase] Restoring persistent outputs");
 
             for (int i = 0; i < this.Params.Output.Count; i++)
             {
@@ -1203,7 +1204,7 @@ namespace SmartHopper.Core.ComponentBase
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[StatefulComponentBase] Failed to restore '{param.Name}': {ex.Message}");
+                    Logger.For<StatefulComponentBase>().Exception(ex, $"[StatefulComponentBase] Failed to restore '{param.Name}': {ex.Message}");
                 }
             }
         }
@@ -1308,7 +1309,7 @@ namespace SmartHopper.Core.ComponentBase
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[StatefulComponentBase] Failed to set output '{paramName}': {ex.Message}");
+                Logger.For<StatefulComponentBase>().Exception(ex, $"[StatefulComponentBase] Failed to set output '{paramName}': {ex.Message}");
             }
         }
 

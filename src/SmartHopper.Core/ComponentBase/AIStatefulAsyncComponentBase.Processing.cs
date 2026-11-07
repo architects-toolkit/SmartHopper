@@ -30,6 +30,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.ComponentBase
 {
     /// <summary>
@@ -156,7 +157,7 @@ namespace SmartHopper.Core.ComponentBase
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[AIStatefulAsync] Batch decode error for {customId}: {ex.Message}");
+                        Logger.For<AIStatefulAsyncComponentBase>().Exception(ex, $"[AIStatefulAsync] Batch decode error for {customId}: {ex.Message}");
                         return decode(customId, resultBody);
                     }
                 });
@@ -218,7 +219,7 @@ namespace SmartHopper.Core.ComponentBase
                 }
 
                 var firstEntry = this.PersistedMetricsList.Entries[0];
-                System.Diagnostics.Debug.WriteLine($"[AIStatefulAsync] Aggregated batch metrics: {allMetrics.Count} items");
+                Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] Aggregated batch metrics: {allMetrics.Count} items");
 
                 // Build AIReturn for body/interactions (used by CurrentAIReturnSnapshot consumers)
                 var batchReturn = new AIReturn();

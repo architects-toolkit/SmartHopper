@@ -23,6 +23,7 @@ using System.Linq;
 using System.Threading;
 using SmartHopper.Core.ComponentBase.State;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.ComponentBase.Cores
 {
     /// <summary>
@@ -310,14 +311,14 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 {
                     rejectionMessage = $"Invalid transition from {this.currentState} to {newState}";
                     rejectedFromState = this.currentState;
-                    Debug.WriteLine($"[{this.componentName}] {rejectionMessage}");
+                    Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] {rejectionMessage}");
                 }
                 else
                 {
                     // Queue the transition
                     var request = new StateTransitionRequest(newState, reason);
                     this.pendingTransitions.Enqueue(request);
-                    Debug.WriteLine($"[{this.componentName}] Queued transition to {newState} (reason: {reason})");
+                    Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Queued transition to {newState} (reason: {reason})");
 
                     // Process queue if not already transitioning
                     if (!this.isTransitioning)
@@ -416,7 +417,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
             // Skip if already in target state
             if (oldState == newState)
             {
-                Debug.WriteLine($"[{this.componentName}] Already in state {newState}, skipping transition");
+                Logger.For<ComponentStateManager>().Warning($"[{this.componentName}] Already in state {newState}, skipping transition");
                 return null;
             }
 
@@ -424,11 +425,11 @@ namespace SmartHopper.Core.ComponentBase.Cores
             if (!this.IsValidTransition(oldState, newState))
             {
                 var message = $"Transition from {oldState} to {newState} no longer valid";
-                Debug.WriteLine($"[{this.componentName}] {message}");
+                Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] {message}");
                 return (oldState, newState, isRejection: true, rejectionMessage: message);
             }
 
-            Debug.WriteLine($"[{this.componentName}] Transitioning: {oldState} -> {newState} (reason: {request.Reason})");
+            Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Transitioning: {oldState} -> {newState} (reason: {request.Reason})");
 
             // Update state (events fired by caller outside the lock)
             this.currentState = newState;
@@ -545,7 +546,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
                     return;
                 }
 
-                Debug.WriteLine($"[{this.componentName}] Force state: {oldState} -> {newState}");
+                Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Force state: {oldState} -> {newState}");
                 this.currentState = newState;
             }
 
@@ -564,7 +565,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 this.pendingTransitions.Clear();
                 if (count > 0)
                 {
-                    Debug.WriteLine($"[{this.componentName}] Cleared {count} pending transitions");
+                    Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Cleared {count} pending transitions");
                 }
             }
         }
@@ -583,7 +584,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
 
             lock (this.stateLock)
             {
-                Debug.WriteLine($"[{this.componentName}] Begin restoration");
+                Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Begin restoration");
                 this.isRestoringFromFile = true;
                 this.suppressInputChangeDetection = true;
 
@@ -607,7 +608,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
 
             lock (this.stateLock)
             {
-                Debug.WriteLine($"[{this.componentName}] End restoration (suppression still active for first solve)");
+                Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] End restoration (suppression still active for first solve)");
                 this.isRestoringFromFile = false;
 
                 // Note: suppressInputChangeDetection stays true until ClearSuppressionAfterFirstSolve() is called
@@ -624,7 +625,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
             {
                 if (this.suppressInputChangeDetection)
                 {
-                    Debug.WriteLine($"[{this.componentName}] Clearing input change suppression after first solve");
+                    Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Clearing input change suppression after first solve");
                     this.suppressInputChangeDetection = false;
                 }
             }
@@ -640,7 +641,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
         {
             lock (this.stateLock)
             {
-                Debug.WriteLine($"[{this.componentName}] Suppressing input change detection for next solve");
+                Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Suppressing input change detection for next solve");
                 this.suppressInputChangeDetection = true;
             }
         }
@@ -698,7 +699,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
 
             lock (this.hashLock)
             {
-                Debug.WriteLine($"[{this.componentName}] Committing {this.pendingInputHashes.Count} hashes");
+                Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Committing {this.pendingInputHashes.Count} hashes");
                 this.committedInputHashes = new Dictionary<string, int>(this.pendingInputHashes);
                 this.committedBranchCounts = new Dictionary<string, int>(this.pendingBranchCounts);
             }
@@ -716,7 +717,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
 
             lock (this.hashLock)
             {
-                Debug.WriteLine($"[{this.componentName}] Restoring {hashes?.Count ?? 0} committed hashes");
+                Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] Restoring {hashes?.Count ?? 0} committed hashes");
                 this.committedInputHashes = hashes != null
                     ? new Dictionary<string, int>(hashes)
                     : new Dictionary<string, int>();
@@ -741,7 +742,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
             {
                 if (this.suppressInputChangeDetection)
                 {
-                    Debug.WriteLine($"[{this.componentName}] GetChangedInputs: suppressed, returning empty");
+                    Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] GetChangedInputs: suppressed, returning empty");
                     return Array.Empty<string>();
                 }
             }
@@ -771,7 +772,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
 
                 if (changed.Count > 0)
                 {
-                    Debug.WriteLine($"[{this.componentName}] GetChangedInputs: {string.Join(", ", changed)}");
+                    Logger.For<ComponentStateManager>().Trace($"[{this.componentName}] GetChangedInputs: {string.Join(", ", changed)}");
                 }
 
                 return changed;
@@ -883,7 +884,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 this.debounceTargetState = targetState;
                 this.debounceTimeMs = milliseconds;
 
-                Debug.WriteLine($"[{this.componentName}] Starting debounce: {milliseconds}ms -> {targetState} (gen: {currentGeneration})");
+                Logger.For<DebounceTimerState>().Trace($"[{this.componentName}] Starting debounce: {milliseconds}ms -> {targetState} (gen: {currentGeneration})");
 
                 // Replace any pending timer. Dispose the old one outside the lock
                 // so its callback cannot block this method and vice versa.
@@ -913,7 +914,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
             {
                 if (this.debounceTimeMs > 0)
                 {
-                    Debug.WriteLine($"[{this.componentName}] Cancelling debounce");
+                    Logger.For<DebounceTimerState>().Trace($"[{this.componentName}] Cancelling debounce");
                     oldTimer = this.debounceTimer;
                     this.debounceTimer = null;
                     this.debounceTimeMs = 0;
@@ -952,14 +953,14 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 // this callback is stale and must be ignored.
                 if (this.isDisposed || this.debounceTimeMs == 0 || generation != this.debounceGeneration)
                 {
-                    Debug.WriteLine($"[{this.componentName}] Debounce callback: stale (gen {generation} vs current {this.debounceGeneration}) or already cancelled");
+                    Logger.For<DebounceTimerState>().Trace($"[{this.componentName}] Debounce callback: stale (gen {generation} vs current {this.debounceGeneration}) or already cancelled");
                     return;
                 }
 
                 // Validate target state is still compatible with current state
                 if (!this.IsValidTransition(this.currentState, targetState))
                 {
-                    Debug.WriteLine($"[{this.componentName}] Debounce target {targetState} no longer valid from {this.currentState}");
+                    Logger.For<DebounceTimerState>().Trace($"[{this.componentName}] Debounce target {targetState} no longer valid from {this.currentState}");
                     this.debounceTimeMs = 0;
                     return;
                 }
@@ -968,7 +969,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 this.debounceTimeMs = 0;
             }
 
-            Debug.WriteLine($"[{this.componentName}] Debounce elapsed, requesting transition to {targetState}");
+            Logger.For<DebounceTimerState>().Trace($"[{this.componentName}] Debounce elapsed, requesting transition to {targetState}");
             this.RequestTransition(targetState, TransitionReason.DebounceComplete);
         }
 
@@ -993,7 +994,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
 
             this.ClearHashes();
 
-            Debug.WriteLine($"[{this.componentName}] State manager reset");
+            Logger.For<DebounceTimerState>().Trace($"[{this.componentName}] State manager reset");
         }
 
         /// <summary>
