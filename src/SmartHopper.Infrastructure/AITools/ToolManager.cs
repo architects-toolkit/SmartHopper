@@ -324,7 +324,7 @@ namespace SmartHopper.Infrastructure.AITools
 
                         if (coreGrasshopperAssembly == null)
                         {
-                            Logger.Error(typeof(AIToolManager).FullName, "[AIToolManager] Loading SmartHopper.Core.Grasshopper assembly");
+                            Logger.Trace(typeof(AIToolManager).FullName, "[AIToolManager] Loading SmartHopper.Core.Grasshopper assembly");
                             coreGrasshopperAssembly = Assembly.Load("SmartHopper.Core.Grasshopper");
                         }
                     }
@@ -368,7 +368,7 @@ namespace SmartHopper.Infrastructure.AITools
                             var provider = (IAIToolProvider)Activator.CreateInstance(providerType);
                             var tools = provider.GetTools().ToList();
 
-                            Logger.Error(typeof(AIToolManager).FullName, $"[AIToolManager] Provider {providerType.Name} returned {tools.Count} tools");
+                            Logger.Trace(typeof(AIToolManager).FullName, $"[AIToolManager] Provider {providerType.Name} returned {tools.Count} tools");
 
                             foreach (var tool in tools)
                             {

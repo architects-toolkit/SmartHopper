@@ -114,7 +114,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 await this.DiscoverProvidersAsync().ConfigureAwait(false);
 
                 // After discovery, refresh settings for all providers
-                Logger.For<ProviderManager>().Error("[ProviderManager] Provider discovery complete, refreshing settings");
+                Logger.For<ProviderManager>().Trace("[ProviderManager] Provider discovery complete, refreshing settings");
                 SmartHopperSettings.Instance.RefreshProvidersLocalStorage();
             }
             finally
@@ -122,7 +122,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 // Mark refresh as completed regardless of provider count or errors
                 // This signals that infrastructure initialization is done
                 this._refreshCompleted = true;
-                Logger.For<ProviderManager>().Error("[ProviderManager] Provider refresh completed (infrastructure ready)");
+                Logger.For<ProviderManager>().Trace("[ProviderManager] Provider refresh completed (infrastructure ready)");
             }
         }
 
@@ -354,7 +354,7 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                 if (!settings.TrustedProviders.ContainsKey(asmName))
                 {
-                    Logger.For<ProviderManager>().Error($"[ProviderManager] Showing trust prompt for: {asmName}");
+                    Logger.For<ProviderManager>().Trace($"[ProviderManager] Showing trust prompt for: {asmName}");
 
                     // Use TaskCompletionSource to properly wait for the dialog result
                     var tcs = new TaskCompletionSource<bool>();
@@ -362,9 +362,9 @@ namespace SmartHopper.Infrastructure.AIProviders
                     {
                         try
                         {
-                            Logger.For<ProviderManager>().Error($"[ProviderManager] Displaying confirmation dialog for: {asmName}");
+                            Logger.For<ProviderManager>().Trace($"[ProviderManager] Displaying confirmation dialog for: {asmName}");
                             bool result = StyledMessageDialog.ShowConfirmation($"A new AI provider was detected\n'{asmName}'.\n\nDo you want to enable it?\n\nIf you do not enable it now, you can do it later in the SmartHopper settings.");
-                            Logger.For<ProviderManager>().Error($"[ProviderManager] Dialog returned: {result} for: {asmName}");
+                            Logger.For<ProviderManager>().Trace($"[ProviderManager] Dialog returned: {result} for: {asmName}");
                             tcs.SetResult(result);
                         }
                         catch (Exception ex)
@@ -465,7 +465,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 try
                 {
                     await provider.InitializeProviderAsync().ConfigureAwait(false);
-                    Logger.For<ProviderManager>().Error($"[ProviderManager] Successfully initialized provider: {provider.Name}");
+                    Logger.For<ProviderManager>().Trace($"[ProviderManager] Successfully initialized provider: {provider.Name}");
                 }
                 catch (Exception ex)
                 {
@@ -573,7 +573,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     // If provider is explicitly untrusted, don't return it
                     if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
                     {
-                        Logger.For<ProviderManager>().Error($"Provider '{provider.Name}' is no longer trusted, returning null.");
+                        Logger.For<ProviderManager>().Warning($"Provider '{provider.Name}' is no longer trusted, returning null.");
                         return null;
                     }
                 }

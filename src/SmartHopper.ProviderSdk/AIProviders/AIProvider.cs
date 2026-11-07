@@ -230,7 +230,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                         if (!settingsDict.ContainsKey(descriptor.Name))
                         {
                             settingsDict[descriptor.Name] = descriptor.DefaultValue;
-                            Logger.For<AIProvider>().Error($"[{this.Name}] Applied default value for setting '{descriptor.Name}': {descriptor.DefaultValue}");
+                            Logger.For<AIProvider>().Trace($"[{this.Name}] Applied default value for setting '{descriptor.Name}': {descriptor.DefaultValue}");
                         }
                     }
                 }
