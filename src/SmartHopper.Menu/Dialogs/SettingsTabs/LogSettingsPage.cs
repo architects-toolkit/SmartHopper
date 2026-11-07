@@ -37,7 +37,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             (ProviderLogLevel.Error, "Error"),
         };
 
-        private readonly DropDown _loggingEnabledDropDown;
         private readonly CheckBox _liveOutputCheckBox;
         private readonly DropDown _liveOutputLevelDropDown;
         private readonly CheckBox _logFileCheckBox;
@@ -51,12 +50,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// </summary>
         public LogSettingsPage()
         {
-            this._loggingEnabledDropDown = new DropDown();
-            this._loggingEnabledDropDown.Items.Add(new ListItem { Text = "Follow diagnostics consent (default)" });
-            this._loggingEnabledDropDown.Items.Add(new ListItem { Text = "On" });
-            this._loggingEnabledDropDown.Items.Add(new ListItem { Text = "Off" });
-            this._loggingEnabledDropDown.SelectedIndex = 0;
-
             this._liveOutputCheckBox = new CheckBox { Text = "Echo logs to Rhino command line" };
             this._liveOutputLevelDropDown = BuildLevelDropDown();
             this._logFileCheckBox = new CheckBox { Text = "Write logs to file" };
@@ -67,8 +60,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             var layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
 
-            AddRow(layout, "Local logging:", this._loggingEnabledDropDown);
-            AddDescription(layout, "Controls local (on-machine) logging. 'Follow diagnostics consent' keeps local logging aligned with the Share diagnostics option on the General tab; On/Off override it just for local logs.");
+            AddDescription(layout, "Local (on-machine) logging follows the Share diagnostics consent on the General tab — the sinks below are active only while it is enabled.");
             layout.Add(new Panel { Height = 10 });
 
             layout.Add(this._liveOutputCheckBox);
@@ -95,12 +87,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// </summary>
         public void LoadSettings(LogSettings settings)
         {
-            this._loggingEnabledDropDown.SelectedIndex = settings.LoggingEnabled switch
-            {
-                true => 1,
-                false => 2,
-                null => 0,
-            };
             this._liveOutputCheckBox.Checked = settings.LiveOutputEnabled;
             SetLevel(this._liveOutputLevelDropDown, settings.LiveOutputLevel);
             this._logFileCheckBox.Checked = settings.LogFileEnabled;
@@ -115,12 +101,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// </summary>
         public void SaveSettings(LogSettings settings)
         {
-            settings.LoggingEnabled = this._loggingEnabledDropDown.SelectedIndex switch
-            {
-                1 => true,
-                2 => false,
-                _ => null,
-            };
             settings.LiveOutputEnabled = this._liveOutputCheckBox.Checked == true;
             settings.LiveOutputLevel = Levels[this._liveOutputLevelDropDown.SelectedIndex].Level;
             settings.LogFileEnabled = this._logFileCheckBox.Checked == true;

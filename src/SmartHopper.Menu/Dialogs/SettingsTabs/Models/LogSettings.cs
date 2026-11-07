@@ -23,14 +23,12 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs.Models
     /// <summary>
     /// Model for the Logging settings tab.
     /// </summary>
+    /// <remarks>
+    /// Local (on-machine) logging follows the diagnostics consent — there is no
+    /// separate master switch. These properties only tune the individual sinks.
+    /// </remarks>
     public class LogSettings
     {
-        /// <summary>
-        /// Gets or sets the local logging consent override: null follows the
-        /// diagnostics consent, true/false forces local logging on/off.
-        /// </summary>
-        public bool? LoggingEnabled { get; set; }
-
         /// <summary>Gets or sets whether log entries echo to Rhino's command-line output.</summary>
         public bool LiveOutputEnabled { get; set; } = true;
 
