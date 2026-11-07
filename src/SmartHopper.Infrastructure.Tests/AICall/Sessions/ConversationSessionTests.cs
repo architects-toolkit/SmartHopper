@@ -719,6 +719,45 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
 
         #endregion
 
+        #region History deduplication
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConversationSession does not duplicate a tool call id already in history [Windows]")]
+#else
+        [Fact(DisplayName = "ConversationSession does not duplicate a tool call id already in history [Core]")]
+#endif
+        public async Task RunToStableResult_DuplicateToolCallId_NotDuplicated()
+        {
+            // A provider response (or any merge path) must never append a second copy of a
+            // tool call or tool result whose Id is already in the request body: each extra
+            // copy doubles the call's argument tokens on every subsequent provider request.
+            var request = CreateTestableRequest();
+            var seeded = new List<IAIInteraction>(request.Body.Interactions)
+            {
+                new AIInteractionToolCall { Id = "dup1", Name = "test_tool", Arguments = new JObject(), Agent = AIAgent.Assistant },
+                new AIInteractionToolResult { Id = "dup1", Name = "test_tool", Result = new JObject(), Agent = AIAgent.ToolResult },
+            };
+            request.OverrideInteractions(seeded);
+
+            request.ResponseInteractions = new List<IAIInteraction>
+            {
+                new AIInteractionToolCall { Id = "dup1", Name = "test_tool", Arguments = new JObject(), Agent = AIAgent.Assistant },
+                new AIInteractionToolResult { Id = "dup1", Name = "test_tool", Result = new JObject(), Agent = AIAgent.ToolResult },
+                new AIInteractionText { Agent = AIAgent.Assistant, Content = "done" },
+            };
+
+            var session = new ConversationSession(request);
+            await session.RunToStableResult(new SessionOptions { ProcessTools = false }).ConfigureAwait(false);
+
+            var snapshot = session.Request.Body.Interactions.ToList();
+            var calls = snapshot.OfType<AIInteractionToolCall>().Where(c => c is not AIInteractionToolResult && c.Id == "dup1").ToList();
+            var results = snapshot.OfType<AIInteractionToolResult>().Where(r => r.Id == "dup1").ToList();
+            var dump = string.Join(" | ", snapshot.Select(i => $"{i.GetType().Name}/{i.Agent}/{(i as AIInteractionToolCall)?.Id ?? (i as AIInteractionToolResult)?.Id ?? "-"}"));
+            Assert.True(calls.Count == 1 && results.Count == 1, $"calls={calls.Count} results={results.Count} :: {dump}");
+        }
+
+        #endregion
+
         #region Helpers
 
         private static AIInteractionToolCall CreateToolCall(string id)

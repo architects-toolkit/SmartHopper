@@ -477,6 +477,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     });
                 foreach (var pair in result.IdToObjectMapping)
                 {
+                    session.SetResolvedComponentName(pair.Key, pair.Value?.Name);
+
                     var bounds = pair.Value?.Attributes?.Bounds;
                     if (bounds.HasValue && bounds.Value.Width > 0f && bounds.Value.Height > 0f)
                     {
