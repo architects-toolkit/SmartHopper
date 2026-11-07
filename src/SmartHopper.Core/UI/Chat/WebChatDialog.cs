@@ -35,6 +35,7 @@ using Newtonsoft.Json;
 using Rhino;
 using Rhino.UI;
 using SmartHopper.Infrastructure.AICall.Sessions;
+using SmartHopper.Infrastructure.AICall.Subagents;
 using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -71,6 +72,23 @@ namespace SmartHopper.Core.UI.Chat
         private readonly IChatDocumentTracker? _documentTracker = ChatDocumentTracking.CreateTracker();
         private System.Threading.CancellationTokenSource? _currentCts;
         private string? _pendingUserMessage;
+
+        // Subagent orchestration: the host owns this session's background workers and
+        // reports finished runs back so the transcript gains an evidence line and the
+        // conversation wakes when idle (the "conductor" pattern).
+        private SubagentHost? _subagentHost;
+        private readonly object _subagentReportsGate = new object();
+        private readonly List<SubagentRunReport> _pendingSubagentReports = new List<SubagentRunReport>();
+        private readonly HashSet<SubagentRun> _subagentEvidencedRuns = new HashSet<SubagentRun>();
+        private int _subagentDrainActive;
+        private int _turnInFlight;
+        private int _subagentWakeChain;
+        private volatile bool _dialogClosed;
+        private const int MaxSubagentWakeChain = 5;
+
+        // Serializes ProcessAIInteraction: user sends and subagent wake turns must
+        // never run the session's turn loop concurrently.
+        private readonly SemaphoreSlim _turnGate = new SemaphoreSlim(1, 1);
 
         // Image attachments selected via the attach button. Held C#-side (the sh:// URL
         // scheme cannot carry base64 payloads); the WebView only renders thumbnail chips.
@@ -201,6 +219,11 @@ namespace SmartHopper.Core.UI.Chat
                 this._webView.DocumentLoading += this.WebView_DocumentLoading;
                 this.Content = this._webView;
 
+                // Subagent host before the session so conductor tools resolve it
+                // through the session's invocation context.
+                this._subagentHost = new SubagentHost(request);
+                this._subagentHost.RunFinished += this.OnSubagentRunFinished;
+
                 // Create the session after the WebView so its consent presenter can render plan cards.
                 this._currentSession = new ConversationSession(
                     request,
@@ -209,7 +232,8 @@ namespace SmartHopper.Core.UI.Chat
                     consentPresenter: new WebChatPlanConsentPresenter(this),
                     taskPlanPresenter: new WebChatTaskPlanPresenter(this),
                     canvasPointerPresenter: new WebChatCanvasPointerPresenter(this),
-                    userQuestionPresenter: new WebChatUserQuestionPresenter(this));
+                    userQuestionPresenter: new WebChatUserQuestionPresenter(this),
+                    subagentHost: this._subagentHost);
 
                 // If the user drags/resizes the dialog while we are rendering/upserting messages,
                 // defer DOM work to keep Rhino/Eto responsive.
@@ -1149,6 +1173,8 @@ namespace SmartHopper.Core.UI.Chat
         private async Task ProcessAIInteraction()
         {
             var turnCompleted = false;
+            await this._turnGate.WaitAsync().ConfigureAwait(false);
+            Interlocked.Exchange(ref this._turnInFlight, 1);
             try
             {
                 DebugLog("[WebChatDialog] Processing AI interaction with existing session reuse");
@@ -1175,6 +1201,13 @@ namespace SmartHopper.Core.UI.Chat
 
                 // Record document switches and canvas changes since the last AI response before the user message.
                 await this.AppendDocumentEventsAsync(tracker => tracker.CollectChanges()).ConfigureAwait(false);
+
+                // A real user turn breaks the subagent wake chain, so automatic
+                // continuation turns get a fresh budget after the user speaks.
+                if (!string.IsNullOrWhiteSpace(this._pendingUserMessage) || this._attachmentsForNextSend != null)
+                {
+                    Interlocked.Exchange(ref this._subagentWakeChain, 0);
+                }
 
                 // Add the pending user message to the session
                 if (!string.IsNullOrWhiteSpace(this._pendingUserMessage))
@@ -1273,21 +1306,41 @@ namespace SmartHopper.Core.UI.Chat
             {
                 try
                 {
-                    this._currentCts?.Cancel();
+                    try
+                    {
+                        this._currentCts?.Cancel();
+                    }
+                    catch (Exception rex)
+                    {
+                        DebugLog($"[WebChatDialog] Error in ProcessAIInteraction: {rex.Message}");
+                    }
+
+                    this._currentCts?.Dispose();
+                    this._currentCts = null;
+
+                    // The canvas state after this AI response is the baseline for the next change summary.
+                    await this.RebaselineDocumentAsync().ConfigureAwait(false);
                 }
-                catch (Exception rex)
+                finally
                 {
-                    DebugLog($"[WebChatDialog] Error in ProcessAIInteraction: {rex.Message}");
+                    // The turn loop is over — release the gate even when teardown above
+                    // throws, or every later send and subagent wake would wait forever.
+                    Interlocked.Exchange(ref this._turnInFlight, 0);
+                    this._turnGate.Release();
                 }
 
-                this._currentCts?.Dispose();
-                this._currentCts = null;
-
-                // The canvas state after this AI response is the baseline for the next change summary.
-                await this.RebaselineDocumentAsync().ConfigureAwait(false);
-
-                // Leave processing state: re-enable input/send, disable cancel in the web UI
-                this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(false);"));
+                // Leave processing state: re-enable input/send, disable cancel in the web UI.
+                // While subagents still run, the status explains that the chat resumes on its own.
+                var runningSubagents = this._subagentHost?.RunningCount ?? 0;
+                if (runningSubagents > 0)
+                {
+                    this.RunWhenWebViewReady(() => this.ExecuteScript(
+                        $"setStatus({JsonConvert.SerializeObject($"{runningSubagents} subagent(s) working — the chat resumes when they report back")}); setProcessing(false);"));
+                }
+                else
+                {
+                    this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(false);"));
+                }
 
                 // Fire-and-forget: suggested prompt chips render when the special turn resolves.
                 if (turnCompleted)
@@ -1295,7 +1348,186 @@ namespace SmartHopper.Core.UI.Chat
                     _ = this.GenerateSuggestedPromptsAsync();
                 }
 
+                // A report that arrived mid-turn gets its evidence line and wake turn now.
+                this.ScheduleSubagentDrain();
+
                 // Keep the session alive for reuse - do not set to null
+            }
+        }
+
+        /// <summary>
+        /// Handles a finished subagent run: queues the report and schedules a drain.
+        /// Fired by <see cref="SubagentHost"/> on the worker's background thread.
+        /// </summary>
+        private void OnSubagentRunFinished(object? sender, SubagentRunReport report)
+        {
+            if (report == null || this._dialogClosed)
+            {
+                return;
+            }
+
+            lock (this._subagentReportsGate)
+            {
+                this._pendingSubagentReports.Add(report);
+            }
+
+            this.ScheduleSubagentDrain();
+        }
+
+        /// <summary>
+        /// Runs <see cref="DrainSubagentReportsAsync"/> on a background thread unless a
+        /// drain is already in flight; reports that arrive during a drain reschedule it.
+        /// </summary>
+        private void ScheduleSubagentDrain()
+        {
+            if (this._dialogClosed || Interlocked.CompareExchange(ref this._subagentDrainActive, 1, 0) != 0)
+            {
+                return;
+            }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await this.DrainSubagentReportsAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    DebugLog($"[WebChatDialog] Subagent report drain error: {ex.Message}");
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref this._subagentDrainActive, 0);
+                    lock (this._subagentReportsGate)
+                    {
+                        if (this._pendingSubagentReports.Count > 0)
+                        {
+                            this.ScheduleSubagentDrain();
+                        }
+                    }
+                }
+            });
+        }
+
+        /// <summary>
+        /// Drains queued subagent reports while no turn owns the session. Each report
+        /// leaves an evidence line in the transcript; undelivered runs (not collected
+        /// through <c>wait_subagents</c>) additionally wake the conversation with a
+        /// terse user marker plus a system report the model reads as context. A queued
+        /// user send always wins over a wake so the assistant answers the user first;
+        /// automatic continuation is capped at <see cref="MaxSubagentWakeChain"/>
+        /// consecutive turns and resets whenever a real user turn runs.
+        /// </summary>
+        private async Task DrainSubagentReportsAsync()
+        {
+            while (true)
+            {
+                if (this._dialogClosed || Volatile.Read(ref this._turnInFlight) == 1)
+                {
+                    // A live turn owns the session; its completion reschedules this drain.
+                    return;
+                }
+
+                if (!string.IsNullOrWhiteSpace(this._pendingUserMessage))
+                {
+                    return;
+                }
+
+                List<SubagentRunReport> batch;
+                lock (this._subagentReportsGate)
+                {
+                    if (this._pendingSubagentReports.Count == 0)
+                    {
+                        return;
+                    }
+
+                    batch = new List<SubagentRunReport>(this._pendingSubagentReports);
+                    this._pendingSubagentReports.Clear();
+                }
+
+                // Append under the turn gate: session history is a plain list, so
+                // evidence/marker writes must serialize with a user send's AddInteraction.
+                // The user-message check is re-done inside the gate so a send that was
+                // queued mid-drain always wins over a wake.
+                await this._turnGate.WaitAsync().ConfigureAwait(false);
+                try
+                {
+                    if (this._dialogClosed || !string.IsNullOrWhiteSpace(this._pendingUserMessage))
+                    {
+                        // Requeue the batch untouched; the user turn's finally reschedules us.
+                        lock (this._subagentReportsGate)
+                        {
+                            this._pendingSubagentReports.InsertRange(0, batch);
+                        }
+
+                        return;
+                    }
+
+                    // Evidence line once per run — the transcript records when the
+                    // interaction landed even when the result was already collected.
+                    foreach (var report in batch)
+                    {
+                        if (this._subagentEvidencedRuns.Add(report.Run))
+                        {
+                            this._currentSession.AddInteraction(new AIInteractionRuntimeMessage
+                            {
+                                Severity = SHRuntimeMessageSeverity.Info,
+                                Content = $"Subagent '{report.Label}' finished ({report.StatusText}).",
+                            });
+                        }
+                    }
+
+                    var undelivered = batch.Where(r => !r.Run.Delivered).ToList();
+                    if (undelivered.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    if (Volatile.Read(ref this._subagentWakeChain) >= MaxSubagentWakeChain)
+                    {
+                        // Park the reports: a real user turn resets the chain and
+                        // reschedules this drain through ProcessAIInteraction's finally.
+                        lock (this._subagentReportsGate)
+                        {
+                            this._pendingSubagentReports.InsertRange(0, undelivered);
+                        }
+
+                        this._currentSession.AddInteraction(new AIInteractionRuntimeMessage
+                        {
+                            Severity = SHRuntimeMessageSeverity.Warning,
+                            Content = $"More than {MaxSubagentWakeChain} consecutive subagent wake-ups — send a message to let them resume.",
+                        });
+                        return;
+                    }
+
+                    var wakeTurnId = InteractionUtility.GenerateTurnId();
+                    foreach (var report in undelivered)
+                    {
+                        this._currentSession.AddInteraction(new AIInteractionText
+                        {
+                            Agent = AIAgent.User,
+                            TurnId = wakeTurnId,
+                            Content = $"Subagent '{report.Label}' finished with status {report.StatusText} — its report follows. Continue the task.",
+                        });
+                        this._currentSession.AddInteraction(new AIInteractionText
+                        {
+                            Agent = AIAgent.System,
+                            TurnId = wakeTurnId,
+                            Content = report.Error != null
+                                ? $"Subagent '{report.Label}' failed: {report.Error}"
+                                : $"Subagent '{report.Label}' result:\n{report.Result}",
+                        });
+                        report.Run.Delivered = true;
+                    }
+
+                    Interlocked.Increment(ref this._subagentWakeChain);
+                }
+                finally
+                {
+                    this._turnGate.Release();
+                }
+
+                await this.ProcessAIInteraction().ConfigureAwait(false);
             }
         }
 
@@ -1668,10 +1900,12 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         private void OnDialogClosing()
         {
+            this._dialogClosed = true;
             try
             {
                 DebugLog("[WebChatDialog] Dialog closing, cancelling ongoing AI calls");
                 this.CancelChat();
+                this._subagentHost?.Dispose();
                 this._documentTracker?.Dispose();
             }
             catch (Exception ex)

@@ -225,7 +225,7 @@ Every tool declares a hierarchical `Category` in `Group.Subgroup` form. Filters 
 | `Knowledge.SmartHopper` | `smarthopper_readme`, `smarthopper_workflows`, `smarthopper_tool_help`, `smarthopper_ghjson_reference` |
 | `Knowledge.McNeelForum` / `Knowledge.LadybugForum` / `Knowledge.Discourse` | `mcneel_*`, `ladybug_*`, `discourse_*` forum readers |
 | `Knowledge.Web` / `Knowledge.Files` | `web2md`, `file2md` |
-| `AgentPlanning` | `ask_user`, `plan_propose`, `plan_tasks` |
+| `AgentPlanning` | `ask_user`, `plan_propose`, `plan_tasks`, `spawn_subagent`, `send_to_subagent`, `wait_subagents`, `list_subagents` |
 | `Scripting.Code` | `script_generate`, `script_edit`, `script_review` |
 | `Scripting.Parameters` | `script_parameter_*` (experimental) |
 | `AIProviders` | `providers_list`, `providers_models`, `gh_component_set_provider` |
