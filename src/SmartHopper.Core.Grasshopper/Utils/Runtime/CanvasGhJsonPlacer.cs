@@ -23,6 +23,7 @@ using GhJSON.Core;
 using GhJSON.Core.SchemaModels;
 using GhJSON.Grasshopper;
 using GhJSON.Grasshopper.PutOperations;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.Interaction;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Runtime
@@ -111,6 +112,14 @@ namespace SmartHopper.Core.Grasshopper.Utils.Runtime
             {
                 return new GhJsonPlaceOutcome { Success = false, Error = "no active Grasshopper document" };
             }
+
+            // Card/remote payloads always place NEW objects, so every component gets a
+            // tidy-up layout pivot below existing content; Put then applies the
+            // positions verbatim (AutoOffset stays off to avoid a second shift).
+            document = CanvasNewComponentLayout.ApplyOnUiThread(
+                document,
+                preservedInstanceGuids: null,
+                offsetBelowExisting: true);
 
             var options = new PutOptions
             {

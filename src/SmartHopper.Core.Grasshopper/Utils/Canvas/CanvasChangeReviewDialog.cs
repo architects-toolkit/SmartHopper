@@ -71,20 +71,23 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 TextColor = Colors.Gray,
             };
 
-            var changesLayout = new DynamicLayout
+            // TableLayout rows keep their natural height; DynamicLayout rows scale
+            // vertically and stretched each entry (most visibly short wire rows)
+            // to fill the scrollable.
+            var changesLayout = new TableLayout
             {
-                DefaultSpacing = new Size(8, 5),
+                Spacing = new Size(8, 5),
                 Padding = new Padding(0, 8),
             };
             foreach (var item in session.Items)
             {
-                changesLayout.Add(this.CreateChangeRow(item));
+                changesLayout.Rows.Add(new TableRow(this.CreateChangeRow(item)));
             }
 
             // Eto auto-scales the LAST row when no row declares ScaleHeight —
             // without a trailing spacer the last entry (usually a wire row) is
             // stretched to fill the scrollable, pushing its detail text down.
-            changesLayout.Add(null);
+            changesLayout.Rows.Add(new TableRow { ScaleHeight = true });
 
             var scrollable = new Scrollable
             {
@@ -284,19 +287,19 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 Font = new Font(SystemFont.Default, 9),
                 Wrap = WrapMode.Word,
             };
-            var textLayout = new DynamicLayout
+            var textLayout = new TableLayout
             {
-                DefaultSpacing = new Size(0, 2),
+                Spacing = new Size(0, 2),
+                Rows = { new TableRow(titleLabel) },
             };
-            textLayout.Add(titleLabel);
             if (!string.IsNullOrWhiteSpace(detailLabel.Text))
             {
-                textLayout.Add(detailLabel);
+                textLayout.Rows.Add(new TableRow(detailLabel));
             }
 
             // Same auto-scale rule inside the row: keep title/detail top-packed
             // even if the row panel ever receives extra height.
-            textLayout.Add(null);
+            textLayout.Rows.Add(new TableRow { ScaleHeight = true });
 
             var row = new Panel
             {

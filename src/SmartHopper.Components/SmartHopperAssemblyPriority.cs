@@ -25,6 +25,7 @@ using SmartHopper.Core.UI;
 using SmartHopper.Core.UI.Chat;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Dialogs;
+using SmartHopper.ProviderSdk.Hosting;
 
 namespace SmartHopper.Components
 {
