@@ -24,6 +24,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Consent;
+using SmartHopper.Infrastructure.Planning;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Hosting;
@@ -43,7 +44,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 "plan_propose",
-                "Propose a user-reviewable plan before a non-trivial multi-step task. Call only when planning materially improves clarity. Approval permits continuing with the approach but never pre-approves later canvas changes.",
+                "Propose a user-reviewable plan before a non-trivial multi-step task. Call only when planning materially improves clarity. Approval permits continuing with the approach but never pre-approves later canvas changes. Plans containing canvas-mutating steps are displayed as a non-blocking checklist instead of an approval card, because every concrete canvas change is reviewed graphically when it runs.",
                 "AgentPlanning",
                 @"{
                     ""type"": ""object"",
@@ -136,10 +137,42 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     steps,
                     ReadStringArray(args["assumptions"]),
                     ReadStringArray(args["successCriteria"]));
-                var decision = await ConsentGate.RequestAsync(
-                    proposal,
-                    toolCall.InvocationContext,
-                    toolCall.CancellationToken).ConfigureAwait(false);
+
+                ConsentDecision decision;
+                if (steps.Any(step => step.MutatesCanvas))
+                {
+                    // Canvas-mutating steps are each gated by their own graphical
+                    // review at execution time, so a blocking plan approval on top
+                    // would ask the user twice for the same concrete changes. The
+                    // plan is surfaced as a non-blocking checklist instead.
+                    if (toolCall.InvocationContext?.TaskPlanPresenter is ITaskPlanPresenter planPresenter)
+                    {
+                        var taskPlan = new TaskPlan(
+                            proposal.Id,
+                            goal,
+                            steps.Select(step => new TaskPlanTask
+                            {
+                                Id = step.Id,
+                                Description = step.Description,
+                                Status = TaskPlanStatus.Pending,
+                            }).ToList());
+                        await planPresenter.ShowAsync(taskPlan, toolCall.CancellationToken).ConfigureAwait(false);
+                    }
+
+                    decision = new ConsentDecision
+                    {
+                        Status = ConsentDecisionStatus.Approved,
+                        AcceptedItemKeys = proposal.ItemKeys,
+                        Reason = "Canvas-mutating steps are reviewed graphically when each runs; the plan itself needs no separate approval.",
+                    };
+                }
+                else
+                {
+                    decision = await ConsentGate.RequestAsync(
+                        proposal,
+                        toolCall.InvocationContext,
+                        toolCall.CancellationToken).ConfigureAwait(false);
+                }
                 var result = new JObject
                 {
                     ["planId"] = proposal.Id,
