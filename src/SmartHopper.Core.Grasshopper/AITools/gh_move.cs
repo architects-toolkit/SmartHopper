@@ -80,7 +80,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhMoveObjAsync,
                 tags: new[] { "canvas", "components", "mutating", "layout" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "moving canvas components",
+                resultLabel: "moved canvas components");
         }
 
         private async Task<AIReturn> GhMoveObjAsync(AIToolCall toolCall)

@@ -88,7 +88,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 enabled: true,
                 tags: new[] { "canvas", "components", "mutating", "connections" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""successful"": { ""type"": ""array"", ""items"": { ""type"": ""object"" } }, ""failed"": { ""type"": ""array"", ""items"": { ""type"": ""object"" } }, ""successCount"": { ""type"": ""integer"" }, ""failCount"": { ""type"": ""integer"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "wiring components together",
+                resultLabel: "wired components together");
         }
 
         /// <summary>

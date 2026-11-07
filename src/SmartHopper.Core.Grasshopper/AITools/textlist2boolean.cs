@@ -94,7 +94,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "text", "list", "boolean", "data-processing", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""boolean"", ""description"": ""Boolean evaluation result or fallback value."" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
-                surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
+                surfaces: AIToolSurface.Direct | AIToolSurface.Batch,
+                activityLabel: "evaluating text list",
+                resultLabel: "evaluated text list");
         }
 
         /// <summary>

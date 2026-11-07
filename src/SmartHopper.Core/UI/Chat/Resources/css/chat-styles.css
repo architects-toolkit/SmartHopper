@@ -648,6 +648,71 @@ hr {
     transform: rotate(90deg);
 }
 
+/* Tool status glyph — a ::before on .cui-tool-title driven by data-state,
+   matching chat-ui's tool_call status union: pending = queued (hollow circle,
+   not yet dispatched), running = spinner, done = tick, error = cross. Pure CSS
+   so it survives the html-only sanitize profile; flipping data-state (executor
+   dispatch, result upsert) swaps the glyph with no re-render. */
+.cui-tool-title[data-state]::before {
+    content: "";
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    margin-right: 5px;
+    vertical-align: -1px;
+}
+
+.cui-tool-title[data-state="pending"]::before {
+    border: 1.5px solid currentColor;
+    border-radius: 50%;
+    opacity: .5;
+}
+
+.cui-tool-title[data-state="running"]::before {
+    border: 1.5px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: cui-tool-spin .9s linear infinite;
+}
+
+.cui-tool-title[data-state="done"]::before,
+.cui-tool-title[data-state="error"]::before {
+    width: auto;
+    height: auto;
+    font-style: normal;
+    font-weight: 600;
+}
+
+.cui-tool-title[data-state="done"]::before {
+    content: "✓";
+    color: var(--cui-ok, #2f6b3f);
+}
+
+.cui-tool-title[data-state="error"]::before {
+    content: "✕";
+    color: var(--cui-error, #b3261e);
+}
+
+/* Pending tool-call spinner for chat-ui's tool_call part path — pure CSS so it
+   survives the html-only sanitize profile; the HTML path uses data-state
+   ::before glyphs instead. */
+.cui-tool-spinner {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    opacity: .7;
+    vertical-align: -1px;
+    margin-left: 4px;
+    animation: cui-tool-spin .9s linear infinite;
+}
+
+@keyframes cui-tool-spin {
+    to { transform: rotate(360deg); }
+}
+
 /* Message metrics styling */
 .metrics-icon {
     cursor: help;

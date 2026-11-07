@@ -77,7 +77,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhGroupAsync,
                 tags: new[] { "canvas", "components", "mutating", "organization" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""group"": { ""type"": ""string"", ""description"": ""Instance GUID of the created group."" }, ""grouped"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the components that were added to the group."" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "grouping canvas components",
+                resultLabel: "grouped canvas components");
 
             // Specialized wrapper: gh_group_selected
             yield return new AIMutatingTool(
@@ -100,7 +102,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhGroupSelectedAsync,
                 tags: new[] { "canvas", "components", "mutating", "organization" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""group"": { ""type"": ""string"", ""description"": ""Instance GUID of the created group."" }, ""grouped"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the components that were added to the group."" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "grouping selected components",
+                resultLabel: "grouped selected components");
         }
 
         private async Task<AIReturn> GhGroupAsync(AIToolCall toolCall)

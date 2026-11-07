@@ -69,7 +69,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhTogglePreviewAsync,
                 tags: new[] { "canvas", "components", "mutating", "preview", "viewport" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "toggling component preview",
+                resultLabel: "toggled component preview");
 
             // Specialized wrapper: gh_hide_preview_selected
             yield return new AIMutatingTool(
@@ -83,7 +85,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: (toolCall) => this.GhTogglePreviewSelectedAsync(toolCall, previewOn: false),
                 tags: new[] { "canvas", "components", "mutating", "preview", "viewport" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "toggling component preview",
+                resultLabel: "toggled component preview");
 
             // Specialized wrapper: gh_show_preview_selected
             yield return new AIMutatingTool(
@@ -97,7 +101,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: (toolCall) => this.GhTogglePreviewSelectedAsync(toolCall, previewOn: true),
                 tags: new[] { "canvas", "components", "mutating", "preview", "viewport" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(destructiveHint: false));
+                annotations: new AIToolAnnotations(destructiveHint: false),
+                activityLabel: "toggling component preview",
+                resultLabel: "toggled component preview");
         }
 
         private async Task<AIReturn> GhTogglePreviewAsync(AIToolCall toolCall)

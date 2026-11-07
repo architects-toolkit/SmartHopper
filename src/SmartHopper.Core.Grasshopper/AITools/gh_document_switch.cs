@@ -54,7 +54,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "document", "switch", "view" },
                 outputSchema: GhDocumentTools.DocumentOutputSchema,
                 annotations: new AIToolAnnotations(readOnlyHint: false),
-                surfaces: GhDocumentTools.InteractiveSurfaces);
+                surfaces: GhDocumentTools.InteractiveSurfaces,
+                activityLabel: "switching active document",
+                resultLabel: "switched active document");
         }
 
         private static Task<AIReturn> SwitchAsync(AIToolCall toolCall)

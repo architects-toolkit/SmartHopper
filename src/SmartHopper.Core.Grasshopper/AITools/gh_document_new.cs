@@ -48,7 +48,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "document", "new", "file" },
                 outputSchema: GhDocumentTools.DocumentOutputSchema,
                 annotations: new AIToolAnnotations(readOnlyHint: false),
-                surfaces: GhDocumentTools.InteractiveSurfaces);
+                surfaces: GhDocumentTools.InteractiveSurfaces,
+                activityLabel: "creating new document",
+                resultLabel: "created new document");
         }
 
         private static Task<AIReturn> NewAsync(AIToolCall toolCall)

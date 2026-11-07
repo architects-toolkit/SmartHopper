@@ -72,7 +72,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "planning", "progress", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""planId"": { ""type"": ""string"" }, ""status"": { ""type"": ""string"" }, ""displayed"": { ""type"": ""boolean"" }, ""counts"": { ""type"": ""object"" }, ""tasks"": { ""type"": ""array"" } } }",
-                surfaces: AIToolSurface.Chat);
+                surfaces: AIToolSurface.Chat,
+                activityLabel: "managing task list",
+                resultLabel: "managed task list");
         }
 
         private async Task<AIReturn> ExecuteAsync(AIToolCall toolCall)

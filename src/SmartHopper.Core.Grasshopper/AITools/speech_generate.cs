@@ -88,7 +88,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "audio", "speech", "ai-generation", "read-only", "external" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""audio"": { ""type"": ""string"", ""description"": ""Base64-encoded audio data or URL."" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
-                surfaces: AIToolSurface.Direct | AIToolSurface.Batch);
+                surfaces: AIToolSurface.Direct | AIToolSurface.Batch,
+                activityLabel: "generating speech",
+                resultLabel: "generated speech");
         }
 
         /// <summary>

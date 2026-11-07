@@ -81,6 +81,11 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 changesLayout.Add(this.CreateChangeRow(item));
             }
 
+            // Eto auto-scales the LAST row when no row declares ScaleHeight —
+            // without a trailing spacer the last entry (usually a wire row) is
+            // stretched to fill the scrollable, pushing its detail text down.
+            changesLayout.Add(null);
+
             var scrollable = new Scrollable
             {
                 Border = BorderType.None,
@@ -289,9 +294,16 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 textLayout.Add(detailLabel);
             }
 
+            // Same auto-scale rule inside the row: keep title/detail top-packed
+            // even if the row panel ever receives extra height.
+            textLayout.Add(null);
+
             var row = new Panel
             {
                 Padding = new Padding(7),
+                // Subtle fill gives each checklist entry a visible boundary for the
+                // hover-to-canvas-highlight interaction.
+                BackgroundColor = Color.FromArgb(128, 128, 128, 16),
                 ToolTip = "Double-click to zoom to this change",
                 Content = new TableLayout
                 {

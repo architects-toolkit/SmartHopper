@@ -57,7 +57,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 enabled: true,
                 tags: new[] { "providers", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""defaultProvider"": { ""type"": ""string"" }, ""providers"": { ""type"": ""array"", ""items"": { ""type"": ""object"", ""properties"": { ""name"": { ""type"": ""string"" }, ""enabled"": { ""type"": ""boolean"", ""description"": ""True when the provider is enabled for use."" }, ""configured"": { ""type"": ""boolean"", ""description"": ""True when the provider has all required settings (API key, endpoint URL, etc.) configured in the current environment."" }, ""isDefault"": { ""type"": ""boolean"", ""description"": ""True when the provider is the current default."" } }, ""required"": [""name"", ""enabled"", ""configured"", ""isDefault""] } } } }",
-                annotations: new AIToolAnnotations(openWorldHint: false, readOnlyHint: true, destructiveHint: false));
+                annotations: new AIToolAnnotations(openWorldHint: false, readOnlyHint: true, destructiveHint: false),
+                activityLabel: "listing providers",
+                resultLabel: "listed providers");
         }
 
         private Task<AIReturn> ProvidersListAsync(AIToolCall toolCall)

@@ -47,7 +47,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "document", "list" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""activeDocumentId"": { ""type"": [""string"", ""null""] }, ""documents"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                activityLabel: "listing open documents",
+                resultLabel: "listed open documents");
         }
 
         private static Task<AIReturn> ListAsync(AIToolCall toolCall)

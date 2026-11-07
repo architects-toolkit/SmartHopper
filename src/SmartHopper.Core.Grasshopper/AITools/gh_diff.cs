@@ -66,7 +66,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "canvas", "components", "diff", "patch", "read-only", "ghjson" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghpatch"": { ""type"": ""string"", ""description"": ""Serialized `.ghpatch` document describing differences."" }, ""hasChanges"": { ""type"": ""boolean"" }, ""componentOpCount"": { ""type"": ""integer"" }, ""connectionOpCount"": { ""type"": ""integer"" }, ""groupOpCount"": { ""type"": ""integer"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                activityLabel: "comparing canvas changes",
+                resultLabel: "compared canvas changes");
         }
 
         private async Task<AIReturn> GhDiffToolAsync(AIToolCall toolCall)

@@ -58,7 +58,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 enabled: true,
                 tags: new[] { "providers", "models", "api", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""provider"": { ""type"": ""string"" }, ""models"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } }, ""source"": { ""type"": ""string"" }, ""warning"": { ""type"": ""string"" } } }",
-                annotations: new AIToolAnnotations(openWorldHint: true, readOnlyHint: true, destructiveHint: false));
+                annotations: new AIToolAnnotations(openWorldHint: true, readOnlyHint: true, destructiveHint: false),
+                activityLabel: "listing provider models",
+                resultLabel: "listed provider models");
         }
 
         private async Task<AIReturn> ProvidersModelsAsync(AIToolCall toolCall)

@@ -283,11 +283,11 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             var unnamed = new AIInteractionToolCall();
             var named = new AIInteractionToolCall { Name = "my_tool" };
 
-            // Pending calls carry the tool-card contract + spinner markup until the result arrives.
+            // Pending calls carry the tool-card contract (queued state) until dispatch/result.
             Assert.Contains("Tool Call", unnamed.GetDisplayNameForRender());
             Assert.Contains("Tool Call: my_tool", named.GetDisplayNameForRender());
-            Assert.Contains("animateTransform", unnamed.GetDisplayNameForRender());
             Assert.Contains("data-state=\"pending\"", unnamed.GetDisplayNameForRender());
+            Assert.Contains("data-callid", unnamed.GetDisplayNameForRender());
         }
 
         [Fact(DisplayName = nameof(ToolCall_GetRawContentForRender) + PlatformSuffix)]
@@ -372,6 +372,30 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
 
             // Merged with the originating call: same dedup key, no result suffix.
             Assert.Equal("tool.call:tr_1:none", key);
+        }
+
+        [Fact(DisplayName = nameof(ToolResult_GetDisplayNameForRender) + PlatformSuffix)]
+        public void ToolResult_GetDisplayNameForRender()
+        {
+            var ok = new AIInteractionToolResult
+            {
+                Name = "my_tool",
+                Result = new JObject { ["items"] = 3 },
+            };
+            var withError = new AIInteractionToolResult
+            {
+                Name = "my_tool",
+                Result = new JObject { ["error"] = "rejected by the user" },
+            };
+            var failed = new AIInteractionToolResult
+            {
+                Name = "my_tool",
+                Result = new JObject { ["success"] = false },
+            };
+
+            Assert.Contains("data-state=\"done\"", ok.GetDisplayNameForRender());
+            Assert.Contains("data-state=\"error\"", withError.GetDisplayNameForRender());
+            Assert.Contains("data-state=\"error\"", failed.GetDisplayNameForRender());
         }
 
         [Fact(DisplayName = nameof(ToolResult_MessagesPropagation) + PlatformSuffix)]

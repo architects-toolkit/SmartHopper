@@ -60,7 +60,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 tags: new[] { "canvas", "components", "merge", "read-only", "ghjson" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Merged GhJSON document."" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                annotations: new AIToolAnnotations(readOnlyHint: true),
+                activityLabel: "merging content onto canvas",
+                resultLabel: "merged content onto canvas");
         }
 
         private async Task<AIReturn> GhMergeToolAsync(AIToolCall toolCall)
