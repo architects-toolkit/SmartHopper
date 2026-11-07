@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project>
   <Import Project="$(MSBuildThisFileDirectory)Solution.props" Condition="Exists('$(MSBuildThisFileDirectory)Solution.props')" />
   <!-- Metadata for .NET project -->
@@ -35,6 +35,17 @@
   <PropertyGroup>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(SolutionDir)signing.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <!--
+    Shared strong-name public key for InternalsVisibleTo entries across all projects.
+    The PublicKey is updated by tools/Update-InternalsVisibleTo.ps1 which extracts it from signing.snk,
+    and re-anonymized by tools/Anonymize-SmartHopperPublicKey.ps1 before commits.
+    SmartHopperPublicKeyForIvt only emits the key when the assembly is actually signed.
+  -->
+  <PropertyGroup>
+    <SmartHopperPublicKey>This value is automatically replaced by the build tooling before official builds.</SmartHopperPublicKey>
+    <SmartHopperPublicKeyForIvt Condition="'$(SignAssembly)' != 'false'">$(SmartHopperPublicKey)</SmartHopperPublicKeyForIvt>
   </PropertyGroup>
 
   <!-- macOS workaround for .NET 7.0 projects that use WinForms types without the WindowsDesktop SDK. -->

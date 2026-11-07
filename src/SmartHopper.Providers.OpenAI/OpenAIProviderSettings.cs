@@ -47,8 +47,23 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <inheritdoc/>
+        public override bool EnableStreaming => base.EnableStreaming || this.provider.IsChatGptConnected;
+
+        /// <inheritdoc/>
         public override IEnumerable<SettingDescriptor> GetSettingDescriptors()
         {
+            this.provider.NormalizeConnectionStatus();
+            var connected = this.provider.IsChatGptConnected;
+            var actionRunning = this.provider.IsChatGptActionRunning;
+            var connectText = actionRunning
+                ? "Cancel sign-in"
+                : (connected ? "Disconnect" : "Continue with ChatGPT");
+            var connectDescription = actionRunning
+                ? "Sign-in in progress. Click to cancel it."
+                : (connected
+                    ? "Sign out of your ChatGPT account on this computer and remove the stored tokens."
+                    : "Open your browser and sign in with your ChatGPT account. Eligible ChatGPT plans can be used for AI requests without an API key.");
+
             return new[]
             {
                 new SettingDescriptor
@@ -58,7 +73,122 @@ namespace SmartHopper.Providers.OpenAI
                     DefaultValue = string.Empty,
                     IsSecret = true,
                     DisplayName = "API Key",
-                    Description = "Your OpenAI API key. Get one at https://platform.openai.com/",
+                    Description = "Your OpenAI API key. Get one at https://platform.openai.com/. When a ChatGPT sign-in is active it is used first and this key serves as fallback.",
+                },
+                new SettingDescriptor
+                {
+                    Name = "ChatGptConnect",
+                    Type = typeof(bool),
+                    DefaultValue = false,
+                    DisplayName = "ChatGPT sign-in",
+                    Description = connectDescription,
+                    ControlParams = new ButtonSettingDescriptorControl { Text = connectText },
+                },
+                new SettingDescriptor
+                {
+                    Name = "ChatGptStatus",
+                    Type = typeof(string),
+                    DefaultValue = "Not connected",
+                    DisplayName = "Status",
+                    ControlParams = new StatusSettingDescriptorControl
+                    {
+                        LevelSettingName = "ChatGptStatusLevel",
+                    },
+                },
+                new SettingDescriptor
+                {
+                    Name = "ChatGptStatusLevel",
+                    Type = typeof(string),
+                    DefaultValue = "none",
+                    IsHidden = true,
+                },
+                new SettingDescriptor
+                {
+                    Name = "ChatGptAccessToken",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "ChatGPT access token",
+                    Description = "Managed automatically by the ChatGPT sign-in.",
+                    IsSecret = true,
+                    IsHidden = true,
+                },
+                new SettingDescriptor
+                {
+                    Name = "ChatGptRefreshToken",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "ChatGPT refresh token",
+                    Description = "Managed automatically by the ChatGPT sign-in.",
+                    IsSecret = true,
+                    IsHidden = true,
+                },
+                new SettingDescriptor
+                {
+                    Name = "ChatGptIdToken",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "ChatGPT ID token",
+                    Description = "Managed automatically by the ChatGPT sign-in.",
+                    IsSecret = true,
+                    IsHidden = true,
+                },
+                new SettingDescriptor
+                {
+                    Name = "ChatGptClientId",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "ChatGPT client ID",
+                    Description = "Managed automatically by the ChatGPT sign-in.",
+                    IsHidden = true,
+                },
+                new SettingDescriptor
+                {
+                    Name = "ChatGptHostId",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "ChatGPT host ID",
+                    Description = "Managed automatically by the ChatGPT sign-in.",
+                    IsHidden = true,
+                },
+                new SettingDescriptor
+                {
+                    Name = "ChatGptEmail",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "ChatGPT account email",
+                    Description = "Managed automatically by the ChatGPT sign-in.",
+                    IsHidden = true,
+                },
+                new SettingDescriptor
+                {
+                    Name = "ChatGptAccessTokenExpiresAt",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "ChatGPT access token expiry",
+                    Description = "Managed automatically by the ChatGPT sign-in.",
+                    IsHidden = true,
+                },
+                new SettingDescriptor
+                {
+                    Name = "ChatGptScopes",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "ChatGPT granted scopes",
+                    Description = "Managed automatically by the ChatGPT sign-in.",
+                    IsHidden = true,
+                },
+                new SettingDescriptor
+                {
+                    Name = "ChatGptUsageLink",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "Plan usage",
+                    Description = "Review how much of your ChatGPT plan this app uses and manage app access.",
+                    ControlParams = new LinkSettingDescriptorControl
+                    {
+                        Url = "https://chatgpt.com/settings/usage",
+                        Text = "ChatGPT settings → Usage",
+                    },
                 },
                 new SettingDescriptor
                 {
@@ -126,6 +256,44 @@ namespace SmartHopper.Providers.OpenAI
             if (settings == null)
             {
                 return false;
+            }
+
+            // Managed values: the form must never overwrite what the sign-in stored.
+            settings.Remove("ChatGptStatus");
+            settings.Remove("ChatGptStatusLevel");
+            settings.Remove("ChatGptAccessToken");
+            settings.Remove("ChatGptRefreshToken");
+            settings.Remove("ChatGptIdToken");
+            settings.Remove("ChatGptClientId");
+            settings.Remove("ChatGptHostId");
+            settings.Remove("ChatGptEmail");
+            settings.Remove("ChatGptAccessTokenExpiresAt");
+            settings.Remove("ChatGptScopes");
+            settings.Remove("ChatGptUsageLink");
+
+            var connect = settings.TryGetValue("ChatGptConnect", out var connectObj)
+                && bool.TryParse(connectObj?.ToString(), out var connectValue)
+                && connectValue;
+            if (connect)
+            {
+                // One-shot action: consumed here, never persisted.
+                settings.Remove("ChatGptConnect");
+                if (this.provider.IsChatGptActionRunning)
+                {
+                    // The button doubles as a cancel while work is in flight.
+                    this.provider.CancelChatGptSignIn();
+                    return true;
+                }
+
+                if (this.provider.IsChatGptConnected)
+                {
+                    // The button doubles as a disconnect once connected.
+                    this.provider.DisconnectChatGpt();
+                    return true;
+                }
+
+                this.provider.StartChatGptSignIn();
+                return true;
             }
 
             // Set to false if you don't want to show error dialogs
