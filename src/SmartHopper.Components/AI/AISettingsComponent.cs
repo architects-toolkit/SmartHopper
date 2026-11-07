@@ -33,6 +33,7 @@ using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AIProviders;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.AI
 {
     /// <summary>
@@ -96,7 +97,7 @@ namespace SmartHopper.Components.AI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[AISettingsComponent] Infrastructure check failed: {ex.Message}");
+                Logger.For<AISettingsComponent>().Exception(ex, $"[AISettingsComponent] Infrastructure check failed: {ex.Message}");
                 return false;
             }
         }
@@ -131,7 +132,7 @@ namespace SmartHopper.Components.AI
             catch (Exception ex)
             {
                 // Silently handle any parameter manager issues during initialization
-                System.Diagnostics.Debug.WriteLine($"[AISettingsComponent] Warning: Could not set parameter optional flags: {ex.Message}");
+                Logger.For<AISettingsComponent>().Exception(ex, $"[AISettingsComponent] Warning: Could not set parameter optional flags: {ex.Message}");
             }
         }
 
@@ -229,7 +230,7 @@ namespace SmartHopper.Components.AI
             catch (IndexOutOfRangeException ex)
             {
                 // Fallback for unexpected index errors during initialization
-                Debug.WriteLine($"[AISettingsComponent] Index out of range: {ex.Message}");
+                Logger.For<AISettingsComponent>().Exception(ex, $"[AISettingsComponent] Index out of range: {ex.Message}");
                 this.AddRuntimeMessage(
                     GH_RuntimeMessageLevel.Warning,
                     "Unexpected initialization error. Please recompute the component.");
@@ -238,7 +239,7 @@ namespace SmartHopper.Components.AI
             catch (Exception ex)
             {
                 // Catch any other unexpected errors
-                Debug.WriteLine($"[AISettingsComponent] Unexpected error: {ex.Message}");
+                Logger.For<AISettingsComponent>().Exception(ex, $"[AISettingsComponent] Unexpected error: {ex.Message}");
                 this.AddRuntimeMessage(
                     GH_RuntimeMessageLevel.Error,
                     $"Unexpected error assembling AI settings: {ex.Message}");
@@ -275,14 +276,14 @@ namespace SmartHopper.Components.AI
                             }
                             catch (Exception ex)
                             {
-                                Debug.WriteLine($"[AISettingsComponent] Error during solution expiration: {ex.Message}");
+                                Logger.For<AISettingsComponent>().Exception(ex, $"[AISettingsComponent] Error during solution expiration: {ex.Message}");
                                 this._retryScheduled = false;
                             }
                         });
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[AISettingsComponent] Error during retry scheduling: {ex.Message}");
+                        Logger.For<AISettingsComponent>().Exception(ex, $"[AISettingsComponent] Error during retry scheduling: {ex.Message}");
                         this._retryScheduled = false;
                     }
                 }, TaskScheduler.Default);

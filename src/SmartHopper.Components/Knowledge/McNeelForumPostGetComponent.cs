@@ -35,6 +35,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     public class McNeelForumPostGetComponent : StatefulComponentBase
@@ -192,7 +193,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIMcNeelForumGetPostWorker] Error: {ex.Message}");
+                    Logger.For<McNeelForumGetPostWorker>().Exception(ex, $"[AIMcNeelForumGetPostWorker] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }

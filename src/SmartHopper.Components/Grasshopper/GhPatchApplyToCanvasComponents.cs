@@ -34,6 +34,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Grasshopper
 {
     /// <summary>
@@ -206,7 +207,7 @@ namespace SmartHopper.Components.Grasshopper
                         }
 
                         var combined = parts.Count > 0 ? string.Join(" \n", parts) : "gh_patch_apply execution failed";
-                        Debug.WriteLine($"[GhPatchApplyToCanvas] gh_patch_apply Exec failed: {combined}");
+                        Logger.For<GhPatchApplyToCanvasWorker>().Warning($"[GhPatchApplyToCanvas] gh_patch_apply Exec failed: {combined}");
                         this.error = combined;
                         return;
                     }
@@ -309,7 +310,7 @@ namespace SmartHopper.Components.Grasshopper
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"[GhPatchApplyToCanvas] Failed to inspect patched document: {ex.Message}");
+                            Logger.For<GhPatchApplyToCanvasWorker>().Exception(ex, $"[GhPatchApplyToCanvas] Failed to inspect patched document: {ex.Message}");
                             hasPlacementChanges = true;
                         }
                     }
@@ -360,7 +361,7 @@ namespace SmartHopper.Components.Grasshopper
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[GhPatchApplyToCanvas] Error: {ex.Message}");
+                    Logger.For<GhPatchApplyToCanvasWorker>().Exception(ex, $"[GhPatchApplyToCanvas] Error: {ex.Message}");
                     this.error = ex.Message;
                 }
                 finally
@@ -416,7 +417,7 @@ namespace SmartHopper.Components.Grasshopper
 
                         if (document.UndoServer.UndoCount != baseline + 1)
                         {
-                            Debug.WriteLine("[GhPatchApplyToCanvas] Rollback skipped: canvas changed after the reviewed removal.");
+                            Logger.For<GhPatchApplyToCanvasWorker>().Error("[GhPatchApplyToCanvas] Rollback skipped: canvas changed after the reviewed removal.");
                             completion.TrySetResult(false);
                             return;
                         }
@@ -427,7 +428,7 @@ namespace SmartHopper.Components.Grasshopper
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[GhPatchApplyToCanvas] Rollback failed: {ex.Message}");
+                        Logger.For<GhPatchApplyToCanvasWorker>().Exception(ex, $"[GhPatchApplyToCanvas] Rollback failed: {ex.Message}");
                         completion.TrySetResult(false);
                     }
                 });

@@ -40,6 +40,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.List
 {
     public class AIList2BooleanComponent : AIStatefulAsyncComponentBase
@@ -249,15 +250,15 @@ namespace SmartHopper.Components.List
             {
                 try
                 {
-                    Debug.WriteLine($"[Worker] Starting DoWorkAsync");
-                    Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
-                    Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
+                    Logger.For<AIList2BooleanWorker>().Trace($"[Worker] Starting DoWorkAsync");
+                    Logger.For<AIList2BooleanWorker>().Trace($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
+                    Logger.For<AIList2BooleanWorker>().Trace($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
                     this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
-                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
+                            Logger.For<AIList2BooleanWorker>().Trace($"[Worker] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, this.parent, token).ConfigureAwait(false);
                         },
                         this.processingOptions,
@@ -271,7 +272,7 @@ namespace SmartHopper.Components.List
                     var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", resultDict, token).ConfigureAwait(false);
                     if (batchSubmitted)
                     {
-                        Debug.WriteLine($"[Worker] Sentinel tree stored, batch submitted");
+                        Logger.For<AIList2BooleanWorker>().Trace($"[Worker] Sentinel tree stored, batch submitted");
                     }
                     else
                     {
@@ -285,11 +286,11 @@ namespace SmartHopper.Components.List
                         this.parent.FinishResults("Used Fallback", usedFallbackTree);
                     }
 
-                    Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Outputs.Keys)}");
+                    Logger.For<AIList2BooleanWorker>().Trace($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Outputs.Keys)}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[Worker] Error: {ex.Message}");
+                    Logger.For<AIList2BooleanWorker>().Exception(ex, $"[Worker] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
@@ -361,8 +362,8 @@ namespace SmartHopper.Components.List
                  * the output values (as strings for batch support).
                  */
 
-                Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
-                Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
+                Logger.For<AIList2BooleanWorker>().Trace($"[Worker] Processing {branches.Count} trees");
+                Logger.For<AIList2BooleanWorker>().Trace($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees - cast from IGH_Goo to concrete types
                 var listBranch = branches["List"].Cast<GH_String>().ToList();
@@ -391,7 +392,7 @@ namespace SmartHopper.Components.List
                 var normalizedListTree = normalizedLists[0];
                 questionBranch = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Questions count: {questionBranch.Count}, List count: {normalizedListTree.Count}, Fallback: '{fallbackValue}'");
+                Logger.For<AIList2BooleanWorker>().Trace($"[ProcessData] After normalization - Questions count: {questionBranch.Count}, List count: {normalizedListTree.Count}, Fallback: '{fallbackValue}'");
 
                 // Initialize the outputs (as strings for batch support - sentinels are strings).
                 // Result and UsedFallback are kept as parallel lists with identical lengths.
@@ -404,7 +405,7 @@ namespace SmartHopper.Components.List
                 int i = 0;
                 foreach (var question in questionBranch)
                 {
-                    Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{questionBranch.Count}");
+                    Logger.For<AIList2BooleanWorker>().Trace($"[ProcessData] Processing prompt {i + 1}/{questionBranch.Count}");
 
                     // Call the AI tool through the tool manager
                     var parameters = new JObject

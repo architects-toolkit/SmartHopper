@@ -45,6 +45,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Input
 {
     /// <summary>
@@ -160,7 +161,7 @@ namespace SmartHopper.Components.Input
                     if (this._urlContexts == null ||
                         !this._urlContexts.TryGetValue(representativeSentinelId, out var urlCtx))
                     {
-                        Debug.WriteLine($"[Web2AI] OnBatchCompleted: URL context missing for sentinel {representativeSentinelId}");
+                        Logger.For<Web2AIComponent>().Warning($"[Web2AI] OnBatchCompleted: URL context missing for sentinel {representativeSentinelId}");
                         return new GH_String("[URL context missing]");
                     }
 
@@ -217,7 +218,7 @@ namespace SmartHopper.Components.Input
                 }
 
                 var totalSlotMetrics = slotMetricsByPath.Values.Sum(l => l.Count);
-                Debug.WriteLine($"[Web2AI] OnBatchCompleted: merged {totalSlotMetrics} slot metrics into {slotMetricsByPath.Count} branch path(s)");
+                Logger.For<Web2AIComponent>().Trace($"[Web2AI] OnBatchCompleted: merged {totalSlotMetrics} slot metrics into {slotMetricsByPath.Count} branch path(s)");
                 this.SetMetricsOutput(null);
             }
 
@@ -319,7 +320,7 @@ namespace SmartHopper.Components.Input
                     var batchSubmitted = await this.parent.TrySubmitBatchAsync("Markdown", markdownDict, token).ConfigureAwait(false);
                     if (batchSubmitted)
                     {
-                        Debug.WriteLine("[Web2AI] Sentinel tree stored, batch submitted");
+                        Logger.For<Web2AIWorker>().Trace("[Web2AI] Sentinel tree stored, batch submitted");
                     }
                     else
                     {
@@ -331,7 +332,7 @@ namespace SmartHopper.Components.Input
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[Web2AIWorker] Error: {ex.Message}");
+                    Logger.For<Web2AIWorker>().Exception(ex, $"[Web2AIWorker] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Error processing web content: {ex.Message}");
                 }
             }

@@ -37,6 +37,7 @@ using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Text
 {
     public class AIText2TextComponent : AIStatefulAsyncComponentBase
@@ -170,15 +171,15 @@ namespace SmartHopper.Components.Text
             {
                 try
                 {
-                    Debug.WriteLine($"[Worker] Starting DoWorkAsync");
-                    Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
-                    Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
+                    Logger.For<AIText2TextWorker>().Trace($"[Worker] Starting DoWorkAsync");
+                    Logger.For<AIText2TextWorker>().Trace($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
+                    Logger.For<AIText2TextWorker>().Trace($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
                     this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
-                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
+                            Logger.For<AIText2TextWorker>().Trace($"[Worker] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, this.parent, token).ConfigureAwait(false);
                         },
                         this.processingOptions,
@@ -188,7 +189,7 @@ namespace SmartHopper.Components.Text
                     var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", this.result, token).ConfigureAwait(false);
                     if (batchSubmitted)
                     {
-                        Debug.WriteLine($"[Worker] Sentinel tree stored, batch submitted");
+                        Logger.For<AIText2TextWorker>().Trace($"[Worker] Sentinel tree stored, batch submitted");
                     }
                     else if (this.result.TryGetValue("Result", out var resultTree))
                     {
@@ -196,11 +197,11 @@ namespace SmartHopper.Components.Text
                         this.parent.FinishResults("Result", resultTree);
                     }
 
-                    Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
+                    Logger.For<AIText2TextWorker>().Trace($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[Worker] Error: {ex.Message}");
+                    Logger.For<AIText2TextWorker>().Exception(ex, $"[Worker] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
@@ -216,8 +217,8 @@ namespace SmartHopper.Components.Text
                  * the output values.
                  */
 
-                Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
-                Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
+                Logger.For<AIText2TextWorker>().Trace($"[Worker] Processing {branches.Count} trees");
+                Logger.For<AIText2TextWorker>().Trace($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
                 var promptTree = branches["Prompt"];
@@ -230,7 +231,7 @@ namespace SmartHopper.Components.Text
                 promptTree = normalizedLists[0];
                 instructionsTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Prompts count: {promptTree.Count}, Instructions count: {instructionsTree.Count}");
+                Logger.For<AIText2TextWorker>().Trace($"[ProcessData] After normalization - Prompts count: {promptTree.Count}, Instructions count: {instructionsTree.Count}");
 
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_String>>();
@@ -241,7 +242,7 @@ namespace SmartHopper.Components.Text
                 int i = 0;
                 foreach (var prompt in promptTree)
                 {
-                    Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{promptTree.Count}");
+                    Logger.For<AIText2TextWorker>().Error($"[ProcessData] Processing prompt {i + 1}/{promptTree.Count}");
 
                     // Call the AI tool through the tool manager
                     var parameters = new JObject

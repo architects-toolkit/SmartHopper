@@ -33,6 +33,7 @@ using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.List
 {
     public class AIListFilter : AIStatefulAsyncComponentBase
@@ -126,7 +127,7 @@ namespace SmartHopper.Components.List
                 // Convert generic data to string structure
                 var stringListTree = ConvertToGHString(listTree);
 
-                Debug.WriteLine($"[Worker] String list tree: {stringListTree}");
+                Logger.For<AIListFilterWorker>().Trace($"[Worker] String list tree: {stringListTree}");
 
                 // Store the converted trees
                 this.inputTree["List"] = stringListTree;
@@ -141,25 +142,25 @@ namespace SmartHopper.Components.List
             {
                 try
                 {
-                    Debug.WriteLine($"[Worker] Starting DoWorkAsync");
-                    Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
-                    Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
+                    Logger.For<AIListFilterWorker>().Trace($"[Worker] Starting DoWorkAsync");
+                    Logger.For<AIListFilterWorker>().Trace($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
+                    Logger.For<AIListFilterWorker>().Trace($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
                     this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
-                            Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
+                            Logger.For<AIListFilterWorker>().Trace($"[Worker] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, this.parent, token).ConfigureAwait(false);
                         },
                         this.processingOptions,
                         token).ConfigureAwait(false);
 
-                    Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
+                    Logger.For<AIListFilterWorker>().Trace($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[Worker] Error: {ex.Message}");
+                    Logger.For<AIListFilterWorker>().Exception(ex, $"[Worker] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
@@ -175,8 +176,8 @@ namespace SmartHopper.Components.List
                  * the output values.
                  */
 
-                Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
-                Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
+                Logger.For<AIListFilterWorker>().Trace($"[Worker] Processing {branches.Count} trees");
+                Logger.For<AIListFilterWorker>().Trace($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
                 var listAsJson = AIResponseParser.ConcatenateItemsToJson(branches["List"], "array");
@@ -194,7 +195,7 @@ namespace SmartHopper.Components.List
                 var normalizedListTree = normalizedLists[0];
                 var normalizedCriteriaTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Criteria count: {normalizedCriteriaTree.Count}, List count: {normalizedListTree.Count}");
+                Logger.For<AIListFilterWorker>().Trace($"[ProcessData] After normalization - Criteria count: {normalizedCriteriaTree.Count}, List count: {normalizedListTree.Count}");
 
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_String>>();
@@ -205,27 +206,27 @@ namespace SmartHopper.Components.List
                 int i = 0;
                 foreach (var criterion in normalizedCriteriaTree)
                 {
-                    Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{normalizedCriteriaTree.Count}");
+                    Logger.For<AIListFilterWorker>().Error($"[ProcessData] Processing prompt {i + 1}/{normalizedCriteriaTree.Count}");
                     var listToken = normalizedListTree[i];
                     var criterionValue = criterion?.Value;
 
                     // Skip entries where we do not have valid list JSON or criteria text
                     if (listToken == null || string.IsNullOrWhiteSpace(listToken.Value))
                     {
-                        Debug.WriteLine($"[ProcessData] Skipping index {i}: list JSON is null or empty");
+                        Logger.For<AIListFilterWorker>().Error($"[ProcessData] Skipping index {i}: list JSON is null or empty");
                         i++;
                         continue;
                     }
 
                     if (string.IsNullOrWhiteSpace(criterionValue))
                     {
-                        Debug.WriteLine($"[ProcessData] Skipping index {i}: criterion is null or empty");
+                        Logger.For<AIListFilterWorker>().Warning($"[ProcessData] Skipping index {i}: criterion is null or empty");
                         i++;
                         continue;
                     }
 
-                    Debug.WriteLine($"[ProcessData] List: {listToken.Value}");
-                    Debug.WriteLine($"[ProcessData] Criterion: {criterionValue}");
+                    Logger.For<AIListFilterWorker>().Trace($"[ProcessData] List: {listToken.Value}");
+                    Logger.For<AIListFilterWorker>().Trace($"[ProcessData] Criterion: {criterionValue}");
 
                     // Call the AI tool through the tool manager
                     var parameters = new JObject
@@ -235,7 +236,7 @@ namespace SmartHopper.Components.List
                         ["contextFilter"] = "-*",
                     };
 
-                    Debug.WriteLine($"[ProcessData] Calling AI tool 'list_filter' with parameters: {parameters}");
+                    Logger.For<AIListFilterWorker>().Trace($"[ProcessData] Calling AI tool 'list_filter' with parameters: {parameters}");
 
                     var toolResult = await parent.CallAIToolAsync(
                         "list_filter", parameters, cancellationToken)
@@ -259,11 +260,11 @@ namespace SmartHopper.Components.List
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                Debug.WriteLine($"[Worker] Setting output - Available keys: {string.Join(", ", this.result.Keys)}");
+                Logger.For<AIListFilterWorker>().Trace($"[Worker] Setting output - Available keys: {string.Join(", ", this.result.Keys)}");
 
                 if (!this.result.TryGetValue("Result", out GH_Structure<GH_String>? value))
                 {
-                    Debug.WriteLine("[Worker] Warning: Result key not found in output dictionary");
+                    Logger.For<AIListFilterWorker>().Trace("[Worker] Warning: Result key not found in output dictionary");
                     message = "Error: No result available";
                     return;
                 }

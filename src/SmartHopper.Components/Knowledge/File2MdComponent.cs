@@ -34,6 +34,7 @@ using SmartHopper.Core.Parameters;
 using SmartHopper.Core.Types;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
@@ -238,7 +239,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[File2Md] Error: {ex.Message}");
+                    Logger.For<File2MdWorker>().Exception(ex, $"[File2Md] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }

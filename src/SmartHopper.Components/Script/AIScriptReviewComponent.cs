@@ -35,6 +35,7 @@ using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.ProviderSdk.Diagnostics;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Script
 {
     /// <summary>
@@ -189,7 +190,7 @@ namespace SmartHopper.Components.Script
                         var guid = this.normalizedGuids[i]?.Value ?? string.Empty;
                         var question = this.normalizedQuestions[i]?.Value ?? string.Empty;
 
-                        Debug.WriteLine($"[AIScriptReviewWorker] Reviewing component {i + 1}/{this.iterationCount}: {guid}");
+                        Logger.For<AIScriptReviewWorker>().Trace($"[AIScriptReviewWorker] Reviewing component {i + 1}/{this.iterationCount}: {guid}");
 
                         var parameters = new JObject
                         {
@@ -208,7 +209,7 @@ namespace SmartHopper.Components.Script
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIScriptReviewWorker] Error: {ex.Message}");
+                    Logger.For<AIScriptReviewWorker>().Exception(ex, $"[AIScriptReviewWorker] Error: {ex.Message}");
                     this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
@@ -253,7 +254,7 @@ namespace SmartHopper.Components.Script
                 string review = toolResult["aiReview"]?.ToString() ?? string.Empty;
                 this.resultAiReview.Append(new GH_String(review), path);
 
-                Debug.WriteLine($"[AIScriptReviewWorker] Review completed for branch {path}");
+                Logger.For<AIScriptReviewWorker>().Trace($"[AIScriptReviewWorker] Review completed for branch {path}");
             }
 
             /// <inheritdoc/>

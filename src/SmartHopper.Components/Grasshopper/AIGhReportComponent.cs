@@ -30,6 +30,7 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.ProviderSdk.AIModels;
 
+using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Grasshopper
 {
     /// <summary>
@@ -126,7 +127,7 @@ namespace SmartHopper.Components.Grasshopper
             {
                 try
                 {
-                    Debug.WriteLine($"[AIGhReportWorker] Starting DoWorkAsync, includeSummary={this.includeSummary}");
+                    Logger.For<AIGhReportWorker>().Trace($"[AIGhReportWorker] Starting DoWorkAsync, includeSummary={this.includeSummary}");
 
                     var parameters = new JObject
                     {
@@ -143,18 +144,18 @@ namespace SmartHopper.Components.Grasshopper
                             this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, errorMsg.Message);
                         }
 
-                        Debug.WriteLine($"[AIGhReportWorker] Tool call failed");
+                        Logger.For<AIGhReportWorker>().Warning($"[AIGhReportWorker] Tool call failed");
                         return;
                     }
 
                     this.report = toolResult["report"]?.ToString() ?? string.Empty;
                     this.summary = toolResult["aiSummary"]?.ToString() ?? string.Empty;
 
-                    Debug.WriteLine($"[AIGhReportWorker] Finished DoWorkAsync - report length={this.report.Length}, summary length={this.summary.Length}");
+                    Logger.For<AIGhReportWorker>().Trace($"[AIGhReportWorker] Finished DoWorkAsync - report length={this.report.Length}, summary length={this.summary.Length}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIGhReportWorker] Error: {ex.Message}");
+                    Logger.For<AIGhReportWorker>().Exception(ex, $"[AIGhReportWorker] Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
