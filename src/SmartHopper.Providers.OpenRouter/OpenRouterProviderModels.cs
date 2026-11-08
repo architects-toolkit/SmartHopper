@@ -51,113 +51,43 @@ namespace SmartHopper.Providers.OpenRouter
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between July 2026 and October 2026
+                // Released between August 2026 and November 2026
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/gpt-6.1-terra",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9660,
-                    ContextLimit = 1050000,
-                    Created = new DateTime(2026, 10, 26),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.000000025m,
-                        CacheWrite = 0.000000625m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-6.1-terra:batch" },
-                },
-new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-6.1-terra-pro",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9665,
-                    ContextLimit = 1050000,
-                    Created = new DateTime(2026, 10, 26),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.000000025m,
-                        CacheWrite = 0.000000625m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-6.1-terra-pro:batch" },
-                },
-new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "particle-ai/particle-1",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "openrouter/auto",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9850,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 10, 28),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.000000003m,
-                    },
+                    Rank = 10000,
+                    ContextLimit = 2000000,
+                    Created = new DateTime(2026, 11, 5),
                 },
-new AIModelCapabilities
+
+                new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "prism-ml/ternary-bonsai-2-9b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "openrouter/auto-code",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9940,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 10, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000008m,
-                        TextOutput = 0.00000013m,
-                        CacheRead = 0.00000004m,
-                    },
+                    Rank = 9995,
+                    ContextLimit = 2000000,
+                    Created = new DateTime(2026, 11, 5),
                 },
-new AIModelCapabilities
+
+                new AIModelCapabilities
                 {
                     Provider = provider,
                     Model = "typesafe/jev-router",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 10000,
+                    Rank = 9990,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = -1m,
-                        TextOutput = -1m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -167,14 +97,33 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9995,
+                    Rank = 9985,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = -1m,
-                        TextOutput = -1m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "liquid/lfm-3-1.7b:free",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9980,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 11, 6),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "stealth/crouton-alpha",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9975,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 11, 3),
                 },
 
                 new AIModelCapabilities
@@ -184,7 +133,7 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9990,
+                    Rank = 9970,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 10, 21),
                 },
@@ -196,7 +145,7 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9985,
+                    Rank = 9965,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 10, 16),
                 },
@@ -208,7 +157,7 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9980,
+                    Rank = 9960,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 10, 15),
                 },
@@ -220,13 +169,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9975,
+                    Rank = 9955,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 10, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000004m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -236,25 +181,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9970,
+                    Rank = 9950,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 10, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000004m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "liquid/lfm-2.5-2.6b:free",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9965,
-                    ContextLimit = 65536,
-                    Created = new DateTime(2026, 8, 11),
                 },
 
                 new AIModelCapabilities
@@ -264,21 +193,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9960,
+                    Rank = 9945,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 8, 11),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "thinkingmachines/inkling-small:free",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9955,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 7, 30),
                 },
 
                 new AIModelCapabilities
@@ -288,15 +205,22 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9950,
+                    Rank = 9940,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000513m,
-                        TextOutput = 0.0000000701m,
-                        CacheRead = 0.00000003m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "z-ai/glm-5.3-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9935,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 26),
+                    Aliases = new List<string> { "z-ai/glm-5.3-flash:batch" },
                 },
 
                 new AIModelCapabilities
@@ -306,34 +230,33 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9945,
+                    Rank = 9930,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 9, 8),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000025m,
-                        TextOutput = 0.0000001m,
-                        CacheRead = 0.0000000025m,
-                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen3.7-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "prism-ml/ternary-bonsai-2-9b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9940,
+                    Rank = 9925,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 10, 16),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "inclusionai/ling-3.1-flash",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9920,
                     ContextLimit = 1000000,
-                    Created = new DateTime(2026, 7, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000003m,
-                        TextOutput = 0.00000013m,
-                        CacheRead = 0.000000006m,
-                        CacheWrite = 0.000000038m,
-                    },
+                    Created = new DateTime(2026, 10, 2),
                 },
 
                 new AIModelCapabilities
@@ -343,76 +266,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9935,
+                    Rank = 9915,
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 9, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000003m,
-                        TextOutput = 0.00000015m,
-                        CacheRead = 0.00000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "inception/mercury-2.5",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9930,
-                    ContextLimit = 260000,
-                    Created = new DateTime(2026, 9, 8),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000004m,
-                        TextOutput = 0.00000015m,
-                        CacheRead = 0.000000004m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "~deepseek/deepseek-v4-flash-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9925,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 1),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000422m,
-                        TextOutput = 0.0000001694m,
-                        CacheRead = 0.000000028m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek/deepseek-v4-flash-0731",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9920,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 7, 31),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000422m,
-                        TextOutput = 0.0000001694m,
-                        CacheRead = 0.000000028m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000011m,
-                        TextOutput = 0.00000033m,
-                        CacheRead = 0.0000000035m,
-                    },
-                    Aliases = new List<string> { "deepseek/deepseek-v4-flash-0731:batch" },
                 },
 
                 new AIModelCapabilities
@@ -422,14 +278,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9915,
+                    Rank = 9910,
                     ContextLimit = 8192,
                     Created = new DateTime(2026, 8, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000044m,
-                        TextOutput = 0.000000177m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -439,15 +290,21 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9910,
+                    Rank = 9905,
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 9, 10),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000006m,
-                        TextOutput = 0.00000018m,
-                        CacheRead = 0.000000012m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "liquid/lfm-3-1.7b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9900,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 11, 6),
                 },
 
                 new AIModelCapabilities
@@ -457,53 +314,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9905,
+                    Rank = 9895,
                     ContextLimit = 524288,
                     Created = new DateTime(2026, 9, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.000000005m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "meta/muse-spark-1.3-contributor",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9900,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 9, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.000000002m,
-                        WebSearch = 0.0025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "meta/muse-spark-1.2-contributor",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9895,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.000000002m,
-                        WebSearch = 0.0025m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -516,30 +329,6 @@ new AIModelCapabilities
                     Rank = 9890,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 8, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000007m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.00000004m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "inclusionai/ling-3.1-flash",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9885,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 10, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.000000225m,
-                        CacheRead = 0.000000015m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -549,15 +338,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9880,
+                    Rank = 9885,
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 9, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000023m,
-                        CacheRead = 0.00000005m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -567,15 +350,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9875,
+                    Rank = 9880,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 9, 8),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.00000025m,
-                        CacheRead = 0.000000015m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -585,15 +362,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9870,
+                    Rank = 9875,
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 8, 31),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000006m,
-                        TextOutput = 0.00000025m,
-                        CacheRead = 0.000000015m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -603,15 +374,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9865,
+                    Rank = 9870,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000014m,
-                        TextOutput = 0.00000028m,
-                        CacheRead = 0.0000000028m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -621,14 +386,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9860,
+                    Rank = 9865,
                     ContextLimit = 8192,
                     Created = new DateTime(2026, 8, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000074m,
-                        TextOutput = 0.000000295m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -638,32 +398,22 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9855,
+                    Rank = 9860,
                     ContextLimit = 8192,
                     Created = new DateTime(2026, 8, 19),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000074m,
-                        TextOutput = 0.000000295m,
-                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "inception/mercury-3",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
+                    Model = "deepseek/deepseek-v4.1-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 9850,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 10, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.00000035m,
-                        CacheRead = 0.00000001m,
-                    },
+                    Rank = 9855,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 9, 10),
+                    Aliases = new List<string> { "deepseek/deepseek-v4.1-flash:batch" },
                 },
 
                 new AIModelCapabilities
@@ -673,15 +423,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9845,
+                    Rank = 9850,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000047m,
-                        CacheRead = 0.000000016m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -691,16 +435,34 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9840,
+                    Rank = 9845,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 8, 26),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000047m,
-                        CacheRead = 0.000000016m,
-                        CacheWrite = 0.0000002m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "particle-ai/particle-1",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9840,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 10, 28),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek/deepseek-v4.1-flash-1017",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9835,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 10, 17),
+                    Aliases = new List<string> { "deepseek/deepseek-v4.1-flash-1017:batch" },
                 },
 
                 new AIModelCapabilities
@@ -710,15 +472,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9835,
+                    Rank = 9830,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 15),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000002m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -728,23 +484,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9830,
+                    Rank = 9825,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 10, 7),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.000000125m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000025m,
-                        CacheRead = 0.000000005m,
-                        CacheWrite = 0.0000000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "anthropic/claude-haiku-5.5:batch" },
@@ -757,23 +505,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9825,
+                    Rank = 9820,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.000000125m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000025m,
-                        CacheRead = 0.000000005m,
-                        CacheWrite = 0.0000000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-6-luna-pro:batch" },
@@ -786,23 +526,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9820,
+                    Rank = 9815,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.000000125m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000025m,
-                        CacheRead = 0.000000005m,
-                        CacheWrite = 0.0000000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-6-luna:batch" },
@@ -815,15 +547,21 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9815,
+                    Rank = 9810,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 9, 18),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.0000000375m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~deepseek/deepseek-flash-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9805,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 9, 14),
                 },
 
                 new AIModelCapabilities
@@ -833,15 +571,11 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9810,
+                    Rank = 9800,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.000000125m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -849,44 +583,13 @@ new AIModelCapabilities
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "z-ai/glm-5.3-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9805,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 26),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000003m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000018m,
-                        CacheRead = 0.00000001m,
-                    },
-                    Aliases = new List<string> { "z-ai/glm-5.3-flash:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "liquid/lfm-2.5-2.6b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "ricursiveai/ripple-65b-preview",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9800,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2026, 8, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000035m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000004m,
-                    },
+                    Rank = 9795,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 11, 4),
                 },
 
                 new AIModelCapabilities
@@ -896,33 +599,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9795,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 10, 19),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.000000015m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek/deepseek-v4.1-flash-1017",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
                     Rank = 9790,
                     ContextLimit = 1048576,
-                    Created = new DateTime(2026, 10, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.000000003m,
-                    },
+                    Created = new DateTime(2026, 10, 19),
                 },
 
                 new AIModelCapabilities
@@ -935,37 +614,6 @@ new AIModelCapabilities
                     Rank = 9785,
                     ContextLimit = 524288,
                     Created = new DateTime(2026, 8, 10),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.00000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek/deepseek-v4-flash-vision-exp",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9780,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002156m,
-                        TextOutput = 0.0000006468m,
-                        CacheRead = 0.00000000686m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000011m,
-                        TextOutput = 0.00000033m,
-                        CacheRead = 0.0000000035m,
-                    },
-                    Aliases = new List<string> { "deepseek/deepseek-v4-flash-vision-exp:batch" },
                 },
 
                 new AIModelCapabilities
@@ -975,15 +623,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9775,
+                    Rank = 9780,
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 10, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.0000007m,
-                        CacheRead = 0.000000025m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -993,15 +635,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9770,
+                    Rank = 9775,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000435m,
-                        TextOutput = 0.00000087m,
-                        CacheRead = 0.0000000036m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1011,58 +647,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9765,
+                    Rank = 9770,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.00000005m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "~deepseek/deepseek-flash-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9760,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 9, 14),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000002m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.000000015m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek/deepseek-v4.1-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9755,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 9, 10),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000002m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.000000015m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000015m,
-                        CacheRead = 0.000000004m,
-                    },
-                    Aliases = new List<string> { "deepseek/deepseek-v4.1-flash:batch" },
                 },
 
                 new AIModelCapabilities
@@ -1072,47 +659,22 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9750,
+                    Rank = 9765,
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 8, 9),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000004m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000175m,
-                        TextOutput = 0.00000075m,
-                        CacheRead = 0.00000002m,
-                    },
                     Aliases = new List<string> { "meta/muse-glimmer-30b:batch" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "thinkingmachines/inkling-small",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = true,
+                    Model = "z-ai/glm-5.3-flashx-legal",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
                     Verified = false,
-                    Rank = 9745,
-                    ContextLimit = 524288,
-                    Created = new DateTime(2026, 7, 30),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000045m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.0000001m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.0000001m,
-                    },
-                    Aliases = new List<string> { "thinkingmachines/inkling-small:batch" },
+                    Rank = 9760,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 11, 2),
                 },
 
                 new AIModelCapabilities
@@ -1122,15 +684,34 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9740,
+                    Rank = 9755,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 18),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000037m,
-                        TextOutput = 0.00000125m,
-                        CacheRead = 0.00000009m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "tencent/hy4",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9750,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 11, 4),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek/deepseek-v4-flash-vision-exp",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9745,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 21),
+                    Aliases = new List<string> { "deepseek/deepseek-v4-flash-vision-exp:batch" },
                 },
 
                 new AIModelCapabilities
@@ -1140,15 +721,21 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9735,
+                    Rank = 9740,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 9, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000007m,
-                        TextOutput = 0.0000014m,
-                        CacheRead = 0.00000018m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~z-ai/glm-latest",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9735,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 19),
                 },
 
                 new AIModelCapabilities
@@ -1161,18 +748,6 @@ new AIModelCapabilities
                     Rank = 9730,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 18),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000079m,
-                        TextOutput = 0.0000014m,
-                        CacheRead = 0.000000078m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000045m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.0000001m,
-                    },
                     Aliases = new List<string> { "z-ai/glm-5.3:batch" },
                 },
 
@@ -1186,11 +761,6 @@ new AIModelCapabilities
                     Rank = 9725,
                     ContextLimit = 36864,
                     Created = new DateTime(2026, 9, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000015m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1203,37 +773,31 @@ new AIModelCapabilities
                     Rank = 9720,
                     ContextLimit = 192000,
                     Created = new DateTime(2026, 9, 22),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000015m,
-                        CacheRead = 0.00000015m,
-                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "deepseek/deepseek-v4-pro-0813",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "qwen/qwen3.8-27b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
                     Rank = 9715,
+                    ContextLimit = 1024000,
+                    Created = new DateTime(2026, 8, 14),
+                    Aliases = new List<string> { "qwen/qwen3.8-27b:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistralai/mistral-large-4-0",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9710,
                     ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000066m,
-                        TextOutput = 0.00000198m,
-                        CacheRead = 0.000000022m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000066m,
-                        TextOutput = 0.00000198m,
-                        CacheRead = 0.000000022m,
-                    },
-                    Aliases = new List<string> { "deepseek/deepseek-v4-pro-0813:batch" },
+                    Created = new DateTime(2026, 10, 6),
                 },
 
                 new AIModelCapabilities
@@ -1243,14 +807,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9710,
+                    Rank = 9705,
                     ContextLimit = 32000,
                     Created = new DateTime(2026, 10, 15),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000025m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1260,33 +819,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9705,
+                    Rank = 9700,
                     ContextLimit = 32000,
                     Created = new DateTime(2026, 10, 15),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3.8-27b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9700,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 8, 14),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.00000009m,
-                        CacheWrite = 0.00000053125m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1299,11 +834,6 @@ new AIModelCapabilities
                     Rank = 9695,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 8, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000025m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1316,12 +846,6 @@ new AIModelCapabilities
                     Rank = 9690,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 28),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000834m,
-                        TextOutput = 0.000002501m,
-                        CacheRead = 0.000000042m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1334,12 +858,6 @@ new AIModelCapabilities
                     Rank = 9685,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 8),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.0000027m,
-                        CacheRead = 0.0000001m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1352,12 +870,6 @@ new AIModelCapabilities
                     Rank = 9680,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 10, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.000003m,
-                        CacheRead = 0.00000006m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1370,12 +882,6 @@ new AIModelCapabilities
                     Rank = 9675,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 15),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000032m,
-                        CacheRead = 0.00000003m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1388,49 +894,6 @@ new AIModelCapabilities
                     Rank = 9670,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000032m,
-                        CacheRead = 0.00000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "sakana/sakana-namazu",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9665,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 8, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000095m,
-                        TextOutput = 0.000004m,
-                        CacheRead = 0.00000015m,
-                        WebSearch = 0.007m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistralai/mistral-large-4-0",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9660,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 10, 6),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000136m,
-                        TextOutput = 0.00000418m,
-                        CacheRead = 0.00000014m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1440,15 +903,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9655,
+                    Rank = 9665,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 15),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00000425m,
-                        CacheRead = 0.00000015m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1458,14 +915,11 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9650,
+                    Rank = 9660,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 2),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00000425m,
-                        CacheRead = 0.00000015m,
                         WebSearch = 0.0025m,
                     },
                 },
@@ -1473,75 +927,72 @@ new AIModelCapabilities
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "meta/muse-spark-1.2",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9645,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 5),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00000425m,
-                        CacheRead = 0.00000015m,
-                        WebSearch = 0.0025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "~z-ai/glm-latest",
+                    Model = "deepseek/deepseek-v4-pro-0813",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9640,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 19),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000703m,
-                        TextOutput = 0.0000043843m,
-                        CacheRead = 0.0000000703m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "google/gemini-3.7-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9635,
+                    Rank = 9655,
                     ContextLimit = 1048576,
-                    Created = new DateTime(2026, 8, 13),
+                    Created = new DateTime(2026, 8, 12),
+                    Aliases = new List<string> { "deepseek/deepseek-v4-pro-0813:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-6.1-terra-pro",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9650,
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 10, 26),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.00000375m,
-                        ImageInput = 0.00000075m,
-                        AudioInput = 0.00000075m,
-                        AudioCacheRead = 0.000000075m,
-                        CacheRead = 0.000000075m,
-                        CacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.00000375m,
-                        WebSearch = 0.014m,
+                        WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000000375m,
-                        TextOutput = 0.000001875m,
-                        ImageInput = 0.000000375m,
-                        AudioInput = 0.000000375m,
-                        AudioCacheRead = 0.0000000375m,
-                        CacheRead = 0.0000000375m,
-                        CacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.000001875m,
-                        WebSearch = 0.014m,
+                        WebSearch = 0.01m,
                     },
-                    Aliases = new List<string> { "google/gemini-3.7-flash:batch" },
+                    Aliases = new List<string> { "openai/gpt-6.1-terra-pro:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-6.1-terra",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9645,
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 10, 26),
+                    Pricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "openai/gpt-6.1-terra:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~openai/gpt-terra-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9640,
+                    ContextLimit = 1050000,
+                    Created = new DateTime(2026, 9, 11),
+                    Pricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -1551,34 +1002,43 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9630,
+                    Rank = 9635,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 2),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000000825m,
-                        TextOutput = 0.000004125m,
-                        ImageInput = 0.000000825m,
-                        AudioInput = 0.000000825m,
-                        AudioCacheRead = 0.0000000825m,
-                        CacheRead = 0.0000000825m,
-                        CacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.000004125m,
+                        InternalReasoning = 0.00000375m,
                         WebSearch = 0.014m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000000375m,
-                        TextOutput = 0.000001875m,
-                        ImageInput = 0.000000375m,
-                        AudioInput = 0.000000375m,
-                        AudioCacheRead = 0.0000000375m,
-                        CacheRead = 0.0000000375m,
-                        CacheWrite = 0.0000000416666666666667m,
                         InternalReasoning = 0.000001875m,
                         WebSearch = 0.014m,
                     },
                     Aliases = new List<string> { "google/gemini-3.8-flash:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "google/gemini-3.7-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9630,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 13),
+                    Pricing = new AIModelPricing
+                    {
+                        InternalReasoning = 0.00000375m,
+                        WebSearch = 0.014m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        InternalReasoning = 0.000001875m,
+                        WebSearch = 0.014m,
+                    },
+                    Aliases = new List<string> { "google/gemini-3.7-flash:batch" },
                 },
 
                 new AIModelCapabilities
@@ -1591,12 +1051,6 @@ new AIModelCapabilities
                     Rank = 9625,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 9, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.00000075m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1604,18 +1058,20 @@ new AIModelCapabilities
                     Provider = provider,
                     Model = "x-ai/grok-4.7",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9620,
                     ContextLimit = 500000,
                     Created = new DateTime(2026, 9, 21),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000005m,
                         WebSearch = 0.005m,
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        WebSearch = 0.005m,
+                    },
+                    Aliases = new List<string> { "x-ai/grok-4.7:batch" },
                 },
 
                 new AIModelCapabilities
@@ -1630,9 +1086,6 @@ new AIModelCapabilities
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.00000025m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -1647,13 +1100,6 @@ new AIModelCapabilities
                     Rank = 9610,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 3),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.0000025m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1666,18 +1112,6 @@ new AIModelCapabilities
                     Rank = 9605,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.00000025m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.00000025m,
-                    },
                     Aliases = new List<string> { "qwen/qwen3.8-2.4t-a95b:batch" },
                 },
 
@@ -1686,18 +1120,20 @@ new AIModelCapabilities
                     Provider = provider,
                     Model = "x-ai/grok-4.6",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9600,
                     ContextLimit = 500000,
                     Created = new DateTime(2026, 8, 12),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000005m,
                         WebSearch = 0.005m,
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        WebSearch = 0.005m,
+                    },
+                    Aliases = new List<string> { "x-ai/grok-4.6:batch" },
                 },
 
                 new AIModelCapabilities
@@ -1710,12 +1146,6 @@ new AIModelCapabilities
                     Rank = 9595,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 10, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000075m,
-                        CacheRead = 0.00000025m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1728,12 +1158,6 @@ new AIModelCapabilities
                     Rank = 9590,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 14),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001188m,
-                        TextOutput = 0.000008m,
-                        CacheRead = 0.00000012m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1746,12 +1170,6 @@ new AIModelCapabilities
                     Rank = 9585,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000435m,
-                        TextOutput = 0.0000087m,
-                        CacheRead = 0.000000036m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1764,11 +1182,37 @@ new AIModelCapabilities
                     Rank = 9580,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 23),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "google/gemini-omni-1.2-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.VideoOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9575,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2026, 11, 5),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000028m,
-                        TextOutput = 0.0000088m,
-                        CacheRead = 0.00000056m,
+                        WebSearch = 0.014m,
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "google/gemini-omni-1.1-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.VideoOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9570,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2026, 11, 4),
+                    Pricing = new AIModelPricing
+                    {
+                        WebSearch = 0.014m,
                     },
                 },
 
@@ -1779,15 +1223,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9575,
+                    Rank = 9565,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -1797,23 +1235,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9570,
+                    Rank = 9560,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 29),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.00000125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-6.1-sol-pro:batch" },
@@ -1826,23 +1256,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9565,
+                    Rank = 9555,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 29),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.00000125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-6.1-sol:batch" },
@@ -1855,23 +1277,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9560,
+                    Rank = 9550,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 28),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.00000125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "anthropic/claude-sonnet-5.5:batch" },
@@ -1884,23 +1298,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9555,
+                    Rank = 9545,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.00000125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-6-sol-pro:batch" },
@@ -1913,23 +1319,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9550,
+                    Rank = 9540,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.00000125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-6-sol:batch" },
@@ -1942,15 +1340,11 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9545,
+                    Rank = 9535,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -1962,35 +1356,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9540,
+                    Rank = 9530,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.000012m,
-                        CacheRead = 0.0000005m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "~openai/gpt-terra-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9535,
-                    ContextLimit = 1050000,
-                    Created = new DateTime(2026, 9, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000012m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -2000,30 +1368,16 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9530,
+                    Rank = 9525,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 13),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        ImageInput = 0.000002m,
-                        AudioInput = 0.000002m,
-                        AudioCacheRead = 0.0000001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000001875m,
                         InternalReasoning = 0.00001m,
                         WebSearch = 0.014m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        ImageInput = 0.000001m,
-                        AudioInput = 0.000001m,
-                        AudioCacheRead = 0.00000005m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.0000001875m,
                         InternalReasoning = 0.000005m,
                         WebSearch = 0.014m,
                     },
@@ -2037,15 +1391,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9525,
+                    Rank = 9520,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 24),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -2055,14 +1403,11 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9520,
+                    Rank = 9515,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 12),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.00002m,
-                        CacheRead = 0.0000002m,
                         WebSearch = 0.0025m,
                     },
                 },
@@ -2074,23 +1419,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9515,
+                    Rank = 9510,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.00002m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.000005m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "anthropic/claude-opus-5.5:batch" },
@@ -2103,14 +1440,11 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9510,
+                    Rank = 9505,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.00003m,
-                        CacheRead = 0.0000005m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -2122,13 +1456,11 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9505,
+                    Rank = 9500,
                     ContextLimit = 65536,
                     Created = new DateTime(2026, 10, 6),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000015m,
-                        TextOutput = 0.0000075m,
                         ImageOutput = 0.00003m,
                         WebSearch = 0.014m,
                     },
@@ -2141,15 +1473,11 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9500,
+                    Rank = 9495,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.000001m,
-                        CacheWrite = 0.0000125m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -2161,23 +1489,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9495,
+                    Rank = 9490,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 4),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.000001m,
-                        CacheWrite = 0.0000125m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-6-astra:batch" },
@@ -2190,23 +1510,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9490,
+                    Rank = 9485,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 4),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.000001m,
-                        CacheWrite = 0.0000125m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-6-astra-pro:batch" },
@@ -2219,23 +1531,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9485,
+                    Rank = 9480,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 1),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.0000125m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.000000125m,
-                        CacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "anthropic/claude-fable-5.1:batch" },
@@ -2243,7 +1547,7 @@ new AIModelCapabilities
 
 
 
-                // Released between April 2026 and July 2026
+                // Released between May 2026 and August 2026
 
                 new AIModelCapabilities
                 {
@@ -2252,14 +1556,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9480,
+                    Rank = 9475,
                     ContextLimit = 2000000,
                     Created = new DateTime(2026, 7, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = -1m,
-                        TextOutput = -1m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -2269,26 +1568,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9475,
+                    Rank = 9470,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = -1m,
-                        TextOutput = -1m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "thinkingmachines/inkling:free",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9470,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 7, 17),
                 },
 
                 new AIModelCapabilities
@@ -2306,23 +1588,11 @@ new AIModelCapabilities
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "nvidia/nemotron-3.5-content-safety:free",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9460,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2026, 6, 4),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "nvidia/nemotron-3-ultra-550b-a55b:free",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9455,
+                    Rank = 9460,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 4),
                 },
@@ -2330,14 +1600,13 @@ new AIModelCapabilities
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsStreaming = true,
+                    Model = "inclusionai/ling-3.0-tiny",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9450,
-                    ContextLimit = 256000,
-                    Created = new DateTime(2026, 4, 28),
+                    Rank = 9455,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 8, 6),
                 },
 
                 new AIModelCapabilities
@@ -2347,15 +1616,21 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9445,
+                    Rank = 9450,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 7, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000021m,
-                        TextOutput = 0.000000063m,
-                        CacheRead = 0.0000000042m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3.7-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9445,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 7, 27),
                 },
 
                 new AIModelCapabilities
@@ -2368,32 +1643,31 @@ new AIModelCapabilities
                     Rank = 9440,
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 6, 4),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000002m,
-                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "~anthropic/claude-haiku-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
+                    Model = "~deepseek/deepseek-v4-flash-latest",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
                     Rank = 9435,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 1),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek/deepseek-v4-flash-0731",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9430,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 7, 31),
+                    Aliases = new List<string> { "deepseek/deepseek-v4-flash-0731:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2403,53 +1677,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9430,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 7, 6),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000132m,
-                        TextOutput = 0.000000528m,
-                        CacheRead = 0.000000033m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3.6-35b-a3b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
                     Rank = 9425,
                     ContextLimit = 262144,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.00000095m,
-                        CacheRead = 0.00000005m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3.6-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9420,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001875m,
-                        TextOutput = 0.000001125m,
-                        CacheWrite = 0.000000234375m,
-                    },
+                    Created = new DateTime(2026, 7, 6),
                 },
 
                 new AIModelCapabilities
@@ -2459,15 +1689,22 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9415,
+                    Rank = 9420,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 5, 28),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.00000115m,
-                        CacheRead = 0.00000004m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "thinkingmachines/inkling-small",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9415,
+                    ContextLimit = 524288,
+                    Created = new DateTime(2026, 7, 30),
+                    Aliases = new List<string> { "thinkingmachines/inkling-small:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2480,12 +1717,6 @@ new AIModelCapabilities
                     Rank = 9410,
                     ContextLimit = 1048756,
                     Created = new DateTime(2026, 7, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.000000006m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -2500,17 +1731,10 @@ new AIModelCapabilities
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000002m,
-                        CacheWrite = 0.00000025m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.00000001m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5.6-luna-pro:batch" },
@@ -2529,17 +1753,10 @@ new AIModelCapabilities
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000002m,
-                        CacheWrite = 0.00000025m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.00000001m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5.6-luna:batch" },
@@ -2555,18 +1772,6 @@ new AIModelCapabilities
                     Rank = 9395,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 5, 31),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000006m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000006m,
-                    },
                     Aliases = new List<string> { "minimax/minimax-m3:batch" },
                 },
 
@@ -2580,18 +1785,6 @@ new AIModelCapabilities
                     Rank = 9390,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 3),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000032m,
-                        TextOutput = 0.00000128m,
-                        CacheRead = 0.000000064m,
-                        CacheWrite = 0.0000004m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000023m,
-                        TextOutput = 0.00000092m,
-                    },
                     Aliases = new List<string> { "qwen/qwen3.7-plus:batch" },
                 },
 
@@ -2605,12 +1798,6 @@ new AIModelCapabilities
                     Rank = 9385,
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 7, 7),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000007m,
-                        TextOutput = 0.0000014m,
-                        CacheRead = 0.00000018m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -2623,30 +1810,6 @@ new AIModelCapabilities
                     Rank = 9380,
                     ContextLimit = 32768,
                     Created = new DateTime(2026, 5, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000015m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3.5-plus-20260420",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9375,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000018m,
-                        CacheWrite = 0.000000375m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -2656,72 +1819,13 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9370,
+                    Rank = 9375,
                     ContextLimit = 256000,
                     Created = new DateTime(2026, 5, 20),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.0000002m,
                         WebSearch = 0.005m,
                     },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3.6-27b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9365,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.000000025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "google/gemini-3.1-flash-lite",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Audio2Text,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9360,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 5, 7),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.0000015m,
-                        ImageInput = 0.00000025m,
-                        AudioInput = 0.0000005m,
-                        AudioCacheRead = 0.00000005m,
-                        CacheRead = 0.000000025m,
-                        CacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.0000015m,
-                        WebSearch = 0.014m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000125m,
-                        TextOutput = 0.00000075m,
-                        ImageInput = 0.000000125m,
-                        AudioInput = 0.00000025m,
-                        AudioCacheRead = 0.000000025m,
-                        CacheRead = 0.0000000125m,
-                        InternalReasoning = 0.00000075m,
-                        WebSearch = 0.014m,
-                    },
-                    Aliases = new List<string> { "google/gemini-3.1-flash-lite:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2731,50 +1835,10 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9355,
+                    Rank = 9370,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 6, 4),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.0000024m,
-                        CacheRead = 0.00000012m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.0000036m,
-                        CacheRead = 0.0000002m,
-                    },
                     Aliases = new List<string> { "nvidia/nemotron-3-ultra-550b-a55b:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "x-ai/grok-4.3",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9350,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 4, 30),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.0000002m,
-                        WebSearch = 0.005m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.00000016m,
-                        WebSearch = 0.005m,
-                    },
-                    Aliases = new List<string> { "x-ai/grok-4.3:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2784,29 +1848,16 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9345,
+                    Rank = 9365,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 7, 21),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000025m,
-                        ImageInput = 0.0000003m,
-                        AudioInput = 0.0000003m,
-                        AudioCacheRead = 0.00000003m,
-                        CacheRead = 0.00000003m,
-                        CacheWrite = 0.0000000833333333333333m,
                         InternalReasoning = 0.0000025m,
                         WebSearch = 0.014m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000125m,
-                        ImageInput = 0.00000015m,
-                        AudioInput = 0.00000015m,
-                        AudioCacheRead = 0.000000015m,
-                        CacheRead = 0.000000015m,
                         InternalReasoning = 0.00000125m,
                         WebSearch = 0.014m,
                     },
@@ -2820,21 +1871,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9340,
+                    Rank = 9360,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 6, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006712m,
-                        TextOutput = 0.00000335m,
-                        CacheRead = 0.00000015m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000095m,
-                        TextOutput = 0.000004m,
-                        CacheRead = 0.00000019m,
-                    },
                     Aliases = new List<string> { "moonshotai/kimi-k2.7-code:batch" },
                 },
 
@@ -2845,22 +1884,26 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9335,
+                    Rank = 9355,
                     ContextLimit = 524288,
                     Created = new DateTime(2026, 7, 17),
+                    Aliases = new List<string> { "thinkingmachines/inkling:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "meta/muse-spark-1.2",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9350,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 8, 5),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.00000405m,
-                        CacheRead = 0.00000017m,
+                        WebSearch = 0.0025m,
                     },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.00000405m,
-                        CacheRead = 0.00000017m,
-                    },
-                    Aliases = new List<string> { "thinkingmachines/inkling:batch" },
                 },
 
                 new AIModelCapabilities
@@ -2870,14 +1913,11 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9330,
+                    Rank = 9345,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 7, 16),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00000425m,
-                        CacheRead = 0.00000015m,
                         WebSearch = 0.0025m,
                     },
                 },
@@ -2889,36 +1929,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9325,
+                    Rank = 9340,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 5, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001475m,
-                        TextOutput = 0.000004425m,
-                        CacheRead = 0.000000295m,
-                        CacheWrite = 0.00000184375m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "~openai/gpt-mini-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9320,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.0000045m,
-                        CacheRead = 0.000000075m,
-                        WebSearch = 0.01m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -2928,30 +1941,16 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9315,
+                    Rank = 9335,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 7, 21),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.00000375m,
-                        ImageInput = 0.00000075m,
-                        AudioInput = 0.00000075m,
-                        AudioCacheRead = 0.000000075m,
-                        CacheRead = 0.000000075m,
-                        CacheWrite = 0.0000000416666666666667m,
                         InternalReasoning = 0.00000375m,
                         WebSearch = 0.014m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000000375m,
-                        TextOutput = 0.000001875m,
-                        ImageInput = 0.000000375m,
-                        AudioInput = 0.000000375m,
-                        AudioCacheRead = 0.0000000375m,
-                        CacheRead = 0.0000000375m,
-                        CacheWrite = 0.0000000416666666666667m,
                         InternalReasoning = 0.000001875m,
                         WebSearch = 0.014m,
                     },
@@ -2961,43 +1960,15 @@ new AIModelCapabilities
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "~google/gemini-flash-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9310,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.00000375m,
-                        ImageInput = 0.00000075m,
-                        AudioInput = 0.00000075m,
-                        AudioCacheRead = 0.000000075m,
-                        CacheRead = 0.000000075m,
-                        CacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.00000375m,
-                        WebSearch = 0.014m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "x-ai/grok-4.5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9305,
+                    Rank = 9330,
                     ContextLimit = 500000,
                     Created = new DateTime(2026, 7, 8),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000003m,
                         WebSearch = 0.005m,
                     },
                 },
@@ -3009,15 +1980,12 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9300,
+                    Rank = 9325,
                     ContextLimit = 500000,
                     Created = new DateTime(2026, 7, 8),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.005m,
+                        WebSearch = 0.01m,
                     },
                 },
 
@@ -3028,15 +1996,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9295,
+                    Rank = 9320,
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 7, 7),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.00000075m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -3046,45 +2008,10 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9290,
+                    Rank = 9315,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 6, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000341m,
-                        TextOutput = 0.000007m,
-                        CacheRead = 0.000000033m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000007m,
-                        TextOutput = 0.0000022m,
-                        CacheRead = 0.00000007m,
-                    },
                     Aliases = new List<string> { "z-ai/glm-5.2:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistralai/mistral-medium-3-5",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9285,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 4, 30),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000015m,
-                        TextOutput = 0.0000075m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.00000375m,
-                    },
-                    Aliases = new List<string> { "mistralai/mistral-medium-3-5:batch" },
                 },
 
                 new AIModelCapabilities
@@ -3094,72 +2021,18 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9280,
+                    Rank = 9310,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 30),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.00000125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "anthropic/claude-sonnet-5:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "~anthropic/claude-sonnet-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9275,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "moonshotai/kimi-k3",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9270,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 7, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000239m,
-                        TextOutput = 0.0000108m,
-                        CacheRead = 0.00000021m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000228m,
-                        TextOutput = 0.0000114m,
-                        CacheRead = 0.000000228m,
-                    },
-                    Aliases = new List<string> { "moonshotai/kimi-k3:batch" },
                 },
 
                 new AIModelCapabilities
@@ -3169,22 +2042,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9265,
+                    Rank = 9305,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000012m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000001m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5.6-terra-pro:batch" },
@@ -3197,22 +2063,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9260,
+                    Rank = 9300,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000012m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000001m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5.6-terra:batch" },
@@ -3225,29 +2084,16 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9255,
+                    Rank = 9295,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 5, 19),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000015m,
-                        TextOutput = 0.000009m,
-                        ImageInput = 0.0000015m,
-                        AudioInput = 0.000003m,
-                        AudioCacheRead = 0.0000003m,
-                        CacheRead = 0.00000015m,
-                        CacheWrite = 0.0000000833333333333333m,
                         InternalReasoning = 0.000009m,
                         WebSearch = 0.014m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.0000045m,
-                        ImageInput = 0.00000075m,
-                        AudioInput = 0.0000015m,
-                        AudioCacheRead = 0.00000015m,
-                        CacheRead = 0.000000075m,
                         InternalReasoning = 0.0000045m,
                         WebSearch = 0.014m,
                     },
@@ -3257,45 +2103,14 @@ new AIModelCapabilities
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "~google/gemini-pro-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9250,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        ImageInput = 0.000002m,
-                        AudioInput = 0.000002m,
-                        AudioCacheRead = 0.0000001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000001875m,
-                        InternalReasoning = 0.00001m,
-                        WebSearch = 0.014m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "~moonshotai/kimi-latest",
+                    Model = "moonshotai/kimi-k3",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 9245,
+                    Rank = 9290,
                     ContextLimit = 1048576,
-                    Created = new DateTime(2026, 4, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.000016m,
-                        CacheRead = 0.00000014m,
-                    },
+                    Created = new DateTime(2026, 7, 16),
+                    Aliases = new List<string> { "moonshotai/kimi-k3:batch" },
                 },
 
                 new AIModelCapabilities
@@ -3305,23 +2120,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9240,
+                    Rank = 9285,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.00002m,
-                        CacheRead = 0.0000004m,
-                        CacheWrite = 0.000005m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5.6-sol-pro:batch" },
@@ -3334,23 +2141,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9235,
+                    Rank = 9280,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.00002m,
-                        CacheRead = 0.0000004m,
-                        CacheWrite = 0.000005m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5.6-sol:batch" },
@@ -3363,23 +2162,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9230,
+                    Rank = 9275,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 7, 24),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000125m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.000003125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "anthropic/claude-opus-5:batch" },
@@ -3392,23 +2183,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9225,
+                    Rank = 9270,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 5, 27),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000125m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.000003125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "anthropic/claude-opus-4.8:batch" },
@@ -3421,33 +2204,11 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9220,
+                    Rank = 9265,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 24),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.00003m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-chat-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9215,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2026, 5, 5),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.00003m,
-                        CacheRead = 0.0000005m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -3460,13 +2221,11 @@ new AIModelCapabilities
                     Default = AICapability.Text2Image | AICapability.Image2Image | AICapability.Image2Text,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9210,
+                    Rank = 9260,
                     ContextLimit = 65536,
                     Created = new DateTime(2026, 6, 30),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.0000015m,
                         ImageOutput = 0.00003m,
                         WebSearch = 0.014m,
                     },
@@ -3479,15 +2238,11 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9205,
+                    Rank = 9255,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 9),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.0000125m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -3499,23 +2254,15 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9200,
+                    Rank = 9250,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 9),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.000001m,
-                        CacheWrite = 0.0000125m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "anthropic/claude-fable-5:batch" },
@@ -3528,13 +2275,11 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9195,
+                    Rank = 9245,
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 6, 18),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.000003m,
                         ImageOutput = 0.00006m,
                         WebSearch = 0.014m,
                     },
@@ -3547,19 +2292,12 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9190,
+                    Rank = 9240,
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 6, 18),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000012m,
-                        ImageInput = 0.000002m,
                         ImageOutput = 0.00012m,
-                        AudioInput = 0.000002m,
-                        AudioCacheRead = 0.0000002m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.000000375m,
                         InternalReasoning = 0.000012m,
                         WebSearch = 0.014m,
                     },
@@ -3567,7 +2305,7 @@ new AIModelCapabilities
 
 
 
-                // Released between January 2026 and April 2026
+                // Released between February 2026 and May 2026
 
                 new AIModelCapabilities
                 {
@@ -3577,14 +2315,22 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9185,
+                    Rank = 9235,
                     ContextLimit = 2000000,
                     Created = new DateTime(2026, 4, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = -1m,
-                        TextOutput = -1m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9230,
+                    ContextLimit = 256000,
+                    Created = new DateTime(2026, 4, 28),
                 },
 
                 new AIModelCapabilities
@@ -3595,7 +2341,7 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9180,
+                    Rank = 9225,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 3),
                 },
@@ -3608,7 +2354,7 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9175,
+                    Rank = 9220,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 2),
                 },
@@ -3622,7 +2368,7 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9170,
+                    Rank = 9215,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 3, 30),
                 },
@@ -3635,35 +2381,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9165,
+                    Rank = 9210,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 3, 30),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "nvidia/nemotron-3-super-120b-a12b:free",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9160,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 3, 11),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openrouter/free",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9155,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2026, 2, 1),
                 },
 
                 new AIModelCapabilities
@@ -3674,14 +2394,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9150,
+                    Rank = 9205,
                     ContextLimit = 16384,
                     Created = new DateTime(2026, 3, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000001m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -3692,15 +2407,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9145,
+                    Rank = 9200,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 4, 24),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000091m,
-                        TextOutput = 0.000000182m,
-                        CacheRead = 0.0000000182m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -3711,15 +2420,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9140,
+                    Rank = 9195,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 3),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000675m,
-                        TextOutput = 0.000000225m,
-                        CacheRead = 0.0000000375m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -3730,34 +2433,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9135,
+                    Rank = 9190,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 2, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000065m,
-                        TextOutput = 0.00000026m,
-                        CacheWrite = 0.00000008125m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "stepfun/step-3.5-flash",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9130,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 1, 29),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000003m,
-                        CacheRead = 0.00000002m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -3768,21 +2446,23 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9125,
+                    Rank = 9185,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000004m,
-                        CacheRead = 0.00000005m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000039m,
-                        TextOutput = 0.00000097m,
-                    },
                     Aliases = new List<string> { "google/gemma-4-31b-it:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "nvidia/nemotron-3-super-120b-a12b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9180,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 3, 11),
                 },
 
                 new AIModelCapabilities
@@ -3793,13 +2473,25 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9120,
+                    Rank = 9175,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 2, 26),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~anthropic/claude-haiku-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9170,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000004m,
+                        WebSearch = 0.01m,
                     },
                 },
 
@@ -3811,15 +2503,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9115,
+                    Rank = 9165,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 4, 24),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002088m,
-                        TextOutput = 0.0000004176m,
-                        CacheRead = 0.0000000174m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -3829,15 +2515,9 @@ new AIModelCapabilities
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9110,
+                    Rank = 9160,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 22),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000018m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.00000006m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -3848,98 +2528,10 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9105,
+                    Rank = 9155,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 3, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.000000015m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.0000003m,
-                        CacheRead = 0.0000000075m,
-                    },
                     Aliases = new List<string> { "mistralai/mistral-small-2603:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "upstage/solar-pro-3",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9100,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2026, 1, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.000000015m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "inception/mercury-2",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9095,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2026, 3, 4),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.00000075m,
-                        CacheRead = 0.000000025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3-coder-next",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9090,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 2, 4),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000012m,
-                        TextOutput = 0.0000008m,
-                        CacheRead = 0.00000007m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3.5-35b-a3b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9085,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 2, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000014m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.00000005m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -3950,15 +2542,48 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9080,
+                    Rank = 9150,
                     ContextLimit = 204800,
                     Created = new DateTime(2026, 3, 18),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000006m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3.6-35b-a3b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9145,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 4, 27),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3.5-35b-a3b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9140,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 2, 25),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3.6-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9135,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 4, 27),
                 },
 
                 new AIModelCapabilities
@@ -3969,15 +2594,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9075,
+                    Rank = 9130,
                     ContextLimit = 204800,
                     Created = new DateTime(2026, 2, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000003m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -3988,21 +2607,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9070,
+                    Rank = 9125,
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 3, 17),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.00000125m,
-                        CacheRead = 0.00000002m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.000000625m,
-                        CacheRead = 0.00000001m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5.4-nano:batch" },
@@ -4016,15 +2629,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9065,
+                    Rank = 9120,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 2, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000026m,
-                        TextOutput = 0.00000156m,
-                        CacheWrite = 0.000000325m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -4035,15 +2642,22 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9060,
+                    Rank = 9115,
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 2, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000016m,
-                        CacheRead = 0.0000002m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3.5-plus-20260420",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9110,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 4, 27),
                 },
 
                 new AIModelCapabilities
@@ -4054,15 +2668,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9055,
+                    Rank = 9105,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000325m,
-                        TextOutput = 0.00000195m,
-                        CacheWrite = 0.00000040625m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -4073,33 +2681,46 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9050,
+                    Rank = 9100,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 3, 10),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000002m,
-                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen3.5-27b",
+                    Model = "qwen/qwen3.5-122b-a10b",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9045,
+                    Rank = 9095,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 2, 25),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "google/gemini-3.1-flash-lite",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Audio2Text,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9090,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 5, 7),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000027m,
-                        TextOutput = 0.00000216m,
-                        CacheRead = 0.00000027m,
+                        InternalReasoning = 0.0000015m,
+                        WebSearch = 0.014m,
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        InternalReasoning = 0.00000075m,
+                        WebSearch = 0.014m,
+                    },
+                    Aliases = new List<string> { "google/gemini-3.1-flash-lite:batch" },
                 },
 
                 new AIModelCapabilities
@@ -4110,18 +2731,11 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9040,
+                    Rank = 9085,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 3, 3),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.0000015m,
-                        ImageInput = 0.00000025m,
-                        AudioInput = 0.0000005m,
-                        AudioCacheRead = 0.00000005m,
-                        CacheRead = 0.000000025m,
-                        CacheWrite = 0.0000000833333333333333m,
                         InternalReasoning = 0.0000015m,
                         WebSearch = 0.014m,
                     },
@@ -4130,20 +2744,23 @@ new AIModelCapabilities
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "nvidia/nemotron-3-super-120b-a12b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "x-ai/grok-4.3",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
-                    SupportsBatch = false,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 9035,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 3, 11),
+                    Rank = 9080,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 4, 30),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000024m,
-                        CacheRead = 0.00000015m,
+                        WebSearch = 0.005m,
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        WebSearch = 0.005m,
+                    },
+                    Aliases = new List<string> { "x-ai/grok-4.3:batch" },
                 },
 
                 new AIModelCapabilities
@@ -4154,14 +2771,11 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9030,
+                    Rank = 9075,
                     ContextLimit = 2000000,
                     Created = new DateTime(2026, 3, 31),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.0000002m,
                         WebSearch = 0.005m,
                     },
                 },
@@ -4174,14 +2788,11 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9025,
+                    Rank = 9070,
                     ContextLimit = 2000000,
                     Created = new DateTime(2026, 3, 31),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.0000002m,
                         WebSearch = 0.005m,
                     },
                 },
@@ -4189,38 +2800,27 @@ new AIModelCapabilities
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "moonshotai/kimi-k2.5",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "qwen/qwen3.5-27b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9020,
+                    Rank = 9065,
                     ContextLimit = 262144,
-                    Created = new DateTime(2026, 1, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.00000015m,
-                    },
+                    Created = new DateTime(2026, 2, 25),
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen3.5-122b-a10b",
+                    Model = "qwen/qwen3.6-27b",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9015,
+                    Rank = 9060,
                     ContextLimit = 262144,
-                    Created = new DateTime(2026, 2, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.0000032m,
-                    },
+                    Created = new DateTime(2026, 4, 27),
                 },
 
                 new AIModelCapabilities
@@ -4231,15 +2831,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9010,
+                    Rank = 9055,
                     ContextLimit = 204800,
                     Created = new DateTime(2026, 2, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.0000032m,
-                        CacheRead = 0.0000002m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -4250,15 +2844,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9005,
+                    Rank = 9050,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000065m,
-                        TextOutput = 0.00000341m,
-                        CacheRead = 0.00000015m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -4269,15 +2857,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 9000,
+                    Rank = 9045,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 2, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000036m,
-                        CacheRead = 0.0000003m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -4288,15 +2870,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8995,
+                    Rank = 9040,
                     ContextLimit = 202752,
                     Created = new DateTime(2026, 3, 15),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000012m,
-                        TextOutput = 0.000004m,
-                        CacheRead = 0.00000024m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -4307,14 +2883,25 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8990,
+                    Rank = 9035,
                     ContextLimit = 204800,
                     Created = new DateTime(2026, 4, 7),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~openai/gpt-mini-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9030,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000014m,
-                        TextOutput = 0.0000044m,
-                        CacheRead = 0.00000026m,
+                        WebSearch = 0.01m,
                     },
                 },
 
@@ -4326,24 +2913,97 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8985,
+                    Rank = 9025,
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 3, 17),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.0000045m,
-                        CacheRead = 0.000000075m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000000375m,
-                        TextOutput = 0.00000225m,
-                        CacheRead = 0.0000000375m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5.4-mini:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~google/gemini-flash-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9020,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 4, 27),
+                    Pricing = new AIModelPricing
+                    {
+                        InternalReasoning = 0.00000375m,
+                        WebSearch = 0.014m,
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistralai/mistral-medium-3-5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9015,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 4, 30),
+                    Aliases = new List<string> { "mistralai/mistral-medium-3-5:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~anthropic/claude-sonnet-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9010,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 4, 27),
+                    Pricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~moonshotai/kimi-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9005,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 4, 27),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "~google/gemini-pro-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 9000,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 4, 27),
+                    Pricing = new AIModelPricing
+                    {
+                        InternalReasoning = 0.00001m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -4354,14 +3014,11 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8980,
+                    Rank = 8995,
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 2, 24),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000175m,
-                        TextOutput = 0.000014m,
-                        CacheRead = 0.000000175m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -4374,21 +3031,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8975,
+                    Rank = 8990,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 3, 5),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.00000025m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.0000075m,
-                        CacheRead = 0.000000125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5.4:batch" },
@@ -4402,23 +3053,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8970,
+                    Rank = 8985,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 2, 17),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.0000015m,
-                        TextOutput = 0.0000075m,
-                        CacheRead = 0.00000015m,
-                        CacheWrite = 0.000001875m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "anthropic/claude-sonnet-4.6:batch" },
@@ -4432,18 +3075,11 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8965,
+                    Rank = 8980,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 2, 25),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000012m,
-                        ImageInput = 0.000002m,
-                        AudioInput = 0.000002m,
-                        AudioCacheRead = 0.0000002m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.000000375m,
                         InternalReasoning = 0.000012m,
                         WebSearch = 0.014m,
                     },
@@ -4457,27 +3093,16 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8960,
+                    Rank = 8975,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 2, 19),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000012m,
-                        ImageInput = 0.000002m,
-                        AudioInput = 0.000002m,
-                        AudioCacheRead = 0.0000002m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.000000375m,
                         InternalReasoning = 0.000012m,
                         WebSearch = 0.014m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000006m,
-                        ImageInput = 0.000001m,
-                        AudioInput = 0.000001m,
                         InternalReasoning = 0.000006m,
                         WebSearch = 0.014m,
                     },
@@ -4492,15 +3117,11 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8955,
+                    Rank = 8970,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 21),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.00002m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.000005m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -4513,23 +3134,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8950,
+                    Rank = 8965,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 16),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000125m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.000003125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "anthropic/claude-opus-4.7:batch" },
@@ -4538,31 +3151,17 @@ new AIModelCapabilities
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "anthropic/claude-opus-4.6",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
+                    Model = "openai/gpt-chat-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsBatch = false,
                     Verified = false,
-                    Rank = 8945,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2026, 2, 4),
+                    Rank = 8960,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2026, 5, 5),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000125m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.000003125m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "anthropic/claude-opus-4.6:batch" },
                 },
 
                 new AIModelCapabilities
@@ -4573,21 +3172,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8940,
+                    Rank = 8955,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.00003m,
-                        CacheRead = 0.0000005m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.00000025m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5.5:batch" },
@@ -4601,15 +3194,12 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8935,
+                    Rank = 8950,
                     ContextLimit = 272000,
                     Created = new DateTime(2026, 4, 21),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000008m,
-                        TextOutput = 0.000015m,
                         ImageOutput = 0.00003m,
-                        CacheRead = 0.000002m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -4622,13 +3212,11 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8930,
+                    Rank = 8945,
                     ContextLimit = 65536,
                     Created = new DateTime(2026, 2, 26),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.000003m,
                         ImageOutput = 0.00006m,
                         WebSearch = 0.014m,
                     },
@@ -4642,19 +3230,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8925,
+                    Rank = 8940,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00003m,
-                        TextOutput = 0.00018m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.00009m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5.5-pro:batch" },
@@ -4668,19 +3252,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8920,
+                    Rank = 8935,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 3, 5),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00003m,
-                        TextOutput = 0.00018m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.00009m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5.4-pro:batch" },
@@ -4688,7 +3268,7 @@ new AIModelCapabilities
 
 
 
-                // Released between October 2025 and January 2026
+                // Released between November 2025 and February 2026
 
                 new AIModelCapabilities
                 {
@@ -4698,14 +3278,22 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8915,
+                    Rank = 8930,
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 12, 5),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = -1m,
-                        TextOutput = -1m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openrouter/free",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8925,
+                    ContextLimit = 200000,
+                    Created = new DateTime(2026, 2, 1),
                 },
 
                 new AIModelCapabilities
@@ -4716,15 +3304,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8910,
+                    Rank = 8920,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 12, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000001m,
-                        CacheRead = 0.00000001m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -4735,21 +3317,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8905,
+                    Rank = 8915,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000015m,
-                        CacheRead = 0.000000015m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.000000075m,
-                        CacheRead = 0.0000000075m,
-                    },
                     Aliases = new List<string> { "mistralai/ministral-8b-2512:batch" },
                 },
 
@@ -4761,15 +3331,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8900,
+                    Rank = 8910,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.00000002m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -4780,34 +3344,35 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8895,
+                    Rank = 8905,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 14),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000006m,
-                        TextOutput = 0.00000024m,
-                        CacheRead = 0.00000003m,
-                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/gpt-oss-safeguard-20b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "stepfun/step-3.5-flash",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8890,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 10, 29),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.0000003m,
-                        CacheRead = 0.0000000375m,
-                    },
+                    Rank = 8900,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 1, 29),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-coder-next",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8895,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 2, 4),
                 },
 
                 new AIModelCapabilities
@@ -4818,34 +3383,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8885,
+                    Rank = 8890,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 12, 8),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000009m,
-                        CacheRead = 0.00000005m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "minimax/minimax-m2-her",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8880,
-                    ContextLimit = 65536,
-                    Created = new DateTime(2026, 1, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000003m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -4856,21 +3396,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8875,
+                    Rank = 8885,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 1),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000015m,
-                        CacheRead = 0.00000005m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.00000075m,
-                        CacheRead = 0.000000025m,
-                    },
                     Aliases = new List<string> { "mistralai/mistral-large-2512:batch" },
                 },
 
@@ -4882,14 +3410,11 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8870,
+                    Rank = 8880,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 11, 13),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.00000003m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -4902,33 +3427,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8865,
+                    Rank = 8875,
                     ContextLimit = 1000000,
                     Created = new DateTime(2025, 12, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "moonshotai/kimi-k2-thinking",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8860,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 11, 6),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.00000015m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -4939,14 +3440,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8855,
+                    Rank = 8870,
                     ContextLimit = 256000,
                     Created = new DateTime(2025, 12, 8),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000003m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -4957,27 +3453,16 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8850,
+                    Rank = 8865,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 12, 17),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.000003m,
-                        ImageInput = 0.0000005m,
-                        AudioInput = 0.000001m,
-                        AudioCacheRead = 0.0000001m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.0000000833333333333333m,
                         InternalReasoning = 0.000003m,
                         WebSearch = 0.014m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.0000015m,
-                        ImageInput = 0.00000025m,
-                        AudioInput = 0.0000005m,
                         InternalReasoning = 0.0000015m,
                         WebSearch = 0.014m,
                     },
@@ -4992,14 +3477,11 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8845,
+                    Rank = 8860,
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 1, 19),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.0000024m,
-                        AudioInput = 0.0000006m,
                         AudioOutput = 0.0000024m,
                     },
                 },
@@ -5012,14 +3494,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8840,
+                    Rank = 8855,
                     ContextLimit = 1040000,
                     Created = new DateTime(2026, 1, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.000006m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -5030,14 +3507,11 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8835,
+                    Rank = 8850,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 12, 4),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.000000125m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -5050,21 +3524,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8830,
+                    Rank = 8845,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 11, 13),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.000000125m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000000625m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5.1:batch" },
@@ -5078,34 +3546,12 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8825,
+                    Rank = 8840,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 11, 13),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.00000013m,
                         WebSearch = 0.01m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "amazon/nova-premier-v1",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8820,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2025, 10, 31),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000125m,
-                        CacheRead = 0.000000625m,
                     },
                 },
 
@@ -5117,14 +3563,11 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8815,
+                    Rank = 8835,
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 1, 14),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000175m,
-                        TextOutput = 0.000014m,
-                        CacheRead = 0.000000175m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -5137,21 +3580,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8810,
+                    Rank = 8830,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 12, 10),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000175m,
-                        TextOutput = 0.000014m,
-                        CacheRead = 0.000000175m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000000875m,
-                        TextOutput = 0.000007m,
-                        CacheRead = 0.0000000875m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5.2:batch" },
@@ -5160,20 +3597,23 @@ new AIModelCapabilities
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "perplexity/sonar-pro-search",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "anthropic/claude-opus-4.6",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
-                    SupportsBatch = false,
+                    SupportsBatch = true,
                     Verified = false,
-                    Rank = 8805,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 10, 30),
+                    Rank = 8825,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 2, 4),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        WebSearch = 0.018m,
+                        WebSearch = 0.01m,
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "anthropic/claude-opus-4.6:batch" },
                 },
 
                 new AIModelCapabilities
@@ -5184,23 +3624,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8800,
+                    Rank = 8820,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 11, 24),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000125m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.000003125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "anthropic/claude-opus-4.5:batch" },
@@ -5214,35 +3646,12 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8795,
+                    Rank = 8815,
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 1, 19),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        AudioInput = 0.000032m,
                         AudioOutput = 0.000064m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistralai/voxtral-small-24b-2507",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8790,
-                    ContextLimit = 32768,
-                    Created = new DateTime(2025, 10, 30),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000003m,
-                        AudioInput = 0.0001m,
-                        CacheRead = 0.00000001m,
                     },
                 },
 
@@ -5254,19 +3663,12 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8785,
+                    Rank = 8810,
                     ContextLimit = 65536,
                     Created = new DateTime(2025, 11, 20),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000012m,
-                        ImageInput = 0.000002m,
                         ImageOutput = 0.00012m,
-                        AudioInput = 0.000002m,
-                        AudioCacheRead = 0.0000002m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.000000375m,
                         InternalReasoning = 0.000012m,
                         WebSearch = 0.014m,
                     },
@@ -5280,19 +3682,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8780,
+                    Rank = 8805,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 12, 10),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000021m,
-                        TextOutput = 0.000168m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.0000105m,
-                        TextOutput = 0.000084m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5.2-pro:batch" },
@@ -5300,113 +3698,19 @@ new AIModelCapabilities
 
 
 
-                // Released between July 2025 and October 2025
+                // Released between August 2025 and November 2025
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/gpt-oss-20b",
+                    Model = "openai/gpt-oss-safeguard-20b",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
-                    SupportsBatch = true,
+                    SupportsBatch = false,
                     Verified = false,
-                    Rank = 8775,
+                    Rank = 8800,
                     ContextLimit = 131072,
-                    Created = new DateTime(2025, 8, 5),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000018m,
-                        TextOutput = 0.00000009m,
-                        CacheRead = 0.000000009m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000024m,
-                        TextOutput = 0.000000112m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-oss-20b:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "ibm-granite/granite-4.0-h-micro",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8770,
-                    ContextLimit = 131000,
-                    Created = new DateTime(2025, 10, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000017m,
-                        TextOutput = 0.000000112m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3-coder-30b-a3b-instruct",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8765,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 7, 31),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000007m,
-                        TextOutput = 0.00000028m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3-30b-a3b-instruct-2507",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8760,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 7, 29),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000009m,
-                        TextOutput = 0.0000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-5-nano",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8755,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2025, 8, 7),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.0000004m,
-                        CacheRead = 0.000000005m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000025m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.0000000025m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-5-nano:batch" },
+                    Created = new DateTime(2025, 10, 29),
                 },
 
                 new AIModelCapabilities
@@ -5417,15 +3721,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8750,
+                    Rank = 8795,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 9, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000015m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -5436,84 +3734,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8745,
+                    Rank = 8790,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 10, 6),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-oss-120b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8740,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 8, 5),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.000000075m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000296m,
-                        TextOutput = 0.000000136m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-oss-120b:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "z-ai/glm-4.5-air",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8735,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 7, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000013m,
-                        TextOutput = 0.00000085m,
-                        CacheRead = 0.000000025m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistralai/codestral-2508",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8730,
-                    ContextLimit = 256000,
-                    Created = new DateTime(2025, 8, 1),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000009m,
-                        CacheRead = 0.00000003m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000045m,
-                        CacheRead = 0.000000015m,
-                    },
-                    Aliases = new List<string> { "mistralai/codestral-2508:batch" },
                 },
 
                 new AIModelCapabilities
@@ -5524,15 +3747,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8725,
+                    Rank = 8785,
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 8, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.00000095m,
-                        CacheRead = 0.00000013m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -5543,35 +3760,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8720,
+                    Rank = 8780,
                     ContextLimit = 1000000,
                     Created = new DateTime(2025, 9, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000195m,
-                        TextOutput = 0.000000975m,
-                        CacheRead = 0.000000039m,
-                        CacheWrite = 0.00000024375m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "minimax/minimax-m2",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8715,
-                    ContextLimit = 204800,
-                    Created = new DateTime(2025, 10, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000255m,
-                        TextOutput = 0.00000102m,
-                        CacheRead = 0.00000003m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -5582,15 +3773,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8710,
+                    Rank = 8775,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 9, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000009m,
-                        TextOutput = 0.0000011m,
-                        CacheRead = 0.00000007m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -5601,14 +3786,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8705,
+                    Rank = 8770,
                     ContextLimit = 256000,
                     Created = new DateTime(2025, 9, 26),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000085m,
-                        TextOutput = 0.00000125m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -5619,15 +3799,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8700,
+                    Rank = 8765,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 9, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000021m,
-                        TextOutput = 0.0000019m,
-                        CacheRead = 0.0000001m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -5638,51 +3812,23 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8695,
+                    Rank = 8760,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 8, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.00000004m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.00000002m,
-                    },
                     Aliases = new List<string> { "mistralai/mistral-medium-3.1:batch" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/gpt-5-mini",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.Text2Json,
+                    Model = "moonshotai/kimi-k2-thinking",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
-                    SupportsBatch = true,
+                    SupportsBatch = false,
                     Verified = false,
-                    Rank = 8690,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2025, 8, 7),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.000000025m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000125m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.0000000125m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-5-mini:batch" },
+                    Rank = 8755,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2025, 11, 6),
                 },
 
                 new AIModelCapabilities
@@ -5693,14 +3839,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8685,
+                    Rank = 8750,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 8, 26),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000003m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -5711,23 +3852,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8680,
+                    Rank = 8745,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 10, 15),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.00000125m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.000000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "anthropic/claude-haiku-4.5:batch" },
@@ -5736,50 +3869,31 @@ new AIModelCapabilities
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/gpt-5-image-mini",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "amazon/nova-premier-v1",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8675,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2025, 10, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.000002m,
-                        ImageOutput = 0.000008m,
-                        CacheRead = 0.00000025m,
-                        WebSearch = 0.01m,
-                    },
+                    Rank = 8740,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2025, 10, 31),
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/gpt-5",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "perplexity/sonar-pro-search",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
-                    SupportsBatch = true,
+                    SupportsBatch = false,
                     Verified = false,
-                    Rank = 8670,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2025, 8, 7),
+                    Rank = 8735,
+                    ContextLimit = 200000,
+                    Created = new DateTime(2025, 10, 30),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
+                        WebSearch = 0.018m,
                     },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000625m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000000625m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-5:batch" },
                 },
 
                 new AIModelCapabilities
@@ -5790,23 +3904,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8665,
+                    Rank = 8730,
                     ContextLimit = 1000000,
                     Created = new DateTime(2025, 9, 29),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.0000015m,
-                        TextOutput = 0.0000075m,
-                        CacheRead = 0.00000015m,
-                        CacheWrite = 0.000001875m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "anthropic/claude-sonnet-4.5:batch" },
@@ -5820,16 +3926,362 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8660,
+                    Rank = 8725,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 10, 14),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00001m,
                         ImageOutput = 0.00004m,
-                        CacheRead = 0.00000125m,
                         WebSearch = 0.01m,
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistralai/voxtral-small-24b-2507",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8720,
+                    ContextLimit = 32768,
+                    Created = new DateTime(2025, 10, 30),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-5-pro",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 8715,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2025, 10, 6),
+                    Pricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "openai/gpt-5-pro:batch" },
+                },
+
+
+
+                // Released between May 2025 and August 2025
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-oss-120b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 8710,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2025, 8, 5),
+                    Aliases = new List<string> { "openai/gpt-oss-120b:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-oss-20b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 8705,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2025, 8, 5),
+                    Aliases = new List<string> { "openai/gpt-oss-20b:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "bytedance/ui-tars-1.5-7b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8700,
+                    ContextLimit = 128000,
+                    Created = new DateTime(2025, 7, 22),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistralai/mistral-small-3.2-24b-instruct",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8695,
+                    ContextLimit = 256000,
+                    Created = new DateTime(2025, 6, 20),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-30b-a3b-instruct-2507",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8690,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2025, 7, 29),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-5-nano",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 8685,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2025, 8, 7),
+                    Pricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "openai/gpt-5-nano:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "tencent/hunyuan-a13b-instruct",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8680,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2025, 7, 8),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-coder-30b-a3b-instruct",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8675,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2025, 7, 31),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-235b-a22b-2507",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8670,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2025, 7, 21),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "z-ai/glm-4.5-air",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8665,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2025, 7, 25),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistralai/codestral-2508",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 8660,
+                    ContextLimit = 256000,
+                    Created = new DateTime(2025, 8, 1),
+                    Aliases = new List<string> { "mistralai/codestral-2508:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "cognitivecomputations/dolphin-mistral-24b-venice-edition",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8655,
+                    ContextLimit = 128000,
+                    Created = new DateTime(2025, 7, 9),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-coder",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8650,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2025, 7, 23),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "morph/morph-v3-fast",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 8645,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2025, 7, 7),
+                    Aliases = new List<string> { "morph/morph-v3-fast:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "morph/morph-v3-large",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 8640,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2025, 7, 7),
+                    Aliases = new List<string> { "morph/morph-v3-large:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-5-mini",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.Text2Json,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 8635,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2025, 8, 7),
+                    Pricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "openai/gpt-5-mini:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek/deepseek-r1-0528",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8630,
+                    ContextLimit = 163840,
+                    Created = new DateTime(2025, 5, 28),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "minimax/minimax-m1",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8625,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2025, 6, 17),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "moonshotai/kimi-k2",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8620,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2025, 7, 11),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 8615,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2025, 8, 7),
+                    Pricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "openai/gpt-5:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "google/gemini-2.5-pro-preview",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8610,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2025, 6, 5),
+                    Pricing = new AIModelPricing
+                    {
+                        InternalReasoning = 0.00001m,
+                        WebSearch = 0.014m,
                     },
                 },
 
@@ -5841,375 +4293,18 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8655,
+                    Rank = 8605,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 8, 5),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.000075m,
-                        CacheRead = 0.0000015m,
-                        CacheWrite = 0.00001875m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.0000075m,
-                        TextOutput = 0.0000375m,
-                        CacheRead = 0.00000075m,
-                        CacheWrite = 0.000009375m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "anthropic/claude-opus-4.1:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-5-pro",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8650,
-                    ContextLimit = 400000,
-                    Created = new DateTime(2025, 10, 6),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.00012m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000075m,
-                        TextOutput = 0.00006m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-5-pro:batch" },
-                },
-
-
-
-                // Released between April 2025 and July 2025
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "meta-llama/llama-guard-4-12b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8645,
-                    ContextLimit = 163840,
-                    Created = new DateTime(2025, 4, 30),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000018m,
-                        TextOutput = 0.00000018m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "bytedance/ui-tars-1.5-7b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8640,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2025, 7, 22),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.0000001m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistralai/mistral-small-3.2-24b-instruct",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8635,
-                    ContextLimit = 256000,
-                    Created = new DateTime(2025, 6, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.00000001m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3-14b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8630,
-                    ContextLimit = 40960,
-                    Created = new DateTime(2025, 4, 28),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000012m,
-                        TextOutput = 0.00000024m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3-32b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8625,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 4, 28),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000008m,
-                        TextOutput = 0.00000028m,
-                        CacheRead = 0.00000004m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3-30b-a3b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8620,
-                    ContextLimit = 40960,
-                    Created = new DateTime(2025, 4, 28),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000012m,
-                        TextOutput = 0.0000005m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3-235b-a22b-2507",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8615,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 7, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000009m,
-                        TextOutput = 0.00000055m,
-                        CacheRead = 0.0000000175m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "tencent/hunyuan-a13b-instruct",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8610,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 7, 8),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000014m,
-                        TextOutput = 0.00000057m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "cognitivecomputations/dolphin-mistral-24b-venice-edition",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8605,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2025, 7, 9),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000009m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3-coder",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8600,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 7, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.0000001m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "morph/morph-v3-fast",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8595,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 7, 7),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000012m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "morph/morph-v3-large",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8590,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 7, 7),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000009m,
-                        TextOutput = 0.0000019m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistralai/mistral-medium-3",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8585,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 5, 7),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.00000004m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek/deepseek-r1-0528",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8580,
-                    ContextLimit = 163840,
-                    Created = new DateTime(2025, 5, 28),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.00000215m,
-                        CacheRead = 0.00000035m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "minimax/minimax-m1",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8575,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2025, 6, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000055m,
-                        TextOutput = 0.0000022m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "moonshotai/kimi-k2",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8570,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 7, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000057m,
-                        TextOutput = 0.0000023m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "google/gemini-2.5-pro-preview",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8565,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2025, 6, 5),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        ImageInput = 0.00000125m,
-                        AudioInput = 0.00000125m,
-                        AudioCacheRead = 0.000000125m,
-                        CacheRead = 0.000000125m,
-                        CacheWrite = 0.000000375m,
-                        InternalReasoning = 0.00001m,
-                        WebSearch = 0.014m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -6220,19 +4315,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8560,
+                    Rank = 8600,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 6, 10),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00002m,
-                        TextOutput = 0.00008m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00004m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/o3-pro:batch" },
@@ -6240,7 +4331,7 @@ new AIModelCapabilities
 
 
 
-                // Released between January 2025 and April 2025
+                // Released between February 2025 and May 2025
 
                 new AIModelCapabilities
                 {
@@ -6250,33 +4341,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8555,
+                    Rank = 8595,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 3, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000004m,
-                        TextOutput = 0.00000005m,
-                        CacheRead = 0.00000002m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistralai/mistral-small-24b-instruct-2501",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8550,
-                    ContextLimit = 32768,
-                    Created = new DateTime(2025, 1, 30),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000008m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -6287,14 +4354,22 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8545,
+                    Rank = 8590,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 3, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000015m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "meta-llama/llama-guard-4-12b",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8585,
+                    ContextLimit = 163840,
+                    Created = new DateTime(2025, 4, 30),
                 },
 
                 new AIModelCapabilities
@@ -6305,14 +4380,35 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8540,
+                    Rank = 8580,
                     ContextLimit = 65536,
                     Created = new DateTime(2025, 3, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000002m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-14b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8575,
+                    ContextLimit = 40960,
+                    Created = new DateTime(2025, 4, 28),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-32b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8570,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2025, 4, 28),
                 },
 
                 new AIModelCapabilities
@@ -6323,14 +4419,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8535,
-                    ContextLimit = 1310720,
+                    Rank = 8565,
+                    ContextLimit = 327680,
                     Created = new DateTime(2025, 4, 5),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000003m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -6341,15 +4432,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8530,
+                    Rank = 8560,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 3, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000008m,
-                        TextOutput = 0.00000035m,
-                        CacheRead = 0.00000004m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -6360,24 +4445,31 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8525,
+                    Rank = 8555,
                     ContextLimit = 1047576,
                     Created = new DateTime(2025, 4, 14),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000004m,
-                        CacheRead = 0.000000025m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.0000000125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-4.1-nano:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-30b-a3b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8550,
+                    ContextLimit = 40960,
+                    Created = new DateTime(2025, 4, 28),
                 },
 
                 new AIModelCapabilities
@@ -6388,14 +4480,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8520,
+                    Rank = 8545,
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 3, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000351m,
-                        TextOutput = 0.000000555m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -6406,54 +4493,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8515,
+                    Rank = 8540,
                     ContextLimit = 32768,
                     Created = new DateTime(2025, 2, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.00000002m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "meta-llama/llama-4-maverick",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8510,
-                    ContextLimit = 524288,
-                    Created = new DateTime(2025, 4, 5),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001875m,
-                        TextOutput = 0.0000006525m,
-                        CacheRead = 0.00000005m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen-plus",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8505,
-                    ContextLimit = 1000000,
-                    Created = new DateTime(2025, 2, 1),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000026m,
-                        TextOutput = 0.00000078m,
-                        CacheRead = 0.000000052m,
-                        CacheWrite = 0.000000325m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -6464,53 +4506,22 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8500,
+                    Rank = 8535,
                     ContextLimit = 32768,
                     Created = new DateTime(2025, 3, 10),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000055m,
-                        TextOutput = 0.0000008m,
-                        CacheRead = 0.00000025m,
-                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen2.5-vl-72b-instruct",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    Model = "meta-llama/llama-4-maverick",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8495,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2025, 2, 1),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.0000004m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "perplexity/sonar",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8490,
-                    ContextLimit = 127072,
-                    Created = new DateTime(2025, 1, 27),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000001m,
-                        WebSearch = 0.005m,
-                    },
+                    Rank = 8530,
+                    ContextLimit = 524288,
+                    Created = new DateTime(2025, 4, 5),
                 },
 
                 new AIModelCapabilities
@@ -6521,15 +4532,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8485,
+                    Rank = 8525,
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 3, 24),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000029m,
-                        TextOutput = 0.00000114m,
-                        CacheRead = 0.00000011m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -6540,21 +4545,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8480,
+                    Rank = 8520,
                     ContextLimit = 1047576,
                     Created = new DateTime(2025, 4, 14),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.0000016m,
-                        CacheRead = 0.0000001m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000008m,
-                        CacheRead = 0.00000005m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-4.1-mini:batch" },
@@ -6563,131 +4562,14 @@ new AIModelCapabilities
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "aion-labs/aion-rp-llama-3.1-8b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    Model = "mistralai/mistral-medium-3",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8475,
-                    ContextLimit = 32768,
-                    Created = new DateTime(2025, 2, 4),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000016m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/o4-mini-high",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8470,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 4, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000011m,
-                        TextOutput = 0.0000044m,
-                        CacheRead = 0.000000275m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000055m,
-                        TextOutput = 0.0000022m,
-                        CacheRead = 0.0000001375m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/o4-mini-high:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/o4-mini",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8465,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 4, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000011m,
-                        TextOutput = 0.0000044m,
-                        CacheRead = 0.000000275m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000055m,
-                        TextOutput = 0.0000022m,
-                        CacheRead = 0.0000001375m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/o4-mini:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/o3-mini-high",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8460,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 2, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000011m,
-                        TextOutput = 0.0000044m,
-                        CacheRead = 0.00000055m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000055m,
-                        TextOutput = 0.0000022m,
-                        CacheRead = 0.000000275m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/o3-mini-high:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/o3-mini",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8455,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 1, 31),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000011m,
-                        TextOutput = 0.0000044m,
-                        CacheRead = 0.00000055m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000055m,
-                        TextOutput = 0.0000022m,
-                        CacheRead = 0.000000275m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/o3-mini:batch" },
+                    Rank = 8515,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2025, 5, 7),
                 },
 
                 new AIModelCapabilities
@@ -6698,21 +4580,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8450,
+                    Rank = 8510,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 4, 16),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000008m,
-                        CacheRead = 0.0000005m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000004m,
-                        CacheRead = 0.00000025m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/o3:batch" },
@@ -6726,21 +4602,15 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8445,
+                    Rank = 8505,
                     ContextLimit = 1047576,
                     Created = new DateTime(2025, 4, 14),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000008m,
-                        CacheRead = 0.0000005m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000004m,
-                        CacheRead = 0.00000025m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-4.1:batch" },
@@ -6754,13 +4624,11 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8440,
+                    Rank = 8500,
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 3, 7),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000008m,
                         WebSearch = 0.005m,
                     },
                 },
@@ -6773,13 +4641,11 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8435,
+                    Rank = 8495,
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 3, 7),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000008m,
                         InternalReasoning = 0.000003m,
                         WebSearch = 0.005m,
                     },
@@ -6789,18 +4655,13 @@ new AIModelCapabilities
                 {
                     Provider = provider,
                     Model = "cohere/command-a",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8430,
+                    Rank = 8490,
                     ContextLimit = 256000,
                     Created = new DateTime(2025, 3, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -6811,46 +4672,31 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8425,
+                    Rank = 8485,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 3, 7),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
                         WebSearch = 0.005m,
                     },
                 },
 
+
+
+                // Released between November 2024 and February 2025
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/o1-pro",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "mistralai/mistral-small-24b-instruct-2501",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     SupportsStreaming = true,
-                    SupportsBatch = true,
+                    SupportsBatch = false,
                     Verified = false,
-                    Rank = 8420,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2025, 3, 19),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00015m,
-                        TextOutput = 0.0006m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000075m,
-                        TextOutput = 0.0003m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/o1-pro:batch" },
+                    Rank = 8480,
+                    ContextLimit = 32768,
+                    Created = new DateTime(2025, 1, 30),
                 },
-
-
-
-                // Released between October 2024 and January 2025
 
                 new AIModelCapabilities
                 {
@@ -6860,14 +4706,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8415,
+                    Rank = 8475,
                     ContextLimit = 16384,
                     Created = new DateTime(2025, 1, 10),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000007m,
-                        TextOutput = 0.00000014m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -6878,32 +4719,22 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8410,
+                    Rank = 8470,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 12, 5),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000035m,
-                        TextOutput = 0.00000014m,
-                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
                     Model = "cohere/command-r7b-12-2024",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8405,
+                    Rank = 8465,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 12, 14),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000375m,
-                        TextOutput = 0.00000015m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -6914,14 +4745,34 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8400,
+                    Rank = 8460,
                     ContextLimit = 300000,
                     Created = new DateTime(2024, 12, 5),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000006m,
-                        TextOutput = 0.00000024m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "thedrummer/unslopnemo-12b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8455,
+                    ContextLimit = 1024000,
+                    Created = new DateTime(2024, 11, 8),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen-plus",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8450,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2025, 2, 1),
                 },
 
                 new AIModelCapabilities
@@ -6932,31 +4783,51 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8395,
+                    Rank = 8445,
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 12, 6),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.00000032m,
-                        CacheRead = 0.00000011m,
-                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "thedrummer/unslopnemo-12b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    Model = "deepseek/deepseek-chat",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8390,
-                    ContextLimit = 1024000,
-                    Created = new DateTime(2024, 11, 8),
+                    Rank = 8440,
+                    ContextLimit = 163840,
+                    Created = new DateTime(2024, 12, 26),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen2.5-vl-72b-instruct",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8435,
+                    ContextLimit = 128000,
+                    Created = new DateTime(2025, 2, 1),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "perplexity/sonar",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8430,
+                    ContextLimit = 127072,
+                    Created = new DateTime(2025, 1, 27),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.0000004m,
+                        WebSearch = 0.005m,
                     },
                 },
 
@@ -6968,50 +4839,22 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8385,
+                    Rank = 8425,
                     ContextLimit = 32768,
                     Created = new DateTime(2024, 11, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000066m,
-                        TextOutput = 0.000001m,
-                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "deepseek/deepseek-chat",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    Model = "aion-labs/aion-rp-llama-3.1-8b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8380,
-                    ContextLimit = 163840,
-                    Created = new DateTime(2024, 12, 26),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002574m,
-                        TextOutput = 0.0000010287m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "minimax/minimax-01",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8375,
-                    ContextLimit = 1000192,
-                    Created = new DateTime(2025, 1, 15),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000011m,
-                    },
+                    Rank = 8420,
+                    ContextLimit = 32768,
+                    Created = new DateTime(2025, 2, 4),
                 },
 
                 new AIModelCapabilities
@@ -7022,14 +4865,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8370,
+                    Rank = 8415,
                     ContextLimit = 300000,
                     Created = new DateTime(2024, 12, 5),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000032m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7040,15 +4878,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8365,
+                    Rank = 8410,
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 11, 19),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000002m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7059,66 +4891,14 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8360,
+                    Rank = 8405,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 11, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.00000125m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/o1",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8355,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2024, 12, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.00006m,
-                        CacheRead = 0.0000075m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000075m,
-                        TextOutput = 0.00003m,
-                        CacheRead = 0.00000375m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/o1:batch" },
                 },
 
 
 
-                // Released before October 2024 or unknown release date
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openrouter/auto",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8350,
-                    ContextLimit = 2000000,
-                    Created = new DateTime(2023, 11, 8),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = -1m,
-                        TextOutput = -1m,
-                    },
-                },
+                // Released before November 2024 or unknown release date
 
                 new AIModelCapabilities
                 {
@@ -7128,14 +4908,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8345,
+                    Rank = 8400,
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 7, 19),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000029m,
-                        TextOutput = 0.00000003m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7146,14 +4921,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8340,
+                    Rank = 8395,
                     ContextLimit = 8192,
                     Created = new DateTime(2024, 8, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000004m,
-                        TextOutput = 0.00000005m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7164,15 +4934,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8335,
+                    Rank = 8390,
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 7, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000008m,
-                        CacheRead = 0.000000025m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7183,14 +4947,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8330,
+                    Rank = 8385,
                     ContextLimit = 8192,
                     Created = new DateTime(2023, 7, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000008m,
-                        TextOutput = 0.00000011m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7201,32 +4960,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8325,
+                    Rank = 8380,
                     ContextLimit = 32768,
                     Created = new DateTime(2024, 10, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000002m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "meta-llama/llama-3.2-1b-instruct",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8320,
-                    ContextLimit = 60000,
-                    Created = new DateTime(2024, 9, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000027m,
-                        TextOutput = 0.000000201m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7237,14 +4973,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8315,
+                    Rank = 8375,
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 9, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000033m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7255,32 +4986,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8310,
+                    Rank = 8370,
                     ContextLimit = 32768,
                     Created = new DateTime(2024, 9, 19),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000036m,
-                        TextOutput = 0.0000004m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "meta-llama/llama-3.1-70b-instruct",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 8305,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2024, 7, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.0000004m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7291,14 +4999,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8300,
+                    Rank = 8365,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 8, 30),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7309,20 +5012,11 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8295,
+                    Rank = 8360,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 7, 18),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.000000075m,
-                    },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.0000003m,
-                        CacheRead = 0.0000000375m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-4o-mini:batch" },
@@ -7336,15 +5030,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8290,
+                    Rank = 8355,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 7, 18),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.000000075m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7355,14 +5043,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8285,
+                    Rank = 8350,
                     ContextLimit = 8192,
                     Created = new DateTime(2024, 7, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000065m,
-                        TextOutput = 0.00000065m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7373,14 +5056,22 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8280,
+                    Rank = 8345,
                     ContextLimit = 6144,
                     Created = new DateTime(2023, 7, 22),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000035m,
-                        TextOutput = 0.00000065m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "meta-llama/llama-3.1-70b-instruct",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Rank = 8340,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2024, 7, 23),
                 },
 
                 new AIModelCapabilities
@@ -7391,14 +5082,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8275,
+                    Rank = 8335,
                     ContextLimit = 8000,
                     Created = new DateTime(2023, 8, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.00000075m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7409,14 +5095,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8270,
+                    Rank = 8330,
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 8, 28),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000085m,
-                        TextOutput = 0.00000085m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7427,14 +5108,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8265,
+                    Rank = 8325,
                     ContextLimit = 4095,
                     Created = new DateTime(2024, 1, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000002m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7445,14 +5121,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8260,
+                    Rank = 8320,
                     ContextLimit = 16385,
                     Created = new DateTime(2023, 8, 28),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000004m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7463,14 +5134,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8255,
+                    Rank = 8315,
                     ContextLimit = 32768,
                     Created = new DateTime(2024, 10, 22),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.000005m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7481,15 +5147,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8250,
+                    Rank = 8310,
                     ContextLimit = 65536,
                     Created = new DateTime(2024, 4, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000002m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7500,15 +5160,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8245,
+                    Rank = 8305,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 2, 26),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000002m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7519,14 +5173,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8240,
+                    Rank = 8300,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 8, 30),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7537,15 +5186,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8235,
+                    Rank = 8295,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 8, 6),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.00000125m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7556,20 +5199,11 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8230,
+                    Rank = 8290,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 5, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.00000125m,
-                    },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.000000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-4o:batch" },
@@ -7583,39 +5217,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8225,
+                    Rank = 8285,
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 5, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000015m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-4-turbo",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 8220,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2024, 4, 9),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00003m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000015m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-4-turbo:batch" },
                 },
 
                 new AIModelCapabilities
@@ -7626,14 +5230,9 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
-                    Rank = 8215,
+                    Rank = 8280,
                     ContextLimit = 8191,
                     Created = new DateTime(2023, 5, 28),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00003m,
-                        TextOutput = 0.00006m,
-                    },
                 },
 
 
@@ -7656,103 +5255,27 @@ new AIModelCapabilities
                 new AIModelCapabilities
                 {
                     Provider = provider,
+                    Model = "liquid/lfm-2.5-2.6b:free",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -5,
+                    ContextLimit = 65536,
+                    Created = new DateTime(2026, 8, 11),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
                     Model = "bytedance-seed/seed-2.0-code",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -5,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 8, 12),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "poolside/laguna-s-2.1:free",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
                     Rank = -10,
                     ContextLimit = 262144,
-                    Created = new DateTime(2026, 7, 21),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "poolside/laguna-xs-2.1:free",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -15,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 7, 2),
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "poolside/laguna-xs-2.1",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -20,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 7, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000006m,
-                        TextOutput = 0.00000012m,
-                        CacheRead = 0.00000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "poolside/laguna-s-2.1",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -25,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 7, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000009m,
-                        TextOutput = 0.00000018m,
-                        CacheRead = 0.000000009m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "xiaomi/mimo-v2.5",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -30,
-                    ContextLimit = 1050000,
-                    Created = new DateTime(2026, 4, 22),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000119m,
-                        TextOutput = 0.000000238m,
-                        CacheRead = 0.00000000255m,
-                    },
+                    Created = new DateTime(2026, 8, 12),
                 },
 
                 new AIModelCapabilities
@@ -7764,19 +5287,9 @@ new AIModelCapabilities
                     SupportsBatch = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -35,
+                    Rank = -15,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 3, 10),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000017m,
-                        TextOutput = 0.00000025m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000017m,
-                        TextOutput = 0.00000025m,
-                    },
                     Aliases = new List<string> { "qwen/qwen3.5-9b:batch" },
                 },
 
@@ -7789,35 +5302,23 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -40,
+                    Rank = -20,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 4, 22),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003045m,
-                        TextOutput = 0.000000609m,
-                        CacheRead = 0.0000000028m,
-                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "arcee-ai/trinity-large-thinking",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Model = "xiaomi/mimo-v2.5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -45,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 4, 1),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.0000008m,
-                        CacheRead = 0.00000006m,
-                    },
+                    Rank = -25,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2026, 4, 22),
                 },
 
                 new AIModelCapabilities
@@ -7829,15 +5330,9 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -50,
+                    Rank = -30,
                     ContextLimit = 202752,
                     Created = new DateTime(2026, 4, 1),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000012m,
-                        TextOutput = 0.000004m,
-                        CacheRead = 0.00000024m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7849,35 +5344,9 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -55,
+                    Rank = -35,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.0000003m,
-                        CacheRead = 0.000000045m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "z-ai/glm-4.7-flash",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -60,
-                    ContextLimit = 200000,
-                    Created = new DateTime(2026, 1, 19),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000605m,
-                        TextOutput = 0.0000004m,
-                        CacheRead = 0.00000001m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7889,55 +5358,23 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -65,
+                    Rank = -40,
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 12, 1),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000028m,
-                        TextOutput = 0.00000042m,
-                        CacheRead = 0.000000028m,
-                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "minimax/minimax-m2.1",
+                    Model = "z-ai/glm-4.7-flash",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -70,
-                    ContextLimit = 204800,
-                    Created = new DateTime(2025, 12, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000003m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "z-ai/glm-4.7",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -75,
-                    ContextLimit = 204800,
-                    Created = new DateTime(2025, 12, 22),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000054m,
-                        TextOutput = 0.00000198m,
-                        CacheRead = 0.000000099m,
-                    },
+                    Rank = -45,
+                    ContextLimit = 200000,
+                    Created = new DateTime(2026, 1, 19),
                 },
 
                 new AIModelCapabilities
@@ -7949,14 +5386,9 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -80,
+                    Rank = -50,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 23),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000002m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -7968,36 +5400,37 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -85,
+                    Rank = -55,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 9),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.00000004m,
-                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/gpt-5.2-chat",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    Model = "z-ai/glm-4.7",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -90,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2025, 12, 10),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000175m,
-                        TextOutput = 0.000014m,
-                        CacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
-                    },
+                    Rank = -60,
+                    ContextLimit = 204800,
+                    Created = new DateTime(2025, 12, 22),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "moonshotai/kimi-k2.5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -65,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 1, 27),
                 },
 
                 new AIModelCapabilities
@@ -8009,14 +5442,9 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -95,
+                    Rank = -70,
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 9, 29),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000027m,
-                        TextOutput = 0.00000041m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8028,15 +5456,9 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -100,
+                    Rank = -75,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 10, 14),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.00000075m,
-                        CacheRead = 0.00000012m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8048,14 +5470,9 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -105,
+                    Rank = -80,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 10, 6),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000029m,
-                        TextOutput = 0.000001m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8067,34 +5484,9 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -110,
+                    Rank = -85,
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 9, 22),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000027m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.000000135m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "qwen/qwen3-next-80b-a3b-thinking",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -115,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2025, 9, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000012m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8106,15 +5498,9 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -120,
+                    Rank = -90,
                     ContextLimit = 65536,
                     Created = new DateTime(2025, 8, 11),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.0000018m,
-                        CacheRead = 0.00000011m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8126,35 +5512,9 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -125,
+                    Rank = -95,
                     ContextLimit = 204800,
                     Created = new DateTime(2025, 9, 30),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000055m,
-                        TextOutput = 0.0000022m,
-                        CacheRead = 0.00000011m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "z-ai/glm-4.5",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -130,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2025, 7, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.0000022m,
-                        CacheRead = 0.00000011m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8166,33 +5526,27 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -135,
+                    Rank = -100,
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 9, 4),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.0000025m,
-                    },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "qwen/qwen3-235b-a22b-thinking-2507",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Model = "openai/gpt-5-image-mini",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -140,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2025, 7, 25),
+                    Rank = -105,
+                    ContextLimit = 400000,
+                    Created = new DateTime(2025, 10, 16),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000045m,
-                        TextOutput = 0.0000035m,
-                        CacheRead = 0.0000001m,
+                        ImageOutput = 0.000008m,
+                        WebSearch = 0.01m,
                     },
                 },
 
@@ -8205,19 +5559,12 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -145,
+                    Rank = -110,
                     ContextLimit = 32768,
                     Created = new DateTime(2025, 10, 7),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000025m,
-                        ImageInput = 0.0000003m,
                         ImageOutput = 0.00003m,
-                        AudioInput = 0.000001m,
-                        AudioCacheRead = 0.0000001m,
-                        CacheRead = 0.00000003m,
-                        CacheWrite = 0.0000000833333333333333m,
                         InternalReasoning = 0.0000025m,
                         WebSearch = 0.014m,
                     },
@@ -8232,33 +5579,48 @@ new AIModelCapabilities
                     SupportsBatch = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -150,
+                    Rank = -115,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 7, 22),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000004m,
-                        ImageInput = 0.0000001m,
-                        AudioInput = 0.0000003m,
-                        AudioCacheRead = 0.00000003m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.0000000833333333333333m,
                         InternalReasoning = 0.0000004m,
                         WebSearch = 0.014m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.0000002m,
-                        ImageInput = 0.00000005m,
-                        AudioInput = 0.00000015m,
-                        AudioCacheRead = 0.00000003m,
-                        CacheRead = 0.00000001m,
                         InternalReasoning = 0.0000002m,
                         WebSearch = 0.014m,
                     },
                     Aliases = new List<string> { "google/gemini-2.5-flash-lite:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "z-ai/glm-4.5",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -120,
+                    ContextLimit = 131072,
+                    Created = new DateTime(2025, 7, 25),
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-235b-a22b-thinking-2507",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -125,
+                    ContextLimit = 128000,
+                    Created = new DateTime(2025, 7, 25),
                 },
 
                 new AIModelCapabilities
@@ -8270,29 +5632,16 @@ new AIModelCapabilities
                     SupportsBatch = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -155,
+                    Rank = -130,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 6, 17),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000025m,
-                        ImageInput = 0.0000003m,
-                        AudioInput = 0.000001m,
-                        AudioCacheRead = 0.0000001m,
-                        CacheRead = 0.00000003m,
-                        CacheWrite = 0.0000000833333333333333m,
                         InternalReasoning = 0.0000025m,
                         WebSearch = 0.014m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000125m,
-                        ImageInput = 0.00000015m,
-                        AudioInput = 0.0000005m,
-                        AudioCacheRead = 0.0000001m,
-                        CacheRead = 0.00000003m,
                         InternalReasoning = 0.00000125m,
                         WebSearch = 0.014m,
                     },
@@ -8308,29 +5657,16 @@ new AIModelCapabilities
                     SupportsBatch = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -160,
+                    Rank = -135,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 6, 17),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        ImageInput = 0.00000125m,
-                        AudioInput = 0.00000125m,
-                        AudioCacheRead = 0.000000125m,
-                        CacheRead = 0.000000125m,
-                        CacheWrite = 0.000000375m,
                         InternalReasoning = 0.00001m,
                         WebSearch = 0.014m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000000625m,
-                        TextOutput = 0.000005m,
-                        ImageInput = 0.000000625m,
-                        AudioInput = 0.000000625m,
-                        AudioCacheRead = 0.000000125m,
-                        CacheRead = 0.000000125m,
                         InternalReasoning = 0.000005m,
                         WebSearch = 0.014m,
                     },
@@ -8340,39 +5676,15 @@ new AIModelCapabilities
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "nousresearch/hermes-3-llama-3.1-70b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    Model = "meta-llama/llama-3.2-1b-instruct",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
                     SupportsStreaming = true,
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -165,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2024, 8, 18),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000007m,
-                        TextOutput = 0.0000007m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "nousresearch/hermes-3-llama-3.1-405b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -170,
-                    ContextLimit = 131072,
-                    Created = new DateTime(2024, 8, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000001m,
-                    },
+                    Rank = -140,
+                    ContextLimit = 60000,
+                    Created = new DateTime(2024, 9, 25),
                 },
 
                 new AIModelCapabilities
@@ -8384,14 +5696,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -175,
+                    Rank = -145,
                     ContextLimit = 1050000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -8405,13 +5713,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -180,
+                    Rank = -150,
                     ContextLimit = 256000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000008m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8422,13 +5725,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -185,
+                    Rank = -155,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.000008m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8440,13 +5738,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -190,
+                    Rank = -160,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000007m,
-                        TextOutput = 0.0000014m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8458,7 +5751,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -195,
+                    Rank = -165,
                     ContextLimit = 131072,
                 },
 
@@ -8471,14 +5764,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -200,
+                    Rank = -170,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000009m,
-                        TextOutput = 0.00000045m,
-                        CacheRead = 0.00000009m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8490,13 +5777,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -205,
+                    Rank = -175,
                     ContextLimit = 65536,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000005m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8508,7 +5790,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -210,
+                    Rank = -180,
                     ContextLimit = 65536,
                 },
 
@@ -8521,13 +5803,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -215,
+                    Rank = -185,
                     ContextLimit = 6144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000375m,
-                        TextOutput = 0.0000075m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8539,14 +5816,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -220,
+                    Rank = -190,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.00000125m,
-                        CacheRead = 0.00000003m,
-                        CacheWrite = 0.0000003m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -8560,14 +5833,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -225,
+                    Rank = -195,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.000004m,
-                        CacheRead = 0.00000008m,
-                        CacheWrite = 0.000001m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -8581,14 +5850,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -230,
+                    Rank = -200,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -8602,14 +5867,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -235,
+                    Rank = -205,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -8623,14 +5884,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -240,
+                    Rank = -210,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.000075m,
-                        CacheRead = 0.0000015m,
-                        CacheWrite = 0.00001875m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -8644,14 +5901,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -245,
+                    Rank = -215,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00003m,
-                        TextOutput = 0.00015m,
-                        CacheRead = 0.000003m,
-                        CacheWrite = 0.0000375m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -8664,14 +5917,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -250,
+                    Rank = -220,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00003m,
-                        TextOutput = 0.00015m,
-                        CacheRead = 0.000003m,
-                        CacheWrite = 0.0000375m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -8684,14 +5933,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -255,
+                    Rank = -225,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.000001m,
-                        CacheWrite = 0.0000125m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -8704,14 +5949,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -260,
+                    Rank = -230,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.000001m,
-                        CacheWrite = 0.0000125m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -8725,14 +5966,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -265,
+                    Rank = -235,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -8745,7 +5982,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -270,
+                    Rank = -240,
                     ContextLimit = 262144,
                 },
 
@@ -8758,14 +5995,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -275,
+                    Rank = -245,
                     ContextLimit = 32768,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000008m,
-                        CacheRead = 0.00000025m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8777,7 +6008,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -280,
+                    Rank = -250,
                     ContextLimit = 131072,
                 },
 
@@ -8790,13 +6021,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -285,
+                    Rank = -255,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000008m,
-                        TextOutput = 0.00000016m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8808,13 +6034,21 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -290,
+                    Rank = -260,
                     ContextLimit = 131000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000045m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "arcee-ai/trinity-large-thinking",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -265,
+                    ContextLimit = 262144,
                 },
 
                 new AIModelCapabilities
@@ -8826,13 +6060,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -295,
+                    Rank = -270,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000045m,
-                        TextOutput = 0.00000015m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8844,13 +6073,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -300,
+                    Rank = -275,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.0000012m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8862,13 +6086,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -305,
+                    Rank = -280,
                     ContextLimit = 120000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000007m,
-                        TextOutput = 0.00000028m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8880,13 +6099,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -310,
+                    Rank = -285,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000007m,
-                        TextOutput = 0.00000028m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8898,13 +6112,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -315,
+                    Rank = -290,
                     ContextLimit = 123000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000028m,
-                        TextOutput = 0.0000011m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8916,13 +6125,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -320,
+                    Rank = -295,
                     ContextLimit = 30000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000014m,
-                        TextOutput = 0.00000056m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8934,13 +6138,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -325,
+                    Rank = -300,
                     ContextLimit = 123000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000042m,
-                        TextOutput = 0.00000125m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8952,7 +6151,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -330,
+                    Rank = -305,
                     ContextLimit = 65536,
                 },
 
@@ -8965,7 +6164,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -335,
+                    Rank = -310,
                     ContextLimit = 32768,
                 },
 
@@ -8978,13 +6177,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -340,
+                    Rank = -315,
                     ContextLimit = 128000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00000125m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -8996,13 +6190,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -345,
+                    Rank = -320,
                     ContextLimit = 64000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000007m,
-                        TextOutput = 0.0000025m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9014,13 +6203,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -350,
+                    Rank = -325,
                     ContextLimit = 8192,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000008m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9032,13 +6216,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -355,
+                    Rank = -330,
                     ContextLimit = 128000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000029m,
-                        TextOutput = 0.00000029m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9050,7 +6229,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -360,
+                    Rank = -335,
                     ContextLimit = 163840,
                 },
 
@@ -9063,13 +6242,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -365,
+                    Rank = -340,
                     ContextLimit = 32768,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000015m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9081,7 +6255,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -370,
+                    Rank = -345,
                     ContextLimit = 1000000,
                 },
 
@@ -9094,14 +6268,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -375,
+                    Rank = -350,
                     ContextLimit = 1048576,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.0000003m,
-                        ImageInput = 0.000000075m,
-                        AudioInput = 0.000000075m,
                         InternalReasoning = 0.0000003m,
                         WebSearch = 0.014m,
                     },
@@ -9116,16 +6286,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -380,
+                    Rank = -355,
                     ContextLimit = 1048576,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000004m,
-                        ImageInput = 0.0000001m,
-                        AudioInput = 0.0000003m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.00000008333333333333334m,
                         InternalReasoning = 0.0000004m,
                         WebSearch = 0.014m,
                     },
@@ -9140,17 +6304,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -385,
+                    Rank = -360,
                     ContextLimit = 1048576,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        ImageInput = 0.00000125m,
-                        AudioInput = 0.00000125m,
-                        AudioCacheRead = 0.000000125m,
-                        CacheRead = 0.000000125m,
-                        CacheWrite = 0.000000375m,
                         InternalReasoning = 0.00001m,
                         WebSearch = 0.014m,
                     },
@@ -9165,7 +6322,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -390,
+                    Rank = -365,
                     ContextLimit = 32768,
                 },
 
@@ -9178,7 +6335,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -395,
+                    Rank = -370,
                     ContextLimit = 131072,
                 },
 
@@ -9191,7 +6348,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -400,
+                    Rank = -375,
                     ContextLimit = 32768,
                 },
 
@@ -9204,13 +6361,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -405,
+                    Rank = -380,
                     ContextLimit = 8192,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000003m,
-                        TextOutput = 0.00000004m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9222,13 +6374,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -410,
+                    Rank = -385,
                     ContextLimit = 32768,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000006m,
-                        TextOutput = 0.00000012m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9240,8 +6387,21 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -415,
+                    Rank = -390,
                     ContextLimit = 8192,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "ibm-granite/granite-4.0-h-micro",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -395,
+                    ContextLimit = 131000,
                 },
 
                 new AIModelCapabilities
@@ -9253,14 +6413,33 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -420,
+                    Rank = -400,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.0000001m,
-                        CacheRead = 0.00000005m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "inception/mercury-2",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -405,
+                    ContextLimit = 128000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "inception/mercury-2.5",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -410,
+                    ContextLimit = 260000,
                 },
 
                 new AIModelCapabilities
@@ -9271,14 +6450,20 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -425,
+                    Rank = -415,
                     ContextLimit = 260000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000004m,
-                        TextOutput = 0.00000015m,
-                        CacheRead = 0.000000004m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "inception/mercury-3",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -420,
+                    ContextLimit = 1000000,
                 },
 
                 new AIModelCapabilities
@@ -9289,14 +6474,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -430,
+                    Rank = -425,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.000000625m,
-                        CacheRead = 0.000000015m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9308,7 +6487,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -435,
+                    Rank = -430,
                     ContextLimit = 262144,
                 },
 
@@ -9321,14 +6500,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -440,
+                    Rank = -435,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000001m,
-                        TextOutput = 0.00000003m,
-                        CacheRead = 0.000000002m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9339,14 +6512,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -445,
+                    Rank = -440,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000042m,
-                        TextOutput = 0.0000001232m,
-                        CacheRead = 0.0000000084m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9357,7 +6524,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -450,
+                    Rank = -445,
                     ContextLimit = 262144,
                 },
 
@@ -9369,14 +6536,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -455,
+                    Rank = -450,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000042m,
-                        TextOutput = 0.0000001232m,
-                        CacheRead = 0.0000000084m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9387,7 +6548,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -460,
+                    Rank = -455,
                     ContextLimit = 262144,
                 },
 
@@ -9399,7 +6560,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -465,
+                    Rank = -460,
                     ContextLimit = 262144,
                 },
 
@@ -9411,7 +6572,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -470,
+                    Rank = -465,
                     ContextLimit = 262144,
                 },
 
@@ -9423,14 +6584,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -475,
+                    Rank = -470,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.000000625m,
-                        CacheRead = 0.000000015m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9441,7 +6596,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -480,
+                    Rank = -475,
                     ContextLimit = 262144,
                 },
 
@@ -9454,13 +6609,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -485,
+                    Rank = -480,
                     ContextLimit = 8000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9472,13 +6622,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -490,
+                    Rank = -485,
                     ContextLimit = 8000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9489,14 +6634,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -495,
+                    Rank = -490,
                     ContextLimit = 256000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.00000003m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9508,14 +6647,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -500,
+                    Rank = -495,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000006m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9526,14 +6659,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -505,
+                    Rank = -500,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000074m,
-                        TextOutput = 0.00000296m,
-                        CacheRead = 0.00000015m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9545,13 +6672,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -510,
+                    Rank = -505,
                     ContextLimit = 128000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000003m,
-                        TextOutput = 0.00000012m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9563,7 +6685,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -515,
+                    Rank = -510,
                     ContextLimit = 32768,
                 },
 
@@ -9576,8 +6698,20 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -520,
+                    Rank = -515,
                     ContextLimit = 32768,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "liquid/lfm-2.5-2.6b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -520,
+                    ContextLimit = 128000,
                 },
 
                 new AIModelCapabilities
@@ -9591,11 +6725,6 @@ new AIModelCapabilities
                     Deprecated = true,
                     Rank = -525,
                     ContextLimit = 8192,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000051m,
-                        TextOutput = 0.00000074m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9609,11 +6738,6 @@ new AIModelCapabilities
                     Deprecated = true,
                     Rank = -530,
                     ContextLimit = 8192,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000014m,
-                        TextOutput = 0.00000014m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9627,11 +6751,6 @@ new AIModelCapabilities
                     Deprecated = true,
                     Rank = -535,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000345m,
-                        TextOutput = 0.000000345m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9671,10 +6790,37 @@ new AIModelCapabilities
                     Deprecated = true,
                     Rank = -550,
                     ContextLimit = 131072,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "meta/muse-spark-1.2-contributor",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -555,
+                    ContextLimit = 1048576,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000048m,
-                        TextOutput = 0.00000003m,
+                        WebSearch = 0.0025m,
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "meta/muse-spark-1.3-contributor",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -560,
+                    ContextLimit = 1048576,
+                    Pricing = new AIModelPricing
+                    {
+                        WebSearch = 0.0025m,
                     },
                 },
 
@@ -9686,14 +6832,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -555,
+                    Rank = -565,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000008m,
-                        TextOutput = 0.00000035m,
-                        CacheRead = 0.00000008m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9705,13 +6845,60 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -560,
+                    Rank = -570,
                     ContextLimit = 65535,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000062m,
-                        TextOutput = 0.00000062m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "minimax/minimax-01",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -575,
+                    ContextLimit = 1000192,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "minimax/minimax-m2",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -580,
+                    ContextLimit = 204800,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "minimax/minimax-m2-her",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -585,
+                    ContextLimit = 65536,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "minimax/minimax-m2.1",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -590,
+                    ContextLimit = 204800,
                 },
 
                 new AIModelCapabilities
@@ -9723,7 +6910,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -565,
+                    Rank = -595,
                     ContextLimit = 196608,
                 },
 
@@ -9735,7 +6922,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -570,
+                    Rank = -600,
                     ContextLimit = 196608,
                 },
 
@@ -9747,7 +6934,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -575,
+                    Rank = -605,
                     ContextLimit = 1048576,
                 },
 
@@ -9760,14 +6947,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -580,
+                    Rank = -610,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.00000004m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9779,14 +6960,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -585,
+                    Rank = -615,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000003m,
-                        CacheRead = 0.00000001m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9797,13 +6972,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -590,
+                    Rank = -620,
                     ContextLimit = 128000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000011m,
-                        TextOutput = 0.00000011m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9815,7 +6985,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -595,
+                    Rank = -625,
                     ContextLimit = 2824,
                 },
 
@@ -9828,14 +6998,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -600,
+                    Rank = -630,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000002m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9847,7 +7011,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -605,
+                    Rank = -635,
                     ContextLimit = 32768,
                 },
 
@@ -9860,14 +7024,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -610,
+                    Rank = -640,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000002m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9879,13 +7037,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -615,
+                    Rank = -645,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000135m,
-                        TextOutput = 0.0000005m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9896,14 +7049,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -620,
+                    Rank = -650,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000025m,
-                        TextOutput = 0.0000001m,
-                        CacheRead = 0.0000000025m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9914,14 +7061,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -625,
+                    Rank = -655,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.000000025m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -9932,7 +7073,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -630,
+                    Rank = -660,
                     ContextLimit = 262144,
                 },
 
@@ -9944,7 +7085,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -635,
+                    Rank = -665,
                     ContextLimit = 262144,
                 },
 
@@ -9956,7 +7097,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -640,
+                    Rank = -670,
                     ContextLimit = 262144,
                 },
 
@@ -9969,13 +7110,21 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -645,
+                    Rank = -675,
                     ContextLimit = 8192,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000014m,
-                        TextOutput = 0.00000014m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "nousresearch/hermes-3-llama-3.1-405b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -680,
+                    ContextLimit = 131072,
                 },
 
                 new AIModelCapabilities
@@ -9987,7 +7136,20 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -650,
+                    Rank = -685,
+                    ContextLimit = 131072,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "nousresearch/hermes-3-llama-3.1-70b",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -690,
                     ContextLimit = 131072,
                 },
 
@@ -10000,13 +7162,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -655,
+                    Rank = -695,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000013m,
-                        TextOutput = 0.0000004m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10018,13 +7175,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -660,
+                    Rank = -700,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.0000004m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10036,8 +7188,33 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -665,
+                    Rank = -705,
                     ContextLimit = 256000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "nvidia/nemotron-3-super-120b-a12b:free",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -710,
+                    ContextLimit = 262144,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "nvidia/nemotron-3.5-content-safety:free",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -715,
+                    ContextLimit = 128000,
                 },
 
                 new AIModelCapabilities
@@ -10049,7 +7226,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -670,
+                    Rank = -720,
                     ContextLimit = 128000,
                 },
 
@@ -10062,7 +7239,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -675,
+                    Rank = -725,
                     ContextLimit = 131072,
                 },
 
@@ -10075,7 +7252,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -680,
+                    Rank = -730,
                     ContextLimit = 128000,
                 },
 
@@ -10088,17 +7265,10 @@ new AIModelCapabilities
                     SupportsBatch = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -685,
+                    Rank = -735,
                     ContextLimit = 16385,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000015m,
-                    },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.00000075m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-3.5-turbo:batch" },
@@ -10113,13 +7283,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -690,
+                    Rank = -740,
                     ContextLimit = 4095,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000015m,
-                        TextOutput = 0.000002m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10131,13 +7296,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -695,
+                    Rank = -745,
                     ContextLimit = 8191,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00003m,
-                        TextOutput = 0.00006m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10149,13 +7309,26 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -700,
+                    Rank = -750,
                     ContextLimit = 128000,
-                    Pricing = new AIModelPricing
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-4-turbo",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -755,
+                    ContextLimit = 128000,
+                    BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00003m,
+                        WebSearch = 0.01m,
                     },
+                    Aliases = new List<string> { "openai/gpt-4-turbo:batch" },
                 },
 
                 new AIModelCapabilities
@@ -10167,13 +7340,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -705,
+                    Rank = -760,
                     ContextLimit = 128000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00003m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10185,14 +7353,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -710,
+                    Rank = -765,
                     ContextLimit = 128000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        AudioInput = 0.00004m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10204,12 +7366,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -715,
+                    Rank = -770,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
                         WebSearch = 0.0275m,
                     },
                 },
@@ -10223,12 +7383,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -720,
+                    Rank = -775,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
                         WebSearch = 0.035m,
                     },
                 },
@@ -10242,13 +7400,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -725,
+                    Rank = -780,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.000000125m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -10262,20 +7417,14 @@ new AIModelCapabilities
                     SupportsBatch = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -730,
+                    Rank = -785,
                     ContextLimit = 400000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000000625m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000000625m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000000625m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "openai/gpt-5-codex:batch" },
@@ -10290,13 +7439,27 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -735,
+                    Rank = -790,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.000000125m,
+                        WebSearch = 0.01m,
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/gpt-5.2-chat",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -795,
+                    ContextLimit = 128000,
+                    Pricing = new AIModelPricing
+                    {
                         WebSearch = 0.01m,
                     },
                 },
@@ -10310,13 +7473,10 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -740,
+                    Rank = -800,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00000175m,
-                        TextOutput = 0.000014m,
-                        CacheRead = 0.000000175m,
                         WebSearch = 0.01m,
                     },
                 },
@@ -10330,7 +7490,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -745,
+                    Rank = -805,
                     ContextLimit = 131072,
                 },
 
@@ -10343,8 +7503,52 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -750,
+                    Rank = -810,
                     ContextLimit = 131072,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/o1",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -815,
+                    ContextLimit = 200000,
+                    Pricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "openai/o1:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/o1-pro",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -820,
+                    ContextLimit = 200000,
+                    Pricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "openai/o1-pro:batch" },
                 },
 
                 new AIModelCapabilities
@@ -10356,15 +7560,78 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -755,
+                    Rank = -825,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00004m,
-                        CacheRead = 0.0000025m,
                         WebSearch = 0.01m,
                     },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/o3-mini",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -830,
+                    ContextLimit = 200000,
+                    Pricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "openai/o3-mini:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/o3-mini-high",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -835,
+                    ContextLimit = 200000,
+                    Pricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "openai/o3-mini-high:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/o4-mini",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -840,
+                    ContextLimit = 200000,
+                    Pricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "openai/o4-mini:batch" },
                 },
 
                 new AIModelCapabilities
@@ -10376,15 +7643,34 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -760,
+                    Rank = -845,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000008m,
-                        CacheRead = 0.0000005m,
                         WebSearch = 0.01m,
                     },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "openai/o4-mini-high",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -850,
+                    ContextLimit = 200000,
+                    Pricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        WebSearch = 0.01m,
+                    },
+                    Aliases = new List<string> { "openai/o4-mini-high:batch" },
                 },
 
                 new AIModelCapabilities
@@ -10396,7 +7682,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -765,
+                    Rank = -855,
                     ContextLimit = 1048756,
                 },
 
@@ -10408,14 +7694,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -770,
+                    Rank = -860,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000004m,
-                        CacheRead = 0.0000001m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10427,7 +7707,55 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -775,
+                    Rank = -865,
+                    ContextLimit = 262144,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "poolside/laguna-s-2.1",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -870,
+                    ContextLimit = 1048576,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "poolside/laguna-s-2.1:free",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -875,
+                    ContextLimit = 262144,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "poolside/laguna-xs-2.1",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -880,
+                    ContextLimit = 262144,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "poolside/laguna-xs-2.1:free",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -885,
                     ContextLimit = 262144,
                 },
 
@@ -10439,14 +7767,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -780,
+                    Rank = -890,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.00000005m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10458,7 +7780,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -785,
+                    Rank = -895,
                     ContextLimit = 262144,
                 },
 
@@ -10471,13 +7793,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -790,
+                    Rank = -900,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000011m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10489,14 +7806,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -795,
+                    Rank = -905,
                     ContextLimit = 32768,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000104m,
-                        TextOutput = 0.00000416m,
-                        CacheRead = 0.000000208m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10508,14 +7819,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -800,
+                    Rank = -910,
                     ContextLimit = 1000000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000026m,
-                        TextOutput = 0.00000078m,
-                        CacheWrite = 0.000000325m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10527,14 +7832,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -805,
+                    Rank = -915,
                     ContextLimit = 1000000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000026m,
-                        TextOutput = 0.00000078m,
-                        CacheWrite = 0.0000005m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10546,14 +7845,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -810,
+                    Rank = -920,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000325m,
-                        TextOutput = 0.00000013m,
-                        CacheRead = 0.0000000065m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10565,13 +7858,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -815,
+                    Rank = -925,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000052m,
-                        TextOutput = 0.00000208m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10583,7 +7871,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -820,
+                    Rank = -930,
                     ContextLimit = 32768,
                 },
 
@@ -10596,13 +7884,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -825,
+                    Rank = -935,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000455m,
-                        TextOutput = 0.00000182m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10614,14 +7897,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -830,
+                    Rank = -940,
                     ContextLimit = 81920,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000024m,
-                        CacheRead = 0.00000008m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10633,14 +7910,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -835,
+                    Rank = -945,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000117m,
-                        TextOutput = 0.000000455m,
-                        CacheRead = 0.00000005m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10652,15 +7923,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -840,
+                    Rank = -950,
                     ContextLimit = 1000000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000065m,
-                        TextOutput = 0.00000325m,
-                        CacheRead = 0.00000013m,
-                        CacheWrite = 0.0000008125m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10672,7 +7936,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -845,
+                    Rank = -955,
                     ContextLimit = 1048576,
                 },
 
@@ -10685,15 +7949,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -850,
+                    Rank = -960,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000078m,
-                        TextOutput = 0.0000039m,
-                        CacheRead = 0.000000156m,
-                        CacheWrite = 0.000000975m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10705,13 +7962,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -855,
+                    Rank = -965,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000078m,
-                        TextOutput = 0.0000039m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10723,7 +7975,20 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -860,
+                    Rank = -970,
+                    ContextLimit = 262144,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "qwen/qwen3-next-80b-a3b-thinking",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -975,
                     ContextLimit = 262144,
                 },
 
@@ -10736,13 +8001,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -865,
+                    Rank = -980,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.000004m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10754,13 +8014,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -870,
+                    Rank = -985,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000104m,
-                        TextOutput = 0.000000416m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10772,13 +8027,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -875,
+                    Rank = -990,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000018m,
-                        TextOutput = 0.0000021m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10790,14 +8040,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -880,
+                    Rank = -995,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001027m,
-                        TextOutput = 0.000006162m,
-                        CacheWrite = 0.00000128375m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10808,7 +8052,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -885,
+                    Rank = -1000,
                     ContextLimit = 262144,
                 },
 
@@ -10820,14 +8064,23 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -890,
+                    Rank = -1005,
                     ContextLimit = 1000000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "sakana/sakana-namazu",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -1010,
+                    ContextLimit = 262144,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.0000025m,
+                        WebSearch = 0.007m,
                     },
                 },
 
@@ -10840,13 +8093,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -895,
+                    Rank = -1015,
                     ContextLimit = 8192,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000148m,
-                        TextOutput = 0.00000148m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10858,13 +8106,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -900,
+                    Rank = -1020,
                     ContextLimit = 16000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000003m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10876,13 +8119,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -905,
+                    Rank = -1025,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000065m,
-                        TextOutput = 0.00000075m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10893,7 +8131,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -910,
+                    Rank = -1030,
                     ContextLimit = 1048576,
                 },
 
@@ -10905,7 +8143,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -915,
+                    Rank = -1035,
                     ContextLimit = 1000000,
                 },
 
@@ -10918,13 +8156,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -920,
+                    Rank = -1040,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000085m,
-                        TextOutput = 0.0000034m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10935,7 +8168,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -925,
+                    Rank = -1045,
                     ContextLimit = 262144,
                 },
 
@@ -10948,13 +8181,32 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -930,
+                    Rank = -1050,
                     ContextLimit = 65536,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.0000005m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "thinkingmachines/inkling-small:free",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -1055,
+                    ContextLimit = 1048576,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "thinkingmachines/inkling:free",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -1060,
+                    ContextLimit = 1048576,
                 },
 
                 new AIModelCapabilities
@@ -10966,7 +8218,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -935,
+                    Rank = -1065,
                     ContextLimit = 163840,
                 },
 
@@ -10978,14 +8230,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -940,
+                    Rank = -1070,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000075m,
-                        CacheRead = 0.00000025m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -10996,14 +8242,21 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -945,
+                    Rank = -1075,
                     ContextLimit = 1048576,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000032m,
-                        CacheRead = 0.00000003m,
-                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "upstage/solar-pro-3",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -1080,
+                    ContextLimit = 131072,
                 },
 
                 new AIModelCapabilities
@@ -11015,7 +8268,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -950,
+                    Rank = -1085,
                     ContextLimit = 131072,
                 },
 
@@ -11028,13 +8281,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -955,
+                    Rank = -1090,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000012m,
-                        TextOutput = 0.0000012m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -11046,13 +8294,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -960,
+                    Rank = -1095,
                     ContextLimit = 131072,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000006m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -11064,7 +8307,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -965,
+                    Rank = -1100,
                     ContextLimit = 1000000,
                 },
 
@@ -11077,7 +8320,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -970,
+                    Rank = -1105,
                     ContextLimit = 256000,
                 },
 
@@ -11090,7 +8333,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -975,
+                    Rank = -1110,
                     ContextLimit = 262144,
                 },
 
@@ -11103,7 +8346,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -980,
+                    Rank = -1115,
                     ContextLimit = 262144,
                 },
 
@@ -11116,7 +8359,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -985,
+                    Rank = -1120,
                     ContextLimit = 65536,
                 },
 
@@ -11129,14 +8372,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -990,
+                    Rank = -1125,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000003m,
-                        CacheRead = 0.00000001m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -11148,14 +8385,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -995,
+                    Rank = -1130,
                     ContextLimit = 262144,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.00000008m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -11167,14 +8398,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -1000,
+                    Rank = -1135,
                     ContextLimit = 1048576,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000003m,
-                        CacheRead = 0.0000002m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -11186,13 +8411,8 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -1005,
+                    Rank = -1140,
                     ContextLimit = 128000,
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000001m,
-                    },
                 },
 
                 new AIModelCapabilities
@@ -11204,7 +8424,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -1010,
+                    Rank = -1145,
                     ContextLimit = 131072,
                 },
 
@@ -11216,7 +8436,7 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -1015,
+                    Rank = -1150,
                     ContextLimit = 32768,
                 }
             };
