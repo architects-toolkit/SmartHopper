@@ -48,7 +48,7 @@ namespace SmartHopper.Providers.DeepSeek
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between January 2026 and April 2026
+                // Released between February 2026 and May 2026
 
                 new AIModelCapabilities
                 {
@@ -61,12 +61,6 @@ namespace SmartHopper.Providers.DeepSeek
                     Rank = 10000,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 4, 24),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000008134m,
-                        TextOutput = 0.00000016268m,
-                        CacheRead = 0.000000016268m,
-                    },
                     Aliases = new List<string> { "deepseek-v4-flash" },
                 },
 
@@ -80,12 +74,6 @@ namespace SmartHopper.Providers.DeepSeek
                     Rank = 9995,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 4, 24),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002088m,
-                        TextOutput = 0.0000004176m,
-                        CacheRead = 0.0000000174m,
-                    },
                 },
 
 
@@ -104,18 +92,6 @@ namespace SmartHopper.Providers.DeepSeek
                     Rank = 0,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000022m,
-                        TextOutput = 0.00000066m,
-                        CacheRead = 0.000000007m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000011m,
-                        TextOutput = 0.00000033m,
-                        CacheRead = 0.0000000035m,
-                    },
                     Aliases = new List<string> { "deepseek-v4-flash-vision-exp:batch" },
                 },
 
