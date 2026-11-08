@@ -48,7 +48,7 @@ namespace SmartHopper.Providers.Anthropic
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between July 2026 and October 2026
+                // Released between August 2026 and November 2026
 
                 new AIModelCapabilities
                 {
@@ -62,10 +62,6 @@ namespace SmartHopper.Providers.Anthropic
                     Created = new DateTime(2026, 10, 7),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.000000125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-haiku-5.5", "claude-haiku-5.5-latest", "claude-haiku-5-5-latest" },
@@ -83,10 +79,6 @@ namespace SmartHopper.Providers.Anthropic
                     Created = new DateTime(2026, 9, 28),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-sonnet-5.5", "claude-sonnet-5.5-latest", "claude-sonnet-5-5-latest" },
@@ -105,18 +97,10 @@ namespace SmartHopper.Providers.Anthropic
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.00002m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.000005m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-opus-5.5", "claude-opus-5.5-latest", "claude-opus-5-5-latest", "claude-opus-5.5:batch" },
@@ -134,10 +118,6 @@ namespace SmartHopper.Providers.Anthropic
                     Created = new DateTime(2026, 9, 1),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.0000125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-fable-5.1", "claude-fable-5.1-latest", "claude-fable-5-1-latest" },
@@ -145,7 +125,7 @@ namespace SmartHopper.Providers.Anthropic
 
 
 
-                // Released between April 2026 and July 2026
+                // Released between May 2026 and August 2026
 
                 new AIModelCapabilities
                 {
@@ -160,18 +140,10 @@ namespace SmartHopper.Providers.Anthropic
                     Created = new DateTime(2026, 6, 30),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.00000125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-sonnet-5:batch" },
@@ -190,18 +162,10 @@ namespace SmartHopper.Providers.Anthropic
                     Created = new DateTime(2026, 7, 24),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000125m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.000003125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-opus-5:batch" },
@@ -219,10 +183,6 @@ namespace SmartHopper.Providers.Anthropic
                     Created = new DateTime(2026, 5, 27),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-opus-4.8", "claude-opus-4.8-latest", "claude-opus-4-8-latest" },
@@ -241,18 +201,10 @@ namespace SmartHopper.Providers.Anthropic
                     Created = new DateTime(2026, 6, 9),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.000001m,
-                        CacheWrite = 0.0000125m,
                         WebSearch = 0.01m,
                     },
                     BatchPricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-fable-5:batch" },
@@ -260,7 +212,7 @@ namespace SmartHopper.Providers.Anthropic
 
 
 
-                // Released between January 2026 and April 2026
+                // Released between February 2026 and May 2026
 
                 new AIModelCapabilities
                 {
@@ -275,10 +227,6 @@ namespace SmartHopper.Providers.Anthropic
                     Created = new DateTime(2026, 2, 17),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-sonnet-4.6", "claude-sonnet-4.6-latest", "claude-sonnet-4-6-latest" },
@@ -296,14 +244,14 @@ namespace SmartHopper.Providers.Anthropic
                     Created = new DateTime(2026, 4, 16),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-opus-4.7", "claude-opus-4.7-latest", "claude-opus-4-7-latest" },
                 },
+
+
+
+                // Released between November 2025 and February 2026
 
                 new AIModelCapabilities
                 {
@@ -317,18 +265,10 @@ namespace SmartHopper.Providers.Anthropic
                     Created = new DateTime(2026, 2, 4),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-opus-4.6", "claude-opus-4.6-latest", "claude-opus-4-6-latest" },
                 },
-
-
-
-                // Released between October 2025 and January 2026
 
                 new AIModelCapabilities
                 {
@@ -342,10 +282,6 @@ namespace SmartHopper.Providers.Anthropic
                     Created = new DateTime(2025, 11, 24),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-opus-4-5", "claude-opus-4-5-latest", "claude-opus-4.5", "claude-opus-4.5-latest" },
@@ -353,7 +289,7 @@ namespace SmartHopper.Providers.Anthropic
 
 
 
-                // Released between July 2025 and October 2025
+                // Released between August 2025 and November 2025
 
                 new AIModelCapabilities
                 {
@@ -368,10 +304,6 @@ namespace SmartHopper.Providers.Anthropic
                     Created = new DateTime(2025, 10, 15),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.00000125m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-haiku-4-5", "claude-haiku-4-5-latest", "claude-haiku-4.5", "claude-haiku-4.5-latest" },
@@ -390,10 +322,6 @@ namespace SmartHopper.Providers.Anthropic
                     Created = new DateTime(2025, 9, 29),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-sonnet-4-5", "claude-sonnet-4-5-latest", "claude-sonnet-4.5", "claude-sonnet-4.5-latest" },
@@ -416,10 +344,6 @@ namespace SmartHopper.Providers.Anthropic
                     Created = new DateTime(2025, 8, 5),
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.000075m,
-                        CacheRead = 0.0000015m,
-                        CacheWrite = 0.00001875m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-opus-4-1", "claude-opus-4-1-latest", "claude-opus-4.1", "claude-opus-4.1-latest" },
@@ -478,10 +402,6 @@ namespace SmartHopper.Providers.Anthropic
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.000075m,
-                        CacheRead = 0.0000015m,
-                        CacheWrite = 0.00001875m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-opus-4", "claude-opus-4-latest", "claude-opus-4-0", "claude-opus-4-0-latest" },
@@ -499,10 +419,6 @@ namespace SmartHopper.Providers.Anthropic
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
                     {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
                         WebSearch = 0.01m,
                     },
                     Aliases = new List<string> { "claude-sonnet-4", "claude-sonnet-4-latest", "claude-sonnet-4-0", "claude-sonnet-4-0-latest" },
