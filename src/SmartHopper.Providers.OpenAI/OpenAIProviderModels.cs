@@ -1316,6 +1316,28 @@ new AIModelCapabilities
                 new AIModelCapabilities
                 {
                     Provider = provider,
+                    Model = "gpt-image-2.6-flare",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    Default = AICapability.Text2Image | AICapability.Image2Image,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9677,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-image-2.6-sunburst",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    Default = AICapability.Text2Image | AICapability.Image2Image,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9676,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
                     Model = "gpt-live-1",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
