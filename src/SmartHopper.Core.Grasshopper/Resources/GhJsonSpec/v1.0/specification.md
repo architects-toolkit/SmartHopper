@@ -142,7 +142,7 @@ Components are the core elements of a GhJSON document. Each component represents
 | `componentGuid` | uuid | No | Component type GUID |
 | `instanceGuid` | uuid | No | Instance GUID |
 | `id` | integer | Conditional | Integer ID for references (required when referenced by connections/groups) |
-| `pivot` | string or object | No | Canvas position (string: "X,Y" or object: `{ "x": 100, "y": 200 }`) |
+| `pivot` | string, object, or array | No | Canvas position (string: `"X,Y"`, object: `{ "x": 100, "y": 200 }`, or array: `[100, 200]`) |
 | `inputSettings` | array | No | Input parameter settings |
 | `outputSettings` | array | No | Output parameter settings |
 | `componentState` | object | No | UI-specific state |
@@ -160,6 +160,12 @@ Or an explicit object format:
 ```json
 "pivot": { "x": 100.5, "y": 200.25 }
 ```
+Or a two-element array format:
+```json
+"pivot": [100.5, 200.25]
+```
+
+All three forms are equivalent; consumers MAY normalize them to a single internal representation. The array form exists for producer convenience — JSON emitters (notably language models) naturally produce `[x, y]` tuples — but documents SHOULD prefer the compact string or object form for readability.
 
 ### 3.4 Component Identification
 
@@ -216,6 +222,26 @@ newline-separated panel text — one line per item — emitted as individual ite
 (the `gh.panel` extension remains the canonical representation; see
 [extensions.md](extensions.md#51-ghpanel)).
 
+### 3.7 Unrecognized Properties and Component State
+
+Producers MUST NOT invent top-level component properties for component state.
+All component-specific state lives under `componentState.extensions` (for
+example, a Panel's text is `componentState.extensions["gh.panel"].text` — not a
+hypothetical top-level `userText`/`text`/`content` field). Emitting state as
+new top-level properties is the most common generator mistake.
+
+The schema is strict at every level of the document (`additionalProperties:
+false` on components, connections, endpoints, groups, and similar closed
+objects): unrecognized members make the document **fail validation**, and a
+validator MUST surface the offending member path in the error. A loudly
+rejected field is intentional — a silently dropped field looks identical to a
+successfully applied one from the producer's side, so producers learn the
+correct field names from explicit rejection.
+
+Implementations that deserialize a document **without** validating it SHOULD
+still preserve unrecognized members for round-trip fidelity rather than
+silently discarding them, and SHOULD report them as warnings to the caller.
+
 ---
 
 ## 4. Connections
@@ -247,15 +273,40 @@ Connections represent the wires between component parameters.
 
 | Property | Type | Required | Description |
 | ---------- | ------ | ---------- | ------------- |
-| `id` | integer | **Yes** | Component integer ID |
+| `id` | integer or string | **Yes** | Component reference — the integer `id` is the preferred shape (compact and unambiguous). A component's `instanceGuid` string is also accepted for canvas-bound references (see §4.5); an integer encoded as a string is coerced during parsing. |
 | `paramName` | string | Conditional | Parameter name (required if `paramIndex` is not provided) |
 | `paramIndex` | integer | Conditional | Zero-based parameter index (required if `paramName` is not provided) |
 
 The `paramIndex` provides reliable parameter matching when parameter names may vary due to localization or custom nicknames.
 
-### 4.4 Document Scope
+### 4.4 Parameter Name Resolution
+
+Implementations resolve a `paramName` against a component's parameters with the
+following precedence (first match wins):
+
+1. **Nickname** — exact match, case-insensitive.
+2. **Name** — exact match, case-insensitive.
+3. **Numeric name** — a `paramName` that parses as an integer is treated as a
+   zero-based index (equivalent to `paramIndex`).
+4. **`paramIndex`** — when a supplied `paramName` matches nothing, a co-present
+   `paramIndex` is used as fallback.
+5. **Alias** — common shorthand is normalized through an alias table (for
+   example `pt` → `Point`, `out` → `Output`, `number` → `Number`, `crv` →
+   `Curve`).
+6. **Fuzzy** — approximate matching against the component's real parameter
+   names (small edit-distance tolerance) as a last resort.
+
+Resolution is a convenience for producers, not a contract: emitters SHOULD
+prefer exact parameter names or `paramIndex`, and validators treat only steps
+1–3 as reliable identification. A `paramName` that resolves through alias or
+fuzzy matching SHOULD be reported as a warning so producers can correct it —
+a silently fuzzy-matched wire looks identical to an explicitly intended one.
+
+### 4.5 Document Scope
 
 Connection endpoints are document-scoped: endpoint `id` values only reference components declared in the same document's `components` array. A connection cannot wire an endpoint to an object that exists only on the canvas unless that object is also described in the document (typically as an unchanged component carrying its `instanceGuid`). Implementations that need to wire pre-existing canvas objects MUST use a separate mechanism (for example, a dedicated connect operation keyed by `instanceGuid`).
+
+When an endpoint needs a stable reference across documents — for instance to a component that carries an `instanceGuid` — the `instanceGuid` string MAY be used in place of the integer `id`. The integer `id` remains the preferred shape: it is shorter and unambiguous within the document. Producers SHOULD emit integer `id` whenever the target is declared in the same document.
 
 ---
 
@@ -596,6 +647,13 @@ Beyond schema validation, implementations SHOULD verify:
 2. **Valid references**: All connection endpoint `id` values reference existing components
 3. **Valid parameter names**: Connection `paramName` values exist on referenced components
 4. **Group membership**: All group `members` reference existing component IDs
+
+When placement or deserialization partially fails, implementations SHOULD
+report per-item failures — identifying which connection or component failed and
+which endpoint, parameter, or reference could not be resolved — rather than
+returning only aggregate accepted/rejected counts. A connection whose `from`
+resolves but whose `to` does not is diagnosable only if the failing endpoint is
+named in the error.
 
 ### 8.3 Grasshopper Validation
 
