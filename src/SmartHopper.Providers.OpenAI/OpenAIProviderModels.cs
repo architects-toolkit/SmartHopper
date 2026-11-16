@@ -62,7 +62,7 @@ namespace SmartHopper.Providers.OpenAI
                     Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json | AICapability.Image2Text,
                     SupportsStreaming = true,
                     SupportsBatch = true,
-                    Verified = false,
+                    Verified = true,
                     Rank = 10000,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 22),
