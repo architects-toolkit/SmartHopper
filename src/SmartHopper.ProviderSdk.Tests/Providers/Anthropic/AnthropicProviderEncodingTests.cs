@@ -22,12 +22,14 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.Anthropic
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using Newtonsoft.Json.Linq;
     using SmartHopper.Providers.Anthropic;
     using SmartHopper.ProviderSdk.AICall.Core;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Requests;
+    using SmartHopper.ProviderSdk.AICall.Metrics;
     using SmartHopper.ProviderSdk.AIModels;
     using SmartHopper.ProviderSdk.Hosting;
     using SmartHopper.ProviderSdk.Tests.TestHelpers;
@@ -113,14 +115,14 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.Anthropic
         }
 
         /// <summary>
-        /// Models older than the effort family keep receiving the configured
-        /// temperature plus caller-supplied top_p/top_k extras.
+        /// Models older than the thinking family (3.5 and below) keep receiving
+        /// the configured temperature plus caller-supplied top_p/top_k extras.
+        /// Extended-thinking models (4.5/3.7) are covered separately: thinking
+        /// is on by default and forces temperature=1 with sampling extras removed.
         /// </summary>
         [Theory]
-        [InlineData("claude-sonnet-4-5-20250929")]
-        [InlineData("claude-opus-4-5-20251101")]
-        [InlineData("claude-haiku-4-5-20251001")]
         [InlineData("claude-3-5-haiku-20241022")]
+        [InlineData("claude-3-haiku-20240307")]
         public void Encode_LegacyFamilyModel_EmitsSamplingParameters(string model)
         {
             RefreshSettings();
@@ -174,6 +176,203 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.Anthropic
             Assert.Equal("1h", requestObj["cache_control"]?["ttl"]?.ToString());
             var systemBlock = requestObj["system"]?[0] as JObject;
             Assert.Equal("1h", systemBlock?["cache_control"]?["ttl"]?.ToString());
+        }
+
+        private static void RefreshSettingsWithEffort(string effort = "medium")
+        {
+            AnthropicProvider.Instance.RefreshCachedSettings(new Dictionary<string, object>
+            {
+                { "ApiKey", "test-key" },
+                { "MaxTokens", 16384 },
+                { "Temperature", 0.7 },
+                { "ReasoningEffort", effort },
+            });
+        }
+
+        /// <summary>
+        /// Adaptive families (4.6+, 5.x, fable/mythos) require a request-side
+        /// thinking object — without it they never think (4.6-4.8) or think
+        /// invisibly (5.x display defaults to "omitted").
+        /// </summary>
+        [Theory]
+        [InlineData("claude-sonnet-4-6")]
+        [InlineData("claude-opus-4-7")]
+        [InlineData("claude-opus-4-8")]
+        [InlineData("claude-opus-5")]
+        [InlineData("claude-sonnet-5-5")]
+        [InlineData("claude-haiku-5-5")]
+        [InlineData("claude-fable-5-1")]
+        public void Encode_AdaptiveFamily_EmitsAdaptiveThinkingSummarized(string model)
+        {
+            RefreshSettingsWithEffort("high");
+
+            var requestObj = JObject.Parse(AnthropicProvider.Instance.Encode(BuildRequest(model)));
+
+            Assert.Equal("adaptive", requestObj["thinking"]?["type"]?.ToString());
+            Assert.Equal("summarized", requestObj["thinking"]?["display"]?.ToString());
+            Assert.Null(requestObj["thinking"]?["budget_tokens"]);
+        }
+
+        /// <summary>
+        /// 4.5-era and 3.7 models only accept manual extended thinking:
+        /// thinking:{type:"enabled",budget_tokens} with temperature forced to 1
+        /// and top_p/top_k removed.
+        /// </summary>
+        [Theory]
+        [InlineData("claude-sonnet-4-5-20250929", 8192)]
+        [InlineData("claude-haiku-4-5-20251001", 8192)]
+        [InlineData("claude-opus-4-5-20251101", 8192)]
+        [InlineData("claude-3-7-sonnet-20250219", 8192)]
+        public void Encode_ExtendedFamily_EmitsEnabledThinkingBudget(string model, int expectedBudget)
+        {
+            RefreshSettingsWithEffort("high");
+
+            var request = BuildRequest(model, new Dictionary<string, JToken>
+            {
+                ["top_p"] = new JValue(0.9),
+                ["top_k"] = new JValue(40),
+            });
+            var requestObj = JObject.Parse(AnthropicProvider.Instance.Encode(request));
+
+            Assert.Equal("enabled", requestObj["thinking"]?["type"]?.ToString());
+            Assert.Equal(expectedBudget, requestObj["thinking"]?["budget_tokens"]?.Value<int>());
+            Assert.Equal(1, requestObj["temperature"]?.Value<int>());
+            Assert.Null(requestObj["top_p"]);
+            Assert.Null(requestObj["top_k"]);
+        }
+
+        /// <summary>
+        /// Effort maps onto the extended-thinking budget (low→1024, medium→4096,
+        /// high→8192, xhigh→16384, max→32768), always clamped below max_tokens.
+        /// </summary>
+        [Theory]
+        [InlineData("low", 1024)]
+        [InlineData("medium", 4096)]
+        [InlineData("xhigh", 16384)]
+        [InlineData("max", 32768)]
+        public void Encode_ExtendedFamily_MapsEffortToBudget(string effort, int expectedBudget)
+        {
+            AnthropicProvider.Instance.RefreshCachedSettings(new Dictionary<string, object>
+            {
+                { "ApiKey", "test-key" },
+                { "MaxTokens", 40000 },
+                { "ReasoningEffort", effort },
+            });
+
+            var requestObj = JObject.Parse(AnthropicProvider.Instance.Encode(BuildRequest("claude-sonnet-4-5-20250929")));
+
+            Assert.Equal(expectedBudget, requestObj["thinking"]?["budget_tokens"]?.Value<int>());
+        }
+
+        /// <summary>
+        /// Budget must stay strictly below max_tokens — when max_tokens leaves no
+        /// room for the 1024 minimum, the thinking field is omitted entirely.
+        /// </summary>
+        [Fact]
+        public void Encode_ExtendedFamily_DropsThinkingWhenBudgetUnsatisfiable()
+        {
+            AnthropicProvider.Instance.RefreshCachedSettings(new Dictionary<string, object>
+            {
+                { "ApiKey", "test-key" },
+                { "MaxTokens", 1024 },
+                { "ReasoningEffort", "medium" },
+            });
+
+            var requestObj = JObject.Parse(AnthropicProvider.Instance.Encode(BuildRequest("claude-sonnet-4-5-20250929")));
+
+            Assert.Null(requestObj["thinking"]);
+        }
+
+        /// <summary>
+        /// Models too old for thinking (3.5 and earlier) receive no thinking field.
+        /// </summary>
+        [Theory]
+        [InlineData("claude-3-5-haiku-20241022")]
+        [InlineData("claude-3-haiku-20240307")]
+        public void Encode_NoThinkingFamily_OmitsThinkingField(string model)
+        {
+            RefreshSettingsWithEffort("high");
+
+            var requestObj = JObject.Parse(AnthropicProvider.Instance.Encode(BuildRequest(model)));
+
+            Assert.Null(requestObj["thinking"]);
+        }
+
+        /// <summary>
+        /// Thinking blocks decode onto the Reasoning channel and are captured
+        /// verbatim (signature included) into ProviderData for replay.
+        /// </summary>
+        [Fact]
+        public void Decode_ThinkingBlocks_CaptureReasoningAndSignature()
+        {
+            var response = JObject.Parse(@"{
+                'content': [
+                    { 'type': 'thinking', 'thinking': 'First I consider...', 'signature': 'sig-abc' },
+                    { 'type': 'redacted_thinking', 'data': 'opaque-blob' },
+                    { 'type': 'text', 'text': 'Final answer.' }
+                ],
+                'stop_reason': 'end_turn',
+                'usage': { 'input_tokens': 10, 'output_tokens': 50, 'output_tokens_details': { 'thinking_tokens': 30 } }
+            }");
+
+            var interactions = AnthropicProvider.Instance.Decode(response);
+            var text = Assert.IsType<AIInteractionText>(Assert.Single(interactions, i => i is AIInteractionText));
+
+            Assert.Equal("Final answer.", text.Content);
+            Assert.Contains("First I consider...", text.Reasoning);
+            Assert.Contains("[redacted thinking]", text.Reasoning);
+
+            var thinking = text.ProviderData?["thinking"] as JArray;
+            Assert.NotNull(thinking);
+            Assert.Equal(2, thinking.Count);
+            Assert.Equal("sig-abc", thinking[0]?["signature"]?.ToString());
+            Assert.Equal("opaque-blob", thinking[1]?["data"]?.ToString());
+            Assert.Equal(30, text.Metrics.Quantity(AIQuantityKey.InternalReasoning, AIPriceUnit.Token));
+        }
+
+        /// <summary>
+        /// Stored thinking blocks replay verbatim ahead of the text block in the
+        /// assistant message — Anthropic requires them echoed back unchanged.
+        /// </summary>
+        [Fact]
+        public void Encode_ProviderDataThinking_ReplaysBlocksAheadOfText()
+        {
+            RefreshSettingsWithEffort("medium");
+
+            var body = AIBodyBuilder.Create()
+                .Add(new AIInteractionText { Agent = AIAgent.User, Content = "Q" })
+                .Add(new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = "A",
+                    ProviderData = new JObject
+                    {
+                        ["thinking"] = new JArray
+                        {
+                            new JObject { ["type"] = "thinking", ["thinking"] = "…", ["signature"] = "sig-xyz" },
+                            new JObject { ["type"] = "redacted_thinking", ["data"] = "blob" },
+                        },
+                    },
+                })
+                .Build();
+
+            var request = new AIRequestCall
+            {
+                Provider = AnthropicProvider.Instance.Name,
+                Model = "claude-sonnet-4-6",
+                Body = body,
+                Capability = AICapability.Text2Text,
+            };
+
+            var requestObj = JObject.Parse(AnthropicProvider.Instance.Encode(request));
+            var assistantMsg = requestObj["messages"]?.FirstOrDefault(m => m["role"]?.ToString() == "assistant");
+            var blocks = assistantMsg?["content"] as JArray;
+
+            Assert.NotNull(blocks);
+            Assert.Equal("thinking", blocks[0]?["type"]?.ToString());
+            Assert.Equal("sig-xyz", blocks[0]?["signature"]?.ToString());
+            Assert.Equal("redacted_thinking", blocks[1]?["type"]?.ToString());
+            Assert.Equal("text", blocks[2]?["type"]?.ToString());
         }
     }
 }
