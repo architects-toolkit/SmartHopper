@@ -200,6 +200,40 @@ namespace SmartHopper.Core.Types
         }
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="VersatileImage"/> class from an
+        /// <see cref="AIInteractionImage"/> result. Prefers the resolved <see cref="AIInteractionImage.ImageUrl"/>;
+        /// falls back to inline <see cref="AIInteractionImage.ImageData"/> wrapped in a data URI
+        /// (mirrors <c>GetRawContentForRender</c>'s resolution order).
+        /// </summary>
+        /// <param name="interaction">The assistant image interaction carrying the generated result.</param>
+        /// <returns>A new VersatileImage.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="interaction"/> is null.</exception>
+        /// <exception cref="ArgumentException">Thrown when the interaction carries no image URL or data.</exception>
+        public static VersatileImage FromInteraction(AIInteractionImage interaction)
+        {
+            if (interaction == null)
+            {
+                throw new ArgumentNullException(nameof(interaction));
+            }
+
+            if (interaction.ImageUrl != null)
+            {
+                return FromString(interaction.ImageUrl.ToString());
+            }
+
+            if (!string.IsNullOrWhiteSpace(interaction.ImageData))
+            {
+                var mimeType = !string.IsNullOrWhiteSpace(interaction.MimeType)
+                    && interaction.MimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                    ? interaction.MimeType
+                    : "image/png";
+                return FromString($"data:{mimeType};base64,{interaction.ImageData}");
+            }
+
+            throw new ArgumentException("The image interaction carries no image URL or data.", nameof(interaction));
+        }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="VersatileImage"/> class from extracted document data.
         /// Use this when creating image sources from PDF/DOCX/PPTX file extraction.
         /// </summary>
