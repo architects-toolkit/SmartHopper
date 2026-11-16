@@ -540,8 +540,7 @@ namespace SmartHopper.Infrastructure.Mcp
             // image, ordered as produced; page/id descriptors stay in the text payload —
             // no base64 is ever mined from or embedded into JSON.
             var modelVisible = result.Images?.Where(i =>
-                i?.SendToModel == true
-                && !string.IsNullOrEmpty(i.ImageData)
+                i?.IsModelVisible == true
                 && i.MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true)
                 .ToList() ?? new List<ToolResultImage>();
 

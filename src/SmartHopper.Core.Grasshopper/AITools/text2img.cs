@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -153,22 +154,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Extract image result from interactions
-                var resultImageInteraction = result.Body.GetLastInteraction(AIAgent.Assistant) as AIInteractionImage;
+                var resultImageInteraction = result.Body.GetLastAssistantImage();
                 if (resultImageInteraction == null)
                 {
                     output.CreateError("No image result received from AI provider");
                     return output;
                 }
 
-                // Return the image URL or data (prioritize URL over base64 data for performance)
-                string imageResult = resultImageInteraction.ImageUrl != null
-                    ? resultImageInteraction.ImageUrl.ToString()
-                    : resultImageInteraction.ImageData;
-
-                // Check if we have valid image data
-                if (string.IsNullOrEmpty(imageResult))
+                // URL results stay URLs; inline data becomes a self-describing data URI.
+                string imageResult;
+                try
                 {
-                    output.CreateError("No image data received from AI provider");
+                    imageResult = VersatileImage.FromInteraction(resultImageInteraction).RawValue;
+                }
+                catch (Exception ex)
+                {
+                    output.CreateError($"Failed to create VersatileImage from image interaction: {ex.Message}");
                     return output;
                 }
 

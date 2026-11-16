@@ -127,10 +127,7 @@ namespace SmartHopper.Components.Output
                     Extractor = OutputMapping.Single(aiReturn =>
                     {
                         // Prefer a typed audio interaction produced by TTS-capable providers.
-                        var audioInteraction = aiReturn?.Body?.Interactions?
-                            .OfType<AIInteractionAudio>()
-                            .LastOrDefault(interaction => interaction.Agent == AIAgent.Assistant)
-                            ?? aiReturn?.Body?.Interactions?.OfType<AIInteractionAudio>().LastOrDefault();
+                        var audioInteraction = aiReturn?.Body?.GetLastAssistantAudio();
 
                         if (audioInteraction != null)
                         {

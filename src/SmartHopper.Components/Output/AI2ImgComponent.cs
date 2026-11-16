@@ -85,8 +85,7 @@ namespace SmartHopper.Components.Output
                     {
                         if (aiReturn?.Body?.GetLastAssistantImage() is var imgInteraction && imgInteraction != null)
                         {
-                            var versatile = VersatileImage.FromString(imgInteraction.ImageUrl.ToString());
-                            return new GH_VersatileImage(versatile);
+                            return new GH_VersatileImage(VersatileImage.FromInteraction(imgInteraction));
                         }
 
                         return null;

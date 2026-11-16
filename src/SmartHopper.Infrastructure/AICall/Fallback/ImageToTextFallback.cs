@@ -133,7 +133,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                 }
                 else if (interaction is AIInteractionToolResult toolResult
                     && toolResult.Images != null
-                    && toolResult.Images.Any(i => i?.SendToModel == true && !string.IsNullOrEmpty(i.ImageData)))
+                    && toolResult.Images.Any(i => i?.IsModelVisible == true))
                 {
                     var updatedImages = new List<ToolResultImage>(toolResult.Images.Count);
                     var evidenceEntries = new JArray();
@@ -145,7 +145,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                             break;
                         }
 
-                        if (image?.SendToModel != true || string.IsNullOrEmpty(image.ImageData))
+                        if (image?.IsModelVisible != true)
                         {
                             updatedImages.Add(image);
                             continue;

@@ -195,10 +195,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Prefer a typed audio interaction produced by TTS-capable providers.
-                var audioInteraction = result.Body?.Interactions?
-                    .OfType<AIInteractionAudio>()
-                    .LastOrDefault(i => i.Agent == AIAgent.Assistant)
-                    ?? result.Body?.Interactions?.OfType<AIInteractionAudio>().LastOrDefault();
+                var audioInteraction = result.Body?.GetLastAssistantAudio();
 
                 VersatileAudio audio;
                 string audioPayload;

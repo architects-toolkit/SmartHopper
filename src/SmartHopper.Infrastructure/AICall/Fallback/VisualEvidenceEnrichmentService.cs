@@ -88,7 +88,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
             // provider resolution, no call — the source is returned unchanged.
             var hasImages = source.Interactions?.Any(i =>
                 (i is AIInteractionImage img && !string.IsNullOrEmpty(img.ImageData))
-                || (i is AIInteractionToolResult tr && tr.Images != null && tr.Images.Any(t => t?.SendToModel == true && !string.IsNullOrEmpty(t.ImageData))))
+                || (i is AIInteractionToolResult tr && tr.Images != null && tr.Images.Any(t => t?.IsModelVisible == true)))
                 == true;
             if (!hasImages)
             {
