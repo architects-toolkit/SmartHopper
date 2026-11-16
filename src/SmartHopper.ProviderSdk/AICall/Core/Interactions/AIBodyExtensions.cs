@@ -156,13 +156,27 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Gets the last assistant image interaction in the body.
+        /// Gets the last assistant image interaction in the body that carries consumable
+        /// image content (<see cref="AIInteractionImage.HasContent"/>), skipping request or
+        /// placeholder image interactions that carry neither a URL nor inline data.
         /// </summary>
         /// <param name="body">The AI body to query.</param>
-        /// <returns>The last assistant AIInteractionImage, or null if no assistant image exists.</returns>
+        /// <returns>The last assistant AIInteractionImage with content, or null if none exists.</returns>
         public static AIInteractionImage GetLastAssistantImage(this AIBody body)
         {
-            return body?.Interactions?.LastOrDefault(i => i is AIInteractionImage && i.Agent == AIAgent.Assistant) as AIInteractionImage;
+            return body?.Interactions?.LastOrDefault(i => i is AIInteractionImage img && i.Agent == AIAgent.Assistant && img.HasContent) as AIInteractionImage;
+        }
+
+        /// <summary>
+        /// Gets the last assistant audio interaction in the body that carries consumable
+        /// audio content (<see cref="AIInteractionAudio.HasContent"/>), skipping request or
+        /// placeholder audio interactions that carry neither inline data nor a file path.
+        /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <returns>The last assistant AIInteractionAudio with content, or null if none exists.</returns>
+        public static AIInteractionAudio GetLastAssistantAudio(this AIBody body)
+        {
+            return body?.Interactions?.LastOrDefault(i => i is AIInteractionAudio aud && i.Agent == AIAgent.Assistant && aud.HasContent) as AIInteractionAudio;
         }
 
         /// <summary>

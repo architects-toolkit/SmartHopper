@@ -333,17 +333,17 @@ namespace SmartHopper.ProviderSdk.AIModels
 
             foreach (var interaction in interactions)
             {
-                if (interaction is AIInteractionImage)
+                if (interaction is AIInteractionImage image && image.HasContent)
                 {
                     required |= AICapability.ImageInput;
                 }
-                else if (interaction is AIInteractionAudio)
+                else if (interaction is AIInteractionAudio audio && audio.HasContent)
                 {
                     required |= AICapability.AudioInput;
                 }
                 else if (interaction is AIInteractionToolResult toolResult
                     && toolResult.Images != null
-                    && toolResult.Images.Any(i => i?.SendToModel == true && !string.IsNullOrEmpty(i.ImageData)))
+                    && toolResult.Images.Any(i => i?.IsModelVisible == true))
                 {
                     required |= AICapability.ImageInput;
                 }

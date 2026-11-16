@@ -134,6 +134,15 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             Assert.Equal("QQ==", images[0].ImageData);
         }
 
+        [Fact(DisplayName = "IsModelVisible requires SendToModel and non-empty data")]
+        public void IsModelVisible_RequiresFlagAndData()
+        {
+            Assert.True(new ToolResultImage { ImageData = "QUJD", SendToModel = true }.IsModelVisible);
+            Assert.False(new ToolResultImage { ImageData = "QUJD", SendToModel = false }.IsModelVisible);
+            Assert.False(new ToolResultImage { ImageData = string.Empty, SendToModel = true }.IsModelVisible);
+            Assert.False(new ToolResultImage { SendToModel = true }.IsModelVisible);
+        }
+
         [Fact(DisplayName = "ToUserImageMessage builds an OpenAI-compatible user image message")]
         public void ToUserImageMessage_BuildsUserMessage()
         {

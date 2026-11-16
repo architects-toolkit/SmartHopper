@@ -690,6 +690,16 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             Assert.Contains("generated from 'a cat'", neither.GetRawContentForRender());
         }
 
+        [Fact(DisplayName = nameof(Image_HasContent) + PlatformSuffix)]
+        public void Image_HasContent()
+        {
+            Assert.False(new AIInteractionImage().HasContent);
+            Assert.False(new AIInteractionImage { ImageData = "   " }.HasContent);
+            Assert.True(new AIInteractionImage().WithVisionInput("https://example.com/image.png").HasContent);
+            Assert.True(new AIInteractionImage().WithVisionInputFromBase64("QUJD").HasContent);
+            Assert.True(new AIInteractionImage().WithResult("https://example.com/image.png").HasContent);
+        }
+
         #endregion
 
         #region AIInteractionRuntimeMessage
@@ -965,6 +975,16 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
             var empty = new AIInteractionAudio { MimeType = "audio/wav" };
 
             Assert.Equal("Audio(audio/wav, unknown)", empty.ToString());
+        }
+
+        [Fact(DisplayName = nameof(Audio_HasContent) + PlatformSuffix)]
+        public void Audio_HasContent()
+        {
+            Assert.False(new AIInteractionAudio().HasContent);
+            Assert.False(new AIInteractionAudio { Data = new byte[0] }.HasContent);
+            Assert.False(new AIInteractionAudio { FilePath = "   " }.HasContent);
+            Assert.True(new AIInteractionAudio { Data = new byte[] { 1 } }.HasContent);
+            Assert.True(new AIInteractionAudio { FilePath = @"C:\audio.wav" }.HasContent);
         }
 
         #endregion

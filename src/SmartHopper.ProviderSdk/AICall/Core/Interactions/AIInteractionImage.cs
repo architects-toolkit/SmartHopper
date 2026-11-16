@@ -72,6 +72,13 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         public List<SHRuntimeMessage> Messages { get; init; } = new List<SHRuntimeMessage>();
 
         /// <summary>
+        /// Gets a value indicating whether this interaction carries consumable image content —
+        /// either a resolved <see cref="ImageUrl"/> or inline <see cref="ImageData"/>.
+        /// Result-selection helpers use this to skip request/placeholder image interactions.
+        /// </summary>
+        public bool HasContent => this.ImageUrl != null || !string.IsNullOrWhiteSpace(this.ImageData);
+
+        /// <summary>
         /// Returns a string representation of the <see cref="AIInteractionImage"/>.
         /// </summary>
         /// <returns>A formatted string containing image metadata.</returns>

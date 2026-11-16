@@ -44,6 +44,14 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         public bool SendToModel { get; init; }
 
         /// <summary>
+        /// Gets a value indicating whether this image carries a model-visible payload —
+        /// <see cref="SendToModel"/> is set and <see cref="ImageData"/> is present.
+        /// Modality checks, codecs and fallback passes use this to skip display-only or
+        /// empty images instead of re-implementing the predicate.
+        /// </summary>
+        public bool IsModelVisible => this.SendToModel && !string.IsNullOrEmpty(this.ImageData);
+
+        /// <summary>
         /// Gets the image width in pixels, when known.
         /// </summary>
         public int? Width { get; init; }
