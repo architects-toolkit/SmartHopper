@@ -133,6 +133,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""instructions"": {
                             ""type"": ""string"",
                             ""description"": ""Natural language instructions describing how to edit the script.""
+                        },
+                        ""contextFilter"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*'). Defaults to '-*' (no context).""
                         }
                     },
                     ""required"": [""ghjson"", ""instructions""]
@@ -160,6 +164,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""instructions"": {
                             ""type"": ""string"",
                             ""description"": ""Natural language instructions describing how to edit the script.""
+                        },
+                        ""contextFilter"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*'). Defaults to '-*' (no context).""
                         }
                     },
                     ""required"": [""instanceGuid"", ""instructions""]
@@ -512,6 +520,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var wrapperArgs = wrapperToolInfo.Arguments ?? new JObject();
                 var instanceGuidText = wrapperArgs["instanceGuid"]?.ToString();
                 var instructions = wrapperArgs["instructions"]?.ToString();
+                var contextFilter = wrapperArgs["contextFilter"]?.ToString();
 
                 if (string.IsNullOrWhiteSpace(instanceGuidText))
                 {
@@ -587,6 +596,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["ghjson"] = ghJsonInput,
                     ["instructions"] = instructions,
                 };
+                if (!string.IsNullOrWhiteSpace(contextFilter))
+                {
+                    scriptEditArgs["contextFilter"] = contextFilter;
+                }
 
                 var scriptEditInteraction = new AIInteractionToolCall
                 {

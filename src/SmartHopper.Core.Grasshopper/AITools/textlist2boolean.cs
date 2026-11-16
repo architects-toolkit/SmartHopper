@@ -84,7 +84,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""properties"": {
                         ""list"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Array of strings to evaluate (e.g., ['apple', 'banana', 'orange'])"" },
                         ""question"": { ""type"": ""string"", ""description"": ""The natural language question to answer about the list"" },
-                        ""fallback"": { ""type"": ""boolean"", ""description"": ""Optional fallback value to use when AI response cannot be parsed as true/false. If not provided, the result will be null for unparsable responses"" }
+                        ""fallback"": { ""type"": ""boolean"", ""description"": ""Optional fallback value to use when AI response cannot be parsed as true/false. If not provided, the result will be null for unparsable responses"" },
+                        ""contextFilter"": { ""type"": ""string"", ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*')."" }
                     },
                     ""required"": [""list"", ""question""]
                 }",

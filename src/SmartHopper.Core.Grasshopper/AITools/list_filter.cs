@@ -99,7 +99,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""type"": ""object"",
                     ""properties"": {
                         ""list"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Array of strings to process (e.g., ['apple', 'banana', 'orange'])"" },
-                        ""criteria"": { ""type"": ""string"", ""description"": ""Natural language operation to apply (e.g., 'only items containing the word house', 'sort alphabetically', 'reverse order', 'first 3 items', 'every other item', 'repeat each item twice')"" }
+                        ""criteria"": { ""type"": ""string"", ""description"": ""Natural language operation to apply (e.g., 'only items containing the word house', 'sort alphabetically', 'reverse order', 'first 3 items', 'every other item', 'repeat each item twice')"" },
+                        ""contextFilter"": { ""type"": ""string"", ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*')."" }
                     },
                     ""required"": [""list"", ""criteria""]
                 }",

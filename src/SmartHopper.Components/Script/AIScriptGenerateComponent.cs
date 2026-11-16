@@ -308,7 +308,6 @@ namespace SmartHopper.Components.Script
                 var getParams = new JObject
                 {
                     ["instanceGuids"] = new JArray(guid),
-                    ["contextFilter"] = "-*",
                 };
 
                 var getResult = await this.parent.CallAIToolAsync("gh_get", getParams, token).ConfigureAwait(false);

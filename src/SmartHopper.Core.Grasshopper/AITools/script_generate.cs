@@ -138,6 +138,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""string"",
                             ""description"": ""Optional preferred scripting language (python, ironpython, c#, vb). Defaults to python if not specified."",
                             ""enum"": [""python"", ""ironpython"", ""c#"", ""vb""]
+                        },
+                        ""contextFilter"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*'). Defaults to '-*' (no context).""
                         }
                     },
                     ""required"": [""instructions""]
@@ -165,6 +169,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""string"",
                             ""description"": ""Optional preferred scripting language (python, ironpython, c#, vb). Defaults to python if not specified."",
                             ""enum"": [""python"", ""ironpython"", ""c#"", ""vb""]
+                        },
+                        ""contextFilter"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*'). Defaults to '-*' (no context).""
                         }
                     },
                     ""required"": [""instructions""]
@@ -534,6 +542,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var wrapperArgs = wrapperToolInfo.Arguments ?? new JObject();
                 var instructions = wrapperArgs["instructions"]?.ToString();
                 var language = wrapperArgs["language"]?.ToString();
+                var contextFilter = wrapperArgs["contextFilter"]?.ToString();
 
                 if (string.IsNullOrWhiteSpace(instructions))
                 {
@@ -551,6 +560,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (!string.IsNullOrWhiteSpace(language))
                 {
                     scriptGenerateArgs["language"] = language;
+                }
+
+                if (!string.IsNullOrWhiteSpace(contextFilter))
+                {
+                    scriptGenerateArgs["contextFilter"] = contextFilter;
                 }
 
                 var scriptGenerateInteraction = new AIInteractionToolCall

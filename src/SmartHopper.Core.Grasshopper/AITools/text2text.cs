@@ -79,6 +79,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""instructions"": {
                             ""type"": ""string"",
                             ""description"": ""Optional instructions for the AI (system prompt)""
+                        },
+                        ""contextFilter"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*').""
                         }
                     },
                     ""required"": [""prompt""]
