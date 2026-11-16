@@ -90,7 +90,7 @@ namespace SmartHopper.Providers.Gemini
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
-                    Aliases = new List<string> { "gemini-3.5-flash-lite:batch" },
+                    Aliases = new List<string> { "gemini-3.5-flash-lite:batch", "gemini-3-5-flash-lite" },
                 },
 
                 new AIModelCapabilities
@@ -98,6 +98,7 @@ namespace SmartHopper.Providers.Gemini
                     Provider = providerName,
                     Model = "gemini-3.8-flash",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.Text2Json | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
                     SupportsBatch = true,
                     Verified = false,
                     Rank = 9995,
@@ -133,7 +134,7 @@ namespace SmartHopper.Providers.Gemini
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
-                    Aliases = new List<string> { "gemini-3.8-flash:batch" },
+                    Aliases = new List<string> { "gemini-3.8-flash:batch", "gemini-3-8-flash" },
                 },
 
                 new AIModelCapabilities
@@ -176,7 +177,7 @@ namespace SmartHopper.Providers.Gemini
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
-                    Aliases = new List<string> { "gemini-3.7-flash:batch" },
+                    Aliases = new List<string> { "gemini-3.7-flash:batch", "gemini-3-7-flash" },
                 },
 
                 new AIModelCapabilities
@@ -219,7 +220,7 @@ namespace SmartHopper.Providers.Gemini
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
-                    Aliases = new List<string> { "gemini-3.6-flash:batch" },
+                    Aliases = new List<string> { "gemini-3.6-flash:batch", "gemini-3-6-flash" },
                 },
 
                 new AIModelCapabilities
@@ -227,6 +228,7 @@ namespace SmartHopper.Providers.Gemini
                     Provider = providerName,
                     Model = "gemini-3.1-flash-lite-image",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Text2Image | AICapability.Image2Image | AICapability.Image2Text,
                     Verified = false,
                     Rank = 9980,
                     ContextLimit = 65536,
@@ -241,6 +243,7 @@ namespace SmartHopper.Providers.Gemini
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
+                    Aliases = new List<string> { "gemini-3-1-flash-lite-image" },
                 },
 
                 new AIModelCapabilities
@@ -262,6 +265,7 @@ namespace SmartHopper.Providers.Gemini
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
+                    Aliases = new List<string> { "gemini-3-1-flash-image" },
                 },
 
                 new AIModelCapabilities
@@ -289,6 +293,7 @@ namespace SmartHopper.Providers.Gemini
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
+                    Aliases = new List<string> { "gemini-3-pro-image" },
                 },
 
 
@@ -406,7 +411,7 @@ namespace SmartHopper.Providers.Gemini
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
-                    Aliases = new List<string> { "gemini-3.1-flash-lite:batch" },
+                    Aliases = new List<string> { "gemini-3.1-flash-lite:batch", "gemini-3-1-flash-lite" },
                 },
 
                 new AIModelCapabilities
@@ -448,7 +453,7 @@ namespace SmartHopper.Providers.Gemini
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
-                    Aliases = new List<string> { "gemini-3.5-flash:batch" },
+                    Aliases = new List<string> { "gemini-3.5-flash:batch", "gemini-3-5-flash" },
                 },
 
 
@@ -585,7 +590,7 @@ namespace SmartHopper.Providers.Gemini
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
-                    Aliases = new List<string> { "gemini-3.1-pro-preview:batch" },
+                    Aliases = new List<string> { "gemini-3.1-pro-preview:batch", "gemini-3-1-pro-preview" },
                 },
 
                 new AIModelCapabilities
@@ -593,7 +598,6 @@ namespace SmartHopper.Providers.Gemini
                     Provider = providerName,
                     Model = "gemini-3.1-flash-image-preview",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Image,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9915,
@@ -609,6 +613,7 @@ namespace SmartHopper.Providers.Gemini
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
+                    Aliases = new List<string> { "gemini-3-1-flash-image-preview" },
                 },
 
 
@@ -620,7 +625,6 @@ namespace SmartHopper.Providers.Gemini
                     Provider = providerName,
                     Model = "gemini-2.5-flash-image",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput,
-                    Default = AICapability.Text2Image,
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 9910,
@@ -642,6 +646,7 @@ namespace SmartHopper.Providers.Gemini
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
+                    Aliases = new List<string> { "gemini-2-5-flash-image" },
                 },
 
                 new AIModelCapabilities
@@ -649,7 +654,6 @@ namespace SmartHopper.Providers.Gemini
                     Provider = providerName,
                     Model = "gemini-3-pro-image-preview",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Image | AICapability.Image2Image,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9905,
@@ -685,7 +689,8 @@ namespace SmartHopper.Providers.Gemini
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = true,
-                    Rank = 9900,
+                    Deprecated = true,
+                    Rank = 0,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 7, 22),
                     Pricing = new AIModelPricing
@@ -717,7 +722,7 @@ namespace SmartHopper.Providers.Gemini
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
-                    Aliases = new List<string> { "gemini-2.5-flash-lite:batch" },
+                    Aliases = new List<string> { "gemini-2.5-flash-lite:batch", "gemini-2-5-flash-lite" },
                 },
 
                 new AIModelCapabilities
@@ -725,7 +730,6 @@ namespace SmartHopper.Providers.Gemini
                     Provider = providerName,
                     Model = "gemini-2.5-flash",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.SpeechInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.Text2Json | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = true,
@@ -761,7 +765,7 @@ namespace SmartHopper.Providers.Gemini
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
-                    Aliases = new List<string> { "gemini-2.5-flash:batch" },
+                    Aliases = new List<string> { "gemini-2.5-flash:batch", "gemini-2-5-flash" },
                 },
 
                 new AIModelCapabilities
@@ -772,7 +776,8 @@ namespace SmartHopper.Providers.Gemini
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = true,
-                    Rank = 9890,
+                    Deprecated = true,
+                    Rank = 0,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 6, 17),
                     Pricing = new AIModelPricing
@@ -804,7 +809,7 @@ namespace SmartHopper.Providers.Gemini
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
-                    Aliases = new List<string> { "gemini-2.5-pro:batch" },
+                    Aliases = new List<string> { "gemini-2.5-pro:batch", "gemini-2-5-pro" },
                 },
 
 

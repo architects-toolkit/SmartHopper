@@ -146,7 +146,7 @@ namespace SmartHopper.Providers.DeepSeek
                     Rank = -2,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 17),
-                    Aliases = new List<string> { "deepseek-v4.1-flash:batch" },
+                    Aliases = new List<string> { "deepseek-v4.1-flash:batch", "deepseek-v4-1-flash" },
                 },
 
                 new AIModelCapabilities
@@ -160,7 +160,7 @@ namespace SmartHopper.Providers.DeepSeek
                     Rank = -3,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 17),
-                    Aliases = new List<string> { "deepseek-flash-latest" },
+                    Aliases = new List<string> { "deepseek-flash-latest", "deepseek-v4-1-flash-1017" },
                 },
 
                 new AIModelCapabilities

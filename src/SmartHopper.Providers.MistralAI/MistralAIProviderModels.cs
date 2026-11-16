@@ -75,7 +75,7 @@ namespace SmartHopper.Providers.MistralAI
                 new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000014m),
             },
         },
-                    Aliases = new List<string> { "mistral-large-4-0" },
+                    Aliases = new List<string> { "mistral-large-4-0", "mistral-large-4.0" },
                 },
 
 

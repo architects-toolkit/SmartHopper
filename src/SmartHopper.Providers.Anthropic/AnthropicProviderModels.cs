@@ -306,7 +306,6 @@ namespace SmartHopper.Providers.Anthropic
                     Provider = providerName,
                     Model = "claude-sonnet-4-6",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Json,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9960,

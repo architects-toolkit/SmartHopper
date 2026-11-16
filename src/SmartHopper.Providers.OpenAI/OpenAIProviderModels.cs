@@ -59,6 +59,7 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-6-luna",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json | AICapability.Image2Text,
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
@@ -123,7 +124,7 @@ namespace SmartHopper.Providers.OpenAI
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
             },
         },
-                    Aliases = new List<string> { "gpt-6.1-sol:batch" },
+                    Aliases = new List<string> { "gpt-6.1-sol:batch", "gpt-6-1-sol" },
                 },
 
                 new AIModelCapabilities
@@ -332,7 +333,7 @@ namespace SmartHopper.Providers.OpenAI
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
             },
         },
-                    Aliases = new List<string> { "gpt-5.4-nano", "gpt-5.4-nano-latest" },
+                    Aliases = new List<string> { "gpt-5.4-nano", "gpt-5-4-nano", "gpt-5.4-nano-latest", "gpt-5-4-nano-latest" },
                 },
 
                 new AIModelCapabilities
@@ -340,7 +341,6 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-5.4-mini-2026-03-17",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json | AICapability.Image2Text,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9960,
@@ -356,7 +356,7 @@ namespace SmartHopper.Providers.OpenAI
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
             },
         },
-                    Aliases = new List<string> { "gpt-5.4-mini", "gpt-5.4-mini-latest" },
+                    Aliases = new List<string> { "gpt-5.4-mini", "gpt-5-4-mini", "gpt-5.4-mini-latest", "gpt-5-4-mini-latest" },
                 },
 
                 new AIModelCapabilities
@@ -401,7 +401,7 @@ namespace SmartHopper.Providers.OpenAI
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
             },
         },
-                    Aliases = new List<string> { "gpt-5.4", "gpt-5.4-latest" },
+                    Aliases = new List<string> { "gpt-5.4", "gpt-5-4", "gpt-5.4-latest", "gpt-5-4-latest" },
                 },
 
                 new AIModelCapabilities
@@ -424,7 +424,7 @@ namespace SmartHopper.Providers.OpenAI
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
             },
         },
-                    Aliases = new List<string> { "gpt-5.5", "gpt-5.5-latest" },
+                    Aliases = new List<string> { "gpt-5.5", "gpt-5-5", "gpt-5.5-latest", "gpt-5-5-latest" },
                 },
 
                 new AIModelCapabilities
@@ -446,7 +446,7 @@ namespace SmartHopper.Providers.OpenAI
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
             },
         },
-                    Aliases = new List<string> { "gpt-5.5-pro", "gpt-5.5-pro-latest" },
+                    Aliases = new List<string> { "gpt-5.5-pro", "gpt-5-5-pro", "gpt-5.5-pro-latest", "gpt-5-5-pro-latest" },
                 },
 
                 new AIModelCapabilities
@@ -468,7 +468,7 @@ namespace SmartHopper.Providers.OpenAI
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
             },
         },
-                    Aliases = new List<string> { "gpt-5.4-pro", "gpt-5.4-pro-latest" },
+                    Aliases = new List<string> { "gpt-5.4-pro", "gpt-5-4-pro", "gpt-5.4-pro-latest", "gpt-5-4-pro-latest" },
                 },
 
 
@@ -710,7 +710,6 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-5-mini-2025-08-07",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json | AICapability.Image2Text,
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 9880,
@@ -1193,7 +1192,6 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-4o-mini-tts-2025-03-20",
                     Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
-                    Default = AICapability.Text2Speech,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9765,
@@ -1239,6 +1237,7 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-4o-transcribe",
                     Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
+                    Default = AICapability.Speech2Text,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9750,
@@ -1394,7 +1393,6 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-image-1",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
-                    Default = AICapability.Text2Image | AICapability.Image2Image,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9705,
@@ -1405,7 +1403,6 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-image-1-mini",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
-                    Default = AICapability.Text2Image | AICapability.Image2Image,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9700,
@@ -1416,7 +1413,6 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-image-1.5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
-                    Default = AICapability.Text2Image | AICapability.Image2Image,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9695,
@@ -1427,7 +1423,6 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-image-2-2026-04-21",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
-                    Default = AICapability.Image2Image,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9690,
@@ -1439,11 +1434,10 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-image-2.5-flare-2026-09-08",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
-                    Default = AICapability.Text2Image | AICapability.Image2Image,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9685,
-                    Aliases = new List<string> { "gpt-image-2.5-flare", "gpt-image-2.5-flare-latest" },
+                    Aliases = new List<string> { "gpt-image-2.5-flare", "gpt-image-2-5-flare", "gpt-image-2.5-flare-latest", "gpt-image-2-5-flare-latest" },
                 },
 
                 new AIModelCapabilities
@@ -1451,11 +1445,34 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-image-2.5-sunburst-2026-09-08",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
-                    Default = AICapability.Text2Image | AICapability.Image2Image,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9680,
-                    Aliases = new List<string> { "gpt-image-2.5-sunburst", "gpt-image-2.5-sunburst-latest" },
+                    Aliases = new List<string> { "gpt-image-2.5-sunburst", "gpt-image-2-5-sunburst", "gpt-image-2.5-sunburst-latest", "gpt-image-2-5-sunburst-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-image-2.6-flare",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    Default = AICapability.Text2Image | AICapability.Image2Image,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9677,
+                    Aliases = new List<string> { "gpt-image-2-6-flare", "gpt-image-2.6-flare-latest", "gpt-image-2-6-flare-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-image-2.6-sunburst",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    Default = AICapability.Text2Image | AICapability.Image2Image,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9676,
+                    Aliases = new List<string> { "gpt-image-2-6-sunburst", "gpt-image-2.6-sunburst-latest", "gpt-image-2-6-sunburst-latest" },
                 },
 
                 new AIModelCapabilities
@@ -1597,7 +1614,6 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "tts-1",
                     Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
-                    Default = AICapability.Text2Speech,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9625,
@@ -1609,7 +1625,6 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "tts-1-1106",
                     Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
-                    Default = AICapability.Text2Speech,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9620,
@@ -1622,7 +1637,6 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "tts-1-hd",
                     Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
-                    Default = AICapability.Text2Speech,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9615,
@@ -1634,7 +1648,6 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "tts-1-hd-1106",
                     Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
-                    Default = AICapability.Text2Speech,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9610,
@@ -1646,7 +1659,6 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "whisper-1",
                     Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
-                    Default = AICapability.Speech2Text,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9605,

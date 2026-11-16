@@ -1720,7 +1720,7 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
-                    Aliases = new List<string> { "google/gemini-3.8-flash:batch" },
+                    Aliases = new List<string> { "google/gemini-3.8-flash:batch", "google/gemini-3-8-flash" },
                 },
 
                 new AIModelCapabilities
@@ -2000,7 +2000,7 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
             },
         },
-                    Aliases = new List<string> { "openai/gpt-6.1-sol-pro:batch" },
+                    Aliases = new List<string> { "openai/gpt-6.1-sol-pro:batch", "openai/gpt-6-1-sol-pro" },
                 },
 
                 new AIModelCapabilities
@@ -2035,7 +2035,7 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
             },
         },
-                    Aliases = new List<string> { "openai/gpt-6.1-sol:batch" },
+                    Aliases = new List<string> { "openai/gpt-6.1-sol:batch", "openai/gpt-6-1-sol" },
                 },
 
                 new AIModelCapabilities
@@ -2373,6 +2373,7 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
+                    Aliases = new List<string> { "google/gemini-nano-banana-2-1" },
                 },
 
                 new AIModelCapabilities
@@ -2805,7 +2806,7 @@ namespace SmartHopper.Providers.OpenRouter
                     Provider = provider,
                     Model = "openai/gpt-5.6-luna",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
+                    Default = AICapability.Text2Text | AICapability.Text2Json | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
                     SupportsBatch = true,
                     Verified = false,
                     Rank = 9400,
@@ -4014,6 +4015,7 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
             },
         },
+                    Aliases = new List<string> { "google/gemini-3-1-flash-image" },
                 },
 
                 new AIModelCapabilities
@@ -6469,7 +6471,7 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
             },
         },
-                    Aliases = new List<string> { "mistralai/mistral-medium-3.1:batch" },
+                    Aliases = new List<string> { "mistralai/mistral-medium-3.1:batch", "mistralai/mistral-medium-3-1" },
                 },
 
                 new AIModelCapabilities
@@ -6477,11 +6479,11 @@ namespace SmartHopper.Providers.OpenRouter
                     Provider = provider,
                     Model = "openai/gpt-5-mini",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.Text2Json,
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8690,
+                    Deprecated = true,
+                    Rank = 0,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 8, 7),
                     Pricing = new AIModelPricing
@@ -6817,6 +6819,7 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
             },
         },
+                    Aliases = new List<string> { "mistralai/mistral-small-3-2-24b-instruct" },
                 },
 
                 new AIModelCapabilities
@@ -7341,6 +7344,7 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000555m),
             },
         },
+                    Aliases = new List<string> { "mistralai/mistral-small-3-1-24b-instruct" },
                 },
 
                 new AIModelCapabilities
