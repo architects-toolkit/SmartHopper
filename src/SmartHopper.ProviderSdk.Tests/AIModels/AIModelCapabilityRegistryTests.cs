@@ -622,5 +622,70 @@ namespace SmartHopper.ProviderSdk.Tests.AIModels
             Assert.True(registry.ValidateCapabilities(provider, "image-gen-model", AICapability.Text2Image));
             Assert.False(registry.ValidateCapabilities(provider, "text-only-model", AICapability.Text2Image));
         }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "GetDefaultModel_SkipsDeprecated [Windows]")]
+#else
+        [Fact(DisplayName = "GetDefaultModel_SkipsDeprecated [Core]")]
+#endif
+        public void GetDefaultModel_SkipsDeprecated()
+        {
+            ProviderSdkTestHelper.ResetCapabilityRegistry();
+            var registry = AIModelCapabilityRegistry.Instance;
+
+            // A high-ranked deprecated model must not win automatic selection
+            // over a lower-ranked live one (stale catalogue tombstones).
+            registry.SetCapabilities(new AIModelCapabilities
+            {
+                Provider = "deepseek",
+                Model = "deepseek-v4.1-flash-1017",
+                Capabilities = AICapability.Text2Text | AICapability.Image2Text,
+                Default = AICapability.Image2Text,
+                Deprecated = true,
+                Rank = 10000,
+            });
+            registry.SetCapabilities(new AIModelCapabilities
+            {
+                Provider = "deepseek",
+                Model = "deepseek-flash",
+                Capabilities = AICapability.Text2Text,
+                Default = AICapability.Text2Text,
+                Rank = 100,
+            });
+
+            Assert.True(string.IsNullOrEmpty(registry.GetDefaultModel("deepseek", AICapability.Image2Text)));
+            Assert.Equal("deepseek-flash", registry.GetDefaultModel("deepseek", AICapability.Text2Text));
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "SelectBestModel_SkipsDeprecatedInAutoSelection [Windows]")]
+#else
+        [Fact(DisplayName = "SelectBestModel_SkipsDeprecatedInAutoSelection [Core]")]
+#endif
+        public void SelectBestModel_SkipsDeprecatedInAutoSelection()
+        {
+            ProviderSdkTestHelper.ResetCapabilityRegistry();
+            var registry = AIModelCapabilityRegistry.Instance;
+
+            registry.SetCapabilities(new AIModelCapabilities
+            {
+                Provider = "deepseek",
+                Model = "deepseek-v4.1-flash-1017",
+                Capabilities = AICapability.Text2Text | AICapability.Image2Text,
+                Deprecated = true,
+                Rank = 10000,
+            });
+            registry.SetCapabilities(new AIModelCapabilities
+            {
+                Provider = "deepseek",
+                Model = "deepseek-flash",
+                Capabilities = AICapability.Text2Text | AICapability.Image2Text,
+                Rank = 100,
+            });
+
+            var selected = registry.SelectBestModel("deepseek", string.Empty, AICapability.Image2Text);
+
+            Assert.Equal("deepseek-flash", selected);
+        }
     }
 }

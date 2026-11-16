@@ -24,6 +24,7 @@
  */
 
 using System;
+using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
@@ -57,6 +58,15 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// Lets text, images and tool outputs carry their page/figure attribution end-to-end.
         /// </summary>
         SourceContentReference SourceReference { get; init; }
+
+        /// <summary>
+        /// Gets opaque provider-owned data captured verbatim from a response and echoed
+        /// back on subsequent requests (e.g. Gemini's <c>thoughtSignature</c> on
+        /// function-call parts, required for multi-turn tool calling). Consumers must
+        /// never interpret the contents; each provider codec owns its keys and decides
+        /// where to re-emit them.
+        /// </summary>
+        JObject ProviderData { get; init; }
 
         /// <summary>
         /// Returns a new <see cref="IAIInteraction"/> of the same concrete type with the specified
