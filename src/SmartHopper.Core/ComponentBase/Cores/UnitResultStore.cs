@@ -958,9 +958,11 @@ namespace SmartHopper.Core.ComponentBase.Cores
             }
 
             var units = new JObject();
+            var serializeWarnings = new List<string>();
             foreach (var unit in entries)
             {
                 var outputs = new JObject();
+                var unitDropped = false;
                 foreach (var output in unit.Value)
                 {
                     var encoded = new JArray();
@@ -974,18 +976,42 @@ namespace SmartHopper.Core.ComponentBase.Cores
                             }
                             catch (Exception ex)
                             {
-                                Logger.For<UnitResultStore>().Warning($"[UnitResultStore] Skipping unencodable item in output '{output.Key}': {ex.Message}");
+                                // A unit with a dropped item is silently incomplete: restoring it
+                                // would replay wrong data or mask the loss. Drop the whole unit so
+                                // the run re-executes instead of serving a truncated result.
+                                unitDropped = true;
+                                serializeWarnings.Add($"Unit '{unit.Key}' dropped: unencodable item in output '{output.Key}' ({ex.Message})");
+                                break;
                             }
                         }
+                    }
+
+                    if (unitDropped)
+                    {
+                        break;
                     }
 
                     outputs[output.Key] = encoded;
                 }
 
+                if (unitDropped)
+                {
+                    continue;
+                }
+
                 units[unit.Key] = outputs;
             }
 
+            foreach (var w in serializeWarnings)
+            {
+                Logger.For<UnitResultStore>().Warning($"[UnitResultStore] {w}");
+            }
+
             var result = new JObject { ["v"] = FormatVersion, ["e"] = units };
+            if (serializeWarnings.Count > 0)
+            {
+                result["w"] = new JArray(serializeWarnings);
+            }
 
             if (metrics != null && metrics.Count > 0)
             {

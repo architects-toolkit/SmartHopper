@@ -19,9 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -299,25 +297,11 @@ namespace SmartHopper.Components.Img
                                         {
                                             try
                                             {
-                                                VersatileImage imageSource;
-
-                                                // Check if it's a URL or base64 data
-                                                if (imageResult.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || imageResult.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                                                {
-                                                    // Store as URL
-                                                    imageSource = VersatileImage.FromString(imageResult);
-                                                }
-                                                else
-                                                {
-                                                    // Convert from base64 to bitmap and store as Bitmap
-                                                    var base64Data = imageResult.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)
-                                                        ? imageResult.Substring(imageResult.IndexOf(",", StringComparison.Ordinal) + 1)
-                                                        : imageResult;
-                                                    var imageBytes = Convert.FromBase64String(base64Data);
-                                                    using var stream = new MemoryStream(imageBytes);
-                                                    var bitmap = new Bitmap(stream);
-                                                    imageSource = VersatileImage.FromBitmap(bitmap);
-                                                }
+                                                // text2img returns a URL or a self-describing data URI.
+                                                // Keep the canonical representation (URL/DataUri/Base64)
+                                                // instead of materializing a GDI+ bitmap: persisted output
+                                                // then round-trips the raw payload without a live Bitmap.
+                                                var imageSource = VersatileImage.FromString(imageResult);
 
                                                 // Wrap in GH_VersatileImage for output
                                                 outputs["Image"].Add(new GH_VersatileImage(imageSource));

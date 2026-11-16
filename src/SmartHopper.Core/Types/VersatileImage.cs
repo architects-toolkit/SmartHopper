@@ -349,7 +349,7 @@ namespace SmartHopper.Core.Types
         }
 
         /// <summary>Clones decoded pixels so the returned bitmap does not depend on a disposed stream.</summary>
-        private static Bitmap DecodeBitmap(byte[] bytes)
+        internal static Bitmap DecodeBitmap(byte[] bytes)
         {
             using var stream = new MemoryStream(bytes);
             using var decoded = new Bitmap(stream);

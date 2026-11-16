@@ -90,5 +90,33 @@ namespace SmartHopper.Core.Tests.Types
         {
             Assert.Throws<ArgumentNullException>(() => VersatileImage.FromInteraction(null));
         }
+
+#if NET7_WINDOWS
+        /// <summary>
+        /// Regression: a bitmap decoded from persisted bytes must be usable after the
+        /// decode. The old <c>new Bitmap(stream)</c> path left the bitmap bound to a
+        /// disposed stream — later Save/pixel access threw generic GDI+ errors.
+        /// </summary>
+        [Fact(DisplayName = "DecodeBitmap returns a stream-independent bitmap [Windows]")]
+        public void DecodeBitmap_IsStreamIndependent()
+        {
+            byte[] png;
+            using (var seed = new System.Drawing.Bitmap(2, 2))
+            {
+                seed.SetPixel(0, 0, System.Drawing.Color.Red);
+                using var ms = new System.IO.MemoryStream();
+                seed.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                png = ms.ToArray();
+            }
+
+            using var decoded = VersatileImage.DecodeBitmap(png);
+
+            // Both pixel access and re-encode must succeed on the cloned bitmap.
+            Assert.Equal(System.Drawing.Color.Red.ToArgb(), decoded.GetPixel(0, 0).ToArgb());
+            using var roundTrip = new System.IO.MemoryStream();
+            decoded.Save(roundTrip, System.Drawing.Imaging.ImageFormat.Png);
+            Assert.True(roundTrip.Length > 0);
+        }
+#endif
     }
 }
