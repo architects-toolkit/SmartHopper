@@ -131,6 +131,38 @@ namespace SmartHopper.Providers.DeepSeek
                     Aliases = new List<string> { "deepseek-v4-flash-vision-exp:batch" },
                 },
 
+                // Renamed/withdrawn V4.1 flash variants: not accepted by the live API
+                // (only deepseek-flash / deepseek-v4-pro are served). Kept as deprecated
+                // tombstones so catalogue merges and stale caches converge on the rename.
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek-v4.1-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -2,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 10, 17),
+                    Aliases = new List<string> { "deepseek-v4.1-flash:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek-v4.1-flash-1017",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -3,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 10, 17),
+                    Aliases = new List<string> { "deepseek-flash-latest" },
+                },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
