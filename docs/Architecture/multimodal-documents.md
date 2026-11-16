@@ -19,6 +19,8 @@
 
 Preparation applies to direct calls, streaming, every chat tool continuation, and component output requests. Keep canonical document/session evidence unchanged; prepare a request-local view. Preserve TurnId, tool call/result IDs, source associations, ordering, settings, cancellation and diagnostics. Meter helper calls once and keep their provider/model distinct from primary-call metrics. Do not recursively fall back a helper that cannot handle its declared modality.
 
+Candidate selection and execution failover are separate concerns: the resolver produces each step's ordered provider/model candidates (an explicit pin resolves to exactly one authoritative target), while `FallbackChain` bounds execution. A candidate whose conversion fails on a retryable error is retried once on the next candidate — at most two attempts per step; failures attributed to the input itself are never retried. Failed-attempt output is discarded but its metrics and diagnostics are preserved, with superseded errors demoted to warnings so a later success is not misread as failure. A used fallback emits one surfaceable `ModalityFallbackApplied` remark naming the provider/model that ran, plus informational logging. Automatic candidate selection excludes deprecated models; explicit user pins stay authoritative even when they name a deprecated model.
+
 Existing component-local fallback must be replaced by the central path rather than retained as a second implementation. Batch requests prepare before queue/submission, not during decoding; unsupported staged asynchronous workflows must fail explicitly rather than submit malformed payloads.
 
 ## PDF Reading
