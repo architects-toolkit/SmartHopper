@@ -20,6 +20,8 @@
 namespace SmartHopper.ProviderSdk.Tests.Providers.Gemini
 {
     using System;
+    using System.Collections.Generic;
+    using System.Linq;
     using System.Threading.Tasks;
     using Newtonsoft.Json.Linq;
     using SmartHopper.Providers.Gemini;
@@ -27,6 +29,7 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.Gemini
     using SmartHopper.ProviderSdk.AICall.Core.Base;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AICall.Core.Requests;
+    using SmartHopper.ProviderSdk.AICall.Metrics;
     using SmartHopper.ProviderSdk.AIModels;
     using SmartHopper.ProviderSdk.AIProviders;
     using SmartHopper.ProviderSdk.Hosting;
@@ -276,6 +279,120 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.Gemini
             var body = JObject.Parse(GeminiProvider.Instance.Encode(request));
 
             Assert.Equal(emitted, body["generationConfig"]?["mediaResolution"] != null);
+        }
+
+        /// <summary>
+        /// The global ThinkingLevel setting feeds generationConfig.thinkingConfig when
+        /// no per-request 'thinking_level' extra is present.
+        /// </summary>
+        [Fact]
+        public void Encode_ThinkingLevelSetting_EmitsThinkingConfig()
+        {
+            var provider = GeminiProvider.Instance;
+            provider.RefreshCachedSettings(new Dictionary<string, object> { ["ThinkingLevel"] = "high" });
+            try
+            {
+                var request = new AIRequestCall();
+                request.Initialize(
+                    provider: "Gemini",
+                    model: "gemini-3.1-flash",
+                    body: AIBodyBuilder.Create()
+                        .Add(new AIInteractionText { Agent = AIAgent.User, Content = "think" })
+                        .Build(),
+                    origin: string.Empty,
+                    capability: AICapability.TextInput | AICapability.TextOutput);
+
+                var body = JObject.Parse(provider.Encode(request));
+                var thinkingConfig = body["generationConfig"]?["thinkingConfig"];
+
+                Assert.Equal("high", thinkingConfig?["thinkingLevel"]?.ToString());
+                Assert.Equal(true, thinkingConfig?["includeThoughts"]?.Value<bool>());
+            }
+            finally
+            {
+                provider.RefreshCachedSettings(new Dictionary<string, object> { ["ThinkingLevel"] = string.Empty });
+            }
+        }
+
+        /// <summary>
+        /// A per-request 'thinking_level' extra wins over the global ThinkingLevel setting.
+        /// </summary>
+        [Fact]
+        public void Encode_ThinkingLevelExtra_OverridesSetting()
+        {
+            var provider = GeminiProvider.Instance;
+            provider.RefreshCachedSettings(new Dictionary<string, object> { ["ThinkingLevel"] = "low" });
+            try
+            {
+                var request = new AIRequestCall();
+                request.Initialize(
+                    provider: "Gemini",
+                    model: "gemini-3.1-flash",
+                    body: AIBodyBuilder.Create()
+                        .Add(new AIInteractionText { Agent = AIAgent.User, Content = "think" })
+                        .Build(),
+                    origin: string.Empty,
+                    capability: AICapability.TextInput | AICapability.TextOutput);
+                request.Parameters = AIRequestParameters.Create()
+                    .WithExtra("thinking_level", "high")
+                    .Build();
+
+                var body = JObject.Parse(provider.Encode(request));
+
+                Assert.Equal("high", body["generationConfig"]?["thinkingConfig"]?["thinkingLevel"]?.ToString());
+            }
+            finally
+            {
+                provider.RefreshCachedSettings(new Dictionary<string, object> { ["ThinkingLevel"] = string.Empty });
+            }
+        }
+
+        /// <summary>
+        /// With neither setting nor extra, no thinkingConfig is emitted (API default).
+        /// </summary>
+        [Fact]
+        public void Encode_NoThinkingLevel_OmitsThinkingConfig()
+        {
+            var provider = GeminiProvider.Instance;
+            provider.RefreshCachedSettings(new Dictionary<string, object> { ["ThinkingLevel"] = string.Empty });
+
+            var request = new AIRequestCall();
+            request.Initialize(
+                provider: "Gemini",
+                model: "gemini-3.1-flash",
+                body: AIBodyBuilder.Create()
+                    .Add(new AIInteractionText { Agent = AIAgent.User, Content = "hi" })
+                    .Build(),
+                origin: string.Empty,
+                capability: AICapability.TextInput | AICapability.TextOutput);
+
+            var body = JObject.Parse(provider.Encode(request));
+
+            Assert.Null(body["generationConfig"]?["thinkingConfig"]);
+        }
+
+        /// <summary>
+        /// usageMetadata.cachedContentTokenCount is a subset of promptTokenCount: it maps to
+        /// the cache_read quantity and is subtracted from text_input so cached tokens bill
+        /// at the cache rate instead of the text rate.
+        /// </summary>
+        [Fact]
+        public void Decode_CachedContentTokens_MapToCacheRead()
+        {
+            var response = JObject.Parse(@"{
+                'candidates': [ { 'content': { 'role': 'model', 'parts': [ { 'text': 'ok' } ] }, 'finishReason': 'STOP' } ],
+                'usageMetadata': { 'promptTokenCount': 100, 'candidatesTokenCount': 10, 'cachedContentTokenCount': 40 }
+            }");
+
+            var interactions = GeminiProvider.Instance.Decode(response);
+            var metrics = interactions.OfType<AIInteractionText>()
+                .Select(i => i.Metrics)
+                .Where(m => m != null)
+                .Aggregate(new AIMetrics(), (acc, m) => acc.WithCombined(m));
+
+            Assert.Equal(40, metrics.Quantity(AIQuantityKey.CacheRead, AIPriceUnit.Token));
+            Assert.Equal(60, metrics.Quantity(AIQuantityKey.TextInput, AIPriceUnit.Token));
+            Assert.Equal(10, metrics.Quantity(AIQuantityKey.TextOutput, AIPriceUnit.Token));
         }
 
         /// <summary>

@@ -657,17 +657,18 @@ namespace SmartHopper.Providers.Gemini
 
         private void ApplyThinkingConfig(JObject generationConfig, AIRequestCall request)
         {
-            if (request.Parameters?.Extras == null || !request.Parameters.Extras.TryGetValue("thinking_level", out var thinkingValue))
+            // Priority: 1) 'thinking_level' extra per-request, 2) global provider setting
+            var thinkingStr = request.Parameters?.Extras != null &&
+                              request.Parameters.Extras.TryGetValue("thinking_level", out var thinkingValue) &&
+                              thinkingValue != null
+                              ? thinkingValue.ToString()
+                              : this.GetSetting<string>("ThinkingLevel");
+
+            if (string.IsNullOrWhiteSpace(thinkingStr))
             {
                 return;
             }
 
-            if (thinkingValue == null || string.IsNullOrWhiteSpace(thinkingValue.ToString()))
-            {
-                return;
-            }
-
-            var thinkingStr = thinkingValue.ToString();
             var thinkingConfig = new JObject();
 
             // Enable thought summaries to be returned in the response

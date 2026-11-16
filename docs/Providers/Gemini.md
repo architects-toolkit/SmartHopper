@@ -107,10 +107,13 @@ Gemini supports a subset of JSON Schema for structured outputs:
 
 ### Thinking/Reasoning
 
-Configure thinking levels for extended reasoning:
+Configure thinking levels for extended reasoning. The **Thinking Level** provider setting applies globally; a per-request `thinking_level` extra overrides it (same precedence pattern as **Service Tier**). Either source emits `generationConfig.thinkingConfig` with `includeThoughts: true`, so billed thinking tokens come back as visible reasoning text on `AIInteractionText.Reasoning` (rendered in chat).
 
-- **Gemini 3**: Use `thinking_level` extra parameter with values: `minimal`, `low`, `medium`, `high`
-- **Gemini 2.5**: Use `thinking_level` as integer string (e.g., `"8192"` for 8K token budget, `"0"` to disable)
+- **Gemini 3**: `minimal`, `low`, `medium`, `high` → `thinkingConfig.thinkingLevel`
+- **Gemini 2.5**: integer token budget as string (e.g., `"8192"` for an 8K token budget, `"0"` to disable) → `thinkingConfig.thinkingBudget`
+- **Empty** (default): no `thinkingConfig` emitted — the API default applies
+
+Cached prompt tokens surface separately in metrics: `usageMetadata.cachedContentTokenCount` (implicit and explicit context caching) decodes into the `cache_read` quantity and is subtracted from `text_input`, so cached input bills at the cache rate instead of the full text rate.
 
 ### Image Generation
 

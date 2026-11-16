@@ -361,6 +361,18 @@ namespace SmartHopper.Providers.Gemini
                 metrics = SubtractModalityTokens(metrics, usageMetadata["promptTokensDetails"] as JArray, inputSide: true);
                 metrics = SubtractModalityTokens(metrics, usageMetadata["candidatesTokensDetails"] as JArray, inputSide: false);
 
+                // cachedContentTokenCount is a subset of promptTokenCount — move it out of
+                // the text bucket so cached input bills at the cache_read rate (implicit
+                // and explicit context caching both surface through this counter).
+                var cachedContentTokenCount = usageMetadata["cachedContentTokenCount"]?.Value<int>() ?? 0;
+                if (cachedContentTokenCount > 0)
+                {
+                    var textInputRemaining = Math.Max(0, metrics.Quantity(AIQuantityKey.TextInput, AIPriceUnit.Token) - cachedContentTokenCount);
+                    metrics = metrics
+                        .WithQuantity(AIQuantityKey.CacheRead, AIPriceUnit.Token, cachedContentTokenCount)
+                        .WithQuantity(AIQuantityKey.TextInput, AIPriceUnit.Token, textInputRemaining);
+                }
+
                 // Surface the first candidate's raw finishReason on the metrics interaction so
                 // aggregated call metrics carry the terminal reason, not just token counts.
                 // Keep the wire value verbatim — FinishReasonNormalizeResponsePolicy canonicalizes.
