@@ -396,6 +396,36 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.Gemini
         }
 
         /// <summary>
+        /// Gemini correlates functionResponse by name and rejects an empty one (HTTP 400):
+        /// when the interaction carries only an Id, the encoder must fall back to it.
+        /// </summary>
+        [Fact]
+        public void Encode_FunctionResponse_FallsBackToIdWhenNameMissing()
+        {
+            var body = AIBodyBuilder.Create()
+                .Add(new AIInteractionToolCall { Id = "call_1", Name = "text2boolean" })
+                .Add(new AIInteractionToolResult { Id = "text2boolean", Result = new JObject { ["result"] = true } })
+                .Build();
+
+            var request = new AIRequestCall();
+            request.Initialize(
+                provider: "Gemini",
+                model: "gemini-3.1-flash",
+                body: body,
+                origin: string.Empty,
+                capability: AICapability.TextInput | AICapability.TextOutput);
+
+            var encoded = JObject.Parse(GeminiProvider.Instance.Encode(request));
+            var functionResponse = encoded["contents"]?
+                .SelectMany(c => c["parts"] ?? new JArray())
+                .Select(p => p["functionResponse"])
+                .FirstOrDefault(f => f != null);
+
+            Assert.NotNull(functionResponse);
+            Assert.Equal("text2boolean", functionResponse!["name"]?.ToString());
+        }
+
+        /// <summary>
         /// Minimal registry that resolves every provider lookup to the given provider.
         /// </summary>
         private sealed class SingleProviderRegistry : IProviderRegistryHost

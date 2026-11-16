@@ -249,7 +249,7 @@ namespace SmartHopper.Providers.Gemini
                         "functionResponse", new JObject
                         {
                             { "id", toolResultInteraction.Id ?? string.Empty },
-                            { "name", toolResultInteraction.Name ?? string.Empty },
+                            { "name", toolResultInteraction.Name ?? toolResultInteraction.Id ?? string.Empty },
                             { "response", toolResultInteraction.Result ?? new JObject() },
                         }
                     },

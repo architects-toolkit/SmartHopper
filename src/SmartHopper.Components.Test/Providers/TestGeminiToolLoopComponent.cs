@@ -144,7 +144,8 @@ namespace SmartHopper.Components.Test.Providers
                     builder2.Add(new AIInteractionToolResult
                     {
                         Id = toolCall.Id,
-                        Result = new JObject { ["content"] = "{\"result\": true}" },
+                        Name = toolCall.Name,
+                        Result = new JObject { ["result"] = true },
                     });
 
                     var call2 = new AIRequestCall { Body = builder2.Build() };
