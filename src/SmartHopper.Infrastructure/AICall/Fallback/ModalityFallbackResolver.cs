@@ -85,10 +85,10 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
             var settings = SmartHopperSettings.Load();
             var pins = settings.FallbackProviderPins ?? new Dictionary<string, FallbackProviderPin>();
 
-            return TryResolveConversionTarget(
+            return TryResolveConversionTargets(
                 fallback, componentProvider, componentModel, mode, pins,
-                out var resolvedProvider, out var resolvedModel, out _)
-                ? new FallbackStep(fallback, resolvedProvider, resolvedModel)
+                out var candidates, out _)
+                ? new FallbackStep(fallback, candidates)
                 : null;
         }
 
@@ -155,12 +155,12 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                 // Skip composite flags — only process leaf flags
                 if (!IsSingleBitFlag(flag)) continue;
 
-                var fallback = FindFallbackForFlag(flag, providerName, mode, pins, out var resolvedProvider, out var resolvedModel, out var isPinned);
+                var fallback = FindFallbackForFlag(flag, providerName, mode, pins, out var candidates, out var isPinned);
                 if (fallback == null) return null; // cannot cover this missing flag
-                if (string.IsNullOrWhiteSpace(resolvedModel)) return null; // no model can perform the conversion
+                if (candidates.Count == 0) return null; // no model can perform the conversion
 
-                steps.Add(new FallbackStep(fallback, resolvedProvider, resolvedModel));
-                if (!string.Equals(resolvedProvider, providerName, StringComparison.OrdinalIgnoreCase))
+                steps.Add(new FallbackStep(fallback, candidates));
+                if (candidates.Any(c => !string.Equals(c.Provider, providerName, StringComparison.OrdinalIgnoreCase)))
                 {
                     usesAlt = true;
                 }
@@ -231,7 +231,7 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
 
             var fallback = FindFallbackForFlag(
                 conversionCapability, preferredProvider, effectiveMode, pins,
-                out var resolvedProvider, out var resolvedModel, out var isPinned);
+                out var candidates, out var isPinned);
             if (fallback == null)
             {
                 return null;
@@ -244,21 +244,22 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                 && AIModelCapabilityRegistry.Instance.ValidateCapabilities(
                     preferredProvider, preferredModel, fallback.RequiresCapability))
             {
-                resolvedProvider = preferredProvider;
-                resolvedModel = preferredModel;
+                candidates.RemoveAll(c => string.Equals(c.Provider, preferredProvider, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(c.Model, preferredModel, StringComparison.OrdinalIgnoreCase));
+                candidates.Insert(0, (preferredProvider, preferredModel));
             }
 
-            if (string.IsNullOrWhiteSpace(resolvedModel))
+            if (candidates.Count == 0)
             {
                 return null;
             }
 
-            var step = new FallbackStep(fallback, resolvedProvider, resolvedModel);
+            var step = new FallbackStep(fallback, candidates);
             var effectiveCap = (conversionCapability & ~fallback.Handles) | fallback.ResultsIn;
             return new FallbackChain(new List<FallbackStep> { step }, fallback.Description, effectiveCap)
             {
                 UsesAltProvider = !string.Equals(
-                    resolvedProvider, preferredProvider, StringComparison.OrdinalIgnoreCase),
+                    step.Provider, preferredProvider, StringComparison.OrdinalIgnoreCase),
             };
         }
 
@@ -267,12 +268,10 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
             string componentProvider,
             ModalityFallbackMode mode,
             Dictionary<string, FallbackProviderPin> pins,
-            out string resolvedProvider,
-            out string resolvedModel,
+            out List<(string Provider, string Model)> candidates,
             out bool isPinned)
         {
-            resolvedProvider = null;
-            resolvedModel = null;
+            candidates = new List<(string Provider, string Model)>();
             isPinned = false;
 
             foreach (var fb in RegisteredFallbacks)
@@ -284,9 +283,9 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                     isPinned = true;
                 }
 
-                if (TryResolveConversionTarget(
+                if (TryResolveConversionTargets(
                         fb, componentProvider, null, mode, pins,
-                        out resolvedProvider, out resolvedModel, out var pinFailed))
+                        out candidates, out var pinFailed))
                 {
                     return fb;
                 }
@@ -311,24 +310,41 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
         /// <param name="componentModel">Preferred model, or null for automatic selection.</param>
         /// <param name="mode">The effective fallback mode.</param>
         /// <param name="pins">User-configured provider pins keyed by fallback name.</param>
-        /// <param name="resolvedProvider">The resolved provider.</param>
-        /// <param name="resolvedModel">The resolved model.</param>
+        /// <param name="candidates">Ordered (provider, model) candidates, most-preferred
+        /// first. May hold alternates for execution failover; explicit pins and
+        /// <see cref="ModalityFallbackMode.Disabled"/> yield at most one.</param>
         /// <param name="pinFailed">True when a configured pin cannot run the conversion.</param>
-        private static bool TryResolveConversionTarget(
+        private static bool TryResolveConversionTargets(
             IModalityFallback fb,
             string componentProvider,
             string componentModel,
             ModalityFallbackMode mode,
             Dictionary<string, FallbackProviderPin> pins,
-            out string resolvedProvider,
-            out string resolvedModel,
+            out List<(string Provider, string Model)> candidates,
             out bool pinFailed)
         {
-            resolvedProvider = null;
-            resolvedModel = null;
+            var list = new List<(string Provider, string Model)>();
+            candidates = list;
             pinFailed = false;
 
-            // Pin override — a failed pin fails the conversion rather than falling back silently.
+            void AddCandidate(string provider, string model)
+            {
+                if (string.IsNullOrWhiteSpace(provider) || string.IsNullOrWhiteSpace(model))
+                {
+                    return;
+                }
+
+                if (list.Any(c => string.Equals(c.Provider, provider, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(c.Model, model, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return;
+                }
+
+                list.Add((provider, model));
+            }
+
+            // Pin override — single authoritative candidate; a failed pin fails the
+            // conversion rather than falling back silently.
             if (pins != null
                 && pins.TryGetValue(fb.Name, out var pin)
                 && pin != null
@@ -341,7 +357,6 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                     return false;
                 }
 
-                resolvedProvider = pin.Provider;
                 if (!string.IsNullOrWhiteSpace(pin.Model))
                 {
                     // An explicit pin must itself confirm the conversion capability —
@@ -354,14 +369,14 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                         return false;
                     }
 
-                    resolvedModel = pin.Model;
+                    AddCandidate(pin.Provider, pin.Model);
                 }
                 else
                 {
-                    resolvedModel = AIModelCapabilityRegistry.Instance.SelectBestModel(pin.Provider, null, fb.RequiresCapability);
+                    AddCandidate(pin.Provider, AIModelCapabilityRegistry.Instance.SelectBestModel(pin.Provider, null, fb.RequiresCapability));
                 }
 
-                return !string.IsNullOrWhiteSpace(resolvedModel);
+                return candidates.Count > 0;
             }
 
             if (mode == ModalityFallbackMode.Disabled)
@@ -373,54 +388,39 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
                     && ProviderSdkHost.ProviderRegistry.GetProvider(componentProvider)?.IsConfigured == true
                     && AIModelCapabilityRegistry.Instance.ValidateCapabilities(componentProvider, componentModel, fb.RequiresCapability))
                 {
-                    resolvedProvider = componentProvider;
-                    resolvedModel = componentModel;
-                    return true;
+                    AddCandidate(componentProvider, componentModel);
                 }
 
-                return false;
+                return candidates.Count > 0;
             }
 
-            // Component's provider first — preferred model when capable, best catalogued model otherwise.
+            // Component's provider first — the preferred (component) model when it satisfies
+            // the capability, plus the best catalogued model as an execution alternate.
             if (fb.IsAvailable(componentProvider))
             {
-                resolvedProvider = componentProvider;
-                resolvedModel = ResolveModel(componentProvider, componentModel, fb);
-                return !string.IsNullOrWhiteSpace(resolvedModel);
+                if (!string.IsNullOrWhiteSpace(componentModel)
+                    && AIModelCapabilityRegistry.Instance.ValidateCapabilities(componentProvider, componentModel, fb.RequiresCapability))
+                {
+                    AddCandidate(componentProvider, componentModel);
+                }
+
+                AddCandidate(componentProvider, AIModelCapabilityRegistry.Instance.SelectBestModel(componentProvider, null, fb.RequiresCapability));
             }
 
             if (mode == ModalityFallbackMode.AnyProvider)
             {
-                // Then try all configured providers
+                // Then one best candidate per other configured provider, in registry order.
+                // How many alternates actually run is bounded by the chain's attempt policy.
                 foreach (var provider in ProviderSdkHost.ProviderRegistry.GetProviders())
                 {
                     if (string.Equals(provider.Name, componentProvider, StringComparison.OrdinalIgnoreCase)) continue;
-                    if (fb.IsAvailable(provider.Name))
-                    {
-                        resolvedProvider = provider.Name;
-                        resolvedModel = AIModelCapabilityRegistry.Instance.SelectBestModel(provider.Name, null, fb.RequiresCapability);
-                        return !string.IsNullOrWhiteSpace(resolvedModel);
-                    }
+                    if (!fb.IsAvailable(provider.Name)) continue;
+
+                    AddCandidate(provider.Name, AIModelCapabilityRegistry.Instance.SelectBestModel(provider.Name, null, fb.RequiresCapability));
                 }
             }
 
-            return false;
-        }
-
-        /// <summary>
-        /// Picks the model for a conversion on a provider the fallback is available on:
-        /// the preferred (component) model when it satisfies the capability, else the
-        /// best catalogued model for it.
-        /// </summary>
-        private static string ResolveModel(string providerName, string preferredModel, IModalityFallback fb)
-        {
-            if (!string.IsNullOrWhiteSpace(preferredModel)
-                && AIModelCapabilityRegistry.Instance.ValidateCapabilities(providerName, preferredModel, fb.RequiresCapability))
-            {
-                return preferredModel;
-            }
-
-            return AIModelCapabilityRegistry.Instance.SelectBestModel(providerName, null, fb.RequiresCapability);
+            return candidates.Count > 0;
         }
 
         private static bool IsSingleBitFlag(AICapability flag)

@@ -954,11 +954,11 @@ namespace SmartHopper.Core.ComponentBase
                     if (inputs.TryGetValue("_PassthroughStep", out var stepObj) && stepObj is FallbackStep passthroughStep)
                     {
                         // Strict passthrough: run the conversion per input item and emit its
-                        // raw items directly — no assistant call follows.
-                        var conversion = await passthroughStep.Fallback.ApplyAsync(
+                        // raw items directly — no assistant call follows. Execution failover
+                        // across the step's resolved candidates is shared with input fallbacks.
+                        var conversion = await FallbackChain.ApplyStepAsync(
+                            passthroughStep,
                             mergedBody,
-                            passthroughStep.Provider,
-                            passthroughStep.Model,
                             token,
                             this.BuildRequestParameters(inputs)).ConfigureAwait(false);
 
