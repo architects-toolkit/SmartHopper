@@ -459,16 +459,29 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         private void PersistResultOnly(AIReturn result, string turnId)
         {
             var resultInteractions = result?.Body?.Interactions?.Where(i => i.Agent == AIAgent.Assistant).ToList();
+
+            // A failed turn (provider/network error) carries no Assistant interactions —
+            // only the error runtime message. Persist it so the failure is surfaced to
+            // the user instead of leaving the pending assistant placeholder unresolved.
+            if (resultInteractions == null || resultInteractions.Count == 0)
+            {
+                resultInteractions = result?.Body?.Interactions?
+                    .Where(i => i is AIInteractionRuntimeMessage rm && rm.Severity >= SHRuntimeMessageSeverity.Error)
+                    .ToList();
+            }
+
             if (resultInteractions != null && resultInteractions.Count > 0)
             {
                 foreach (var interaction in InteractionUtility.EnsureTurnId(resultInteractions, turnId))
                 {
                     this.AppendToSessionHistory(interaction);
                 }
-
-                this.UpdateLastReturn();
-                this.NotifyFinal(this.GetHistoryReturn());
             }
+
+            // Always emit the final notification — even when nothing was persisted — so
+            // observers release the pending turn state instead of waiting forever.
+            this.UpdateLastReturn();
+            this.NotifyFinal(this.GetHistoryReturn());
         }
 
         /// <summary>
