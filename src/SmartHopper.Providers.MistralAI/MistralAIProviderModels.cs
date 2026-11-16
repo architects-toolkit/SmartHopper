@@ -64,6 +64,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 10000,
+                    Default = AICapability.Text2Json | AICapability.Image2Text,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 6),
                     Pricing = new AIModelPricing
@@ -112,7 +113,7 @@ namespace SmartHopper.Providers.MistralAI
                     Provider = provider,
                     Model = "mistral-small-2603",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json | AICapability.Image2Text,
+                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.Image2Text,
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = true,
