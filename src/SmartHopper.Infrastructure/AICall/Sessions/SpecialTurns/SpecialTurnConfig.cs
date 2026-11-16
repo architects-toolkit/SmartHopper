@@ -47,10 +47,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns
         public string? OverrideModel { get; set; }
 
         /// <summary>
-        /// Gets or sets the endpoint to use for this special turn.
-        /// When null, uses the session's configured endpoint.
+        /// Gets or sets the semantic origin label to use for this special turn.
+        /// When null, the turn inherits the session request's origin.
         /// </summary>
-        public string? OverrideEndpoint { get; set; }
+        public string? OverrideOrigin { get; set; }
 
         /// <summary>
         /// Gets or sets the capability requirements for this special turn.

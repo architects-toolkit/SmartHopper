@@ -9,7 +9,7 @@ SmartHopper WebChat can propose explicit plans and all supported AI-driven canva
 | Property | Value |
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Infrastructure/Consent/`, `src/SmartHopper.Infrastructure/AICall/Subagents/`, `src/SmartHopper.Core/UI/Chat/`, `src/SmartHopper.Core.Grasshopper/AITools/` |
-| **Since Version** | 2.1.0 |
+| **Since Version** | 2.0.0 |
 | **Last Updated** | 2026-11-01 |
 | **Documentation Maintainer** | Devin AI |
 
@@ -99,9 +99,17 @@ Subagents ride the same invocation-context channel without a presenter: `Mutatio
 
 `send_to_subagent` no longer fails while the worker is mid-run: `mode: "queue"` (the default) parks the instruction in the worker's `PendingInstructions` FIFO, and `KickNext` dequeues the head into a new run the moment the current run settles — results still flow through the same `RunFinished` → evidence → wake pipeline. `mode: "on-the-fly"` steers the live run instead: the instruction is appended to the child session when no tool call is pending (a user message must not split a call/result pair), so the worker reads it at its next provider call; unsafe sends fall back to queue semantics. A steer that lands inside the last provider call's window is guaranteed a continuation run at settle — the host detects any trailing user text the finished run did not produce itself. Pending instructions surface in the chat's outgoing queue panel (`PendingItems` → `meta.agent` rows, `PendingChanged` re-renders) and accept the shared row actions via `TryApplyPendingAction` (remove/edit/promote). `send_to_subagent` results report `delivery` (`started`/`queued`/`steered`) and `pending_count` so the conductor sees where its instruction landed.
 
-Plan approval and mutation approval are deliberately separate. A textual plan cannot authorize a later concrete graph whose arguments or affected objects may differ. Plans that contain canvas-mutating steps therefore skip the blocking approval card entirely — `plan_propose` emits a non-blocking `TaskPlan` checklist via `TaskPlanPresenter` and leaves the staged canvas review as the single consent gate, avoiding a double prompt for the same concrete change.
+Plan approval and mutation approval are deliberately separate. A textual plan cannot authorize a later concrete graph whose arguments or affected objects may differ.
 
-New-component placement always runs the shared GhJSON tidy-up layout (`CanvasNewComponentLayout` → `GhJsonGrasshopper.ComputeLayout`: dependency-graph order, measured bounds, port alignment, wire corridors, collision resolution) before review and before `Put`, with `PutOptions.AutoOffset` disabled once pivots are baked — so staged preview ghosts render at the final proposed location and match what is applied on accept.
+Placement preserves supplied GhJSON pivots exactly, including `(0,0)`. Only new components without pivots run through the shared compact layout (`CanvasNewComponentLayout` → `GhJsonGrasshopper.ComputeLayout`: dependency-graph order, measured bounds, port alignment, wire corridors, collision resolution). Matching live instance GUIDs without a pivot keep their current position. In mixed documents, authored/live objects are fixed anchors: connected pivotless components are positioned relative to them, not below them. A single anchor translates its compact island; multiple anchors blend translations by inverse graph distance, followed by collision avoidance that moves only unfixed nodes. Only disconnected, unanchored parts use `autoOffset` to avoid existing canvas content. Layout runs before review, with `PutOptions.AutoOffset` disabled once missing pivots are baked, so staged preview ghosts match the accepted placement.
+
+Compact layout is the default, not a tool mode: GhJSON core and refinement stages share 28-unit edge gaps; disconnected islands use a 48-unit vertical gap. `gh_tidy_up` explicitly rearranges selected existing objects through the same pipeline. Generating new GhJSON must never emit `pivot` fields: tool descriptions, assistant/MCP guidance, reference responses, and generation prompts carry that rule. `gh_generate` also removes model-emitted pivots after normalization; imported/replayed documents never pass through this generation-only policy.
+
+After anchor fitting, shared GhJSON constraint groups align single-connection input/output leaves and compatible chains using measured wire grips. Groups move together to preserve feasible alignment through collision handling; fixed pivots, object separation, and horizontal-wire clearance take priority over incompatible alignments. Named ports and parallel wires retain distinct endpoint geometry. Neither placement nor Tidy Up implements a separate alignment algorithm.
+
+Development builds consume the adjacent `ghjson-dotnet` checkout through `UseLocalGhJsonSource`. `GhJsonSourceRoot` defaults to that sibling directory and can be overridden as an MSBuild property or environment variable to validate a specific checkout/worktree. Before shipping package-only builds, release the updated GhJSON APIs and update the plugin's package references; the older package fallback does not provide the required placement support.
+
+The hidden `TEST-GH-LAYOUT` component checks off-canvas measured placement, including indexed/named input-port alignment, output-leaf alignment and a fixed central component. These runtime checks belong to `SmartHopper.Components.Test`, not Rhino-dependent CI unit tests, and require an explicit run in Grasshopper.
 
 Category and tag labels (e.g. `Planning`, `planning`) are descriptive only. `AIToolSurface` is the access-control contract used for MCP and batch isolation.
 

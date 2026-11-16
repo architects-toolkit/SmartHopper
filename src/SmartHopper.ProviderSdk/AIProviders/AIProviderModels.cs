@@ -48,6 +48,9 @@ namespace SmartHopper.ProviderSdk.AIProviders
         public abstract Task<List<AIModelCapabilities>> RetrieveModels();
 
         /// <inheritdoc/>
+        public virtual bool SupportsApiModels => false;
+
+        /// <inheritdoc/>
         public virtual Task<List<string>> RetrieveApiModels()
         {
             return Task.FromResult(new List<string>());

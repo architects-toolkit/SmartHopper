@@ -35,10 +35,10 @@ namespace SmartHopper.Components.JSON
         public override Guid ComponentGuid => new Guid("7D1F835A-5E41-4310-9813-B3D5F965FCE2");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.jsonarraytolist;
+        protected override Bitmap Icon => Resources.JsonArray2TextList;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary | GH_Exposure.obscure;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonArray2TextListComponent"/> class.
@@ -47,22 +47,22 @@ namespace SmartHopper.Components.JSON
             : base(
                 "JSON Array To Text List",
                 "JsonArray2Text",
-                "Parse a JSON array string into a Grasshopper text list.\nJSON strings have their outer quotes stripped. Numbers, booleans and objects are serialized to their compact string form.",
+                "Parse a JSON array string into a Grasshopper text list.\nString items have their outer quotes removed; numbers, booleans, and nested objects or arrays are formatted as compact strings.",
                 "SmartHopper",
-                "JSON")
+                "H. JSON")
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON", "J", "JSON array string to parse", GH_ParamAccess.item);
+            pManager.AddTextParameter("JSON", "J", "JSON array string to parse (e.g., '[\"a\", \"b\", \"c\"]').", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Items", "I", "Parsed text items", GH_ParamAccess.list);
+            pManager.AddTextParameter("Items", "I", "Parsed items as a Grasshopper text list.", GH_ParamAccess.list);
         }
 
         /// <inheritdoc/>

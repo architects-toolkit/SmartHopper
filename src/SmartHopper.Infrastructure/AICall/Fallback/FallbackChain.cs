@@ -16,11 +16,14 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Diagnostics;
 namespace SmartHopper.Infrastructure.AICall.Fallback
 {
     /// <summary>
@@ -60,17 +63,44 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
         /// Applies all steps in order, transforming the body and collecting metrics.
         /// Each step runs on its own resolved provider/model.
         /// </summary>
-        public async Task<ModalityFallbackResult> ApplyAsync(AIBody body, CancellationToken ct)
+        /// <param name="body">The canonical body to transform.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <param name="requestParameters">Optional request parameters propagated to each step's conversion calls.</param>
+        /// <param name="context">Optional execution-scoped context shared across steps.</param>
+        public async Task<ModalityFallbackResult> ApplyAsync(AIBody body, CancellationToken ct, AIRequestParameters requestParameters = null, ModalityFallbackContext context = null)
         {
             var combinedResult = new ModalityFallbackResult { TransformedBody = body };
 
             foreach (var step in this.Steps)
             {
-                var stepResult = await step.Fallback.ApplyAsync(
-                    combinedResult.TransformedBody,
-                    step.Provider,
-                    step.Model,
-                    ct).ConfigureAwait(false);
+                ModalityFallbackResult stepResult;
+                try
+                {
+                    stepResult = await step.Fallback.ApplyAsync(
+                        combinedResult.TransformedBody,
+                        step.Provider,
+                        step.Model,
+                        ct,
+                        requestParameters,
+                        context).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    // A later step must not discard metrics and messages already charged by
+                    // earlier steps/images: surface them on the returned result with a
+                    // blocking cancellation diagnostic instead of propagating bare.
+                    if (combinedResult.ExtraMetricsList.Count == 0 && combinedResult.Messages.Count == 0)
+                    {
+                        throw;
+                    }
+
+                    combinedResult.Messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Provider,
+                        SHMessageCode.ConversionFailed,
+                        "Modality fallback was cancelled after paid helper work; the partial result is not submittable."));
+                    return combinedResult;
+                }
 
                 combinedResult.TransformedBody = stepResult.TransformedBody;
                 combinedResult.ExtraMetricsList.AddRange(stepResult.ExtraMetricsList);

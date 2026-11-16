@@ -22,6 +22,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using GhJSON.Core;
 using GhJSON.Core.DiffOperations;
+using GhJSON.Core.SchemaModels;
 using GhJSON.Core.Serialization;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -78,6 +79,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Request = toolCall,
             };
 
+            var ghjsonReported = false;
             try
             {
                 // Local tool: skip metrics validation (provider/model/finish_reason not required)
@@ -109,8 +111,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var leftDoc = GhJson.FromJson(leftJson);
-                var rightDoc = GhJson.FromJson(rightJson);
+                GhJsonDocument leftDoc;
+                GhJsonDocument rightDoc;
+                try
+                {
+                    leftDoc = GhJson.FromJson(leftJson);
+                    rightDoc = GhJson.FromJson(rightJson);
+                }
+                catch (Exception parseEx)
+                {
+                    ghjsonReported = true;
+                    throw;
+                }
 
                 Logger.For<gh_diff>().Trace("[gh_diff] Diffing documents...");
                 var diffResult = GhJson.Diff(leftDoc, rightDoc, options);
@@ -138,6 +150,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             catch (Exception ex)
             {
                 Logger.For<gh_diff>().Exception(ex, $"[gh_diff] Error: {ex.Message}");
+                if (!ghjsonReported)
+                {
+                }
+
                 output.CreateError(ex.Message);
                 return output;
             }

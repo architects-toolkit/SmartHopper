@@ -18,6 +18,7 @@
 
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -103,11 +104,18 @@ namespace SmartHopper.ProviderSdk.AIProviders
         List<IAIInteraction> Decode(JObject response);
 
         /// <summary>
-        /// Gets the pre-call request for the provider.
+        /// Runs the provider's wire preparation for the request: resolves the transport
+        /// fields (endpoint, HTTP method, authentication, content type, headers) onto a
+        /// detached execution copy and returns it. The input request is the caller's
+        /// logical request and is never mutated — it keeps its semantic state
+        /// (including <see cref="Requests.IAIRequest.Origin"/>) after the call.
+        /// <see cref="AIProvider"/> implements this entry point centrally: it creates
+        /// the execution copy and delegates to <see cref="AIProvider.PreCallCoreAsync"/>,
+        /// so provider implementations only ever see a detached copy they may mutate freely.
         /// </summary>
         /// <param name="request">The request to prepare before the provider call.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>The possibly modified request to use for the provider call.</returns>
+        /// <returns>The prepared outbound request to use for the provider call.</returns>
         Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -154,6 +162,17 @@ namespace SmartHopper.ProviderSdk.AIProviders
         /// </summary>
         /// <returns>An enumerable of SettingDescriptor instances for the provider.</returns>
         IEnumerable<SettingDescriptor> GetSettingDescriptors();
+
+        /// <summary>
+        /// Returns the ordered settings surface for this provider — bound persisted settings
+        /// plus live chrome rows — by fetching its IAIProviderSettings instance from
+        /// ProviderManager. The default wraps every non-hidden descriptor.
+        /// </summary>
+        /// <returns>An enumerable of <see cref="ProviderSurfaceElement"/> instances.</returns>
+        IEnumerable<ProviderSurfaceElement> GetSurface()
+            => this.GetSettingDescriptors()
+                .Where(descriptor => descriptor != null && !descriptor.IsHidden)
+                .Select(descriptor => new BoundSettingElement(descriptor));
 
         /// <summary>
         /// Gets the streaming adapter for this provider. Returns a cached instance after first call.

@@ -116,9 +116,9 @@ Configure thinking levels for extended reasoning:
 
 For image generation models:
 
-1. Select an image model (e.g., `gemini-2.5-flash-image`)
+1. Select an image model (e.g., `gemini-3.1-flash-image`)
 2. Set request capability to `ImageOutput`
-3. Optionally configure `image_aspect_ratio` and `image_size` in extras
+3. Size and aspect ratio map to `imageConfig.imageSize`/`aspectRatio` automatically from the shared inputs; `negative_prompt` and `media_resolution` (Gemini 3+ only) are available as extras
 4. Images are returned as base64-encoded data in the response
 
 ### Authentication

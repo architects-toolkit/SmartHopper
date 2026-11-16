@@ -56,7 +56,7 @@ namespace SmartHopper.Core.UI.Chat
         /// </summary>
         /// <param name="providerName">The name of the AI provider to use.</param>
         /// <param name="modelName">The model to use for AI processing.</param>
-        /// <param name="endpoint">Optional custom endpoint for the AI provider.</param>
+        /// <param name="origin">Semantic origin label for the request (e.g. "canvas-chat").</param>
         /// <param name="systemPrompt">Optional system prompt to provide to the AI assistant.</param>
         /// <param name="toolFilter">Optional tool filter to provide to the AI assistant.</param>
         /// <param name="progressReporter">Action to report progress.</param>
@@ -66,7 +66,7 @@ namespace SmartHopper.Core.UI.Chat
         public WebChatWorker(
             string providerName,
             string modelName,
-            string endpoint,
+            string origin,
             string systemPrompt,
             string toolFilter,
             Action<string> progressReporter,
@@ -77,7 +77,7 @@ namespace SmartHopper.Core.UI.Chat
             this.initialRequest = WebChatUtils.CreateWebChatRequest(
                 providerName,
                 modelName,
-                endpoint,
+                origin,
                 systemPrompt,
                 toolFilter);
             this.progressReporter = progressReporter;

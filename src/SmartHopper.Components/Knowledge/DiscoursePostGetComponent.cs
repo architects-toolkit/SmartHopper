@@ -45,31 +45,29 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("8D2C5A1E-3B4F-4C5D-8A9E-0F1A2B3C4D5E");
 
-        protected override Bitmap Icon => Resources.discoursepostget;
+        protected override Bitmap Icon => Resources.DiscoursePostGet;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary | GH_Exposure.obscure;
 
         public DiscoursePostGetComponent()
             : base(
                   "Discourse Post Get",
                   "DiscoursePostGet",
-                  "Retrieve a full Discourse forum post by its numeric ID from any Discourse instance.",
+                  "Fetch the full content of a Discourse forum post by its numeric ID from any Discourse forum.",
                   "SmartHopper",
-                  "Knowledge")
+                  "E. Forums")
         {
-            // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Base URL", "U", "REQUIRED Base URL of the Discourse forum (e.g., https://discourse.example.com).", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Id", "I", "REQUIRED ID or list of IDs of the forum post(s) to fetch.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Base URL", "U", "Base URL of the Discourse forum (e.g., 'https://discourse.example.com').", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Id", "I", "Numeric ID(s) of the forum post(s) to fetch.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Discourse Post", "P", "JSON object representing the full forum post as returned by the tool.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Discourse Post", "P", "Full forum post data in JSON format (connect to Deconstruct Discourse Post or Discourse Post Open).", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)

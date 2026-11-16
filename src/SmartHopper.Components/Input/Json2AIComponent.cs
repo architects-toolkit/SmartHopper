@@ -34,23 +34,23 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("F5EBC521-05A0-41D6-8052-A284608EE86B");
 
-        protected override Bitmap Icon => Resources.toaijson;
+        protected override Bitmap Icon => Resources.Json2AI;
 
         public Json2AIComponent()
             : base(
                   "JSON to AI",
                   "Json2AI",
-                  "Wraps JSON input into an AIInputPayload for AI processing.",
-                  GH_Exposure.secondary)
+                  "Validate a JSON string and package it to wire into any AI output component.",
+                  GH_Exposure.tertiary)
         {
         }
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON", "J", "JSON text to validate and wrap into an AIInputPayload.", GH_ParamAccess.item);
+            pManager.AddTextParameter("JSON", "J", "JSON string to validate and send to the AI.", GH_ParamAccess.item);
         }
 
-        protected override string PayloadOutputDescription => "AIInputPayload wrapping the validated JSON.";
+        protected override string PayloadOutputDescription => "Packaged JSON input ready to wire into any AI output component's 'Input >' parameter.";
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {

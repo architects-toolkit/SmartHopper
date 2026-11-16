@@ -60,7 +60,7 @@ Provide an up-to-date list of models by querying the provider API when possible 
   4. Errors (e.g., no provider or no models) emit a runtime error with a concise message.
 
 - Execution trigger:
-  - `RunOnlyOnInputChanges = false` so provider changes retrigger execution.
+  - Provider selection changes surface as the synthetic `AIProvider` input change and retrigger execution.
 
 ### Notes
 
@@ -82,7 +82,6 @@ public class AIModelsComponent : AIProviderComponentBase
                "Lists available AI models for the selected provider",
                "SmartHopper", "AI")
     {
-        this.RunOnlyOnInputChanges = false;
     }
 
     protected override void RegisterOutputParams(GH_OutputParamManager pManager)

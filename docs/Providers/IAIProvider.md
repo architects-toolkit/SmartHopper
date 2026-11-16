@@ -64,7 +64,7 @@ Provide a stable interface so components and tools can call any provider in a pr
   - `string Encode(List<IAIInteraction> interactions)`
   - `List<IAIInteraction> Decode(string response)`
 - Call pipeline
-  - `Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)`
+  - `Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)` — public entry; detaches a wire-bound copy via `CreateExecutionCopy` then calls `PreCallCoreAsync`. Providers override `PreCallCoreAsync`, never `PreCallAsync`, so the caller's request is never mutated.
   - `Task<IAIReturn> Call(AIRequestCall request)`
   - `IAIReturn PostCall(IAIReturn response)`
 - Model selection
@@ -73,6 +73,7 @@ Provide a stable interface so components and tools can call any provider in a pr
 - Settings
   - `void RefreshCachedSettings(Dictionary<string, object> settings)`
   - `IEnumerable<SettingDescriptor> GetSettingDescriptors()`
+  - `IEnumerable<ProviderSurfaceElement> GetSurface()` — ordered dialog surface; default wraps non-hidden descriptors
 
 ### Implementing a Custom Provider
 
@@ -83,14 +84,16 @@ public class MyCustomProvider : AIProvider
 {
     public override string Name => "MyCustom";
 
-    public override async Task<AIRequestCall> PreCallAsync(
-        AIRequestCall request,
+    protected override async Task<AIRequestCall> PreCallCoreAsync(
+        AIRequestCall outbound,
         CancellationToken cancellationToken = default)
     {
-        // Customize request before sending
-        request.Authentication = "bearer";
-        request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
-        return request;
+        // The public PreCallAsync already detached the caller's request;
+        // mutate this wire-bound copy freely.
+        await base.PreCallCoreAsync(outbound, cancellationToken).ConfigureAwait(false);
+        outbound.Authentication = "bearer";
+        outbound.Endpoint = "/v1/chat/completions";
+        return outbound;
     }
 
     public override async Task<IAIReturn> Call(AIRequestCall request)
@@ -138,7 +141,7 @@ public async Task<string> ResolveModel(IAIProvider provider)
 ### Relationships
 
 - Base implementation: `AIProvider` — common initialization, settings, HTTP, metrics.
-- Model abstraction: `IAIProviderModels` — capability and default model retrieval.
+- Model abstraction: `IAIProviderModels` — `RetrieveModels()` returns the registered capability records; `SupportsApiModels` declares a live API listing, and `RetrieveApiModels()` returns bare model names for providers that opt in.
 - Settings: `IAIProviderSettings` and `AIProviderSettings` — descriptors + validation.
 - Manager: `ProviderManager` — discovery, trust, and registration.
 
@@ -156,7 +159,7 @@ public async Task<string> ResolveModel(IAIProvider provider)
 The `IAIProvider` interface sits at the center of SmartHopper's provider architecture. It defines a clear contract with three major phases:
 
 1. **Initialization**: `InitializeProviderAsync()` sets up models, settings, and internal state.
-2. **Request Lifecycle**: `PreCallAsync` → `Call` → `PostCall` forms a pipeline where each stage can inspect and modify requests/responses.
+2. **Request Lifecycle**: `PreCallAsync` → `Call` → `PostCall` forms a pipeline where each stage can inspect and modify requests/responses. `PreCallAsync` detaches the caller's request into a wire-bound copy (`CreateExecutionCopy`) before invoking `PreCallCoreAsync`, so provider wire resolution (endpoint, method, auth, headers) cannot leak back into caller state. Execution copies carry `Source` lineage pointing at the canonical request for per-logical-request state.
 3. **Translation**: `Encode/Decode` methods bridge SmartHopper's generic interaction model with provider-specific API formats.
 
 This design enables:

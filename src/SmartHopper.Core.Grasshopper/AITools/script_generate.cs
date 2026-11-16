@@ -223,14 +223,20 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     provider: providerName,
                     model: modelName,
                     capability: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    endpoint: this.toolName,
+                    origin: this.toolName,
                     body: bodyBuilder.Build());
+
+                // Forward per-request parameters (extras, sampling, timeout) to the provider call
+                if (toolCall.Parameters != null)
+                {
+                    request.Parameters = toolCall.Parameters;
+                }
 
                 var result = await request.Exec().ConfigureAwait(false);
 
                 if (!result.Success)
                 {
-                    output.CreateError("AI script generation failed", toolCall, result.Metrics);
+                    output.CreateError(BuildGenerationFailureText(result), toolCall, result.Metrics);
                     foreach (var msg in result.Messages.Where(m => m != null))
                     {
                         output.AddRuntimeMessage(msg.Severity, msg.Origin, msg.Message);
@@ -280,8 +286,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         provider: providerName,
                         model: modelName,
                         capability: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                        endpoint: this.toolName,
+                        origin: this.toolName,
                         body: correctionBuilder.Build());
+                    if (toolCall.Parameters != null)
+                    {
+                        correctionRequest.Parameters = toolCall.Parameters;
+                    }
 
                     var correctionResult = await correctionRequest.Exec().ConfigureAwait(false);
 
@@ -365,6 +375,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError(ex.Message);
                 return output;
             }
+        }
+
+        /// <summary>
+        /// Builds a tool-level failure text that keeps the first provider/runtime
+        /// error visible: MCP callers surface only the first error message, so the
+        /// underlying cause must ride inside the wrapper text instead of being
+        /// masked by it.
+        /// </summary>
+        /// <param name="result">The failed <see cref="AIReturn"/> from the generation request.</param>
+        /// <returns>A failure text ending with the first error message, when present.</returns>
+        private static string BuildGenerationFailureText(AIReturn result)
+        {
+            var cause = result?.Messages?
+                .FirstOrDefault(m => m?.Severity == SHRuntimeMessageSeverity.Error)?
+                .Message;
+            return string.IsNullOrWhiteSpace(cause)
+                ? "AI script generation failed"
+                : $"AI script generation failed: {cause}";
         }
 
         private static string NormalizeLanguageKeyOrDefault(string? languageKey, string fallback)
@@ -549,7 +577,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (!generateResult.Success)
                 {
                     Logger.For<script_generate>().Warning($"[{this.wrapperToolName}] script_generate failed");
-                    output.CreateError("AI script generation failed", toolCall, generateResult.Metrics);
+                    output.CreateError(BuildGenerationFailureText(generateResult), toolCall, generateResult.Metrics);
                     foreach (var msg in generateResult.Messages.Where(m => m != null))
                     {
                         output.AddRuntimeMessage(msg.Severity, msg.Origin, msg.Message);

@@ -22,9 +22,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
-using GhJSON.Core.DependencyGraph;
 using GhJSON.Grasshopper;
-using GhJSON.Grasshopper.LayoutRefinements;
 using GhJSON.Grasshopper.Serialization;
 using GhJSON.Grasshopper.Shared;
 using Grasshopper;
@@ -56,7 +54,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AIMutatingTool(
                 name: this.toolName,
-                description: "Automatically arrange components into a clean grid layout respecting data flow direction. Organizes components left-to-right based on their connections. Use this to clean up messy definitions. Requires component GUIDs from gh_get.",
+                description: "Explicitly rearrange existing components into a compact layout respecting data flow direction, measured bounds, and connected ports. Organizes components left-to-right based on their connections. Use this to clean up messy definitions; placement already auto-layouts new components without pivots. Requires component GUIDs from gh_get.",
                 category: "Canvas.Modifications",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -167,7 +165,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }).ToList();
                     }
                 }
-                
+
                 if (!selected.Any())
                 {
                     Logger.For<gh_tidy_up>().Trace("[GhObjTools] GhTidyUpAsync: No matching components found after filtering.");
@@ -182,26 +180,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // refinements that use real component bounds and input-port positions for
                 // alignment and collision avoidance. This is the same pipeline used by gh_put,
                 // so placement and tidy-up stay consistent.
-                const float spacingX = 80f;
-                const float spacingY = 28f;
-                const float islandSpacingY = 100f;
-
                 var selectedByGuid = selected.ToDictionary(o => o.InstanceGuid);
 
                 var positions = GhJsonGrasshopper.ComputeLayout(doc, new CanvasLayoutOptions
                 {
-                    Layout = new LayoutOptions
-                    {
-                        SpacingX = spacingX,
-                        SpacingY = spacingY,
-                        IslandSpacingY = islandSpacingY,
-                    },
-                    Refinements = new LayoutRefinementOptions
-                    {
-                        SpacingX = spacingX,
-                        SpacingY = spacingY,
-                    },
-
                     // Feed live component bounds to every stage so column widths, row
                     // heights, and per-island re-spacing measure real Grasshopper
                     // geometry instead of the library defaults.
@@ -246,10 +228,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             : center;
                     });
                 var reviewSession = CanvasChangeReviewService.CreateMoveSession(this.toolName, targets, relative: false);
-                var reviewed = await CanvasChangeReviewService.ReviewAsync(
-                    reviewSession,
-                    toolCall.InvocationContext,
-                    toolCall.CancellationToken).ConfigureAwait(false);
+                if (reviewSession.Items.Count == 0)
+                {
+                    Logger.For<gh_tidy_up>().Warning(
+                        $"[GhObjTools] GhTidyUpAsync: move review produced no items for {targets.Count} target(s); skipping review.");
+                }
+
+                var reviewed = reviewSession.Items.Count > 0 &&
+                    await CanvasChangeReviewService.ReviewAsync(
+                        reviewSession,
+                        toolCall.InvocationContext,
+                        toolCall.CancellationToken).ConfigureAwait(false);
                 var acceptedGuids = reviewed
                     ? CanvasChangeReviewService.GetAcceptedComponentGuids(reviewSession)
                     : new HashSet<Guid>();

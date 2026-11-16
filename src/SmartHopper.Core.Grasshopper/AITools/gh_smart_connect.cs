@@ -28,6 +28,7 @@ using GhJSON.Grasshopper;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
@@ -162,7 +163,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     toolCall.Provider,
                     toolCall.Model,
                     ghjson,
-                    purpose).ConfigureAwait(false);
+                    purpose,
+                    toolCall.Parameters).ConfigureAwait(false);
 
                 if (connectionsJson == null)
                 {
@@ -270,7 +272,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
             string provider,
             string model,
             string ghjson,
-            string purpose)
+            string purpose,
+            AIRequestParameters parameters)
         {
             try
             {
@@ -288,8 +291,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     provider: provider,
                     model: model,
                     body: requestBody,
-                    endpoint: this.toolName,
+                    origin: this.toolName,
                     capability: AICapability.TextInput | AICapability.TextOutput);
+
+                // Forward per-request parameters (extras, sampling, timeout) to the provider call
+                if (parameters != null)
+                {
+                    request.Parameters = parameters;
+                }
 
                 var aiResult = await request.Exec().ConfigureAwait(false);
 

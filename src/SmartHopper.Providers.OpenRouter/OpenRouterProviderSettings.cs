@@ -125,6 +125,30 @@ namespace SmartHopper.Providers.OpenRouter
                     DisplayName = "Allow Fallbacks",
                     Description = "Allow OpenRouter to fall back to compatible models if the preferred model is unavailable.",
                 },
+                new SettingDescriptor
+                {
+                    Name = "ProviderOrder",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "Provider Order",
+                    Description = "Preferred upstream providers, comma-separated slugs tried in order (e.g., 'groq,cerebras'). Per-request 'provider_order' overrides this.",
+                },
+                new SettingDescriptor
+                {
+                    Name = "ProviderOnly",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "Providers Only",
+                    Description = "Restrict routing to these upstream providers, comma-separated slugs (e.g., 'google,anthropic'). Per-request 'provider_only' overrides this.",
+                },
+                new SettingDescriptor
+                {
+                    Name = "ProviderIgnore",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "Providers Ignore",
+                    Description = "Never route to these upstream providers, comma-separated slugs (e.g., 'deepinfra'). Per-request 'provider_ignore' overrides this.",
+                },
             };
         }
 

@@ -33,6 +33,15 @@ namespace SmartHopper.ProviderSdk.AIModels
         Task<List<AIModelCapabilities>> RetrieveModels();
 
         /// <summary>
+        /// Gets whether the provider exposes a live API model listing via
+        /// <see cref="RetrieveApiModels"/>. When <see langword="false"/>,
+        /// <see cref="RetrieveApiModels"/> returns an empty list and callers
+        /// should treat <see cref="RetrieveModels"/> (the registered model
+        /// list) as the canonical source rather than a degraded fallback.
+        /// </summary>
+        bool SupportsApiModels { get; }
+
+        /// <summary>
         /// Retrieves api list of models
         /// </summary>
         /// <returns>List of available model names.</returns>

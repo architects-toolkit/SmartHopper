@@ -260,6 +260,20 @@ namespace SmartHopper.Infrastructure.AICall.Tools
             {
                 this.Model = model;
             }
+
+            // Convention across surfaces: a "provider"/"model" argument on the tool
+            // call overrides the executing provider/model. Explicit parameters win;
+            // arguments only fill gaps so every caller gets the same behavior.
+            var args = toolCall?.GetArgumentsOrEmpty();
+            if (string.IsNullOrWhiteSpace(this.Provider) && args?["provider"]?.ToString() is { Length: > 0 } providerArg)
+            {
+                this.Provider = providerArg;
+            }
+
+            if (string.IsNullOrWhiteSpace(this.Model) && args?["model"]?.ToString() is { Length: > 0 } modelArg)
+            {
+                this.Model = modelArg;
+            }
         }
 
         /// <summary>

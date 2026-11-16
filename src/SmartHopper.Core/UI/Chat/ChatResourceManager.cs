@@ -131,7 +131,7 @@ namespace SmartHopper.Core.UI.Chat
         /// Creates a complete HTML document with embedded CSS and JS for offline use.
         /// </summary>
         /// <returns>The complete HTML document.</returns>
-        public string GetCompleteHtml()
+        public string GetCompleteHtml(string? documentToken = null)
         {
             Logger.For<ChatResourceManager>().Trace("[ChatResourceManager] Creating complete HTML with embedded resources");
 
@@ -157,7 +157,8 @@ namespace SmartHopper.Core.UI.Chat
                     .Replace("{{jsVendor}}", vendorContent, StringComparison.Ordinal)
                     .Replace("{{jsChat}}", jsContent, StringComparison.Ordinal)
                     .Replace("{{debugActionsLeft}}", this.GetDebugActionsLeftHtml(), StringComparison.Ordinal)
-                    .Replace("{{messageTemplate}}", messageTemplate, StringComparison.Ordinal);
+                    .Replace("{{messageTemplate}}", messageTemplate, StringComparison.Ordinal)
+                    .Replace("{{shDocumentToken}}", documentToken ?? string.Empty, StringComparison.Ordinal);
 
                 Logger.For<ChatResourceManager>().Trace($"[ChatResourceManager] Complete HTML created, length: {completeHtml?.Length ?? 0}");
 
@@ -298,7 +299,15 @@ namespace SmartHopper.Core.UI.Chat
             if (string.IsNullOrEmpty(this._cachedJsContent))
             {
                 Logger.For<ChatResourceManager>().Trace($"[ChatResourceManager] Reading embedded resource: {JS_RESOURCE}");
-                this._cachedJsContent = this.ReadEmbeddedResource(JS_RESOURCE);
+                string jsContent = this.ReadEmbeddedResource(JS_RESOURCE) + Environment.NewLine +
+                    this.ReadEmbeddedResource("SmartHopper.Core.UI.Chat.Resources.js.external-sources.js");
+#if DEBUG
+                // Flag for chat-bridge.js: keeps the WebView2 context menu
+                // (Inspect / DevTools) reachable in debug builds. Release builds
+                // get no flag and the contextmenu handler suppresses the menu.
+                jsContent = "window.__SH_DEBUG__ = true;" + Environment.NewLine + jsContent;
+#endif
+                this._cachedJsContent = jsContent;
                 Logger.For<ChatResourceManager>().Trace($"[ChatResourceManager] JavaScript content loaded, length: {this._cachedJsContent?.Length ?? 0}");
             }
 
@@ -683,8 +692,13 @@ namespace SmartHopper.Core.UI.Chat
             string answerHtml = this.RenderMarkdownWithBlockCache(rawContent, AppendCacheSuffix(cacheKey, "content"));
             Logger.For<ChatResourceManager>().Trace($"[ChatResourceManager] Answer HTML length: {answerHtml?.Length ?? 0}");
 
-            // Escape answer markdown for safe use in an HTML attribute
-            string mdContentEscaped = System.Net.WebUtility.HtmlEncode(rawContent).Replace("'", "&#39;", StringComparison.Ordinal);
+            // Escape answer markdown for safe use in an HTML attribute. Tool cards
+            // render structured HTML, so their copy source comes from a dedicated
+            // plain-text channel instead of the markup.
+            string copyContent = interaction is AIInteractionToolCall toolCall
+                ? toolCall.GetCopyTextForRender() ?? string.Empty
+                : rawContent;
+            string mdContentEscaped = System.Net.WebUtility.HtmlEncode(copyContent).Replace("'", "&#39;", StringComparison.Ordinal);
 
             string template = this.GetMessageTemplate();
 

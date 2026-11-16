@@ -49,7 +49,7 @@ namespace SmartHopper.Components.Script
         public override Guid ComponentGuid => new Guid("9C82B8C7-7F66-4E6C-9F6E-0C58C1C2A345");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.scriptreview;
+        protected override Bitmap Icon => Resources.AIScriptReview;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.primary;
@@ -75,26 +75,25 @@ namespace SmartHopper.Components.Script
             : base(
                   "AI Script Review",
                   "AIScriptReview",
-                  "Review existing Grasshopper script components and get coded checks plus an AI review.\nSupports multiple selected components. Questions are matched to selected components in order.",
+                  "Review selected Grasshopper script components using static code checks and AI analysis.\nClick 'Select Components' to pick one or more script components on the canvas.",
                   "SmartHopper",
-                  "Script")
+                  "J. Script")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Question", "Q", "Optional question or focus for the review. Multiple questions are matched to selected components in order.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Question", "Q", "Optional question or focus area for the code review. Multiple questions are matched to selected script components in order.", GH_ParamAccess.list);
             pManager[0].Optional = true;
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Success", "S", "True if the review succeeded. One branch per component.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Coded Issues", "C", "List of coded static issues detected in the script. One branch per component.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("AI Review", "R", "Full AI review text. One branch per component.", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Success", "S", "True if the review completed without errors.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Coded Issues", "C", "Static analysis warnings and issues detected in the script before calling the AI.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("AI Review", "R", "AI code review covering bugs, RhinoCommon/Grasshopper API usage, performance, and improvements.", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
@@ -227,7 +226,7 @@ namespace SmartHopper.Components.Script
                 }
 
                 // Extract and collect messages from tool result
-                var toolMessages = RuntimeMessageUtility.ExtractMessages(toolResult);
+                var toolMessages = toolResult.ExtractMessages();
                 foreach (var m in toolMessages) this.CollectMessage(m);
 
                 if (toolMessages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error))

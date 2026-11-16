@@ -10,7 +10,7 @@ Loopback-only MCP transport that exposes SmartHopper's existing `AITool` catalog
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Infrastructure/Mcp/` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-10-09 |
+| **Last Updated** | 2026-09-21 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -42,12 +42,11 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
   - `Port` — TCP port to bind on loopback.
   - `BearerToken` — optional static bearer token.
   - `Allow Editing` (`AE`) — whether tools marked as mutating may be exposed.
-  - `Bypass Edition Validation` (`BV`) — when true, canvas mutations requested through this server are applied without showing the review dialog. Undo is still recorded. Defaults to false.
+  - `Auto-approve changes` (`AA`) — when true, canvas mutations requested through this server are applied without showing the review dialog. Undo is still recorded. Defaults to false.
   - `Allow View Control` (`AV`) — when true, tools in the `Canvas.ViewControl` category (`canvas_view`) are exposed so clients can move the canvas viewport. Defaults to false.
   - `Allow External Tools` (`ET`) — when true, tools annotated `openWorldHint` (local file reads/writes, URL fetches, AI provider calls) are exposed. Defaults to false.
-  - `Allow External Connections` (`AX`) — when true, the server binds all network interfaces so other machines on the LAN can reach it. Requires a bearer token — the server refuses to start without one — and the OS may show a firewall prompt on first use. Defaults to false.
 - Outputs:
-  - `Url` — the MCP endpoint when the server is running: the loopback URL, or the LAN IP URL (e.g. `http://192.168.1.42:26929/mcp`) while external connections are allowed.
+  - `Url` — the loopback endpoint when running: `http://127.0.0.1:<port>/mcp`. No LAN URL is advertised.
   - `Status` — a short status string.
 
 ### Default Configuration
@@ -58,20 +57,19 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 | Bearer token | empty | Empty means no bearer auth; loopback-only still applies. |
 | Enabled tools | `null` | Null or empty means the full read-only surface is eligible. |
 | Allow editing (`ExposeMutatingTools`) | `false` | Mutating tools stay hidden unless explicitly allowed. |
-| Bypass edition validation (`BypassMutationsApproval`) | `false` | Opt-in per server instance; skips the review dialog for mutations requested through that server. |
+| Auto-approve changes (`BypassMutationsApproval`) | `false` | Opt-in per server instance; skips the review dialog for mutations requested through that server. |
 | Allow view control (`AllowViewControl`) | `false` | `Canvas.ViewControl`-category tools (`canvas_view`) stay hidden unless explicitly allowed. |
 | Allow external tools (`AllowExternalTools`) | `false` | `openWorldHint`-annotated tools stay hidden unless explicitly allowed. |
-| Allow external connections (`AllowExternalConnections`) | `false` | Off: binds `127.0.0.1` only. On: binds all interfaces (IPv4) and requires a bearer token. |
 | Server name | `smarthopper` | Reported during MCP `initialize`. |
 | Server version | assembly informational version fallback | Can be overridden from options. |
-| Bind address | loopback only | `127.0.0.1` while external connections are off. With `AllowExternalConnections`, binds `0.0.0.0` (IPv4 only); loopback requests still work. |
+| Bind address | loopback only | Always `127.0.0.1`, never wildcard or LAN addresses. |
 
 ### Security Posture
 
-- **Loopback by default.** The server binds to `127.0.0.1` only via a raw `TcpListener` — no `HttpListener`, so it shares no process-wide http.sys request-queue state with other in-process listeners and needs no URL ACL or elevation.
-- **External access is opt-in and fail-closed.** `AllowExternalConnections` binds all interfaces, but the server refuses to start without a `BearerToken` — unauthenticated remote access is impossible by construction. Remote peers then face the same 401 bearer check as local ones; mutating/view-control tool gates are unchanged.
-- **Loopback peer guard.** In loopback mode, requests from non-loopback IP addresses are rejected (defence in depth even though the listener is already bound to loopback).
-- **Loopback `Host` guard.** A `Host` header pointing at a non-loopback name is rejected, which blocks DNS-rebinding attempts. With external connections on, `Host` must instead name this machine — a loopback address, `localhost`, the machine hostname, or one of its own interface IPs — so LAN clients can reach `http://<machine-ip>:<port>/mcp` but foreign Hosts stay rejected.
+- **Loopback only.** The raw `TcpListener` always binds `127.0.0.1`; it shares no http.sys state and needs no URL ACL, firewall exception or elevation.
+- **No native LAN transport.** Bearer authentication does not encrypt HTTP; no option can make the listener public, even with a token. An intentionally configured remote workflow must use an authenticated encrypted tunnel to loopback, not a plaintext forwarding proxy.
+- **Loopback peer guard.** Non-loopback peers are always rejected as defence in depth.
+- **Loopback `Host` guard.** Only literal loopback and `localhost` names pass; machine hostnames, LAN addresses and DNS aliases are rejected.
 - **Cross-origin guard.** Requests carrying a non-loopback `Origin` or `Referer` header are rejected. Browsers always attach `Origin` to `fetch()` POSTs, so a website cannot drive the tool surface even when no bearer token is configured; MCP clients send neither header.
 - **Bearer token optional.** If a token is configured, requests without `Authorization: Bearer ...` are rejected with HTTP 401. When no token is set, the component's `Status` output explicitly warns that any local process can call the server.
 - **Read-only by default.** Tools that alter the canvas are hidden unless `Allow Editing` (`ExposeMutatingTools`) is enabled.
@@ -82,7 +80,7 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 - **Allow-list overrides the mutating, view-control, and external-tool filters.** If `EnabledTools` is set, only those tools are exposed; this overrides `ExposeMutatingTools`, `AllowViewControl`, and `AllowExternalTools` but not the `Enabled` flag.
 - **No file-system or shell access.** MCP only exposes existing `IAIToolProvider` tools.
 - **No payload logging.** Requests are logged without GhJSON payload contents.
-- **Review-by-default for mutations.** Even with `Allow Editing` on, every canvas mutation still goes through the consent review unless the serving component explicitly sets `Bypass Edition Validation`.
+- **Review-by-default for mutations.** Even with `Allow Editing` on, every canvas mutation still goes through the consent review unless the serving component explicitly enables `Auto-approve changes`.
 
 ### What Mutating Tools Mean
 
@@ -96,7 +94,7 @@ That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `
 
 ### What Enabled Means
 
-A tool is considered enabled when its `AITool.Enabled` flag is `true` (the default). Tools marked `enabled: false` are hidden from both the in-process provider tool list and the MCP `tools/list` endpoint. This is used for experimental or unsupported tools, such as those in the `NotTested` category.
+A tool is considered enabled when its `AITool.Enabled` flag is `true` (the default). Tools marked `enabled: false` are hidden from both the in-process provider tool list and the MCP `tools/list` endpoint. This is used for experimental or unsupported tools regardless of their category.
 
 ## Developer Reference
 
@@ -106,9 +104,9 @@ A tool is considered enabled when its `AITool.Enabled` flag is `true` (the defau
 
 | MCP method | SmartHopper behavior |
 | --- | --- |
-| `initialize` | Returns protocol version `2025-03-26`, server name, version, and supported capabilities. |
+| `initialize` | Returns protocol version `2025-03-26`, server name, version, supported capabilities, and an `instructions` field warning that the session is bound to the document hosting the server component (see Document Lifetime Binding below). |
 | `tools/list` | Uses `AIToolMcpAdapter.BuildDescriptors()` to project the `AIToolManager` catalog. Each tool descriptor includes `inputSchema`, `outputSchema`, `tags`, and MCP `annotations`. |
-| `tools/call` | Resolves the named tool, builds `AIToolCall`, executes it through the adapter, and wraps the result in MCP content — `image` + `text` blocks for screenshot payloads, `text` otherwise. |
+| `tools/call` | Resolves the named tool, builds `AIToolCall`, executes it through the adapter, and wraps the result in MCP content — ordered native `image` blocks for typed `ToolResultImage` images (and legacy screenshot payloads) followed by a `text` block, `text` otherwise. |
 | `notifications/initialized` | Acknowledged as a notification. |
 | `ping` | Lightweight health check. |
 | `resources/list` | Returns static documentation URIs exposed by `IMcpResourceProvider`. |
@@ -145,15 +143,31 @@ The adapter expects MCP clients to send a tool name and a JSON object of argumen
 4. `AIToolMcpAdapter` builds an `AIToolCall` and invokes it through the configured executor (`AIToolCall.Exec()` by default).
 5. The adapter extracts the last `AIInteractionToolResult` from `AIReturn.Body` and returns it as the MCP response payload; if no tool result is present, the adapter falls back to the first Tool/Provider/Network error or an empty object.
 
-`canvas_screenshot` and `viewport_screenshot` return `{ imageBase64, mimeType, width, height }` (plus `viewName` for a Rhino viewport). The dispatcher splits such payloads into a native MCP `image` content block (`{type:"image", data, mimeType}`) followed by a `text` block with the remaining metadata — ordinary JSON results stay text-only. Both tools accept an optional `savePath` that also writes the PNG to disk (creating parent directories) and reports the normalized path as `savedTo`. Capture is marshalled to Rhino's UI thread and dimensions are limited to 4096 pixels per axis. Screenshot payloads can contain sensitive project information; use bearer authentication when other local processes are not trusted and avoid forwarding captures to external services without user intent.
+Results carrying typed `ToolResultImage` entries (`McpToolCallResult.Images`, populated from the result interaction's images by `AIToolMcpAdapter`) emit each model-visible image (`SendToModel`, non-empty data, `image/*` MIME) as a native MCP `image` content block (`{type:"image", data, mimeType}`) in production order, **before** the `text` block carrying the JSON payload. Image bytes never appear in the JSON payload or `structuredContent`; `structuredContent` carries the compact payload metadata plus `nativeImageOrder`, the asset IDs of the emitted model-visible blocks in order, so clients can correlate blocks with descriptors. When the result reports helper/enrichment metrics (`ExtraMetrics`), they are forwarded verbatim under `_meta["smarthopper/helperUsage"]` on success **and** error results — never inside text or structured content.
+
+For document tools (`file2md`, `web2md`), the payload describes visual evidence through the `consumerSupportsImages` tri-state contract: `true` yields native image blocks for model-visible renders/assets; `false` produces page-linked textual visual evidence through the configured vision helper and emits no native image blocks; omitted reports `consumerCapability: "unknown"` with `clientAdaptationRequired: true`, preserving the original evidence without an unconsented provider call. MCP image-block transport never implies the remote model accepts images — the client decides consumption.
+
+`canvas_screenshot` and `viewport_screenshot` return `{ imageBase64, mimeType, width, height }` (plus `viewName` for a Rhino viewport). The dispatcher still maps such legacy payloads to one native `image` block with the binary field stripped from the metadata text block — ordinary JSON results stay text-only. Both tools accept an optional `savePath` that also writes the PNG to disk (creating parent directories) and reports the normalized path as `savedTo`. Capture is marshalled to Rhino's UI thread and dimensions are limited to 4096 pixels per axis. Screenshot payloads can contain sensitive project information; use bearer authentication when other local processes are not trusted and avoid forwarding captures to external services without user intent.
 
 ### Idempotent Mutation Retries
 
-Mutating `tools/call` invocations accept an optional `requestId` argument. `McpToolCallCache` keeps the serialized result of each served `(toolName, requestId)` pair for ~10 minutes in memory; a retry with the same pair returns the cached result without re-executing the tool, so a dropped connection cannot apply the same canvas change twice. `requestId` is ignored for read-only tools and on non-MCP surfaces.
+Mutating `tools/call` invocations accept an optional `requestId` argument. `McpMutationReservations` binds each `(server generation, session, tool, requestId)` to the first reserved document binding and outcome for ~10 minutes (bounded per session). A retry with the same key and identical arguments joins or replays the recorded operation — including an in-flight one, which it observes with a bounded budget (`operation_in_progress` while still owned) — so a dropped connection cannot apply the same canvas change twice. The same key with different arguments is an `idempotency_conflict`. `requestId` is ignored for read-only tools and on non-MCP surfaces; replay guarantees end at reservation expiry or server restart.
+
+### Document Lifetime Binding
+
+The server's lifetime is owned by the component instance inside the hosting document (`McpServerLifecycle` ref-count). When the Grasshopper canvas swaps to another document the host document receives `GH_DocumentContext.Unloaded`, the component releases its hold, and the last holder's release stops the server — mid-request if a call is in flight. This makes document-activation tools self-severing over MCP: `gh_document_new`, `gh_document_switch` and `gh_document_open` can never return their result when the document being left hosts the last enabled server component.
+
+Mitigations:
+
+- The `initialize` result's `instructions` field warns clients that the session lives only while the host document is shown.
+- `GhDocumentAccess.Describe` reports `hostsMcpServer` per document (surfaced by `gh_document_list`, `gh_document_new`, `gh_document_open`).
+- On the MCP surface (`AIToolSurface.Mcp`), `GhDocumentTools.ThrowIfDisconnectsMcp` refuses document activation with an actionable error whenever the current document hosts the last enabled server component. Passing `allowDisconnect: true` proceeds anyway; Chat/Direct surfaces, already-active targets, and multi-host setups (another open document also hosts an enabled component, so the shared server survives) are unaffected.
+
+The server restarts automatically when the host document is shown again in the canvas: the reload schedules a solution, `SolveInstance` re-acquires the lifecycle slot, and the component reports `Running` again.
 
 ### Auto-Approve Consent Policy
 
-`McpServerOptions.BypassMutationsApproval` (component input `Bypass Edition Validation`) flows into `MutationInvocationContext.BypassMutationsApproval` when the adapter builds the call. `ConsentGate.RequestAsync` short-circuits before presenter resolution when `Surface == AIToolSurface.Mcp` and the flag is set, returning `Approved` with every proposal item key — the review dialog is never invoked and undo recording is unaffected. Any other surface, or an MCP server with the flag off, keeps the interactive review.
+`McpServerOptions.BypassMutationsApproval` (component input `Auto-approve changes`) flows into `MutationInvocationContext.BypassMutationsApproval` when the adapter builds the call. `ConsentGate.RequestAsync` short-circuits before presenter resolution when `Surface == AIToolSurface.Mcp` and the flag is set, returning `Approved` with every proposal item key — the review dialog is never invoked and undo recording is unaffected. Any other surface, or an MCP server with the flag off, keeps the interactive review.
 
 ### Compact Validation Errors
 
@@ -196,7 +210,9 @@ Prompts remain pure behavioral templates: they refer to resources and tools but 
 
 ### Thread Safety and Concurrency
 
-Canvas/document work must be serialized. `JsonRpcDispatcher` serializes JSON-RPC requests with a `SemaphoreSlim` so only one MCP request runs at a time. The actual UI thread marshalling, when required by a tool, is handled by the tool's execution path (the default executor invokes `AIToolCall.Exec()`).
+The dispatcher splits methods into two lanes. Control-plane methods (`initialize`, `ping`, `notifications/*`, `tools/list`) are never gated and always answer promptly. Long-running methods (`tools/call`, `resources/*`, `prompts/*` — provider callbacks may touch the document, so they are not assumed UI-independent) must be admitted into a bounded lane of 12 slots within ~1 s; excess calls are rejected promptly with a `server_busy` internal error rather than queued unboundedly. With the transport cap at 16 concurrent requests, this keeps at least 4 slots of headroom for control methods under full tool saturation.
+
+Canvas-commit serialization is not the dispatcher's job: document writes are serialized per bound document by `GrasshopperMutationUndoCoordinator`, the shared mutation coordinator used by MCP, chat, and direct tool surfaces alike. Mutations bound to different documents may proceed concurrently. The actual UI thread marshalling, when required by a tool, is handled by the tool's execution path (the default executor invokes `AIToolCall.Exec()`); UI admission is bounded via `BoundedUiPost`, which reports `canvas_busy` on overload instead of queuing late callbacks.
 
 ```csharp
 var options = new McpServerOptions
@@ -309,7 +325,7 @@ The component entry point lives in `src/SmartHopper.Components/Mcp/SmartHopperMc
 | 1 | Transport and tool bridge | Loopback server, `tools/list`, `tools/call`, read-only tools by default. |
 | 2 | Resources | `resources/list`, `resources/read`, embedded docs. |
 | 3 | Prompts | `prompts/list`, `prompts/get`. |
-| 4 | LAN exposure and stronger auth | Opt-in `AllowExternalConnections` binding all IPv4 interfaces, gated by a required bearer token, with the component reporting the LAN URL. |
+| 4 | LAN exposure removed | Loopback-only transport. The component input and options surface are gone; nothing can request a non-loopback bind. |
 | 5 | Streamable HTTP / SSE | Long-running streaming transport support. |
 
 Phases 2 and 3 are implemented as static providers sourced from existing AITools and `/docs` Markdown.

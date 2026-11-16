@@ -67,7 +67,9 @@ namespace SmartHopper.Infrastructure.Mcp
                 }
                 else if (OptionsDiffer(slot.Server.Options, options))
                 {
-                    Logger.Trace(typeof(McpServerLifecycle).FullName, $"[Mcp] Port {options.Port} is already served with different options; the running configuration stays in effect for every holder.");
+                    Logger.Warning(
+                        typeof(McpServerLifecycle).FullName,
+                        $"[Mcp] Port {options.Port} is already served with different options; the running configuration stays in effect for every holder.");
                 }
 
                 slot.Holders.Add(key);
@@ -133,8 +135,7 @@ namespace SmartHopper.Infrastructure.Mcp
             if (!string.Equals(running.BearerToken ?? string.Empty, requested.BearerToken ?? string.Empty, StringComparison.Ordinal)
                 || running.ExposeMutatingTools != requested.ExposeMutatingTools
                 || running.BypassMutationsApproval != requested.BypassMutationsApproval
-                || running.AllowViewControl != requested.AllowViewControl
-                || running.AllowExternalConnections != requested.AllowExternalConnections)
+                || running.AllowViewControl != requested.AllowViewControl)
             {
                 return true;
             }

@@ -75,6 +75,11 @@ namespace SmartHopper.Core.ComponentBase
         {
             Logger.For<AIStatefulAsyncComponentBase>().Trace("[AIStatefulComponentBase] SetMetricsOutput - Start");
 
+            // Canonical assembly: rebuild the metrics tree from recorded unit
+            // placements so entries align with output positions regardless of
+            // completion order. No-op when the run recorded no placements.
+            this.RebuildRunMetricsTree();
+
             if (this._metricsTree != null && this._metricsTree.DataCount > 0)
             {
                 this.SetPersistentOutput(WellKnownInputs.Metrics, this._metricsTree, dA);
@@ -128,40 +133,14 @@ namespace SmartHopper.Core.ComponentBase
             Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsToken}");
         }
 
-        private JObject SerializeMetricsEntry(AIMetrics metrics)
+        private JObject SerializeMetricsEntry(AIMetrics metrics, bool reused = false)
         {
-            var obj = new JObject(
-                new JProperty("ai_provider", metrics.Provider),
-                new JProperty("ai_model", metrics.Model),
-                new JProperty("tokens_input", metrics.InputTokens),
-                new JProperty("tokens_input_prompt", metrics.InputTokensPrompt),
-                new JProperty("tokens_input_cached", metrics.InputTokensCached),
-                new JProperty("tokens_input_cache_write", metrics.InputTokensCacheWrite),
-                new JProperty("tokens_output", metrics.OutputTokens),
-                new JProperty("tokens_output_reasoning", metrics.OutputTokensReasoning),
-                new JProperty("tokens_output_generation", metrics.OutputTokensGeneration),
-                new JProperty("finish_reason", metrics.FinishReason),
-                new JProperty("completion_time", metrics.CompletionTime),
-                new JProperty("context_usage_percent", metrics.ContextUsagePercent),
-                new JProperty("estimated_cost", metrics.EstimatedCost));
-
-            if (metrics.Role != null)
-            {
-                obj.Add("role", metrics.Role);
-            }
-
-            if (metrics.DataCount.HasValue)
-            {
-                obj.Add("data_count", metrics.DataCount.Value);
-            }
-            else
-            {
-                obj.Add("data_count", this.DataCount);
-            }
-
-            obj.Add("iterations_count", metrics.IterationsCount ?? 0);
-
-            return obj;
+            // Shared codec keeps emitted fields identical to provenance
+            // persistence and the metrics compose/decompose components.
+            return AIMetricsJson.ToJson(
+                metrics,
+                dataCount: metrics?.DataCount ?? this.DataCount,
+                reused: reused);
         }
 
         /// <summary>
@@ -207,13 +186,15 @@ namespace SmartHopper.Core.ComponentBase
         /// After calling this, invoke <see cref="SetMetricsOutput"/> to re-emit.
         /// </summary>
         /// <param name="metrics">The metrics to merge in.</param>
-        /// <param name="role">Optional role label for the metrics entry (e.g. "main", "fallback:ImageToText").</param>
+        /// <param name="role">Optional role label for the metrics entry (e.g. "main", "fallback", "tool:img2text").</param>
         protected void CombineIntoPersistedMetrics(AIMetrics metrics, string role = null)
         {
             if (metrics == null) return;
+            var entry = WithExecutionId(WithRole(metrics, role));
             this._batchState.PersistedMetricsList ??= new ProviderSdk.AICall.Metrics.AIMetricsList();
-            this._batchState.PersistedMetricsList.Add(metrics, role);
-            this.AppendMetricToTree(metrics);
+            this._batchState.PersistedMetricsList.Add(entry);
+            this.ResultStore.RecordMetrics(this.CurrentUnitKey, entry);
+            this.AppendMetricToTree(entry);
         }
 
         /// <summary>
@@ -230,10 +211,31 @@ namespace SmartHopper.Core.ComponentBase
         protected void CombineIntoPersistedMetricsAtPath(AIMetrics metrics, GH_Path path, string role = null)
         {
             if (metrics == null || path == null) return;
+            var entry = WithExecutionId(WithRole(metrics, role));
             this._batchState.PersistedMetricsList ??= new ProviderSdk.AICall.Metrics.AIMetricsList();
-            this._batchState.PersistedMetricsList.Add(metrics, role);
-            this.AppendMetricToTree(metrics, path);
+            this._batchState.PersistedMetricsList.Add(entry);
+            this.ResultStore.RecordMetrics(this.CurrentUnitKey, entry, path?.Indices);
+            this.AppendMetricToTree(entry, path);
         }
+
+        /// <summary>
+        /// Returns the metrics with <paramref name="role"/> applied, preserving any
+        /// role the metrics already carries when no override is supplied.
+        /// </summary>
+        private static AIMetrics WithRole(AIMetrics metrics, string role)
+            => string.IsNullOrEmpty(role) ? metrics : metrics with { Role = role };
+
+        /// <summary>
+        /// Ensures the metrics entry carries a stable execution identifier so the
+        /// same execution replayed at multiple output placements can be
+        /// deduplicated instead of charged once per occurrence. The id is shared
+        /// by the persisted list, the unit-result provenance record, and the
+        /// emitted metrics tree.
+        /// </summary>
+        private static AIMetrics WithExecutionId(AIMetrics metrics)
+            => string.IsNullOrEmpty(metrics.ExecutionId)
+                ? metrics with { ExecutionId = Guid.NewGuid().ToString("N") }
+                : metrics;
 
         /// <summary>
         /// Persists the primary output tree and any additional named outputs, then emits metrics.
@@ -254,6 +256,12 @@ namespace SmartHopper.Core.ComponentBase
             params (string name, object value)[] additionalOutputs)
             where T : IGH_Goo
         {
+            // Publication boundary: raw batch sentinels are transport-only and must
+            // never reach persisted output. Unresolved placeholders (partial decode,
+            // orphaned queue) are stripped; the affected units stay uncommitted in
+            // the result store and re-execute on the next run.
+            var strippedCount = Batch.BatchSentinel.StripFrom(primaryTree);
+
             // Persist the primary output
             this.SetPersistentOutput(primaryOutputParamName, primaryTree, null);
 
@@ -262,8 +270,23 @@ namespace SmartHopper.Core.ComponentBase
             {
                 foreach (var (name, value) in additionalOutputs)
                 {
+                    if (value is IGH_Structure extraStructure)
+                    {
+                        strippedCount += Batch.BatchSentinel.StripFrom(extraStructure);
+                    }
+
                     this.SetPersistentOutput(name, value, null);
                 }
+            }
+
+            if (strippedCount > 0)
+            {
+                Logger.For<AIStatefulAsyncComponentBase>().Warning($"[AIStatefulAsync] FinishResults: stripped {strippedCount} unresolved batch sentinel(s) from published output");
+                this.SetPersistentRuntimeMessage(
+                    "batch_unresolved_placeholders",
+                    GH_RuntimeMessageLevel.Warning,
+                    $"{strippedCount} unresolved batch placeholder(s) were omitted from published output; affected units will re-run.",
+                    false);
             }
 
             // Stamp CompletionTime into every metrics entry (all branches share
@@ -286,17 +309,75 @@ namespace SmartHopper.Core.ComponentBase
                     Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] FinishResults: stamped CompletionTime={completionTime:F2}s into {newList.Entries.Count} metric(s)");
                 }
 
-                // Also stamp into the metrics tree by updating the serialized JSON strings
-                if (this._metricsTree != null)
-                {
-                    this.StampCompletionTimeIntoMetricsTree(this._batchState.CompletionTime.Value);
-                }
+                // Also stamp the stored unit provenance — freshly executed units
+                // get the batch elapsed; units served from the store keep their
+                // original duration. RebuildRunMetricsTree then emits stamped
+                // values on every emit, and committed provenance persists them.
+                this.ResultStore.StampRunCompletionTime(this._batchState.CompletionTime.Value);
+
+                // The incrementally assembled tree keeps the stamp too — the
+                // placement-driven rebuild replaces it wholesale when placements
+                // exist; without placements this is the emitted tree.
+                this.StampCompletionTimeIntoMetricsTree(this._batchState.CompletionTime.Value);
 
                 this._batchState.CompletionTime = null;
             }
 
+            // Promote resolved unit results — fragments still carrying sentinels are
+            // dropped and will re-execute on the next run. Idempotent: the subsequent
+            // OnWorkerCompleted commit converges to the same committed set.
+            // Skipped while instance caching is disabled so the untouched run
+            // does not replace the committed snapshot with an empty one.
+            if (!this.DisableResultCaching)
+            {
+                this.ResultStore.CommitRun();
+            }
+
             // Always emit metrics (replaces the ShouldEmitMetricsInPostSolve pattern)
             this.SetMetricsOutput(null);
+        }
+
+        /// <summary>
+        /// Rebuilds <see cref="_metricsTree"/> from recorded unit placements so the
+        /// metrics items align with the output items at the same paths, regardless
+        /// of the order units completed in. Reused occurrences emit
+        /// <c>reused: true</c> with zeroed data/iterations counts; grouped sibling
+        /// copies carry <c>data_count: 0</c>; provenance without a unit context is
+        /// appended last. No-op when the run recorded no placements (legacy
+        /// pending payloads keep the incrementally assembled tree, including the
+        /// batch completion-time stamp).
+        /// </summary>
+        private void RebuildRunMetricsTree()
+        {
+            var placements = this.ResultStore.BuildRunMetricsPlacements(this.ComponentProcessingOptions.Topology);
+            if (placements == null)
+            {
+                return;
+            }
+
+            var rebuilt = new GH_Structure<GH_String>();
+            foreach (var placement in placements)
+            {
+                var stamped = placement.Reused
+                    ? placement.Metrics with { DataCount = 0, IterationsCount = 0 }
+                    : placement.SiblingCopy
+                        ? placement.Metrics with { DataCount = 0 }
+                        : placement.Metrics;
+                var obj = this.SerializeMetricsEntry(stamped, reused: placement.Reused);
+                if (obj != null)
+                {
+                    rebuilt.Append(
+                        new GH_String(obj.ToString(Newtonsoft.Json.Formatting.None)),
+                        new GH_Path(placement.PathIndices ?? Array.Empty<int>()));
+                }
+            }
+
+            // Keep the incrementally assembled tree when the rebuild produced
+            // nothing — covers runs that recorded placements but no provenance.
+            if (rebuilt.DataCount > 0)
+            {
+                this._metricsTree = rebuilt;
+            }
         }
 
         /// <summary>
@@ -317,6 +398,15 @@ namespace SmartHopper.Core.ComponentBase
                     try
                     {
                         var obj = JObject.Parse(item.Value);
+
+                        // Replayed provenance keeps its original duration — the
+                        // current run's batch elapsed time does not apply.
+                        if (obj["reused"]?.Value<bool>() == true)
+                        {
+                            updatedTree.Append(new GH_String(obj.ToString(Newtonsoft.Json.Formatting.None)), path);
+                            continue;
+                        }
+
                         obj["completion_time"] = completionTime;
                         updatedTree.Append(new GH_String(obj.ToString(Newtonsoft.Json.Formatting.None)), path);
                     }

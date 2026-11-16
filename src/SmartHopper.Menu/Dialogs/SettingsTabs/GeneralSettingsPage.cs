@@ -22,6 +22,7 @@ using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.Infrastructure.AICall.Fallback;
+using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Menu.Dialogs.SettingsTabs.Models;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
@@ -30,9 +31,10 @@ using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Menu.Dialogs.SettingsTabs
 {
     /// <summary>
-    /// Settings page for general SmartHopper configuration, organized in AI
-    /// and Logs sections: default provider, debounce and batch poll interval, modality
-    /// fallback, and log sink toggles/levels/retention.
+    /// Settings page for general SmartHopper configuration: the provider tile grid,
+    /// default provider, debounce and batch poll interval, and modality fallback.
+    /// Log sink controls are built here too but hosted in the
+    /// Developer tab through <see cref="DeveloperContent"/>.
     /// </summary>
     public class GeneralSettingsPage : Panel
     {
@@ -47,6 +49,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         private readonly DropDown _defaultProviderComboBox;
         private readonly NumericStepper _debounceControl;
         private readonly NumericStepper _batchPollIntervalControl;
+        /// <summary>Gets the log-sink controls hosted in the Developer tab.</summary>
+        public Control DeveloperContent { get; }
         private readonly IAIProvider[] _providers;
 
         // Modality fallback controls (AI section)
@@ -67,7 +71,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// Initializes a new instance of the GeneralSettingsPage class
         /// </summary>
         /// <param name="providers">Available AI providers</param>
-        public GeneralSettingsPage(IAIProvider[] providers)
+        /// <param name="configureProvider">Callback invoked when a provider tile is clicked.</param>
+        public GeneralSettingsPage(IAIProvider[] providers, Action<IAIProvider> configureProvider)
         {
             this._providers = providers;
 
@@ -87,10 +92,9 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 Increment = 5,
             };
 
-
             this._fallbackModeDropDown = new DropDown();
             this._fallbackModeDropDown.Items.Add(new ListItem { Text = "Disabled", Key = "0" });
-            this._fallbackModeDropDown.Items.Add(new ListItem { Text = "Configured Provider", Key = "1" });
+            this._fallbackModeDropDown.Items.Add(new ListItem { Text = "Same Provider", Key = "1" });
             this._fallbackModeDropDown.Items.Add(new ListItem { Text = "Any Provider", Key = "2" });
             this._fallbackModeDropDown.SelectedIndexChanged += this.OnFallbackModeChanged;
 
@@ -107,6 +111,30 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             // Create layout
             var layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
+
+            // AI Providers section — one tile per provider opens its settings view.
+            layout.Add(new Label
+            {
+                Text = "AI Providers",
+                Font = new Font(SystemFont.Bold, 12),
+            });
+
+            layout.Add(SettingsText.DescriptionLabel("Select a provider to configure its connection."));
+
+            layout.Add(new Panel { Height = 5 });
+
+            // Untrusted providers get no tile: configuring a provider that cannot run
+            // only produces failures later, so the entry point is removed entirely.
+            var trustedProviders = this._providers.Where(IsProviderTrusted).ToArray();
+            layout.Add(CreateProviderGrid(trustedProviders, configureProvider));
+            if (trustedProviders.Length < this._providers.Length)
+            {
+                layout.Add(new Panel { Height = 5 });
+                layout.Add(SettingsText.DescriptionLabel(
+                    "Some providers are hidden because they are not trusted yet. Trust a provider on the Security tab first to be able to configure it."));
+            }
+
+            layout.Add(new Panel { Height = 15 });
 
             // AI section
             layout.Add(new Label
@@ -127,14 +155,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 new TableCell(this._defaultProviderComboBox, true)));
             layout.Add(providerRowLayout);
 
-            layout.Add(new Label
-            {
-                Text = "The default AI provider to use for new components",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,  // Max width for better text wrapping
-            });
+            layout.Add(SettingsText.DescriptionLabel("The default AI provider to use for new components"));
 
             // Add spacing
             layout.Add(new Panel { Height = 10 });
@@ -151,14 +172,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             layout.Add(debounceRowLayout);
 
-            layout.Add(new Label
-            {
-                Text = "Time to wait for input data to stabilize before sending requests to AI providers. Especially relevant when run is permanently set to true.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,  // Max width for better text wrapping
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "Time to wait for input data to stabilize before sending requests to AI providers. Especially relevant when run is permanently set to true."));
 
             // Add spacing
             layout.Add(new Panel { Height = 10 });
@@ -175,14 +190,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             layout.Add(batchPollRowLayout);
 
-            layout.Add(new Label
-            {
-                Text = "Minimum interval between batch status poll requests. Applies to all providers that support batch processing.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "Minimum interval between batch status poll requests. Applies to all providers that support batch processing."));
 
             // Add spacing
             layout.Add(new Panel { Height = 10 });
@@ -194,17 +203,11 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 new TableCell(this._fallbackModeDropDown, true)));
             layout.Add(fallbackModeRowLayout);
 
-            layout.Add(new Label
-            {
-                Text = "Controls what happens when an AI model does not support the required input modality (e.g. images sent to a text-only model). " +
-                       "Disabled: unsupported modalities produce an error. " +
-                       "Configured Provider: convert using the component's configured provider. " +
-                       "Any Provider: convert using whichever configured provider can handle the conversion.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "Controls what happens when an AI model does not support the required input modality (e.g. images sent to a text-only model). " +
+                "Disabled: unsupported modalities produce an error. " +
+                "Same Provider: convert using the component's configured provider. " +
+                "Any Provider: convert using whichever configured provider can handle the conversion."));
 
             layout.Add(new Panel { Height = 10 });
 
@@ -217,15 +220,9 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 Font = new Font(SystemFont.Bold, 11),
             });
 
-            pinsLayout.Add(new Label
-            {
-                Text = "Optionally pin a specific provider/model for each fallback conversion. " +
-                       "Leave as 'Auto' to let the resolver choose automatically.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
+            pinsLayout.Add(SettingsText.DescriptionLabel(
+                "Optionally pin a specific provider/model for each fallback conversion. " +
+                "Leave as 'Auto' to let the resolver choose automatically."));
 
             pinsLayout.Add(new Panel { Height = 5 });
 
@@ -258,9 +255,12 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 modelDropDown.Enabled = false;
                 this._fallbackModelDropDowns[fb.Name] = modelDropDown;
 
+                var fbLabel = SettingsText.DescriptionLabel(fb.Description, width: 230);
+                fbLabel.VerticalAlignment = VerticalAlignment.Center;
+
                 var row = new TableLayout { Spacing = new Size(10, 0) };
                 row.Rows.Add(new TableRow(
-                    new TableCell(new Label { Text = fb.Description, VerticalAlignment = VerticalAlignment.Center, Width = 250 }, false),
+                    new TableCell(fbLabel, false),
                     new TableCell(providerDropDown, true),
                     new TableCell(modelDropDown, true)));
                 rowsLayout.Add(row);
@@ -272,8 +272,10 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             this._fallbackPinsContainer = new Panel { Content = pinsLayout };
             layout.Add(this._fallbackPinsContainer);
 
+            var generalLayout = layout;
+            layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
+
             // Logs section
-            layout.Add(new Panel { Height = 20 });
             layout.Add(new Label
             {
                 Text = "Logs",
@@ -282,7 +284,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             layout.Add(new Panel { Height = 5 });
 
-            AddDescription(layout, "Local, on-machine logging only — nothing leaves this machine unless you export a diagnostics zip yourself.");
             layout.Add(new Panel { Height = 10 });
 
             layout.Add(this._liveOutputCheckBox);
@@ -299,9 +300,94 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Add end spacing
             layout.Add(new Panel { Height = 10 });
 
-            this.Content = new Scrollable { Content = layout };
+            this.DeveloperContent = new Scrollable { Content = layout };
+            this.Content = new Scrollable { Content = generalLayout };
 
             this.UpdateFallbackPinsVisibility();
+        }
+
+        /// <summary>
+        /// Reports whether the provider is trusted. Missing entries default to trusted,
+        /// matching the Security tab checkboxes.
+        /// </summary>
+        private static bool IsProviderTrusted(IAIProvider provider)
+        {
+            var assemblyName = provider.GetType().Assembly.GetName().Name;
+            var trusted = SmartHopperSettings.Instance.TrustedProviders;
+            return !trusted.TryGetValue(assemblyName, out var isTrusted) || isTrusted;
+        }
+
+        /// <summary>
+        /// Builds the provider tile grid: one clickable tile per provider showing its
+        /// icon and name; clicking navigates to that provider's settings view.
+        /// </summary>
+        private static Control CreateProviderGrid(IAIProvider[] providers, Action<IAIProvider> configureProvider)
+        {
+            var tiles = providers.OrderBy(p => p.Name)
+                .Select(p => (Control)CreateProviderTile(p, configureProvider))
+                .ToArray();
+            return new ProviderTileGrid(tiles);
+        }
+
+        /// <summary>
+        /// Responsive tile container: a <see cref="PixelLayout"/> whose column count is
+        /// recomputed from the available width on every resize; tiles are positioned
+        /// absolutely so they re-flow without ever being reparented.
+        /// </summary>
+        private sealed class ProviderTileGrid : Panel
+        {
+            private const int TileWidth = 160;
+            private const int TileHeight = 44;
+            private const int TileSpacing = 8;
+            private const int FallbackWidth = 500;
+
+            private readonly PixelLayout pixelLayout = new PixelLayout();
+            private readonly Control[] tiles;
+
+            /// <summary>Initializes the grid and lays out the tiles for the current width.</summary>
+            public ProviderTileGrid(Control[] tiles)
+            {
+                this.tiles = tiles;
+                this.Content = this.pixelLayout;
+                foreach (var tile in tiles)
+                {
+                    tile.Size = new Size(TileWidth, TileHeight);
+                    this.pixelLayout.Add(tile, 0, 0);
+                }
+
+                this.SizeChanged += (_, _) => this.Reflow();
+                this.Reflow();
+            }
+
+            private void Reflow()
+            {
+                var available = this.Size.Width > 0 ? this.Size.Width : FallbackWidth;
+                var columns = Math.Max(1, available / (TileWidth + TileSpacing));
+                for (var i = 0; i < this.tiles.Length; i++)
+                {
+                    this.pixelLayout.Move(
+                        this.tiles[i],
+                        (i % columns) * (TileWidth + TileSpacing),
+                        (i / columns) * (TileHeight + TileSpacing));
+                }
+
+                var rows = (this.tiles.Length + columns - 1) / columns;
+                this.Height = (rows * TileHeight) + ((rows - 1) * TileSpacing);
+            }
+        }
+
+        /// <summary>Creates a single provider tile button with the provider's icon and name.</summary>
+        private static Button CreateProviderTile(IAIProvider provider, Action<IAIProvider> configureProvider)
+        {
+            var tile = new Button
+            {
+                Text = provider.Name,
+                Image = ProviderTileIcon.Load(provider, 20),
+                ImagePosition = ButtonImagePosition.Left,
+                Height = 44,
+            };
+            tile.Click += (_, _) => configureProvider?.Invoke(provider);
+            return tile;
         }
 
         /// <summary>
@@ -335,8 +421,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             // Set batch poll interval
             this._batchPollIntervalControl.Value = settings.BatchPollIntervalSeconds;
-
-            // Set diagnostics consent (forced on and locked in DEBUG builds)#else
 
             // Set modality fallback mode and pins
             this._fallbackModeDropDown.SelectedIndex = (int)fallbackMode;
@@ -403,10 +487,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             // Save batch poll interval
             settings.BatchPollIntervalSeconds = (int)this._batchPollIntervalControl.Value;
-
-            // Save diagnostics consent (the control is locked in DEBUG builds — keep the stored value)
-#if !DEBUG
-#endif
 
             // Save modality fallback mode and pins
             fallbackMode = (ModalityFallbackMode)(this._fallbackModeDropDown.SelectedIndex >= 0 ? this._fallbackModeDropDown.SelectedIndex : 0);
@@ -524,14 +604,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
         private static void AddDescription(DynamicLayout layout, string text)
         {
-            layout.Add(new Label
-            {
-                Text = text,
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
+            layout.Add(SettingsText.DescriptionLabel(text));
         }
     }
 }

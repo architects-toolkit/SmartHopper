@@ -224,8 +224,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 provider: toolCall.Provider,
                 model: toolCall.Model,
                 body: this.BuildRequestBody(args),
-                endpoint: this.toolName,
+                origin: this.toolName,
                 capability: this.toolCapabilityRequirements);
+
+            // Forward per-request parameters (extras, sampling, timeout) to the provider call
+            if (toolCall.Parameters != null)
+            {
+                request.Parameters = toolCall.Parameters;
+            }
             return request;
         }
 
@@ -264,8 +270,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     provider: toolCall.Provider,
                     model: toolCall.Model,
                     body: this.BuildRequestBody(args),
-                    endpoint: this.toolName,
+                    origin: this.toolName,
                     capability: this.toolCapabilityRequirements);
+
+                // Forward per-request parameters (extras, sampling, timeout) to the provider call
+                if (toolCall.Parameters != null)
+                {
+                    request.Parameters = toolCall.Parameters;
+                }
 
                 var result = await request.Exec().ConfigureAwait(false);
 

@@ -55,19 +55,23 @@ namespace SmartHopper.Providers.Anthropic
                     Provider = providerName,
                     Model = "claude-haiku-5-5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.Text2Json | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.ToolChat | AICapability.Image2Text,
                     SupportsStreaming = true,
-                    Verified = false,
+                    Verified = true,
                     Rank = 10000,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 10, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-haiku-5.5", "claude-haiku-5.5-latest", "claude-haiku-5-5-latest" },
                 },
 
@@ -76,19 +80,23 @@ namespace SmartHopper.Providers.Anthropic
                     Provider = providerName,
                     Model = "claude-sonnet-5-5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.Text2Json | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.ToolChat | AICapability.Image2Text,
                     SupportsStreaming = true,
-                    Verified = false,
+                    Verified = true,
                     Rank = 9995,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 28),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-sonnet-5.5", "claude-sonnet-5.5-latest", "claude-sonnet-5-5-latest" },
                 },
 
@@ -97,28 +105,35 @@ namespace SmartHopper.Providers.Anthropic
                     Provider = providerName,
                     Model = "claude-opus-5-5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.Text2Json | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.ToolChat | AICapability.Image2Text,
                     SupportsStreaming = true,
                     SupportsBatch = true,
-                    Verified = false,
+                    Verified = true,
                     Rank = 9990,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.00002m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-opus-5.5", "claude-opus-5.5-latest", "claude-opus-5-5-latest", "claude-opus-5.5:batch" },
                 },
 
@@ -133,13 +148,16 @@ namespace SmartHopper.Providers.Anthropic
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 1),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-fable-5.1", "claude-fable-5.1-latest", "claude-fable-5-1-latest" },
                 },
 
@@ -159,21 +177,27 @@ namespace SmartHopper.Providers.Anthropic
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 30),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-sonnet-5:batch" },
                 },
 
@@ -189,21 +213,27 @@ namespace SmartHopper.Providers.Anthropic
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 7, 24),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000125m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.000003125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000003125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-opus-5:batch" },
                 },
 
@@ -218,13 +248,16 @@ namespace SmartHopper.Providers.Anthropic
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 5, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-opus-4.8", "claude-opus-4.8-latest", "claude-opus-4-8-latest" },
                 },
 
@@ -240,21 +273,27 @@ namespace SmartHopper.Providers.Anthropic
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.000001m,
-                        CacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-fable-5:batch" },
                 },
 
@@ -274,13 +313,16 @@ namespace SmartHopper.Providers.Anthropic
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 2, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-sonnet-4.6", "claude-sonnet-4.6-latest", "claude-sonnet-4-6-latest" },
                 },
 
@@ -295,13 +337,16 @@ namespace SmartHopper.Providers.Anthropic
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-opus-4.7", "claude-opus-4.7-latest", "claude-opus-4-7-latest" },
                 },
 
@@ -316,13 +361,16 @@ namespace SmartHopper.Providers.Anthropic
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 2, 4),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-opus-4.6", "claude-opus-4.6-latest", "claude-opus-4-6-latest" },
                 },
 
@@ -341,13 +389,16 @@ namespace SmartHopper.Providers.Anthropic
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 11, 24),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-opus-4-5", "claude-opus-4-5-latest", "claude-opus-4.5", "claude-opus-4.5-latest" },
                 },
 
@@ -360,20 +411,22 @@ namespace SmartHopper.Providers.Anthropic
                     Provider = providerName,
                     Model = "claude-haiku-4-5-20251001",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.ToolChat | AICapability.Image2Text,
                     SupportsStreaming = true,
-                    Verified = true,
+                    Verified = false,
                     Rank = 9940,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 10, 15),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-haiku-4-5", "claude-haiku-4-5-latest", "claude-haiku-4.5", "claude-haiku-4.5-latest" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
@@ -384,18 +437,21 @@ namespace SmartHopper.Providers.Anthropic
                     Model = "claude-sonnet-4-5-20250929",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
-                    Verified = true,
+                    Verified = false,
                     Rank = 9935,
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 9, 29),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-sonnet-4-5", "claude-sonnet-4-5-latest", "claude-sonnet-4.5", "claude-sonnet-4.5-latest" },
                 },
 
@@ -415,13 +471,16 @@ namespace SmartHopper.Providers.Anthropic
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 8, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.000075m,
-                        CacheRead = 0.0000015m,
-                        CacheWrite = 0.00001875m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00001875m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-opus-4-1", "claude-opus-4-1-latest", "claude-opus-4.1", "claude-opus-4.1-latest" },
                 },
 
@@ -477,13 +536,16 @@ namespace SmartHopper.Providers.Anthropic
                     Rank = -20,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.000075m,
-                        CacheRead = 0.0000015m,
-                        CacheWrite = 0.00001875m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00001875m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-opus-4", "claude-opus-4-latest", "claude-opus-4-0", "claude-opus-4-0-latest" },
                 },
 
@@ -498,19 +560,25 @@ namespace SmartHopper.Providers.Anthropic
                     Rank = -25,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "claude-sonnet-4", "claude-sonnet-4-latest", "claude-sonnet-4-0", "claude-sonnet-4-0-latest" },
                 }
             };
 
             return Task.FromResult(models);
         }
+
+        /// <inheritdoc/>
+        public override bool SupportsApiModels => true;
 
         /// <inheritdoc/>
         public override async Task<List<string>> RetrieveApiModels()

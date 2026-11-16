@@ -286,8 +286,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     CanvasPointerPresenter = this.CanvasPointerPresenter,
                     UserQuestionPresenter = this.UserQuestionPresenter,
                     GhJsonArtifactPresenter = this.GhJsonArtifactPresenter,
-                    ToolScopeFilter = this.Request.Body?.ToolFilter,
                     SubagentHost = this.SubagentHost,
+                    ToolScopeFilter = this.Request.Body?.ToolFilter,
                 },
             };
             toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);
@@ -720,7 +720,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             try
             {
                 this.DebugResetEventLog();
-                this.DebugAppendEvent($"Start: provider={request?.Provider}, model={request?.Model}, endpoint={request?.Endpoint}");
+                this.DebugAppendEvent($"Start: provider={request?.Provider}, model={request?.Model}, origin={request?.Origin}");
             }
             catch
             {
@@ -830,7 +830,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 return false;
             }
 
-            // Same read-modify-write as AppendToSessionHistory â€” serialize with it
+            // Same read-modify-write as AppendToSessionHistory — serialize with it
             // so an injected interaction appended mid-update is not dropped.
             lock (this._historyAppendGate)
             {
@@ -1079,7 +1079,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 sb.AppendLine($"Last updated: {DateTime.Now:yyyy-MM-dd HH:mm:ss zzz}");
                 sb.AppendLine($"Provider: {this.Request?.Provider ?? string.Empty}");
                 sb.AppendLine($"Model: {this.Request?.Model ?? string.Empty}");
-                sb.AppendLine($"Endpoint: {this.Request?.Endpoint ?? string.Empty}");
+                sb.AppendLine($"origin: {this.Request?.Origin ?? string.Empty}");
                 sb.AppendLine();
 
                 // Aggregate metrics block (session-level)
@@ -1198,16 +1198,29 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             sb.AppendLine("- **model**: " + (m.Model ?? string.Empty));
             sb.AppendLine("- **finish_reason**: " + (m.FinishReason ?? string.Empty));
             sb.AppendLine("- **completion_time**: " + m.CompletionTime);
-            sb.AppendLine("- **estimated_input_tokens**: " + m.EstimatedInputTokens);
-            sb.AppendLine("- **estimated_output_tokens**: " + m.EstimatedOutputTokens);
+            if (m.Quantities != null && m.Quantities.Count > 0)
+            {
+                sb.AppendLine("- **quantities**:");
+                foreach (var kv in m.Quantities)
+                {
+                    sb.AppendLine("  - `" + kv.Key + "`: " + kv.Value);
+                }
+            }
+
+            sb.AppendLine("- **input_tokens**: " + m.InputTokens);
+            sb.AppendLine("- **output_tokens**: " + m.OutputTokens);
             sb.AppendLine("- **total_estimated_tokens**: " + m.TotalEstimatedTokens);
-            sb.AppendLine("- **input_tokens_prompt**: " + m.InputTokensPrompt);
-            sb.AppendLine("- **input_tokens_cached**: " + m.InputTokensCached + " (total: " + m.InputTokens + ")");
-            sb.AppendLine("- **output_tokens_reasoning**: " + m.OutputTokensReasoning);
-            sb.AppendLine("- **output_tokens_generation**: " + m.OutputTokensGeneration + " (total: " + m.OutputTokens + ")");
-            sb.AppendLine("- **total_tokens**: " + m.TotalTokens);
             sb.AppendLine("- **effective_total_tokens**: " + m.EffectiveTotalTokens);
             sb.AppendLine("- **context_usage_percent**: " + (m.ContextUsagePercent?.ToString() ?? string.Empty));
+            if (m.EstimatedCosts != null && m.EstimatedCosts.Count > 0)
+            {
+                sb.AppendLine("- **estimated_costs**: " + string.Join(", ", m.EstimatedCosts.Select(kv => kv.Value.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture) + " " + kv.Key)));
+            }
+
+            if (m.ReportedCosts != null && m.ReportedCosts.Count > 0)
+            {
+                sb.AppendLine("- **reported_costs**: " + string.Join(", ", m.ReportedCosts.Select(kv => kv.Value.ToString("0.########", System.Globalization.CultureInfo.InvariantCulture) + " " + kv.Key)));
+            }
         }
 
         /// <summary>

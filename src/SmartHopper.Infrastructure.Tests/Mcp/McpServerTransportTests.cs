@@ -218,100 +218,35 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         }
 
         [Fact]
-        public void External_WithoutToken_RefusesToStart()
+        public async Task Listener_IsAlwaysBoundToLiteralLoopback()
         {
             var port = FreePort();
-            var options = new McpServerOptions { Port = port, AllowExternalConnections = true };
-            var dispatcher = new JsonRpcDispatcher(options, new AIToolMcpAdapter(options));
-            using var server = new McpServer(options, dispatcher);
-
-            var ex = Assert.Throws<InvalidOperationException>(server.Start);
-            Assert.Contains("Bearer Token", ex.Message);
-        }
-
-        [Fact]
-        public async Task External_WithToken_BindsAndServes()
-        {
-            var port = FreePort();
-            var options = new McpServerOptions { Port = port, AllowExternalConnections = true, BearerToken = "secret" };
+            var options = new McpServerOptions { Port = port, BearerToken = "synthetic-token" };
             using var server = StartServer(options, out _);
 
-            // Loopback clients still work when the server binds all interfaces.
+            Assert.Equal(IPAddress.Loopback, Assert.IsType<IPEndPoint>(server.BoundEndpoint).Address);
+            Assert.Null(server.ExternalUrl);
             var health = await SendRawAsync(port, $"GET /health HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n");
             Assert.StartsWith("HTTP/1.1 200", health);
 
-            // Auth still applies: a request without the bearer token gets 401.
             var unauthenticated = await SendRawAsync(port, Post("/mcp", "{}", port: port));
             Assert.StartsWith("HTTP/1.1 401", unauthenticated);
         }
 
-        [Fact]
-        public async Task External_MachineIpHost_PassesGuard_ForeignIpRejected()
+        [Theory]
+        [InlineData("192.168.1.42")]
+        [InlineData("203.0.113.1")]
+        [InlineData("workstation.invalid")]
+        public async Task NonLoopbackHost_IsRejected(string host)
         {
-            var lan = LanAddress();
-            if (lan == null)
-            {
-                return; // no non-loopback address on this machine — nothing to assert against
-            }
-
             var port = FreePort();
-            var options = new McpServerOptions { Port = port, AllowExternalConnections = true, BearerToken = "secret" };
+            var options = new McpServerOptions { Port = port, BearerToken = "synthetic-token" };
             using var server = StartServer(options, out _);
 
-            // Host naming this machine's own interface IP reaches the auth check (401 = past the guard).
-            var ownIp = await SendRawAsync(
+            var response = await SendRawAsync(
                 port,
-                $"POST /mcp HTTP/1.1\r\nHost: {lan}:{port}\r\nContent-Length: 2\r\n\r\n{{}}");
-            Assert.StartsWith("HTTP/1.1 401", ownIp);
-
-            // Host naming a foreign address is rejected outright.
-            var foreign = await SendRawAsync(
-                port,
-                $"POST /mcp HTTP/1.1\r\nHost: 203.0.113.1:{port}\r\nContent-Length: 2\r\n\r\n{{}}");
-            Assert.StartsWith("HTTP/1.1 403", foreign);
-        }
-
-        [Fact]
-        public void External_ExternalUrl_ReportsLanIp_LoopbackModeNull()
-        {
-            var lan = LanAddress();
-            var port = FreePort();
-            var options = new McpServerOptions { Port = port, AllowExternalConnections = true, BearerToken = "secret" };
-            using (var external = StartServer(options, out _))
-            {
-                if (lan == null)
-                {
-                    Assert.Null(external.ExternalUrl);
-                }
-                else
-                {
-                    Assert.NotNull(external.ExternalUrl);
-                    Assert.Equal($"http://{lan}:{port}/mcp", external.ExternalUrl);
-                }
-            }
-
-            using (var loopback = StartServer(new McpServerOptions { Port = FreePort() }, out _))
-            {
-                Assert.Null(loopback.ExternalUrl);
-            }
-        }
-
-        /// <summary>
-        /// First non-loopback IPv4 address of this machine, resolved the same way the
-        /// server builds its external URL.
-        /// </summary>
-        private static IPAddress? LanAddress()
-        {
-            try
-            {
-                return Array.Find(
-                    Dns.GetHostAddresses(Dns.GetHostName()),
-                    a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a));
-            }
-            catch
-            {
-                return null;
-            }
+                $"POST /mcp HTTP/1.1\r\nHost: {host}:{port}\r\nContent-Length: 2\r\n\r\n{{}}");
+            Assert.StartsWith("HTTP/1.1 403", response);
         }
 
         [Fact]

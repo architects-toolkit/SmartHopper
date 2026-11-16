@@ -74,7 +74,7 @@ For image generation, select an image-capable request or use DALL-E models:
 
 1. The provider routes to `/images/generations` when `ImageOutput` capability is requested
 2. Returns image URLs or base64-encoded data
-3. Supports quality, size, and style parameters via extras
+3. Supports `quality`, `background`, `output_format`, and `output_compression` via extras; size and aspect ratio are provider-agnostic inputs on the image request
 
 ### Streaming
 

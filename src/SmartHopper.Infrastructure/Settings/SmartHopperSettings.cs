@@ -59,6 +59,15 @@ namespace SmartHopper.Infrastructure.Settings
         [ThreadStatic]
         private static HashSet<string> _currentlyGettingSettings;
 
+        // Per-provider descriptor-construction guard. Descriptor factories are required
+        // to be pure metadata builders; a factory that nevertheless reads live state can
+        // re-enter GetSetting -> GetProviderDescriptors through rotating setting keys, which
+        // the per-key guard above cannot see. While a provider's descriptors are being
+        // built on this thread, nested enumerations return an empty set so the cycle is
+        // bounded: inner reads resolve stored values without descriptor metadata.
+        [ThreadStatic]
+        private static HashSet<string> _currentlyBuildingDescriptors;
+
         // Serializes access to ProviderSettings. Provider background workers write settings
         // (OAuth grants, connection status) while UI threads read them, so the plain
         // Dictionary must never be read or enumerated while another thread mutates it.
@@ -86,6 +95,14 @@ namespace SmartHopper.Infrastructure.Settings
         [JsonProperty]
         public int DebounceTime { get; set; }
 
+        /// <summary>Gets or sets the maximum decompressed external-source download size in MiB.</summary>
+        [JsonProperty]
+        public int ExternalDownloadLimitMiB { get; set; } = 16;
+
+        /// <summary>Gets or sets the maximum accepted age in days of a remote catalogue's <c>published_at</c>; 0 disables the freshness check.</summary>
+        [JsonProperty]
+        public int CatalogueMaxAgeDays { get; set; } = 30;
+
         /// <summary>
         /// Gets or sets the default AI provider name to use when none is specified.
         /// </summary>
@@ -99,18 +116,45 @@ namespace SmartHopper.Infrastructure.Settings
         public Dictionary<string, bool> TrustedProviders { get; set; }
 
         /// <summary>
+        /// Gets or sets the verification snapshot per trusted provider — the bytes consented
+        /// to and whether consent followed a catalogue match. A trusted file that no longer
+        /// matches its record falls back to verification before it may load again.
+        /// </summary>
+        [JsonProperty]
+        public Dictionary<string, ProviderTrustRecord> ProviderTrustRecords { get; set; } = new();
+
+        /// <summary>
         /// Gets or sets the provider integrity check mode for verification.
         /// Controls how provider DLL hash verification failures are handled.
         /// Default is Soft (warn but allow).
         /// </summary>
         [JsonProperty]
-        public ProviderIntegrityCheckMode ProviderIntegrityCheckMode { get; set; }
+        public ProviderIntegrityCheckMode ProviderIntegrityCheckMode
+        {
+            get => this._providerIntegrityCheckMode;
+            set
+            {
+                if (this._providerIntegrityCheckMode == value)
+                {
+                    return;
+                }
+
+                this._providerIntegrityCheckMode = value;
+
+                // Cached trust verdicts embed the effective mode; drop them so the
+                // next evaluation observes the new configuration.
+                ProviderSdk.AICall.Validation.ProviderTrustPolicy.InvalidateCache();
+            }
+        }
+
+        private ProviderIntegrityCheckMode _providerIntegrityCheckMode;
 
         /// <summary>
         /// Gets the effective provider integrity check mode, accounting for DEBUG builds.
         /// In DEBUG builds, this always returns Soft mode to allow local development.
         /// In RELEASE builds, this returns the configured mode from settings.
         /// </summary>
+        [JsonIgnore]
         public ProviderIntegrityCheckMode EffectiveProviderIntegrityCheckMode
         {
             get
@@ -155,32 +199,6 @@ namespace SmartHopper.Infrastructure.Settings
         public Dictionary<string, AICall.Fallback.FallbackProviderPin> FallbackProviderPins { get; set; } = new();
 
         /// <summary>
-        /// Raised after settings are successfully saved to disk and providers refreshed.
-        /// Subscribers can react to settings updates (e.g., UI toggles).
-        /// </summary>
-        public event EventHandler? SettingsSaved;
-
-        /// <summary>
-        /// Gets the highest encryption envelope this runtime can write: 4 = AES-256-GCM (SH04:),
-        /// 3 = AES-256-CBC (SH03:) where <see cref="AesGcm"/> is unsupported (net7.0 on macOS).
-        /// </summary>
-        private static int CurrentEncryptionVersion => AesGcm.IsSupported ? 4 : 3;
-
-        /// <summary>
-        /// Gets or sets version of the encryption method used. 4 = OS secure store (SH04:, AES-256-GCM).
-        /// </summary>
-        [JsonProperty]
-        public int EncryptionVersion { get; set; } = CurrentEncryptionVersion;
-
-        /// <summary>
-        /// Gets or sets an opaque random salt used to derive the anonymous installation hash
-        /// embedded in locally generated diagnostics exports. The hash cannot be traced to a
-        /// specific installation or user.
-        /// </summary>
-        [JsonProperty]
-        public string DiagnosticsInstallationSalt { get; set; } = Guid.NewGuid().ToString("N");
-
-        /// <summary>
         /// Gets or sets whether log entries are echoed to Rhino's command-line output.
         /// </summary>
         [JsonProperty]
@@ -210,6 +228,12 @@ namespace SmartHopper.Infrastructure.Settings
         [JsonProperty]
         public int LogRetentionDays { get; set; } = 3;
 
+        /// <summary>
+        /// Raised after settings are successfully saved to disk and providers refreshed.
+        /// Subscribers can react to settings updates (e.g., UI toggles).
+        /// </summary>
+        public event EventHandler? SettingsSaved;
+
         private static SmartHopperSettings? instance;
 
         /// <summary>
@@ -228,7 +252,6 @@ namespace SmartHopper.Infrastructure.Settings
             this.TrustedProviders = new Dictionary<string, bool>();
             this.ProviderIntegrityCheckMode = ProviderIntegrityCheckMode.Soft; // Default to soft verification
             this.SmartHopperAssistant = new SmartHopperAssistantSettings();
-            this.EncryptionVersion = CurrentEncryptionVersion;
         }
 
         /// <summary>
@@ -656,6 +679,14 @@ namespace SmartHopper.Infrastructure.Settings
             }
         }
 
+        // The OS secure store round-trip (DPAPI registry read on Windows, Keychain on
+        // macOS) happens on every secret GetSetting; the key is process-lifetime stable,
+        // so it is fetched once and cached. Only successful retrievals are cached, and the
+        // whole lookup is serialized so two threads can never generate different keys and
+        // lose whichever one encrypted data first.
+        private static readonly object EncryptionKeyLock = new object();
+        private static byte[]? _cachedEncryptionKey;
+
         /// <summary>
         /// Gets or creates the encryption key from OS secure store (DPAPI/Keychain).
         /// </summary>
@@ -664,40 +695,50 @@ namespace SmartHopper.Infrastructure.Settings
         {
             const string keyName = "SmartHopper.EncryptionKey";
 
-            try
+            lock (EncryptionKeyLock)
             {
-                // Try to retrieve existing key first
-                // 256-bit key expected
-                var existingKey = GetSecureData(keyName);
-                if (existingKey != null && existingKey.Length == 32)
+                if (_cachedEncryptionKey != null)
                 {
-                    Logger.For<SmartHopperSettings>().Trace("[SecureStore] Retrieved existing encryption key from OS secure store");
-                    return existingKey;
+                    return _cachedEncryptionKey;
                 }
 
-                // Generate new 256-bit encryption key
-                using (var rng = RandomNumberGenerator.Create())
+                try
                 {
-                    var newKey = new byte[32]; // 256 bits
-                    rng.GetBytes(newKey);
-
-                    // Store the key securely
-                    if (StoreSecureData(keyName, newKey))
+                    // Try to retrieve existing key first
+                    // 256-bit key expected
+                    var existingKey = GetSecureData(keyName);
+                    if (existingKey != null && existingKey.Length == 32)
                     {
-                        Logger.For<SmartHopperSettings>().Trace("[SecureStore] Generated and stored new encryption key in OS secure store");
-                        return newKey;
+                        Logger.For<SmartHopperSettings>().Trace("[SecureStore] Retrieved existing encryption key from OS secure store");
+                        _cachedEncryptionKey = existingKey;
+                        return existingKey;
                     }
-                    else
+
+                    // Generate new 256-bit encryption key
+                    using (var rng = RandomNumberGenerator.Create())
                     {
-                        Logger.For<SmartHopperSettings>().Error("[SecureStore] Failed to store encryption key in OS secure store");
-                        return null;
+                        var newKey = new byte[32]; // 256 bits
+                        rng.GetBytes(newKey);
+
+                        // Store the key securely
+                        if (StoreSecureData(keyName, newKey))
+                        {
+                            Logger.For<SmartHopperSettings>().Trace("[SecureStore] Generated and stored new encryption key in OS secure store");
+                            _cachedEncryptionKey = newKey;
+                            return newKey;
+                        }
+                        else
+                        {
+                            Logger.For<SmartHopperSettings>().Error("[SecureStore] Failed to store encryption key in OS secure store");
+                            return null;
+                        }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                Logger.For<SmartHopperSettings>().Exception(ex, $"[SecureStore] Error getting/creating encryption key: {ex.Message}");
-                return null;
+                catch (Exception ex)
+                {
+                    Logger.For<SmartHopperSettings>().Exception(ex, $"[SecureStore] Error getting/creating encryption key: {ex.Message}");
+                    return null;
+                }
             }
         }
 
@@ -990,7 +1031,6 @@ namespace SmartHopper.Infrastructure.Settings
 
             if (migratedAny)
             {
-                this.EncryptionVersion = CurrentEncryptionVersion;
                 this.Save();
                 Logger.For<SmartHopperSettings>().Trace("[Migration] Legacy secrets to SH04: migration completed and saved.");
             }
@@ -1081,13 +1121,30 @@ namespace SmartHopper.Infrastructure.Settings
                     }
                 }
             }
-
-            this.EncryptionVersion = CurrentEncryptionVersion;
         }
 
         private IEnumerable<SettingDescriptor> GetProviderDescriptors(string providerName)
         {
-            return this.DescriptorSource(providerName) ?? Enumerable.Empty<SettingDescriptor>();
+            if (_currentlyBuildingDescriptors == null)
+            {
+                _currentlyBuildingDescriptors = new HashSet<string>();
+            }
+
+            if (!_currentlyBuildingDescriptors.Add(providerName))
+            {
+                return Enumerable.Empty<SettingDescriptor>();
+            }
+
+            try
+            {
+                // Materialize while the guard is held so lazily-evaluated factories are
+                // covered too, and callers share one snapshot per enumeration.
+                return (this.DescriptorSource(providerName) ?? Enumerable.Empty<SettingDescriptor>()).ToList();
+            }
+            finally
+            {
+                _currentlyBuildingDescriptors.Remove(providerName);
+            }
         }
 
         /// <summary>

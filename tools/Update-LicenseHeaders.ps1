@@ -176,17 +176,18 @@ Get-ChildItem -Path "..\src" -Recurse -Filter *.cs | ForEach-Object {
         $body = Remove-ExistingHeader -Text $content
         $normalized = ($csHeader + "`r`n`r`n" + $body.TrimStart("`r", "`n"))
 
-        # Normalize line endings for comparison to avoid false positives
-        $normalizedForComparison = $normalized -replace "\r\n", "`n"
+        # Compare on LF-normalized text so line-ending differences are not false positives,
+        # and only rewrite files that actually differ. Written output is pure LF to match
+        # the .gitattributes eol=lf rule -- previously the script rewrote every file on
+        # every run with CRLF-joined content, leaving mixed-EOL working copies that
+        # git status flagged as modified.
+        $normalizedForComparison = $normalized -replace "\r?\n", "`n"
         $originalForComparison = ($content -replace '^[\uFEFF]', '') -replace "\r?\n", "`n"
         $isDifferent = $normalizedForComparison -ne $originalForComparison
         if ($isDifferent) {
             $changedCount++
-        }
-
-        if (-not $Check) {
-            [System.IO.File]::WriteAllText($path, $normalized, $utf8NoBom)
-            if ($isDifferent) {
+            if (-not $Check) {
+                [System.IO.File]::WriteAllText($path, $normalizedForComparison, $utf8NoBom)
                 Write-Host "Header normalized: $path"
             }
         }
@@ -214,17 +215,18 @@ Get-ChildItem -Path "..\src" -Recurse -Filter *.csproj | ForEach-Object {
         $body = Remove-ExistingCsprojHeader -Text $content
         $normalized = ($csprojHeader + "`r`n" + $body.TrimStart("`r", "`n"))
 
-        # Normalize line endings for comparison to avoid false positives
-        $normalizedForComparison = $normalized -replace "\r\n", "`n"
+        # Compare on LF-normalized text so line-ending differences are not false positives,
+        # and only rewrite files that actually differ. Written output is pure LF to match
+        # the .gitattributes eol=lf rule -- previously the script rewrote every file on
+        # every run with CRLF-joined content, leaving mixed-EOL working copies that
+        # git status flagged as modified.
+        $normalizedForComparison = $normalized -replace "\r?\n", "`n"
         $originalForComparison = ($content -replace '^[\uFEFF]', '') -replace "\r?\n", "`n"
         $isDifferent = $normalizedForComparison -ne $originalForComparison
         if ($isDifferent) {
             $changedCount++
-        }
-
-        if (-not $Check) {
-            [System.IO.File]::WriteAllText($path, $normalized, $utf8NoBom)
-            if ($isDifferent) {
+            if (-not $Check) {
+                [System.IO.File]::WriteAllText($path, $normalizedForComparison, $utf8NoBom)
                 Write-Host "Header normalized: $path"
             }
         }

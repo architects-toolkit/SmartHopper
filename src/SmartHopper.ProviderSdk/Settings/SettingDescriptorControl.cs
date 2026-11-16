@@ -52,4 +52,32 @@ namespace SmartHopper.ProviderSdk.Settings
         /// </summary>
         public string Text { get; set; } = string.Empty;
     }
+
+    /// <summary>
+    /// Control parameters that render the setting value as a read-only status label.
+    /// The label colour is driven by a companion level setting named by
+    /// <see cref="LevelSettingName"/>: "ok" (green), "busy" (orange), "error" (red)
+    /// and any other or missing value (neutral grey).
+    /// </summary>
+    public class StatusSettingDescriptorControl : SettingDescriptorControl
+    {
+        /// <summary>
+        /// Name of the sibling setting holding the semantic level
+        /// ("ok", "busy", "error", "none") used to colour the label.
+        /// </summary>
+        public string LevelSettingName { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Control parameters that render a hyperlink which opens <see cref="Url"/> in the
+    /// user's browser. Link clicks do not write settings and never trigger validation.
+    /// </summary>
+    public class LinkSettingDescriptorControl : SettingDescriptorControl
+    {
+        /// <summary>The absolute http(s) URL opened when the link is clicked.</summary>
+        public string Url { get; set; } = string.Empty;
+
+        /// <summary>Optional link text. When empty, <see cref="Url"/> is displayed.</summary>
+        public string Text { get; set; } = string.Empty;
+    }
 }

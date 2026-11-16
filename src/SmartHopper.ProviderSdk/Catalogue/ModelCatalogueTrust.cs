@@ -23,7 +23,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
 {
     /// <summary>
     /// Trust anchors and constant mappings for the public model catalogue
-    /// (<c>models.smarthopper.xyz</c>, protocol <c>smarthopper-models/1</c>).
+    /// (<c>models.smarthopper.xyz</c>, protocol <c>smarthopper-models/2</c>).
     /// </summary>
     public static class ModelCatalogueTrust
     {

@@ -18,6 +18,7 @@
 
 using Grasshopper;
 using Grasshopper.Kernel;
+using Rhino;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Runtime;
@@ -25,6 +26,7 @@ using SmartHopper.Core.UI;
 using SmartHopper.Core.UI.Chat;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Dialogs;
+using SmartHopper.Infrastructure.Networking;
 using SmartHopper.ProviderSdk.Hosting;
 
 namespace SmartHopper.Components
@@ -59,6 +61,16 @@ namespace SmartHopper.Components
             // Register the GhJSON placer so chat artifact cards can put documents
             // on the active canvas without referencing the Grasshopper layer.
             CanvasGhJsonPlacer.EnsureInitialized();
+
+            // Interactive "connection required" prompt for provider calls (e.g.
+            // SmartHopper Cloud) — headless surfaces leave the hook unset.
+            ProviderSdkHost.ConnectionPrompt = new ProviderConnectionPrompt();
+            ExternalSourceAccess.PromptAsync = ExternalSourcePrompt.ShowAsync;
+            ExternalSourceAccess.AwaitingConsentChanged += (_, __) =>
+                RhinoApp.InvokeOnUiThread(() => Instances.ActiveCanvas?.Invalidate());
+            ConsentBadgeOverlay.EnsureInitialized();
+            ExternalDataHttpClient.ResponseLimitBytes = () =>
+                (long)SmartHopper.Infrastructure.Settings.SmartHopperSettings.Instance.ExternalDownloadLimitMiB * 1024 * 1024;
 
             // Install the global right-click message filter so every component
             // gets a "Lock from MCP updates" context menu item.

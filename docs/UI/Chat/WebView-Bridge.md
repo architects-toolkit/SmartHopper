@@ -51,6 +51,13 @@ The WebView sends actions to the host by navigating to custom URL schemes (navig
 
 The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
 
+### Trusted-document isolation
+
+- **Per-document token.** The host mints `_documentSession` (GUID-N) on every `LoadInitialHtmlIntoWebView` and embeds it as `<meta name="sh-doc-token">`. `emitShEvent()` appends `&doc=<token>` to every `sh://` / `clipboard://` URL; the host rejects any bridge event whose `doc` does not match the current document. A foreign or stale document therefore cannot send messages, approve consents, copy to the clipboard, or trigger canvas actions.
+- **No foreign navigation.** `WebView_DocumentLoading` cancels every non-bridge URI except the pending embedded document load (a trusted URI while `_webViewInitialized` is false). `http(s)` links (`target="_blank"` from `processLinks()`) and `window.open`/`OpenNewWindow` requests are routed to the system browser instead of loading inside the privileged WebView.
+- **Bridge activation is origin-gated.** `WebView_DocumentLoaded` only sets `_webViewInitialized` when `WebChatNavigationPolicy.IsTrustedDocumentUri` accepts the loaded URI (loopback `http://localhost|127.0.0.1|[::1]:<port>` served by Eto's Windows `HttpListener` shim for `LoadHtml(html, baseUri)`; `https://smarthopper.local`; `about:blank`, `file:`, `data:` or a missing URI from `LoadHtml` elsewhere). On an untrusted load the queued DOM work is purged and the readiness TCS never completes, so no host script can reach a foreign document.
+- The pure decision logic lives in `WebChatNavigationPolicy` (unit-tested; no Rhino/Eto dependencies).
+
 ### Query-string rules
 
 - Keys and values are URL-encoded. The host runs `Uri.UnescapeDataString(...)` on both keys and values.

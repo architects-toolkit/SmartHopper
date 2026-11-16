@@ -10,7 +10,7 @@ This document outlines an idealized refactoring to centralize concerns, reduce d
 | --- | --- |
 | **Source Code** | `N/A` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
+| **Last Updated** | 2026-11-12 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -48,107 +48,17 @@ Breaking changes are acceptable; this is a forward-looking plan.
 
 ### Pain Points to Address
 
-- Multi-turn/tool orchestration repeated in components.
-- Tool result shapes normalized by convention, not centrally enforced.
-- Schema wrapping/unwrapping differs across providers.
-- Metrics/progress logic scattered between bases and components.
-- Model selection fallback logic appears in multiple places.
-- GH-specific tool code mixed with generic tool runtime concerns.
-- Validation split across tools/components without a uniform pipeline.
-
----
-
-## Developer Reference
-
-### Proposed Tool Runtime Contracts (S5)
-
-To decouple tool definitions from Grasshopper specifics, the following contracts are proposed:
-
-```csharp
-public interface ITool
-{
-    string Id { get; }
-    string Name { get; }
-    string Description { get; }
-    JSchema InputSchema { get; }
-    JSchema OutputSchema { get; }
-}
-
-public interface IToolExecutor
-{
-    Task<ToolOutcome> ExecuteAsync(
-        ITool tool,
-        JObject input,
-        ToolContext ctx,
-        CancellationToken ct);
-}
-
-public class ToolContext
-{
-    public string CorrelationId { get; set; }
-    public AIContext AIContext { get; set; }
-    public string TempStoragePath { get; set; }
-    public ILogger Logger { get; set; }
-}
-
-public class ToolOutcome
-{
-    public bool Ok { get; set; }
-    public JObject Result { get; set; }
-    public ToolError Error { get; set; }
-}
-
-```
-
-### Proposed Security Policy Contracts (S10)
-
-The following policy types are proposed to centralize security controls:
-
-```csharp
-public interface ISecurityPolicy
-{
-    Task<PolicyResult> ApplyAsync(PolicyContext ctx, CancellationToken ct);
-}
-
-public class RedactionPolicy : ISecurityPolicy
-{
-    public List<Regex> RedactionRules { get; set; } = new();
-
-    public Task<PolicyResult> ApplyAsync(PolicyContext ctx, CancellationToken ct)
-    {
-        var payload = ctx.Payload.ToString();
-        foreach (var rule in RedactionRules)
-        {
-            payload = rule.Replace(payload, "[REDACTED]");
-        }
-        ctx.Payload = JToken.Parse(payload);
-        return Task.FromResult(PolicyResult.Allowed());
-    }
-}
-
-public class EgressPolicy : ISecurityPolicy
-{
-    public HashSet<string> AllowedHosts { get; set; } = new();
-    public HashSet<string> AllowedPaths { get; set; } = new();
-
-    public Task<PolicyResult> ApplyAsync(PolicyContext ctx, CancellationToken ct)
-    {
-        var target = ctx.RequestUri?.Host ?? ctx.FilePath;
-        var isAllowed = AllowedHosts.Contains(target) || AllowedPaths.Contains(ctx.FilePath);
-        return Task.FromResult(
-            isAllowed
-                ? PolicyResult.Allowed()
-                : PolicyResult.Denied($"Egress to '{target}' is not allowed."));
-    }
-}
-
-```
+- Parallel tool dispatch is declared (`SessionOptions.AllowParallelTools`) but execution remains sequential.
+- No `SchemaWhitelistPolicy` catalog for `JsonOutputSchema` yet; egress control lives at the network/consent layer, not inside the tool executor.
+- GHJSON codecs cover scalar/media types only; native geometry types (Point3d, Color, ...) are not yet encoded.
 
 ---
 
 ## Architecture & Design
 
 ### Suggestion 5 — Tool Runtime Decoupling + ToolResultNormalizer (S5)
+
+> **Status (2026-11):** Mostly implemented. Shipped: generic tool contracts/registry in `SmartHopper.Infrastructure/AITools/`, GH adapters in `SmartHopper.Core.Grasshopper/AITools/`, normalized results via `ToolResultEnvelope`/`ToolCallResult`, pre-execution validators (`AICall/Validation/` + `AIToolValidationRequestPolicy`), session-managed dispatch (`ConversationSession.ProcessPendingToolsAsync`), per-call timeouts, `gh_generate` for GhJSON authoring, and tool metrics via `AIMetrics`/`TelemetryTraceScope`. Remaining: parallel tool dispatch (`SessionOptions.AllowParallelTools` is declared but execution is sequential) and egress-allowlist checks inside the tool runtime (currently covered by `ConsentGate`/`ExternalSourceAllowlist`).
 
 - Move generic tool contracts/execution to `src/SmartHopper.Infrastructure/AITools/`.
 - Keep GH adapters in `src/SmartHopper.Core.Grasshopper/AITools/`.
@@ -241,6 +151,8 @@ public class EgressPolicy : ISecurityPolicy
 
 ### Suggestion 10 — Security & Data Egress Controls (S10)
 
+> **Status (2026-11):** Mostly implemented. Shipped: request/response policy pipeline (`AICall/Policies/`), `SmartHopperLogScrubber` PII/credential redaction applied to all log sinks and diagnostics, `ExternalSourceAllowlist`/`ExternalSourceAccess`/`ExternalDataHttpClient` network egress consent with a Security settings page, `ConsentGate` + `AIToolSurface` mutation consent, `RequestTimeoutPolicy`, autonomous time/token budgets, and signature-verification default-on (`SMARTHOPPER_SKIP_SIGNATURE_VERIFY` test bypass only). Remaining: `SchemaWhitelistPolicy` catalog for `JsonOutputSchema` and a per-tool `EgressPolicy` consulted inside the executor (current egress control lives at the network layer and consent gate, not per tool).
+
 - Redaction policies for requests/responses; tool egress allowlists.
 - Schema whitelisting/catalog for `JsonOutputSchema`.
 - Per-tool quotas, timeouts, and cancellation.
@@ -313,54 +225,41 @@ public class EgressPolicy : ISecurityPolicy
 
 ---
 
-### Suggestion 11 — Settings Storage and UI Simplification (S11)
-
-- __Pain__: Settings are defined across multiple places (load/save, JSON schema, model, UI), plus lazy-loading complexity.
-- __Direction__: Create a single source of truth via a `SettingDescriptor` catalog (name, type, default, validation, secure, scope), from which we generate:
-  - Load/save binding, JSON schema, and UI widgets.
-  - Versioned migrations and validation.
-  - Reduce/retire lazy loader in favor of explicit async initialization for provider-specific settings.
-- __First steps__: Inventory all settings; design `SettingDescriptor`; wire `SettingsDialog` to auto-bind; add migration scaffolding.
-- __Risks__: Breaking persisted settings; UI perf when many settings; cross-provider differences.
-- __Impacted areas__: `src/SmartHopper.Infrastructure/Settings/`, `SettingsDialog.cs`, Providers `GetSettingDescriptors()`.
-
----
-
-### Suggestion 12 — WebChat UI in Full HTML with Streaming and Multimodal (S12)
-
-- __Goal__: Modern HTML/CSS/JS chat with dynamic message loading, token streaming, multimodal items (image, audio, text, toolcall/result), and live provider.model selector in UI (model can be chosen by the user in a dropdown so that every time the user sends a message they can also decide which model will process that request).
-- __Direction__: Host a WebView and serve local assets. Render transcript diffs; support streaming deltas; show tool badges and progress; attachments for media; theming and accessibility.
-- __First steps__: Spike WebView transcript renderer; integrate provider streaming adapter (OpenAI first); define event bus between `ConversationSession` and UI.
-- __Risks__: UI threading (invoke on Rhino UI thread), sandbox/security of embedded web, performance with long transcripts.
-- __Impacted areas__: `src/SmartHopper.Core/UI/Chat/WebChatDialog.cs`, `WebChatUtils.cs`, `src/SmartHopper.Infrastructure/AICall/ConversationSession/`, Providers streaming adapters.
-
----
-
-### Suggestion 13 — End-to-End Cancellation Tokens (S13)
-
-- __Goal__: Cancellation tokens propagated everywhere, user-callable in components (with a Cancelled state), and auto-cancel on WebChat/Rhino close.
-- __Direction__: Thread tokens through `AIRequestCall.Exec`, provider HTTP calls, tool runtime, and `ConversationSession`. Add cancel controls in components and WebChat; ensure graceful partial result handling and cleanup.
-- __First steps__: Audit APIs to add `CancellationToken` overloads; wire WebChat close → cancel; add component cancel button/state; provider HTTP cancellation compliance.
-- __Risks__: Deadlocks or hangs if sync-over-async remains; inconsistent partial results; provider SDK limitations.
-- __Impacted areas__: `src/SmartHopper.Infrastructure/AICall/`, Providers `CallApi`, `AIStatefulAsyncComponentBase`, WebChat.
-
----
-
 ### Suggestion 14 — GHJSON Encode/Decode Service for Native GH Types (S14)
 
-- __Goal__: Persist and restore more Grasshopper native types (Color, Point3d, Vector3d, Line, Plane, Circle, ...) safely and loss-aware.
-- __Direction__: Introduce `GhTypeCodec` registry with converters (to/from canonical JSON/string) using culture-invariant formatting and versioned schemas; integrate with persistent storage and validators.
-- __First steps__: Prioritize a core set of types; implement codecs + round-trip tests; update `GHJsonLocal.Validate()` to consult the registry; document shapes.
-- __Risks__: Precision/units, culture differences, performance on large graphs, backward compatibility.
-- __Impacted areas__: `src/SmartHopper.Core.Grasshopper/Utils/GHJsonLocal.cs`, persistence/serialization helpers, GH tools that consume/emit GHJSON.
+> **Status (2026-11):** Partially implemented. `GooCodecRegistry`/`IGooCodec` (`SmartHopper.Core/IO/Codecs/`) provide the suggested versioned, loss-aware codec registry — unknown payloads never throw and decode with warnings. Built-in codecs cover `String`, `Number`, `Integer`, `Boolean`, `VersatileImage`, `VersatileAudio` and `AIInputPayload`. Remaining: codecs for native geometry/types (`Point3d`, `Vector3d`, `Line`, `Plane`, `Circle`, `Color`, ...) and wiring the registry into `GHJsonLocal.Validate()`/GhJSON persistence paths.
+
+- **Goal**: Persist and restore more Grasshopper native types (Color, Point3d, Vector3d, Line, Plane, Circle, ...) safely and loss-aware.
+- **Direction**: Introduce `GhTypeCodec` registry with converters (to/from canonical JSON/string) using culture-invariant formatting and versioned schemas; integrate with persistent storage and validators.
+- **First steps**: Prioritize a core set of types; implement codecs + round-trip tests; update `GHJsonLocal.Validate()` to consult the registry; document shapes.
+- **Risks**: Precision/units, culture differences, performance on large graphs, backward compatibility.
+- **Impacted areas**: `src/SmartHopper.Core.Grasshopper/Utils/GHJsonLocal.cs`, persistence/serialization helpers, GH tools that consume/emit GHJSON.
 
 ---
 
 ## Future Thoughts (Suggestions Should Consider Future Conditions and Try to Be Flexible to Accept Them in the Future)
 
-- [ ] AI Provider-side prompt caching
-- [ ] AI Call local caching of responses to avoid recomputation
-- [ ] AI Call compatibility with parallel tool calling
-- [ ] AI tool to generate Grasshopper definitions in GHJSON format
-- [ ] New way to save Grasshopper files in GHJSON format to disk
-- [x] Support new Responses API from OpenAI
+- [ ] AI Call local caching of responses to avoid recomputation (only per-request/per-run memoization exists; no persistent response cache)
+- [ ] AI Call compatibility with parallel tool calling (`SessionOptions.AllowParallelTools` declared but dispatch is sequential)
+
+---
+
+## Open Items Carried Over from Retired Reviews
+
+Residual findings preserved from review documents that were superseded or removed on 2026-11-12. Each was verified unfixed or unverifiable at the time of transfer.
+
+### From the macOS compatibility review (2026-02-15)
+
+- Provider icons depend on GDI+: `IAIProvider.Icon` returns `System.Drawing.Image`, and `System.Drawing.Common` is unsupported off Windows (.NET 7+) unless Rhino's bundled runtime covers it. Consider returning PNG `byte[]` and letting each UI host convert.
+- Provider trust prompt is sync-over-async (`Task.Result` on a `TaskCompletionSource`): if provider loading is ever invoked on the UI thread it can deadlock. Refactor to an async flow or guarantee it never runs on the UI thread.
+- `ComponentStateManager` event firing under `stateLock`: the review flagged `ForceState`, `TransitionRejected`, and debounce events firing inside the lock (re-entrant deadlock risk on macOS). The state machine has since been refactored — re-verify that no event is raised while holding the lock.
+
+### From the SmartHopper 2.0.0 community test report (2026-07-21)
+
+- `Text to JSON` component reported missing (only `JSON Schema` was found).
+- `AI to JSON` returns `null` without fallback when the response cannot be parsed.
+- `file2md` returns raw binary for PNG inputs — no format detection or image handling.
+
+### From the P1 regression retest (2026-11-04)
+
+- N1 (provider-scoped TTS voice defaults), N2 (`any_provider` cross-provider fallback), and F14 (`gh_disconnect` noop status) are implemented in code but were marked "MCP retest pending" — a live end-to-end retest was never recorded.

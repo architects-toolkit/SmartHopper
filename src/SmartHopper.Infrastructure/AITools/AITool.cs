@@ -244,36 +244,68 @@ namespace SmartHopper.Infrastructure.AITools
         }
 
         /// <summary>
+        /// Lazily parsed <see cref="ParametersSchema"/>. The schema string is immutable
+        /// after construction, so the parsed object is computed once and shared by the
+        /// parameter-introspection methods instead of re-parsing on every tool call.
+        /// Null when the schema is empty or invalid.
+        /// </summary>
+        private JObject? SchemaObject => this._schemaObject ??= this.ParseSchema();
+
+        private JObject? _schemaObject;
+
+        private JObject? ParseSchema()
+        {
+            if (string.IsNullOrWhiteSpace(this.ParametersSchema))
+            {
+                return null;
+            }
+
+            try
+            {
+                return JObject.Parse(this.ParametersSchema);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Returns the names of the parameters declared as required in the tool's JSON schema.
         /// Returns an empty list when the schema is empty, invalid, or declares no required properties.
         /// </summary>
         /// <returns>The required parameter names.</returns>
         public IReadOnlyList<string> GetRequiredParameters()
         {
-            if (string.IsNullOrWhiteSpace(this.ParametersSchema))
+            var schemaObj = this.SchemaObject;
+            if (schemaObj == null)
             {
                 return new List<string>();
             }
 
-            try
-            {
-                var schemaObj = JObject.Parse(this.ParametersSchema);
-                var required = schemaObj?["required"] as JArray;
-                if (required == null || required.Count == 0)
-                {
-                    return new List<string>();
-                }
-
-                return required
-                    .Select(r => r?.ToString())
-                    .Where(s => !string.IsNullOrWhiteSpace(s))
-                    .Select(s => s!)
-                    .ToList();
-            }
-            catch
+            var required = schemaObj["required"] as JArray;
+            if (required == null || required.Count == 0)
             {
                 return new List<string>();
             }
+
+            return required
+                .Select(r => r?.ToString())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s!)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Returns the names of the top-level parameters declared in the tool's JSON schema
+        /// <c>properties</c> object. Returns an empty list when the schema is empty or invalid.
+        /// </summary>
+        /// <returns>The declared parameter names.</returns>
+        public IReadOnlyList<string> GetDeclaredParameters()
+        {
+            var properties = this.SchemaObject?["properties"] as JObject;
+            return properties?.Properties().Select(prop => prop.Name).ToList()
+                ?? new List<string>();
         }
 
         private static IReadOnlyList<string> BuildDefaultTags(string category, bool mutatesCanvas)

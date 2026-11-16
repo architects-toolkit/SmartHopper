@@ -40,13 +40,13 @@ namespace SmartHopper.Components.Output
         private List<int> _fallback;
 
         public AI2IntegerListComponent()
-            : base("AI to Integer List", "AI→IntList", "Generate a list of integers from AI input. The model is asked to return a JSON array of integers; each item is expanded into the output branch.", GH_Exposure.primary)
+            : base("AI to Integer List", "AI2IntList", "Call the AI provider on the connected input(s) and return a list of integers.", GH_Exposure.secondary | GH_Exposure.obscure)
         {
         }
 
         public override Guid ComponentGuid => new Guid("2B31E711-CE62-4EBF-8D67-A56569BBE9E8");
 
-        protected override Bitmap Icon => Resources.aitointlist;
+        protected override Bitmap Icon => Resources.AI2IntegerList;
 
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2text" };
 
@@ -58,7 +58,7 @@ namespace SmartHopper.Components.Output
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddIntegerParameter("Fallback", "F", "OPTIONAL fallback list emitted when the AI response cannot be parsed as a JSON array of integers. If not provided, an empty list is emitted on parse failure.", GH_ParamAccess.list);
+            pManager.AddIntegerParameter("Fallback", "F", "Optional fallback list returned when the AI response cannot be parsed into integers (leave disconnected to output an empty list when unparsable).", GH_ParamAccess.list);
             pManager[pManager.ParamCount - 1].Optional = true;
         }
 
@@ -120,7 +120,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Integer List",
                     NickName = "I",
-                    Description = "Parsed list of integers (one branch entry per JSON array element). Items that fail to parse are skipped. Falls back to the Fallback input when no items are parseable.",
+                    Description = "Extracted list of integers (falls back to the Fallback input when items cannot be parsed).",
                     ParamType = typeof(Param_Integer),
                     Access = GH_ParamAccess.tree,
                     Extractor = aiReturn =>
@@ -133,7 +133,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Used Fallback",
                     NickName = "UF",
-                    Description = "True for items where the AI response could not be parsed and the fallback value was used.",
+                    Description = "True for each item where the AI response could not be parsed cleanly and fallback resolution was used.",
                     ParamType = typeof(Param_Boolean),
                     Access = GH_ParamAccess.tree,
                     Extractor = aiReturn =>

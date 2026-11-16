@@ -20,7 +20,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 
-using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
     /// <summary>
@@ -82,7 +81,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             }
             catch (Exception ex)
             {
-                Logger.For<ChatCanvasBaselineStore>().Exception(ex, $"[ChatCanvasBaselineStore] Save failed: {ex.Message}");
+                Debug.WriteLine($"[ChatCanvasBaselineStore] Save failed: {ex.Message}");
                 return false;
             }
         }
@@ -99,7 +98,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             }
             catch (Exception ex)
             {
-                Logger.For<ChatCanvasBaselineStore>().Exception(ex, $"[ChatCanvasBaselineStore] Load failed: {ex.Message}");
+                Debug.WriteLine($"[ChatCanvasBaselineStore] Load failed: {ex.Message}");
                 return null;
             }
         }
@@ -118,7 +117,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             }
             catch (Exception ex)
             {
-                Logger.For<ChatCanvasBaselineStore>().Exception(ex, $"[ChatCanvasBaselineStore] Delete failed: {ex.Message}");
+                Debug.WriteLine($"[ChatCanvasBaselineStore] Delete failed: {ex.Message}");
             }
         }
 
@@ -148,13 +147,13 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     }
                     catch (Exception ex)
                     {
-                        Logger.For<ChatCanvasBaselineStore>().Exception(ex, $"[ChatCanvasBaselineStore] Prune failed for '{file}': {ex.Message}");
+                        Debug.WriteLine($"[ChatCanvasBaselineStore] Prune failed for '{file}': {ex.Message}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logger.For<ChatCanvasBaselineStore>().Exception(ex, $"[ChatCanvasBaselineStore] Prune failed: {ex.Message}");
+                Debug.WriteLine($"[ChatCanvasBaselineStore] Prune failed: {ex.Message}");
             }
         }
     }

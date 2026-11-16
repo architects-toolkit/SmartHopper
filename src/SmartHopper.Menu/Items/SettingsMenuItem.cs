@@ -17,6 +17,7 @@
  */
 
 using System.Windows.Forms;
+using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Menu.Dialogs;
 
 namespace SmartHopper.Menu.Items
@@ -33,7 +34,7 @@ namespace SmartHopper.Menu.Items
             item.Click += (sender, e) =>
             {
                 var dialog = new SettingsDialog();
-                dialog.ShowModal(Rhino.UI.RhinoEtoApp.MainWindow);
+                dialog.ShowModalInFront(Rhino.UI.RhinoEtoApp.MainWindow);
             };
             return item;
         }

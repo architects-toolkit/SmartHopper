@@ -12,7 +12,7 @@ inputs:
   model:
     description: 'Mistral model name'
     required: false
-    default: 'mistral-medium-latest'
+    default: 'mistral-large-4-0'
   system-prompt:
     description: 'System message content (use only for short strings; prefer system-prompt-file for large prompts)'
     required: false

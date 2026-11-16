@@ -34,6 +34,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
     using SmartHopper.ProviderSdk.AICall.Utilities;
     using SmartHopper.ProviderSdk.AIModels;
+    using SmartHopper.ProviderSdk.Diagnostics;
     using SmartHopper.ProviderSdk.Logging;
     using SmartHopper.ProviderSdk.Streaming;
     /// <summary>
@@ -158,59 +159,114 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             // Ensure request policies are applied for streaming special turns as well.
             // Streaming adapters bypass AIRequestCall.Exec(), so policies like ContextInjectionRequestPolicy
             // must be applied explicitly to keep context up-to-date.
-            await PolicyPipeline.Default.ApplyRequestPoliciesAsync(specialRequest).ConfigureAwait(false);
+            await SmartHopper.ProviderSdk.Hosting.ProviderSdkHost.PolicyPipeline.ApplyRequestPoliciesAsync(specialRequest).ConfigureAwait(false);
+
+            // Model-bound preparation on this path mirrors Exec: stream the outbound view.
+            var preparation = await SmartHopper.ProviderSdk.Hosting.ProviderSdkHost.PolicyPipeline
+                .PrepareExecutionAsync(specialRequest, ct).ConfigureAwait(false);
+            var outbound = preparation?.Request;
+            if (outbound != null)
+            {
+                // Shared outbound gate (modality + structural + trust) — same as Exec.
+                preparation.Messages.AddRange(AIRequestPreparation.ValidateOutboundRequest(outbound));
+            }
+
+            if (outbound == null || preparation.HasBlockingErrors)
+            {
+                var blocked = new AIReturn();
+                blocked.CreateError("Request preparation failed", specialRequest);
+                if (preparation?.ExtraMetrics != null)
+                {
+                    // Charged helper usage is metered even when the special turn aborts.
+                    blocked.ExtraMetrics.AddRange(preparation.ExtraMetrics);
+                }
+
+                if (preparation?.Messages != null)
+                {
+                    foreach (var message in preparation.Messages)
+                    {
+                        if (message != null)
+                        {
+                            blocked.AddRuntimeMessage(message);
+                        }
+                    }
+                }
+
+                return blocked;
+            }
 
             var exec = new DefaultProviderExecutor();
-            var adapter = exec.TryGetStreamingAdapter(specialRequest);
+            var adapter = exec.TryGetStreamingAdapter(outbound);
 
             if (adapter == null)
             {
-                // Provider doesn't support streaming, fall back to non-streaming
+                // Provider doesn't support streaming, fall back to non-streaming. Submit the
+                // PREPARED outbound request (its Exec re-prepares the already-converted body
+                // — no second helper call), then carry this preparation's metrics/diagnostics
+                // onto the returned result so helper cost is never lost or doubled.
                 Logger.For<ConversationSession>().Trace($"[ConversationSession.SpecialTurn] Provider doesn't support streaming, falling back to non-streaming");
-                return await this.ExecuteNonStreamingSpecialTurnAsync(specialRequest, config, turnId, ct).ConfigureAwait(false);
+                var fallbackResult = await this.ExecuteNonStreamingSpecialTurnAsync(outbound, config, turnId, ct).ConfigureAwait(false);
+                AttachPreparation(fallbackResult, preparation);
+                return fallbackResult;
             }
 
             AIReturn? lastDelta = null;
             AIInteractionText? accumulatedText = null;
 
-            // Stream deltas internally (no observer notifications)
-            await foreach (var rawDelta in adapter.StreamAsync(specialRequest, new StreamingOptions(), ct).ConfigureAwait(false))
+            // Stream deltas internally (no observer notifications). Exceptions after
+            // preparation must still surface helper metrics/diagnostics, not drop them.
+            try
             {
-                if (rawDelta == null)
+                await foreach (var rawDelta in adapter.StreamAsync(outbound, new StreamingOptions(), ct).ConfigureAwait(false))
                 {
-                    continue;
-                }
-
-                // Normalize delta to handle provider-specific formats
-                var delta = adapter.NormalizeDelta(rawDelta);
-
-                // Apply TurnId to new interactions
-                var newInteractions = delta.Body?.GetNewInteractions();
-                newInteractions = InteractionUtility.EnsureTurnId(newInteractions, turnId).ToList();
-
-                // Do NOT notify observers here - special turn execution is isolated
-                // Accumulate text deltas in memory
-                if (newInteractions != null)
-                {
-                    foreach (var interaction in newInteractions)
+                    if (rawDelta == null)
                     {
-                        if (interaction is AIInteractionText textDelta)
+                        continue;
+                    }
+
+                    // Normalize delta to handle provider-specific formats
+                    var delta = adapter.NormalizeDelta(rawDelta);
+
+                    // Apply TurnId to new interactions
+                    var newInteractions = delta.Body?.GetNewInteractions();
+                    newInteractions = InteractionUtility.EnsureTurnId(newInteractions, turnId).ToList();
+
+                    // Do NOT notify observers here - special turn execution is isolated
+                    // Accumulate text deltas in memory
+                    if (newInteractions != null)
+                    {
+                        foreach (var interaction in newInteractions)
                         {
-                            accumulatedText = TextStreamCoalescer.Coalesce(
-                                accumulatedText,
-                                textDelta,
-                                turnId,
-                                preserveMetrics: false);
+                            if (interaction is AIInteractionText textDelta)
+                            {
+                                accumulatedText = TextStreamCoalescer.Coalesce(
+                                    accumulatedText,
+                                    textDelta,
+                                    turnId,
+                                    preserveMetrics: false);
+                            }
                         }
                     }
-                }
 
-                lastDelta = delta;
+                    lastDelta = delta;
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                var failed = this.CreateError($"Special turn streaming failed: {ex.Message}");
+                AttachPreparation(failed, preparation);
+                return failed;
             }
 
             if (lastDelta == null)
             {
-                return this.CreateError("Special turn streaming returned no response");
+                var empty = this.CreateError("Special turn streaming returned no response");
+                AttachPreparation(empty, preparation);
+                return empty;
             }
 
             // Build final result with accumulated text by reusing the provider's last delta
@@ -228,8 +284,40 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             // Reuse lastDelta AIReturn instance and only replace its body
             lastDelta.SetBody(finalBody);
 
+            // Helper-call metrics are metered once, separately from the primary turn;
+            // preparation diagnostics surface on the returned AIReturn.
+            AttachPreparation(lastDelta, preparation);
+
             // Do NOT notify observers here - they will be notified by ApplyPersistenceStrategy
             return lastDelta;
+        }
+
+        /// <summary>
+        /// Attaches preparation helper metrics (metered once, separately from the primary
+        /// call) and diagnostics to a result — on success and on every failure path.
+        /// </summary>
+        private static void AttachPreparation(AIReturn result, AIRequestPreparation preparation)
+        {
+            if (result == null || preparation == null)
+            {
+                return;
+            }
+
+            if (preparation.ExtraMetrics != null && preparation.ExtraMetrics.Count > 0)
+            {
+                result.ExtraMetrics.AddRange(preparation.ExtraMetrics);
+            }
+
+            if (preparation.Messages != null)
+            {
+                foreach (var message in preparation.Messages)
+                {
+                    if (message != null)
+                    {
+                        result.AddRuntimeMessage(message);
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -242,7 +330,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 OriginalBody = this.Request.Body,
                 OriginalProvider = this.Request.Provider,
                 OriginalModel = this.Request.Model,
-                OriginalEndpoint = this.Request.Endpoint,
+                OriginalOrigin = this.Request.Origin,
                 OriginalCapability = this.Request.Capability,
             };
         }
@@ -300,7 +388,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             specialRequest.Body = builder.Build();
             specialRequest.Provider = config.OverrideProvider ?? this.Request.Provider;
             specialRequest.Model = config.OverrideModel ?? this.Request.Model;
-            specialRequest.Endpoint = config.OverrideEndpoint ?? this.Request.Endpoint;
+            specialRequest.Origin = config.OverrideOrigin ?? this.Request.Origin;
             specialRequest.Capability = config.OverrideCapability ?? this.Request.Capability;
 
             Logger.For<ConversationSession>().Trace($"[ConversationSession.SpecialTurn] Created isolated request: provider={specialRequest.Provider}, model={specialRequest.Model}");
@@ -474,7 +562,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             public string OriginalModel { get; set; }
 
-            public string OriginalEndpoint { get; set; }
+            public string? OriginalOrigin { get; set; }
 
             public AICapability OriginalCapability { get; set; }
         }

@@ -62,7 +62,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                     }
 
                     var capture = new ViewCapture();
-                    using var bitmap = capture.CaptureToBitmap(view);
+                    using var bitmap = capture.CaptureToBitmap(view)
+                        ?? RenderOffscreen(view, resolvedWidth, resolvedHeight);
                     if (bitmap == null)
                     {
                         throw new InvalidOperationException("The Rhino viewport could not be captured.");
@@ -91,6 +92,34 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
             }
 
             return completion.Task;
+        }
+
+        /// <summary>
+        /// Renders the viewport to an off-screen bitmap when the screen-grab path
+        /// returns null — a minimized or otherwise unpainted Rhino window has no
+        /// pixels to grab, but the display pipeline can still draw the viewport
+        /// into a fresh bitmap. Prefers the view's live client size and falls back
+        /// to the requested capture dimensions when the client area is empty.
+        /// </summary>
+        private static System.Drawing.Bitmap? RenderOffscreen(RhinoView view, int width, int height)
+        {
+            var viewport = view.ActiveViewport;
+            if (viewport == null)
+            {
+                return null;
+            }
+
+            var clientSize = viewport.Size;
+            var w = clientSize.Width > 0 ? clientSize.Width : width;
+            var h = clientSize.Height > 0 ? clientSize.Height : height;
+            try
+            {
+                return DisplayPipeline.DrawToBitmap(viewport, w, h);
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

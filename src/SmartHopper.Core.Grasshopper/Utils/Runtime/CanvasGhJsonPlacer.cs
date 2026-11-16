@@ -23,16 +23,21 @@ using GhJSON.Core;
 using GhJSON.Core.SchemaModels;
 using GhJSON.Grasshopper;
 using GhJSON.Grasshopper.PutOperations;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.Interaction;
+using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Logging;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Runtime
 {
     /// <summary>
-    /// Executes WebChat place-on-canvas actions: puts a validated GhJSON document onto
-    /// the user's ACTIVE Grasshopper document on the Rhino UI thread. Placement goes
-    /// through <see cref="GhJsonGrasshopper.Put(GhJsonDocument, PutOptions)"/>, whose
-    /// canvas placer records undo events internally, so Ctrl+Z reverts the placed objects.
+    /// Executes delegated <c>ghjson_place</c> jobs and WebChat place-on-canvas actions:
+    /// puts a validated GhJSON document onto the user's ACTIVE Grasshopper document on
+    /// the Rhino UI thread (unlike <see cref="HeadlessGhJsonTester"/>, which solves in a
+    /// private headless document and never touches the canvas). Placement goes through
+    /// <see cref="GhJsonGrasshopper.Put(GhJsonDocument, PutOptions)"/>, whose canvas
+    /// placer records undo events internally, so Ctrl+Z reverts the placed objects.
     /// </summary>
     public static class CanvasGhJsonPlacer
     {
@@ -47,7 +52,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Runtime
             GhJsonCanvasBridge.PlaceHandler = PlaceOnUiThreadAsync;
         }
 
-        /// <summary>Bridge path for the WebChat card's place action — chat-shaped outcome.</summary>
+        /// <summary>Bridge path for the WebChat card's place action — same placement, chat-shaped outcome.</summary>
         private static Task<GhJsonPlaceOutcome> PlaceOnUiThreadAsync(string ghjson, CancellationToken cancellationToken)
         {
             var tcs = new TaskCompletionSource<GhJsonPlaceOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -88,8 +93,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Runtime
             }
 
             // Placement is a trusted-surface action (the user already approved showing
-            // the artifact), but the payload still gets re-validated — replayed cards
-            // can carry stale or crafted documents.
+            // the artifact), but the payload still gets re-validated — remote jobs and
+            // replayed cards can carry stale or crafted documents.
             var validation = GhJson.Validate(ghjson);
             if (!validation.IsValid)
             {
@@ -113,9 +118,10 @@ namespace SmartHopper.Core.Grasshopper.Utils.Runtime
                 return new GhJsonPlaceOutcome { Success = false, Error = "no active Grasshopper document" };
             }
 
-            // Card/remote payloads always place NEW objects, so every component gets a
-            // tidy-up layout pivot below existing content; Put then applies the
-            // positions verbatim (AutoOffset stays off to avoid a second shift).
+            // Preserve supplied pivots; pivotless new objects get compact positions
+            // relative to fixed neighbors (unanchored parts avoid existing content).
+            // Put applies the reviewed positions
+            // verbatim (AutoOffset stays off to avoid a second shift).
             document = CanvasNewComponentLayout.ApplyOnUiThread(
                 document,
                 preservedInstanceGuids: null,
@@ -123,7 +129,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Runtime
 
             var options = new PutOptions
             {
-                // Card payloads always place NEW objects: regenerating guids keeps
+                // Card/remote payloads always place NEW objects: regenerating guids keeps
                 // a repeated click from colliding with earlier placements and prevents a
                 // crafted payload from updating objects it does not own.
                 RegenerateInstanceGuids = true,

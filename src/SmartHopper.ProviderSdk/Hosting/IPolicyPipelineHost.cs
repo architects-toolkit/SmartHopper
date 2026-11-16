@@ -16,6 +16,7 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
@@ -40,6 +41,18 @@ namespace SmartHopper.ProviderSdk.Hosting
         /// after the provider returns.
         /// </summary>
         Task ApplyResponsePoliciesAsync(AIReturn response);
+
+        /// <summary>
+        /// Prepares the outbound execution view of <paramref name="request"/> for the
+        /// resolved primary model: materialized media is validated against registered
+        /// capabilities and, where configured, converted through the modality fallback
+        /// chain. The returned <see cref="AIRequestPreparation"/> carries a detached
+        /// execution copy; the canonical request and session evidence stay untouched.
+        /// </summary>
+        /// <param name="request">The canonical request to prepare.</param>
+        /// <param name="cancellationToken">Cancellation token; helper calls honor it.</param>
+        /// <returns>The preparation result; <see cref="AIRequestPreparation.HasBlockingErrors"/> must abort submission.</returns>
+        Task<AIRequestPreparation> PrepareExecutionAsync(AIRequestCall request, CancellationToken cancellationToken = default);
     }
 
     /// <summary>
@@ -53,5 +66,17 @@ namespace SmartHopper.ProviderSdk.Hosting
 
         /// <inheritdoc />
         public Task ApplyResponsePoliciesAsync(AIReturn response) => Task.CompletedTask;
+
+        /// <inheritdoc />
+        public Task<AIRequestPreparation> PrepareExecutionAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // No host orchestration: return a safe execution copy with no fallback and
+            // strict outgoing-image capability validation (unknown is not confirmed support).
+            var preparation = new AIRequestPreparation(request?.CreateExecutionCopy());
+            preparation.Messages.AddRange(AIRequestPreparation.ValidateOutboundModalities(preparation.Request));
+            return Task.FromResult(preparation);
+        }
     }
 }

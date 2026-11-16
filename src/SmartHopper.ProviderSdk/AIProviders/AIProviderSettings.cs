@@ -44,6 +44,18 @@ namespace SmartHopper.ProviderSdk.AIProviders
 
         public abstract IEnumerable<SettingDescriptor> GetSettingDescriptors();
 
+        /// <summary>
+        /// Gets the ordered settings surface: persisted settings bound to the store plus live
+        /// chrome elements (status, actions, links) that never touch the store. The default
+        /// wraps every non-hidden descriptor; override to compose chrome or live view-state.
+        /// Implementations must construct elements only — delegates are evaluated by the host.
+        /// </summary>
+        /// <returns>The ordered surface elements.</returns>
+        public virtual IEnumerable<ProviderSurfaceElement> GetSurface()
+            => this.GetSettingDescriptors()
+                .Where(descriptor => descriptor != null && !descriptor.IsHidden)
+                .Select(descriptor => new BoundSettingElement(descriptor));
+
         public abstract bool ValidateSettings(Dictionary<string, object> settings);
 
         /// <inheritdoc/>

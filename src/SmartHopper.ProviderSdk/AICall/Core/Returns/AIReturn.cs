@@ -80,6 +80,15 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
         /// <inheritdoc/>
         public AICallStatus Status { get; set; } = AICallStatus.Idle;
 
+        /// <summary>
+        /// Metrics produced by helper calls performed while preparing this request
+        /// (for example, vision-helper conversions applied to the outbound view).
+        /// Each entry carries its own provider/model and is metered once, separately
+        /// from the primary call — consumers merge them through the existing metrics
+        /// aggregation seams rather than treating them as primary usage.
+        /// </summary>
+        public List<AIMetrics> ExtraMetrics { get; } = new List<AIMetrics>();
+
         /// <inheritdoc/>
         public List<SHRuntimeMessage> Messages
         {
@@ -227,8 +236,13 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
             var model = req.Model ?? "Unknown";
 
             // Stamp provider/model on a copy of each interaction, preserving other fields and new markers.
+            // A model already reported on the metrics (e.g. resolved server-side) wins over the request model.
             var updatedInteractions = body.Interactions
-                .Select(i => i.WithMetrics((i.Metrics ?? new AIMetrics()) with { Provider = provider, Model = model }))
+                .Select(i => i.WithMetrics((i.Metrics ?? new AIMetrics()) with
+                {
+                    Provider = provider,
+                    Model = string.IsNullOrWhiteSpace(i.Metrics?.Model) ? model : i.Metrics.Model,
+                }))
                 .ToList();
 
             // Create a new body from the updated interactions, preserving new markers.
@@ -372,8 +386,8 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
 
         /// <summary>
         /// Creates a standardized provider error from a caught exception and logs the
-        /// full exception (type, stack trace, inner exceptions) through the
-        /// logging sinks. Use this overload in catch blocks so that unexpected failures
+        /// full exception (type, stack trace, inner exceptions) through the telemetry
+        /// pipeline. Use this overload in catch blocks so that unexpected failures
         /// remain diagnosable instead of surviving only as a user-facing message.
         /// </summary>
         /// <param name="exception">The caught exception.</param>
@@ -390,7 +404,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
         /// <summary>
         /// Creates a standardized network error (e.g., DNS, connectivity) from a caught
         /// exception and logs the full exception (type, stack trace, inner exceptions)
-        /// through the logging sinks. Use this overload in catch blocks so that
+        /// through the telemetry pipeline. Use this overload in catch blocks so that
         /// transport failures remain diagnosable instead of surviving only as a
         /// user-facing message.
         /// </summary>
@@ -412,8 +426,8 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
 
         /// <summary>
         /// Creates a standardized tool error from a caught exception and logs the full
-        /// exception (type, stack trace, inner exceptions) through the
-        /// logging sinks. Use this overload in catch blocks so that unexpected failures
+        /// exception (type, stack trace, inner exceptions) through the telemetry
+        /// pipeline. Use this overload in catch blocks so that unexpected failures
         /// remain diagnosable instead of surviving only as a user-facing message.
         /// </summary>
         /// <param name="exception">The caught exception.</param>
@@ -581,8 +595,13 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Returns
             var model = this.Request.Model ?? "Unknown";
 
             // Stamp provider/model on a copy of each decoded interaction.
+            // A model reported by the decoder (e.g. resolved server-side) wins over the request model.
             var updatedInteractions = interactions
-                .Select(i => i.WithMetrics((i.Metrics ?? new AIMetrics()) with { Provider = provider, Model = model }));
+                .Select(i => i.WithMetrics((i.Metrics ?? new AIMetrics()) with
+                {
+                    Provider = provider,
+                    Model = string.IsNullOrWhiteSpace(i.Metrics?.Model) ? model : i.Metrics.Model,
+                }));
 
             b.AddRange(updatedInteractions);
 

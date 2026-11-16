@@ -32,6 +32,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
@@ -105,6 +106,9 @@ namespace SmartHopper.Components.Test.Providers
                     {
                         Model = this._parent.GetModel(),
                     };
+
+                    // Initialize like production requests (provider/model/endpoint/capability)
+                    call.Initialize("Anthropic", this._parent.GetModel(), call.Body, "/messages", AICapability.Text2Text);
 
                     // Resolve provider and verify it supports batch
                     var provider = ProviderManager.Instance.GetProvider("Anthropic");

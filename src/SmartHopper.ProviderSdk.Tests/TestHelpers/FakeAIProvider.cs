@@ -32,6 +32,7 @@ namespace SmartHopper.ProviderSdk.Tests.TestHelpers
     using SmartHopper.ProviderSdk.AICall.Metrics;
     using SmartHopper.ProviderSdk.AIModels;
     using SmartHopper.ProviderSdk.AIProviders;
+    using SmartHopper.ProviderSdk.Hosting;
 
     /// <summary>
     /// Minimal in-memory AI provider used by SDK contract tests.
@@ -178,6 +179,15 @@ namespace SmartHopper.ProviderSdk.Tests.TestHelpers
                 { "ApiKey", apiKey },
                 { "Model", model },
             });
+        }
+
+        /// <summary>Exposes provider tool formatting without a network call.</summary>
+        /// <param name="toolFilter">Host-owned category scope.</param>
+        /// <param name="surface">Requesting execution surface.</param>
+        /// <returns>The schemas offered to the model.</returns>
+        public JArray FormatTools(string toolFilter, AIToolSurface surface)
+        {
+            return this.GetFormattedTools(toolFilter, surface);
         }
 
         private JObject EncodeInteraction(IAIInteraction interaction)

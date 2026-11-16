@@ -32,6 +32,14 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
         public AIBody TransformedBody { get; set; }
 
         /// <summary>
+        /// Raw converted outputs in input order, one entry per consumed modality
+        /// interaction (unwrapped: transcripts without labels, synthesized audio
+        /// interactions, etc.). Passthrough consumers emit these directly instead of
+        /// running a follow-up request against <see cref="TransformedBody"/>.
+        /// </summary>
+        public List<IAIInteraction> ConvertedItems { get; } = new();
+
+        /// <summary>
         /// One entry per AI call made during the fallback transformation.
         /// Callers pass each entry to CombineIntoPersistedMetrics(m, role).
         /// </summary>

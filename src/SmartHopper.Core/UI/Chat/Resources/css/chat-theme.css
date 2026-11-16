@@ -9,14 +9,15 @@
  */
 
 /*
- * Cloud "Blueprint" theme for the WebChat shell (chat-theme.css)
+ * Cloud "Canopy" theme for the WebChat shell (chat-theme.css)
  * ==============================================================
  * Ports the SmartHopper Cloud web app's chat theme verbatim: the section
  * marked CLOUD_CHAT_CSS is a 1:1 copy of
  * smarthopper-cloud/apps/web/src/components/chat/theme.ts and stays in
  * sync with it. The plugin WebView has no app-level design tokens, so the
- * --paper/--ink/--product palette is declared here with the literal light
- * values from smarthopper-cloud/apps/web/src/index.css (no dark-mode
+ * --paper/--ink/--product palette is declared here with the shared
+ * "Canopy" light ramp from @smarthopper/theme (smarthopper-shared);
+ * the --product slot keeps the plugin's signed-menu accent (no dark-mode
  * mechanism exists in the host page, so only the light palette ships).
  *
  * Activation: chat-bridge.js passes theme:'cloud' to ChatUI.createChatView,
@@ -28,17 +29,17 @@
  * on specificity, regardless of stylesheet order.
  */
 
-/* Cloud palette — literal values copied from the cloud app's index.css
-   :root/[data-theme='light'] block. Declared on :root so plugin chrome
-   outside the toolkit mount (HUD, toasts, metrics tooltips) shares the
-   same tokens; .chat-ui descendants inherit them for the verbatim rules. */
+/* Canopy palette — the shared @smarthopper/theme light ramp, with the
+   plugin's signed-menu accent on the --product slot. Declared on :root so
+   plugin chrome outside the toolkit mount (HUD, toasts, metrics tooltips)
+   shares the same tokens; .chat-ui descendants inherit them. */
 :root {
-    --paper: #faf9f6;
-    --paper-2: #f2f0ea;
-    --ink: #171a17;
-    --ink-soft: #565b55;
-    --line: #d8d5cc;
-    --line-strong: #171a17;
+    --paper: #f7f9f4;
+    --paper-2: #eef2e8;
+    --ink: #222b23;
+    --ink-soft: #5c685e;
+    --line: #dde4d4;
+    --line-strong: #b9c7ae;
     --product: #557616;
     --product-ink: #435c16;
     --product-soft: #f5faea;
@@ -51,14 +52,16 @@
     --danger-soft: #fae9e8;
     --ok: #2f6b3f;
     --ok-soft: #e6efe7;
+    --r-lg: 20px;
+    --r-md: 14px;
+    --r-btn: 18px 18px 18px 5px;
+    --r-canopy: 24px 24px 24px 7px;
     --mono: 'JetBrains Mono', ui-monospace, 'Courier New', monospace;
-    --sans: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --sans: 'Plus Jakarta Sans', 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 /* ================================================================== */
 /* CLOUD_CHAT_CSS — verbatim copy of cloud's theme.ts.                  */
-/* Do not edit rule bodies here; port fixes upstream instead.           */
-/* ================================================================== */
 
 .chat-ui[data-theme='cloud'] {
   --cui-bg: var(--paper);
@@ -74,10 +77,11 @@
   --cui-error: var(--danger);
   --cui-ok: var(--ok);
   --cui-warn: var(--warn);
-  --cui-radius: 0;
+  --cui-radius: 14px;
+  --cui-radius-btn: 16px 16px 16px 5px;
   --cui-border-width: 1px;
-  --cui-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
-  --cui-shadow-sm: none;
+  --cui-shadow: 0 14px 34px -18px rgba(34, 58, 40, 0.28);
+  --cui-shadow-sm: 0 8px 20px -14px rgba(34, 58, 40, 0.22);
   --cui-bubble-maxw: 100%;
   --cui-gap: 12px;
   --cui-pad: 12px;
@@ -92,16 +96,18 @@
 /* Transcript column — the old card-pad (p-5) reading width. */
 .chat-ui[data-theme='cloud'] .cui-messages { padding: 20px; }
 
-/* Bubbles match the old transcript: sharp padded bars, side-shifted by
+/* Bubbles match the old transcript: padded rounded bars, side-shifted by
    role (ml-8 user / mr-8 assistant), never rounded. */
 .chat-ui[data-theme='cloud'] .cui-msg { position: relative; }
 .chat-ui[data-theme='cloud'] .cui-msg .cui-bubble {
   padding: var(--cui-pad);
   font-size: var(--cui-font-size);
-  border-radius: 0;
+  border-radius: var(--cui-radius);
 }
 .chat-ui[data-theme='cloud'] .cui-msg[data-role='user'] { align-self: stretch; margin-left: 2rem; }
+.chat-ui[data-theme='cloud'] .cui-msg[data-role='user'] .cui-bubble { border-radius: 16px 16px 4px 16px; }
 .chat-ui[data-theme='cloud'] .cui-msg[data-role='assistant'] { margin-right: 2rem; }
+.chat-ui[data-theme='cloud'] .cui-msg[data-role='assistant'] .cui-bubble { border-radius: 16px 16px 16px 4px; }
 
 /* Tool calls, trace lines and system notices render flat on the page
    background — no bubble surface, no card chrome, compact text. */
@@ -112,12 +118,12 @@
   box-shadow: none;
   padding: 0 4px;
 }
+/* Cards keep their own chrome even on flat rows — the session agent strip
+   (task plan, proposals, subagent runs) lives on tool-role interactions. */
 .chat-ui[data-theme='cloud'] .cui-msg[data-role='tool'] .cui-card {
-  border: none;
-  background: transparent;
-  box-shadow: none;
-  padding: 0;
-  margin: 4px 0;
+  margin: 6px 0;
+  background: var(--paper);
+  font-size: var(--cui-font-size-sm);
 }
 
 /* Built-in tool parts stay collapsed-looking: a muted italic line with a
@@ -136,6 +142,7 @@
   white-space: pre-wrap;
   word-break: break-all;
   background: var(--paper-2);
+  border-radius: var(--r-md, 10px);
   padding: 8px;
   font-family: var(--mono);
   font-size: 11px;
@@ -151,10 +158,10 @@
 }
 .chat-ui[data-theme='cloud'] .cui-evidence { font-size: var(--cui-font-size-sm); font-style: italic; }
 
-/* Status strip — a Blueprint mono micro-label; collapses while empty. */
+/* Status strip — a mono micro-label; collapses while empty. */
 .chat-ui[data-theme='cloud'] .cui-status {
   padding: 4px 20px;
-  font-family: var(--mono);
+  font-family: inherit;
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -179,8 +186,8 @@
 .chat-ui[data-theme='cloud'] .cui-part-markdown a:hover { color: var(--product-ink); }
 .chat-ui[data-theme='cloud'] .cui-part-markdown blockquote { margin: 0 0 8px; padding-left: 12px; border-left: 2px solid var(--line); font-style: italic; color: var(--ink-soft); }
 .chat-ui[data-theme='cloud'] .cui-part-markdown blockquote:last-child { margin-bottom: 0; }
-.chat-ui[data-theme='cloud'] .cui-part-markdown code { background: var(--paper-2); padding: 1px 4px; font-family: var(--mono); font-size: 0.85em; }
-.chat-ui[data-theme='cloud'] .cui-part-markdown pre { margin: 0 0 8px; overflow-x: auto; background: var(--ink); color: var(--paper); padding: 12px; font-size: 12px; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown code { background: var(--paper-2); border-radius: 5px; padding: 1px 5px; font-family: var(--mono); font-size: 0.85em; }
+.chat-ui[data-theme='cloud'] .cui-part-markdown pre { margin: 0 0 8px; overflow-x: auto; background: var(--ink); color: var(--paper); border-radius: var(--r-md, 10px); padding: 12px; font-size: 12px; }
 .chat-ui[data-theme='cloud'] .cui-part-markdown pre code { background: transparent; padding: 0; }
 .chat-ui[data-theme='cloud'] .cui-part-markdown pre:last-child { margin-bottom: 0; }
 .chat-ui[data-theme='cloud'] .cui-part-markdown hr { margin: 12px 0; border-color: var(--line); }
@@ -220,7 +227,8 @@
   width: 24px;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  border: 1px solid var(--line);
   background: var(--paper);
   color: var(--ink-soft);
   cursor: pointer;
@@ -250,7 +258,7 @@
 }
 .chat-ui[data-theme='cloud'] .cui-trace-summary::-webkit-details-marker { display: none; }
 .chat-ui[data-theme='cloud'] .cui-trace-summary:hover { color: var(--ink); }
-.chat-ui[data-theme='cloud'] .cui-trace-dot { display: inline-block; height: 8px; width: 8px; flex: none; background: var(--ink-soft); }
+.chat-ui[data-theme='cloud'] .cui-trace-dot { display: inline-block; height: 8px; width: 8px; flex: none; border-radius: 50%; background: var(--ink-soft); }
 .chat-ui[data-theme='cloud'] .cui-trace-dot.is-runtime { background: var(--ok); }
 .chat-ui[data-theme='cloud'] .cui-trace-args {
   margin: 4px 0 0 16px;
@@ -259,6 +267,7 @@
   white-space: pre-wrap;
   word-break: break-all;
   background: var(--paper-2);
+  border-radius: var(--r-md, 10px);
   padding: 8px;
   font-family: var(--mono);
   font-size: 11px;
@@ -271,11 +280,11 @@
 
 /* Usage chip + ⓘ turn-metrics hover panel (dark tooltip like the old one). */
 .chat-ui[data-theme='cloud'] .cui-usage {
-  padding: 2px 8px;
+  padding: 3px 10px;
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: 999px;
   background: transparent;
-  font-family: var(--mono);
+  font-family: inherit;
   font-size: 11px;
   color: var(--ink-soft);
 }
@@ -315,13 +324,13 @@
 }
 .chat-ui[data-theme='cloud'] .cui-usage-pop-label { font-weight: 600; }
 
-/* Suggestion chips + references — same hairline, sharp, mono language. */
+/* Suggestion chips + references — soft pill language. */
 .chat-ui[data-theme='cloud'] .cui-suggestion {
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: 999px;
   background: transparent;
   color: var(--ink);
-  font-family: var(--mono);
+  font-family: inherit;
   font-size: var(--cui-font-size-sm);
   padding: 4px 12px;
 }
@@ -332,23 +341,61 @@
 }
 .chat-ui[data-theme='cloud'] .cui-references { border-top-color: var(--line); }
 .chat-ui[data-theme='cloud'] .cui-references-summary {
-  font-family: var(--mono);
+  font-family: inherit;
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.chat-ui[data-theme='cloud'] .cui-ref-source { border-radius: 0; }
+.chat-ui[data-theme='cloud'] .cui-ref-source { border-radius: 10px; }
 .chat-ui[data-theme='cloud'] a.cui-ref-title { color: var(--product); }
 
 /* Card surfaces (task plans, questions, approvals, subagent runs) stay
-   sharp; their action buttons pick up the app's button language. */
-.chat-ui[data-theme='cloud'] .cui-card { border-radius: 0; box-shadow: none; }
+   rounded; their action buttons pick up the app's button language. */
+.chat-ui[data-theme='cloud'] .cui-card { border-radius: var(--cui-radius); box-shadow: var(--cui-shadow-sm); }
+
+/* Pending proposals — the old brand-tinted panel: product border + soft
+   wash, with the "awaiting your decision" micro-label restored. */
+.chat-ui[data-theme='cloud'] .cui-card[data-kind='approval'][data-state='pending'] {
+  border-color: var(--product);
+  background: var(--product-soft);
+}
+.chat-ui[data-theme='cloud'] .cui-card[data-kind='approval'][data-state='pending']::before {
+  content: 'Proposed plan — awaiting your decision';
+  display: block;
+  margin-bottom: 6px;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* Subagent runs — 'interrupted' gets the old amber badge; the failure
+   detail line tints danger instead of staying muted. */
+.chat-ui[data-theme='cloud'] .cui-subagent[data-status='interrupted'] .cui-subagent-badge {
+  color: var(--cui-warn);
+  border-color: var(--cui-warn);
+}
+.chat-ui[data-theme='cloud'] .cui-subagent[data-status='failed'] .cui-subagent-detail,
+.chat-ui[data-theme='cloud'] .cui-subagent[data-status='interrupted'] .cui-subagent-detail {
+  color: var(--danger);
+}
+.chat-ui[data-theme='cloud'] .cui-subagent-id { font-family: var(--mono); }
+
+/* Quoted-reply part — same grey italic blockquote the markdown mapping
+   used before the native quote part took over. */
+.chat-ui[data-theme='cloud'] .cui-part-quote {
+  padding-left: 12px;
+  border-left: 2px solid var(--line);
+}
+.chat-ui[data-theme='cloud'] .cui-quote-body { font-style: italic; color: var(--ink-soft); }
+
 .chat-ui[data-theme='cloud'] .cui-approve {
   border: 1px solid var(--product);
-  border-radius: 0;
+  border-radius: var(--cui-radius-btn);
   background: var(--product);
   color: var(--btn-fg);
-  font-family: var(--mono);
+  font-family: inherit;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -357,32 +404,27 @@
 .chat-ui[data-theme='cloud'] .cui-approve:hover:not(:disabled) { background: var(--product-ink); }
 .chat-ui[data-theme='cloud'] .cui-reject {
   border: 1px solid var(--line-strong);
-  border-radius: 0;
+  border-radius: var(--cui-radius-btn);
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--mono);
+  font-family: inherit;
   font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 .chat-ui[data-theme='cloud'] .cui-reject:hover:not(:disabled) { background: var(--paper-2); }
-.chat-ui[data-theme='cloud'] .cui-card-input { border-radius: 0; }
-.chat-ui[data-theme='cloud'] .cui-card-answer-row button { border-radius: 0; font-family: var(--mono); }
-/* Resolved cards (bridge-stamped data-resolved after the host resolves the
-   consent/question) dim like the legacy .resolved cards did. */
-.chat-ui[data-theme='cloud'] .cui-card[data-resolved] { opacity: 0.65; }
-.chat-ui[data-theme='cloud'] .cui-card[data-resolved] button,
-.chat-ui[data-theme='cloud'] .cui-card[data-resolved] input { cursor: default; }
-.chat-ui[data-theme='cloud'] .cui-actions button { border-radius: 0; }
-.chat-ui[data-theme='cloud'] .cui-subagent-badge { border-radius: 0; font-family: var(--mono); }
-.chat-ui[data-theme='cloud'] .cui-subagent-cancel { border-radius: 0; font-family: var(--mono); }
-.chat-ui[data-theme='cloud'] .cui-subagent-progress { border-radius: 0; }
+.chat-ui[data-theme='cloud'] .cui-card-input { border-radius: var(--cui-radius); }
+.chat-ui[data-theme='cloud'] .cui-card-answer-row button { border-radius: var(--cui-radius-btn); }
+.chat-ui[data-theme='cloud'] .cui-actions button { border-radius: var(--cui-radius-btn); }
+.chat-ui[data-theme='cloud'] .cui-subagent-badge { border-radius: 999px; }
+.chat-ui[data-theme='cloud'] .cui-subagent-cancel { border-radius: var(--cui-radius-btn); }
+.chat-ui[data-theme='cloud'] .cui-subagent-progress { border-radius: var(--cui-radius); }
 
-/* "↓ Latest" jump pill — sharp like every other button. */
+/* "↓ Latest" jump pill — rounded like every other button. */
 .chat-ui[data-theme='cloud'] .cui-jump {
-  border-radius: 0;
+  border-radius: var(--cui-radius-btn);
   border-color: var(--line-strong);
-  font-family: var(--mono);
+  font-family: inherit;
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -394,7 +436,7 @@
   padding: 8px 12px;
   border: 1px solid var(--line);
   border-left: 3px solid var(--product);
-  border-radius: 0;
+  border-radius: var(--r-md, 10px);
   background: var(--paper-2);
   color: var(--ink-soft);
 }
@@ -405,7 +447,8 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  border: 1px solid var(--line);
   background: var(--paper);
   color: var(--ink-soft);
   cursor: pointer;
@@ -417,12 +460,12 @@
 .chat-ui[data-theme='cloud'] .cui-empty-btn { border: none; background: none; padding: 0; cursor: pointer; text-decoration: underline; font: inherit; color: inherit; }
 .chat-ui[data-theme='cloud'] .cui-empty-btn:hover { color: var(--ink); }
 
-/* Composer — sharp input with the product focus ring; Send is the app's
+/* Composer — rounded input with the product focus ring; Send is the app's
    lime primary button, Stop its outlined danger sibling. */
 .chat-ui[data-theme='cloud'] .cui-composer { padding: 12px 20px; border-top: 1px solid var(--line); }
 .chat-ui[data-theme='cloud'] .cui-input {
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: var(--cui-radius);
   background: var(--paper);
   color: var(--ink);
   padding: 8px 10px;
@@ -432,16 +475,16 @@
 .chat-ui[data-theme='cloud'] .cui-input:focus { outline: none; border-color: var(--product); }
 .chat-ui[data-theme='cloud'] .cui-input:focus-visible { box-shadow: 0 0 0 1px var(--product); }
 .chat-ui[data-theme='cloud'] .cui-attach {
-  border: 1px solid var(--line-strong);
-  border-radius: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--cui-radius-btn);
   background: var(--paper);
   color: var(--ink-soft);
 }
 .chat-ui[data-theme='cloud'] .cui-attach:hover:not(:disabled) { background: var(--paper-2); color: var(--ink); }
 .chat-ui[data-theme='cloud'] .cui-send,
 .chat-ui[data-theme='cloud'] .cui-cancel {
-  border-radius: 0;
-  font-family: var(--mono);
+  border-radius: var(--cui-radius-btn);
+  font-family: inherit;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -463,7 +506,118 @@
 }
 .chat-ui[data-theme='cloud'] .cui-cancel:hover:not(:disabled) { background: var(--danger-soft); }
 .chat-ui[data-theme='cloud'] .cui-cancel:focus-visible { outline: 2px solid var(--danger); outline-offset: 2px; }
-.chat-ui[data-theme='cloud'] .cui-model { border-radius: 0; }
+
+/* Composer model picker — the mono micro-label like the header
+   select it replaced. */
+.chat-ui[data-theme='cloud'] .cui-model {
+  max-width: 180px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 11px;
+}
+.chat-ui[data-theme='cloud'] .cui-model:focus-visible { outline: 1px solid var(--product); outline-offset: 1px; }
+
+/* GhJSON artifact card (show_ghjson) — compact blueprint card on the flat
+   tool row; the source preview stays collapsed behind <details>. Invalid
+   payloads go small and red with no action affordance. */
+.chat-ui[data-theme='cloud'] .cui-ghjson {
+  margin: 6px 0;
+  padding: 8px 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--product);
+  border-radius: var(--r-md, 10px);
+  font-size: var(--cui-font-size-sm);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson.is-invalid {
+  border-left-color: var(--danger);
+  color: var(--danger);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-title {
+  font-weight: 600;
+  color: var(--ink);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson.is-invalid .cui-ghjson-title { color: var(--danger); }
+.chat-ui[data-theme='cloud'] .cui-ghjson-badge {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 999px;
+  background: var(--paper-2);
+  color: var(--ink-soft);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-badge.is-valid {
+  color: var(--ok);
+  background: var(--ok-soft);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-badge.is-invalid {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-errors {
+  margin: 6px 0 0 14px;
+  padding: 0;
+  list-style: disc;
+  font-size: 11px;
+  color: var(--danger);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-src { margin-top: 6px; }
+.chat-ui[data-theme='cloud'] .cui-ghjson-summary {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-pre {
+  margin: 6px 0 0;
+  padding: 8px;
+  max-height: 240px;
+  overflow: auto;
+  background: var(--paper-2);
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--ink-soft);
+  white-space: pre;
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-btn {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-btn:hover:not(:disabled) { border-color: var(--product); color: var(--product); }
+.chat-ui[data-theme='cloud'] .cui-ghjson-btn:disabled { opacity: 0.5; cursor: default; }
+.chat-ui[data-theme='cloud'] .cui-ghjson-btn.is-primary {
+  border-color: var(--product);
+  background: var(--product);
+  color: var(--btn-fg);
+}
+.chat-ui[data-theme='cloud'] .cui-ghjson-btn.is-primary:hover:not(:disabled) { background: var(--product-ink); color: var(--btn-fg); }
+.chat-ui[data-theme='cloud'] .cui-ghjson-btn.is-primary:focus-visible { outline: 2px solid var(--product); outline-offset: 2px; }
 
 /* Locked chats hide the composer — read-only transcripts keep scrolling.
    (The only rule keyed on the host mount class rather than the theme.) */
@@ -489,11 +643,10 @@ body {
     font-family: var(--sans);
 }
 
-/* Sharp framed shell — keeps the hairline + paper surface, drops the
-   legacy 6px radius on the mount. */
+/* Canopy framed shell — soft border, rounded corners on the mount. */
 #chat-root > .chat-ui {
     border: 1px solid var(--line);
-    border-radius: 0;
+    border-radius: var(--r-md);
     background: var(--paper);
 }
 
@@ -527,17 +680,19 @@ body {
 
 .chat-ui[data-theme='cloud'] .message-content {
     padding: var(--cui-pad);
-    border-radius: 0;
+    border-radius: var(--cui-radius);
     box-shadow: none;
     font-size: var(--cui-font-size);
 }
 .chat-ui[data-theme='cloud'] .message.user .message-content {
     background: var(--product-soft);   /* --cui-user-bg */
     color: var(--ink);
+    border-radius: 16px 16px 4px 16px;
 }
 .chat-ui[data-theme='cloud'] .message.assistant .message-content {
     background: var(--paper-2);        /* --cui-assistant-bg */
     color: var(--ink);
+    border-radius: 16px 16px 16px 4px;
 }
 
 /* Tool calls, trace lines and system/summary notices render flat on the
@@ -560,6 +715,16 @@ body {
 .chat-ui[data-theme='cloud'] .message.system .message-content {
     text-align: center;               /* .cui-notice-line language */
 }
+/* Multi-line context notices keep only their first block centered — the
+   title line the collapsed peek shows. Everything below (bullet lists,
+   follow-on paragraphs) reads left-aligned instead of centering wrapped
+   text. Single-paragraph notices stay centered as before. */
+.chat-ui[data-theme='cloud'] .message.system .message-content > * {
+    text-align: left;
+}
+.chat-ui[data-theme='cloud'] .message.system .message-content > *:first-child {
+    text-align: center;
+}
 .chat-ui[data-theme='cloud'] .message.error .message-content {
     background: var(--danger-soft);
     border: 1px solid var(--danger);
@@ -572,7 +737,7 @@ body {
 .chat-ui[data-theme='cloud'] .message.tool .message-content::after,
 .chat-ui[data-theme='cloud'] .message.system .message-content::after,
 .chat-ui[data-theme='cloud'] .message.summary .message-content::after {
-    background: linear-gradient(to bottom, rgba(250, 249, 246, 0), var(--paper));
+    background: linear-gradient(to bottom, rgba(247, 249, 244, 0), var(--paper));
 }
 
 /* Flat rows drop the sender byline/timestamp (cloud traces show none);
@@ -629,7 +794,6 @@ body {
     color: var(--cui-muted);
 }
 .chat-ui[data-theme='cloud'] .message-timestamp {
-    font-family: var(--mono);
     font-size: 11px;
     color: var(--ink-soft);
 }
@@ -642,8 +806,8 @@ body {
 .chat-ui[data-theme='cloud'] .toggle-arrow {
     width: 24px;
     height: 24px;
-    border: 1px solid var(--line-strong);
-    border-radius: 0;
+    border: 1px solid var(--line);
+    border-radius: 7px;
     background: var(--paper);
     color: var(--ink-soft);
 }
@@ -684,8 +848,8 @@ body {
     height: 24px;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--line-strong);
-    border-radius: 0;
+    border: 1px solid var(--line);
+    border-radius: 7px;
     background: var(--paper);
     color: var(--ink-soft);
     font-size: 12px;
@@ -726,15 +890,15 @@ body {
 .chat-ui[data-theme='cloud'] .message-content a:hover { color: var(--product-ink); }
 .chat-ui[data-theme='cloud'] .message-content blockquote { margin: 0 0 8px; padding-left: 12px; border-left: 2px solid var(--line); font-style: italic; color: var(--ink-soft); }
 .chat-ui[data-theme='cloud'] .message-content blockquote:last-child { margin-bottom: 0; }
-.chat-ui[data-theme='cloud'] .message-content code { background: var(--paper-2); padding: 1px 4px; border-radius: 0; font-family: var(--mono); font-size: 0.85em; }
-.chat-ui[data-theme='cloud'] .message-content pre { margin: 0 0 8px; overflow-x: auto; background: var(--ink); color: var(--paper); border: none; border-radius: 0; padding: 12px; font-size: 12px; }
+.chat-ui[data-theme='cloud'] .message-content code { background: var(--paper-2); padding: 1px 5px; border-radius: 5px; font-family: var(--mono); font-size: 0.85em; }
+.chat-ui[data-theme='cloud'] .message-content pre { margin: 0 0 8px; overflow-x: auto; background: var(--ink); color: var(--paper); border: none; border-radius: var(--r-md); padding: 12px; font-size: 12px; }
 .chat-ui[data-theme='cloud'] .message-content pre code { background: transparent; padding: 0; }
 .chat-ui[data-theme='cloud'] .message-content pre:last-child { margin-bottom: 0; }
 .chat-ui[data-theme='cloud'] .message-content hr { margin: 12px 0; border-color: var(--line); }
 .chat-ui[data-theme='cloud'] .message-content table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 0 0 8px; }
 .chat-ui[data-theme='cloud'] .message-content th { border: 1px solid var(--line); background: var(--paper-2); padding: 4px 8px; text-align: left; font-weight: 500; }
 .chat-ui[data-theme='cloud'] .message-content td { border: 1px solid var(--line); padding: 4px 8px; }
-.chat-ui[data-theme='cloud'] .message-content img { margin: 8px 0; max-width: 100%; border-radius: 0; }
+.chat-ui[data-theme='cloud'] .message-content img { margin: 8px 0; max-width: 100%; border-radius: var(--r-md); }
 
 /* Flat rows keep their mono/pre blocks on the raised paper-2 surface —
    the .cui-trace-args / .cui-part-tool_call args treatment. */
@@ -749,10 +913,10 @@ body {
     font-style: normal;
 }
 
-/* Reasoning disclosure (details.think) — sharp muted strip, mono label. */
+/* Reasoning disclosure (details.think) — muted rounded strip. */
 .chat-ui[data-theme='cloud'] details.think {
     border: 1px solid var(--line);
-    border-radius: 0;
+    border-radius: var(--r-md);
     background: var(--paper-2);
     padding: 8px;
     color: var(--ink-soft);
@@ -762,20 +926,18 @@ body {
     background: var(--paper-2);
 }
 .chat-ui[data-theme='cloud'] details.think summary {
-    font-family: var(--mono);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
-/* Suggested-prompt chips — cloud .cui-suggestion language. */
+/* Suggested-prompt chips — cloud .cui-suggestion language (pills). */
 .chat-ui[data-theme='cloud'] .suggestion-chip {
     border: 1px solid var(--line);
-    border-radius: 0;
+    border-radius: 999px;
     background: transparent;
     color: var(--ink);
-    font-family: var(--mono);
     font-size: 12px;
     padding: 4px 12px;
 }
@@ -785,14 +947,14 @@ body {
     background: var(--product-soft);
 }
 
-/* Debug actions (regen/update) — sharp hairline mono buttons. */
+/* Debug actions (regen/update) — rounded secondary buttons. */
 .chat-ui[data-theme='cloud'] #sh-debug-actions button {
-    border: 1px solid var(--line-strong);
-    border-radius: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--r-btn);
     background: var(--paper);
     color: var(--ink);
-    font-family: var(--mono);
     font-size: 11px;
+    font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     padding: 4px 10px;
@@ -802,17 +964,17 @@ body {
 }
 
 /* Plugin cards (plan consent, canvas pointer, user question) — cloud
-   .cui-card language: sharp corners, hairline borders, no shadow;
+   .cui-card language: rounded corners, soft shadow;
    their buttons pick up the app's secondary/primary language. */
 .chat-ui[data-theme='cloud'] .plan-consent-card,
 .chat-ui[data-theme='cloud'] .task-plan-card,
 .chat-ui[data-theme='cloud'] .canvas-pointer-card,
 .chat-ui[data-theme='cloud'] .user-question-card {
-    border-radius: 0;
-    box-shadow: none;
+    border-radius: var(--r-lg);
+    box-shadow: var(--cui-shadow-sm);
 }
 .chat-ui[data-theme='cloud'] .plan-consent-card {
-    border: 1px solid var(--line-strong);
+    border: 1px solid var(--line);
     background: var(--paper-2);
 }
 .chat-ui[data-theme='cloud'] .plan-consent-card code {
@@ -826,12 +988,12 @@ body {
     color: var(--product);
 }
 .chat-ui[data-theme='cloud'] .user-question-card {
-    border: 1px solid var(--line-strong);
+    border: 1px solid var(--line);
     background: var(--paper);
 }
 .chat-ui[data-theme='cloud'] .user-question-option {
-    border: 1px solid var(--line-strong);
-    border-radius: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
     background: var(--paper);
     color: var(--ink);
 }
@@ -849,7 +1011,7 @@ body {
 }
 .chat-ui[data-theme='cloud'] .user-question-free input {
     border: 1px solid var(--line);
-    border-radius: 0;
+    border-radius: var(--r-md);
     background: var(--paper);
     color: var(--ink);
 }
@@ -863,14 +1025,13 @@ body {
 .chat-ui[data-theme='cloud'] .plan-consent-actions button,
 .chat-ui[data-theme='cloud'] .canvas-pointer-actions button,
 .chat-ui[data-theme='cloud'] .user-question-free button {
-    border: 1px solid var(--line-strong);
-    border-radius: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--r-btn);
     background: var(--paper);
     color: var(--ink);
-    font-family: var(--mono);
     font-size: 12px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     padding: 6px 12px;
     cursor: pointer;
 }
@@ -896,7 +1057,7 @@ body {
     background: var(--paper);
 }
 .chat-ui[data-theme='cloud'] .task-plan-progress {
-    border-radius: 0;
+    border-radius: 999px;
     background: var(--paper-2);
 }
 .chat-ui[data-theme='cloud'] .task-plan-progress-fill {
@@ -909,18 +1070,18 @@ body {
     color: var(--product);
 }
 
-/* Floating HUD, toast and metrics tooltip — sharp paper/ink chrome.
+/* Floating HUD, toast and metrics tooltip — rounded paper/ink chrome.
    These live outside .chat-ui so they take the :root palette directly. */
 #autonomy-overlay {
     background: var(--paper);
     border: 1px solid var(--line);
-    border-radius: 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+    border-radius: var(--r-md);
+    box-shadow: 0 8px 22px -14px rgba(34, 58, 40, 0.3);
     color: var(--ink-soft);
 }
 #autonomy-overlay .autonomy-bar {
     background: var(--paper-2);
-    border-radius: 0;
+    border-radius: 999px;
 }
 #autonomy-overlay .autonomy-fill {
     background: var(--product);
@@ -947,8 +1108,8 @@ body {
     background: var(--danger);
 }
 #autonomy-overlay .autonomy-extend-btn {
-    border: 1px solid var(--line-strong);
-    border-radius: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--r-btn);
     background: var(--paper);
     color: var(--ink);
 }
@@ -960,36 +1121,36 @@ body {
 .toast {
     background: var(--ink);
     color: var(--paper);
-    border-radius: 0;
+    border-radius: var(--r-md);
 }
 
 .metrics-tooltip {
     background: var(--ink);
     color: var(--paper);
-    border-radius: 0;
+    border-radius: var(--r-md);
     font-size: 12px;
     line-height: 1.6;
     padding: 10px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
 }
 
-/* Fallback shell (only if the toolkit mount fails) — same sharp paper
+/* Fallback shell (only if the toolkit mount fails) — same rounded paper
    chrome so the degraded page stays on-palette. */
 #status-bar,
 #input-bar {
-    border-radius: 0;
+    border-radius: var(--r-md);
     border-color: var(--line);
     background: var(--paper);
 }
 #input-bar textarea {
-    border-radius: 0;
+    border-radius: var(--r-md);
     border-color: var(--line);
     background: var(--paper);
     color: var(--ink);
 }
 #input-bar .actions button {
-    border: 1px solid var(--line-strong);
-    border-radius: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--r-btn);
     background: var(--paper);
     color: var(--ink);
 }
@@ -997,7 +1158,7 @@ body {
     background: var(--paper-2);
 }
 .attachment-chip {
-    border-radius: 0;
+    border-radius: 999px;
     border-color: var(--line);
     background: var(--paper-2);
 }
@@ -1014,7 +1175,7 @@ body {
     border-top: 1px solid var(--line);
     border-right: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
-    border-radius: 0;
+    border-radius: var(--r-md);
 }
 .ghjson-card.is-invalid {
     border-left-color: var(--danger);
@@ -1030,7 +1191,6 @@ body {
 }
 .ghjson-card.is-invalid .ghjson-title { color: var(--danger); }
 .ghjson-card .ghjson-badge {
-    font-family: var(--mono);
     font-size: 10px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -1049,7 +1209,6 @@ body {
 .ghjson-card .ghjson-src { margin-top: 6px; }
 .ghjson-card .ghjson-summary {
     cursor: pointer;
-    font-family: var(--mono);
     font-size: 10px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -1074,15 +1233,15 @@ body {
 }
 .ghjson-card .ghjson-btn {
     border: 1px solid var(--line);
+    border-radius: var(--r-btn);
     background: var(--paper);
     color: var(--ink);
-    font-family: var(--mono);
     font-size: 10px;
+    font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     padding: 3px 10px;
     cursor: pointer;
-    border-radius: 0;
 }
 .ghjson-card .ghjson-btn:hover:not(:disabled) { border-color: var(--product); color: var(--product); }
 .ghjson-card .ghjson-btn:disabled { opacity: 0.5; cursor: default; }

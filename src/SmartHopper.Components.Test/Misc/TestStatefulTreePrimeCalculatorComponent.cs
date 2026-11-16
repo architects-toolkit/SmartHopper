@@ -39,6 +39,11 @@ namespace SmartHopper.Components.Test.Misc
 {
     public class TestStatefulTreePrimeCalculatorComponent : StatefulComponentBase
     {
+        /// <summary>
+        /// Local, deterministic calculation — safe to reuse per-unit results.
+        /// </summary>
+        protected override bool SupportsResultReuse => true;
+
         public override Guid ComponentGuid => new Guid("E2DB56F0-C597-432C-9774-82DF431CC848");
 
         protected override Bitmap Icon => null;

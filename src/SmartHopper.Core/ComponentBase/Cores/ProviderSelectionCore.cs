@@ -106,6 +106,19 @@ namespace SmartHopper.Core.ComponentBase.Cores
         }
 
         /// <summary>
+        /// Acknowledges a change against an explicit selection snapshot instead of
+        /// the current selection. Used when an earlier-consumed selection (e.g. the
+        /// one a batch submission was built with) must be committed while a later
+        /// user selection stays pending.
+        /// </summary>
+        /// <param name="providerSelection">The selection to record as committed;
+        /// <c>null</c> or whitespace is normalized to <see cref="DEFAULT_PROVIDER"/>.</param>
+        public void CommitChange(string providerSelection)
+        {
+            this.committedProvider = string.IsNullOrWhiteSpace(providerSelection) ? DEFAULT_PROVIDER : providerSelection;
+        }
+
+        /// <summary>
         /// Resolves <see cref="CurrentProvider"/> through
         /// <see cref="ProviderManager"/> so <see cref="DEFAULT_PROVIDER"/> becomes the
         /// concrete default-provider name at the moment of the call.

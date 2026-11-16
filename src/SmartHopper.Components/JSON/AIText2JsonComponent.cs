@@ -51,10 +51,10 @@ namespace SmartHopper.Components.JSON
         public override Guid ComponentGuid => new Guid("D29CA935-C91C-48A4-976A-25CDFF8A4F87");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.jsonai;
+        protected override Bitmap Icon => Resources.AIText2Json;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.primary | GH_Exposure.obscure;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
@@ -95,28 +95,28 @@ namespace SmartHopper.Components.JSON
             : base(
                 "AI Text To JSON",
                 "AIText2Json",
-                "Generate structured JSON from a prompt using AI, conforming to a provided JSON Schema.\nIf a tree structure is provided, prompts and schemas will only match within the same branch paths.",
+                "Generate structured JSON from a text prompt using AI, validated against a JSON Schema.\nWhen data trees are provided, prompts, instructions, and schemas are matched by branch path.",
                 "SmartHopper",
-                "JSON")
+                "I. Text & Lists")
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Prompt", "P", "REQUIRED The user's prompt describing the JSON data to generate", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Instructions", "I", "Optional custom system prompt override", GH_ParamAccess.tree, string.Empty);
-            pManager.AddTextParameter("Schema", "S", "REQUIRED JSON Schema string the output must conform to. Use Json Schema component to build one.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Prompt", "P", "Text prompt describing the data to generate.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Instructions", "I", "Optional custom system instructions for how the AI should generate the JSON.", GH_ParamAccess.tree, string.Empty);
+            pManager.AddTextParameter("Schema", "S", "JSON Schema string that the output must conform to (build one with the JSON Schema component).", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON", "J", "Generated JSON string conforming to the provided schema", GH_ParamAccess.tree);
+            pManager.AddTextParameter("JSON", "J", "Generated JSON string conforming to the provided schema.", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject>? results, IReadOnlyList<SHRuntimeMessage>? messages = null)
         {
             var sentinel = this.GetSentinelTree("JSON");
             if (results == null || sentinel == null) return;
@@ -128,7 +128,9 @@ namespace SmartHopper.Components.JSON
                 results,
                 (customId, resultBody) =>
                 {
-                    var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
+                    // Decode with the provider that ran the batch — the live
+                    // selection may have changed while it was in flight.
+                    var provider = ProviderManager.Instance.GetProvider(this.GetSubmittedProviderName());
                     if (provider == null) return new GH_String(string.Empty);
 
                     var interactions = provider.Decode(resultBody);

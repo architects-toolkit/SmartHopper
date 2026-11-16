@@ -40,6 +40,13 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         public virtual AIMetrics Metrics { get; init; } = new AIMetrics();
 
         /// <inheritdoc />
+        public virtual SourceContentReference SourceReference { get; init; }
+
+        /// <inheritdoc />
+        public virtual IAIInteraction WithSourceReference(SourceContentReference source)
+            => this with { SourceReference = source };
+
+        /// <inheritdoc />
         public virtual IAIInteraction WithTurnId(string turnId)
             => this with { TurnId = turnId };
 

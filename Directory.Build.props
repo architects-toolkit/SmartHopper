@@ -1,7 +1,10 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project>
   <Import Project="$(MSBuildThisFileDirectory)Solution.props" Condition="Exists('$(MSBuildThisFileDirectory)Solution.props')" />
   <!-- Metadata for .NET project -->
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)/provider.manifest.json') and $(MSBuildProjectName.StartsWith('SmartHopper.Providers.'))">
+    <EmbeddedResource Include="provider.manifest.json" LogicalName="SmartHopper.ProviderManifest.json" />
+  </ItemGroup>
   <PropertyGroup>
     <Version Condition="'$(SolutionVersion)' != ''">$(SolutionVersion)</Version>
     <Company>Architect's Toolkit</Company>
@@ -11,6 +14,7 @@
 
   <PropertyGroup>
     <UseLocalGhJsonSource>true</UseLocalGhJsonSource>
+    <GhJsonSourceRoot Condition="'$(GhJsonSourceRoot)' == ''">$(MSBuildThisFileDirectory)..\ghjson-dotnet</GhJsonSourceRoot>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -53,6 +57,8 @@
     <!-- Rhino 8.10 and earlier -->
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48" Version="1.0.3" ExcludeAssets="all" GeneratePathProperty="true" />
     <Reference Include="$(PkgMicrosoft_NETFramework_ReferenceAssemblies_net48)\build\.NETFramework\v4.8\System.Windows.Forms.dll" Private="False" />
-    <PackageReference Include="System.Drawing.Common" Version="8.0.11" ExcludeAssets="runtime" />
+    <!-- Compile-time shim only: PrivateAssets keeps it from flowing transitively into
+         net7.0-windows consumers, which must bind the WindowsDesktop framework copy. -->
+    <PackageReference Include="System.Drawing.Common" Version="8.0.11" ExcludeAssets="runtime" PrivateAssets="all" />
   </ItemGroup>
 </Project>

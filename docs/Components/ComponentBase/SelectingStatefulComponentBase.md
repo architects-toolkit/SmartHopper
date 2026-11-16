@@ -13,6 +13,7 @@ Combines [StatefulComponentBase](./StatefulComponentBase.md) with the *Select Co
 
 - Uses `SelectingComponentAttributes` (the non-AI flavour) so the component shows the Select button without provider badges.
 - `Write` / `Read` chain to both `StatefulComponentBase` (state, hashes, outputs) and `SelectingComponentCore` (selection GUIDs).
+- The captured selection participates in change detection through `SelectingSupport`: a content fingerprint of the selected GUIDs is compared against the one the last run consumed, and a difference surfaces as the synthetic `WellKnownInputs.Selection` pseudo-input inside `InputsChanged()`. A re-selection therefore expires and reprocesses the component exactly like a parameter change; selection edits made mid-run stay pending because only the run-time fingerprint is committed.
 
 See [SelectingComponentBase](./SelectingComponentBase.md) for the full description of the selection pipeline and design criteria — they are shared.
 

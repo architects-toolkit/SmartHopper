@@ -251,7 +251,7 @@ namespace SmartHopper.ProviderSdk.AIModels
             }
 
             var exact = providerModels
-                .Where(m => (m.Default & requiredCapability) == requiredCapability)
+                .Where(m => m.HasCapability(requiredCapability) && (m.Default & requiredCapability) == requiredCapability)
                 .OrderByDescending(m => m.Verified)
                 .ThenByDescending(m => m.Rank)
                 .ThenBy(m => m.Deprecated)
@@ -262,14 +262,14 @@ namespace SmartHopper.ProviderSdk.AIModels
                 return exact.Model;
             }
 
-            var compatible = providerModels
-                .Where(m => m.Default != AICapability.None && m.HasCapability(requiredCapability))
+            var best = providerModels
+                .Where(m => m.HasCapability(requiredCapability))
                 .OrderByDescending(m => m.Verified)
                 .ThenByDescending(m => m.Rank)
                 .ThenBy(m => m.Deprecated)
                 .ThenBy(m => m.Model, StringComparer.OrdinalIgnoreCase)
                 .FirstOrDefault();
-            return compatible?.Model ?? string.Empty;
+            return best?.Model ?? string.Empty;
         }
 
         /// <summary>
@@ -330,20 +330,7 @@ namespace SmartHopper.ProviderSdk.AIModels
                 return defaultExact.Model;
             }
 
-            // 2) Other defaults that are compatible
-            var defaultCompatible = candidates
-                .Where(m => m.Default != AICapability.None)
-                .OrderByDescending(m => m.Verified)
-                .ThenByDescending(m => m.Rank)
-                .ThenBy(m => m.Deprecated)
-                .ThenBy(m => m.Model, StringComparer.OrdinalIgnoreCase)
-                .FirstOrDefault();
-            if (defaultCompatible != null)
-            {
-                return defaultCompatible.Model;
-            }
-
-            // 3) Any other registered model, ordered by quality
+            // 2) Any other registered model, ordered by quality
             var best = candidates
                 .OrderByDescending(m => m.Verified)
                 .ThenByDescending(m => m.Rank)

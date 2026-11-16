@@ -30,6 +30,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
@@ -108,16 +109,18 @@ namespace SmartHopper.Components.Test.Providers
                     var builder = AIBodyBuilder.Create();
                     builder.Add(new AIInteractionText
                     {
-                        Agent = AIAgent.Context,
+                        Agent = AIAgent.User,
                         Content = "Say 'test' in one word."
                     });
                     var body = builder.Build();
+                    var model = this._parent.GetModel();
 
                     // Call 1: Responses API (default endpoint)
                     IAIReturn responsesResult = null;
                     try
                     {
-                        var responsesCall = new AIRequestCall { Body = body, Endpoint = "/responses" };
+                        var responsesCall = new AIRequestCall { Body = body };
+                        responsesCall.Initialize("OpenAI", model, body, "/responses", AICapability.Text2Text);
                         responsesResult = await provider.Call(responsesCall).ConfigureAwait(false);
 
                         if (responsesResult != null && responsesResult.Body != null && responsesResult.Body.InteractionsCount > 0)
@@ -141,7 +144,8 @@ namespace SmartHopper.Components.Test.Providers
                     IAIReturn chatCompResult = null;
                     try
                     {
-                        var chatCompCall = new AIRequestCall { Body = body, Endpoint = "/chat/completions" };
+                        var chatCompCall = new AIRequestCall { Body = body };
+                        chatCompCall.Initialize("OpenAI", model, body, "/chat/completions", AICapability.Text2Text);
                         chatCompResult = await provider.Call(chatCompCall).ConfigureAwait(false);
 
                         if (chatCompResult != null && chatCompResult.Body != null && chatCompResult.Body.InteractionsCount > 0)

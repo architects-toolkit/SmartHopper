@@ -186,11 +186,16 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    // Check for function role (Gemini uses function for tool results)
-                    if (!roles.Contains("function"))
+                    // Tool results encode as functionResponse parts inside a user-role turn
+                    // (the Gemini schema has no "function" role)
+                    var hasFunctionResponse = contents?.Any(c =>
+                        string.Equals(c["role"]?.ToString(), "user", StringComparison.OrdinalIgnoreCase) &&
+                        c["parts"] is JArray responseParts &&
+                        responseParts.Any(p => p["functionResponse"] != null)) ?? false;
+                    if (!hasFunctionResponse)
                     {
                         this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing function role (ToolResult message)"));
+                        this._messages.Add(new GH_String("Missing functionResponse part in user-role turn (ToolResult message)"));
                         await Task.Yield();
                         return;
                     }

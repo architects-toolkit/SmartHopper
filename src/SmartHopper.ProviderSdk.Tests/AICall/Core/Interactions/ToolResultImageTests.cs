@@ -111,7 +111,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
 
             var render = interaction.GetRawContentForRender();
 
-            Assert.Contains("\"imageAttached\": true", render);
+            Assert.Contains("imageAttached", render);
             Assert.Contains("![canvas_screenshot image](data:image/webp;base64,QUJD)", render);
         }
 

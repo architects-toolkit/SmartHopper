@@ -94,9 +94,59 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "text", "list", "boolean", "data-processing", "read-only" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""boolean"", ""description"": ""Boolean evaluation result or fallback value."" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true),
+                buildRequest: this.BuildEvaluateRequest,
                 surfaces: AIToolSurface.Direct | AIToolSurface.Batch,
                 activityLabel: "evaluating text list",
                 resultLabel: "evaluated text list");
+        }
+
+        /// <summary>
+        /// Builds an <see cref="AIRequestCall"/> from the tool call parameters without executing it.
+        /// Used during batch collection to aggregate multiple requests into a single batch submission.
+        /// </summary>
+        /// <param name="toolCall">The tool call containing provider, model, and arguments.</param>
+        /// <returns>A fully-specified <see cref="AIRequestCall"/> ready for batch submission.</returns>
+        private AIRequestCall BuildEvaluateRequest(AIToolCall toolCall)
+        {
+            AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+            var args = toolInfo.GetArgumentsOrEmpty();
+            string question = args["question"]?.ToString();
+            string contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
+
+            // Normalize list input
+            var items = NormalizeListInput(toolInfo);
+
+            // Convert to GH_String list
+            var ghStringList = items.Select(s => new GH_String(s)).ToList();
+
+            string itemsJsonDict = AIResponseParser.ConcatenateItemsToJson(ghStringList);
+
+            // Prepare the AI request
+            var userPrompt = this.userPrompt;
+            userPrompt = userPrompt.Replace("<question>", question);
+            userPrompt = userPrompt.Replace("<list>", itemsJsonDict);
+
+            var requestBody = AIBodyBuilder.Create()
+                .AddSystem(this.systemPrompt)
+                .AddUser(userPrompt)
+                .WithContextFilter(contextFilter)
+                .Build();
+
+            var request = new AIRequestCall();
+            request.Initialize(
+                provider: toolCall.Provider,
+                model: toolCall.Model,
+                body: requestBody,
+                origin: this.toolName,
+                capability: this.toolCapabilityRequirements);
+
+            // Forward per-request parameters (extras, sampling, timeout) to the provider call
+            if (toolCall.Parameters != null)
+            {
+                request.Parameters = toolCall.Parameters;
+            }
+
+            return request;
         }
 
         /// <summary>
@@ -117,9 +167,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Logger.For<textlist2boolean>().Trace("[ListTools] Running TextList2Boolean tool");
 
                 // Extract parameters
-                string providerName = toolCall.Provider;
-                string modelName = toolCall.Model;
-                string endpoint = this.toolName;
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.GetArgumentsOrEmpty();
                 string? question = args["question"]?.ToString();
@@ -127,7 +174,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Parse fallback as boolean using centralized helper
                 string? fallbackStr = args["fallback"]?.ToString();
                 bool? fallback = StringConverter.StringToBoolean(fallbackStr);
-                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (args["list"] == null || string.IsNullOrEmpty(question))
                 {
@@ -137,34 +183,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 Logger.For<textlist2boolean>().Trace($"[ListTools.TextList2Boolean] Fallback value: '{fallback?.ToString() ?? "null"}'");
 
-                // Normalize list input
-                var items = NormalizeListInput(toolInfo);
-
-                // Convert to GH_String list
-                var ghStringList = items.Select(s => new GH_String(s)).ToList();
-
-                string itemsJsonDict = AIResponseParser.ConcatenateItemsToJson(ghStringList);
-
-                // Prepare the AI request
-                var userPrompt = this.userPrompt;
-                userPrompt = userPrompt.Replace("<question>", question);
-                userPrompt = userPrompt.Replace("<list>", itemsJsonDict);
-
-                // Initiate immutable AIBody
-                var requestBody = AIBodyBuilder.Create()
-                    .AddSystem(this.systemPrompt)
-                    .AddUser(userPrompt)
-                    .WithContextFilter(contextFilter)
-                    .Build();
-
-                // Initiate AIRequestCall
-                var request = new AIRequestCall();
-                request.Initialize(
-                    provider: providerName,
-                    model: modelName,
-                    capability: this.toolCapabilityRequirements,
-                    endpoint: endpoint,
-                    body: requestBody);
+                // Build the request (shared logic between batch and non-batch paths)
+                var request = this.BuildEvaluateRequest(toolCall);
 
                 // Execute the AIRequestCall
                 var result = await request.Exec().ConfigureAwait(false);

@@ -16,7 +16,9 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 namespace SmartHopper.Infrastructure.Mcp
 {
     /// <summary>
@@ -87,15 +89,6 @@ namespace SmartHopper.Infrastructure.Mcp
         public bool AllowExternalTools { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether the server binds to every network
-        /// interface instead of loopback only, making it reachable from other machines
-        /// on the network. Requires <see cref="BearerToken"/> — the server refuses to
-        /// start when external connections are allowed without authentication.
-        /// Defaults to <c>false</c>.
-        /// </summary>
-        public bool AllowExternalConnections { get; set; }
-
-        /// <summary>
         /// Gets or sets the server identifier reported during MCP <c>initialize</c>.
         /// </summary>
         public string ServerName { get; set; } = "smarthopper";
@@ -105,6 +98,15 @@ namespace SmartHopper.Infrastructure.Mcp
         /// the dispatcher falls back to the assembly informational version.
         /// </summary>
         public string? ServerVersion { get; set; }
+
+        /// <summary>
+        /// Gets or sets the document-binding resolver used for mutating
+        /// <c>requestId</c> reservations: it maps the call's business arguments to
+        /// a stable document identity (explicit <c>documentId</c> or the ambient
+        /// active document). Set by the Grasshopper host; null leaves bindings
+        /// unresolved so retries join on the recorded binding instead.
+        /// </summary>
+        internal Func<JObject?, string?>? DocumentBindingResolver { get; set; }
 
         /// <summary>
         /// Returns a defensive shallow copy.
@@ -120,9 +122,9 @@ namespace SmartHopper.Infrastructure.Mcp
                 BypassMutationsApproval = this.BypassMutationsApproval,
                 AllowViewControl = this.AllowViewControl,
                 AllowExternalTools = this.AllowExternalTools,
-                AllowExternalConnections = this.AllowExternalConnections,
                 ServerName = this.ServerName,
                 ServerVersion = this.ServerVersion,
+                DocumentBindingResolver = this.DocumentBindingResolver,
             };
         }
     }

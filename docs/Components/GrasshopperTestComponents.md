@@ -22,7 +22,6 @@ public class MyTypeTestComponent : StatefulComponentBase
               "Tests MyType functionality.",
               "SmartHopper", "Testing Types")
     {
-        this.RunOnlyOnInputChanges = false;
     }
 
     protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager) { }

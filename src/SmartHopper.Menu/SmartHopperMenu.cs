@@ -141,12 +141,18 @@ namespace SmartHopper.Menu
 
             menu.DropDownItems.AddRange(new ToolStripItem[]
             {
+                OpenNewChatMenuItem.Create(),
+                new ToolStripSeparator(),
                 SettingsMenuItem.Create(),
                 new ToolStripSeparator(),
                 RefreshProvidersMenuItem.Create(),
                 VerifyProvidersMenuItem.Create(),
                 new ToolStripSeparator(),
+                RefreshCatalogueMenuItem.Create(),
+                new ToolStripSeparator(),
                 DiagnosticsMenuItem.Create(),
+                new ToolStripSeparator(),
+                VisitWebsiteMenuItem.Create(),
                 AboutMenuItem.Create(),
             });
 

@@ -241,6 +241,14 @@ namespace SmartHopper.ProviderSdk.Settings
         public SettingDescriptorControl? ControlParams { get; set; }
 
         /// <summary>
+        /// Gets or sets an optional companion descriptor rendered as a small action button
+        /// inside the same settings row (e.g., a "sync" button next to a dropdown).
+        /// The companion must use <see cref="ButtonSettingDescriptorControl"/>; it shares the
+        /// parent row and is never listed as a top-level setting.
+        /// </summary>
+        public SettingDescriptor? CompanionDescriptor { get; set; }
+
+        /// <summary>
         /// Gets or sets whether the setting's UI control should be enabled. Default is true.
         /// When set to false, the control will render as disabled (read-only).
         /// </summary>

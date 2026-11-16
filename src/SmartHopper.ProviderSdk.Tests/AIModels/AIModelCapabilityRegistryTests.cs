@@ -460,9 +460,9 @@ namespace SmartHopper.ProviderSdk.Tests.AIModels
         }
 
 #if NET7_WINDOWS
-        [Fact(DisplayName = "SelectBestModel_Priority_DefaultExactThenCompatibleThenBest [Windows]")]
+        [Fact(DisplayName = "SelectBestModel_Priority_DefaultExactThenBest [Windows]")]
 #else
-        [Fact(DisplayName = "SelectBestModel_Priority_DefaultExactThenCompatibleThenBest [Core]")]
+        [Fact(DisplayName = "SelectBestModel_Priority_DefaultExactThenBest [Core]")]
 #endif
         public void SelectBestModel_Priority_DefaultExactThenCompatibleThenBest()
         {
@@ -507,7 +507,8 @@ namespace SmartHopper.ProviderSdk.Tests.AIModels
             var selected1 = registry.SelectBestModel(provider, null, AICapability.Text2Text);
             Assert.Equal("ExactDefault", selected1);
 
-            // Arrange 2: remove exact default flag to test compatible-default path
+            // Arrange 2: no exact default -> best capable by rank, a default for
+            // an unrelated capability no longer outranks a non-defaulted model
             ProviderSdkTestHelper.ResetCapabilityRegistry();
             registry = AIModelCapabilityRegistry.Instance;
 
@@ -534,7 +535,7 @@ namespace SmartHopper.ProviderSdk.Tests.AIModels
             });
 
             var selected2 = registry.SelectBestModel(provider, null, AICapability.Text2Text);
-            Assert.Equal("CompatibleDefault", selected2);
+            Assert.Equal("BestNonDefault", selected2);
 
             // Arrange 3: no defaults -> choose best by quality
             ProviderSdkTestHelper.ResetCapabilityRegistry();

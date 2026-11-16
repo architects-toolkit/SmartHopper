@@ -180,6 +180,12 @@ namespace SmartHopper.Core.Grasshopper.Converters
 
                 return result;
             }
+            catch (UnauthorizedAccessException)
+            {
+                // Consent denials are a refusal, not a conversion failure — let them
+                // propagate so the calling tool reports an explicit runtime error.
+                throw;
+            }
             catch (Exception ex)
             {
                 return FileConversionResult.Failure(

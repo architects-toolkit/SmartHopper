@@ -40,7 +40,7 @@ namespace SmartHopper.ProviderSdk.Tests.Logging
         [InlineData("x-goog-api-key: AIza...", "x-goog-api-key=<redacted>")]
         [InlineData("BearerToken: mcp-secret", "BearerToken=<redacted>")]
         [InlineData("{ \"x-api-key\": \"sk-ant-abc\" }", "{ \"x-api-key\": \"<redacted>\" }")]
-        [InlineData("https://user:pass@host/path", "https://<redacted>@host/path")]
+        [InlineData("https://user:pass@host/path", "https://<hostname>/path")]
         [InlineData("Contact me at user@example.com", "Contact me at <email>")]
         [InlineData("Server at 1.2.3.4:8080", "Server at <ip>:8080")]
         [InlineData("{ \"password\": \"my$pass\" }", "{ \"password\": \"<redacted>\" }")]
@@ -56,6 +56,18 @@ namespace SmartHopper.ProviderSdk.Tests.Logging
         [InlineData("bearer token123", "bearer <redacted>")]
         [InlineData("api_key=foo&token=bar", "api_key=<redacted>&token=<redacted>")]
         [InlineData("email user@example.com and ip 1.2.3.4", "email <email> and ip <ip>")]
+        [InlineData("Server at http://nas-box:8080/v1", "Server at http://<hostname>:8080/v1")]
+        [InlineData("Server at http://my-server", "Server at http://<hostname>")]
+        [InlineData("http://printer.lan/queue", "http://<hostname>/queue")]
+        [InlineData("http://pc.internal:9090/api", "http://<hostname>:9090/api")]
+        [InlineData("resolved foo.home.arpa", "resolved <hostname>")]
+        [InlineData("host db01.corp resolved", "host <hostname> resolved")]
+        [InlineData("http://user:pass@nas-box:8080/v1", "http://<hostname>:8080/v1")]
+        [InlineData("http://user@nas-box/v1", "http://<hostname>/v1")]
+        [InlineData("https://192.168.1.20:11434/v1", "https://<ip>:11434/v1")]
+        [InlineData("Ollama.ServerUrl = http://localhost:11434/v1", "Ollama.ServerUrl = http://localhost:11434/v1")]
+        [InlineData("GET http://api.openai.com/v1/models", "GET http://api.openai.com/v1/models")]
+        [InlineData("GET https://openrouter.ai/api/v1/models", "GET https://openrouter.ai/api/v1/models")]
         public void Scrub_RedactsSensitiveValues(string input, string expected)
         {
             var actual = SmartHopperLogScrubber.Scrub(input);

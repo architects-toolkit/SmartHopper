@@ -48,7 +48,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
 
             var cost = AICostCalculator.Calculate(metrics);
 
-            Assert.Equal(0m, cost);
+            Assert.Empty(cost);
         }
 
 #if NET7_WINDOWS
@@ -71,7 +71,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
 
             var cost = AICostCalculator.Calculate(metrics);
 
-            Assert.Equal(0m, cost);
+            Assert.Empty(cost);
         }
 
 #if NET7_WINDOWS
@@ -99,7 +99,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
             var cost = AICostCalculator.Calculate(metrics);
 
             var expected = (1000m * 0.0000025m) + (500m * 0.000010m);
-            Assert.Equal(expected, cost);
+            Assert.Equal(expected, cost["USD"]);
         }
 
 #if NET7_WINDOWS
@@ -134,7 +134,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
                 + (50m * 0.0000003m)
                 + (20m * 0.00000375m)
                 + (30m * 0.000015m);
-            Assert.Equal(expected, cost);
+            Assert.Equal(expected, cost["USD"]);
         }
 
 #if NET7_WINDOWS
@@ -166,7 +166,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
             var expected = (1000m * 0.000001m)
                 + (200m * 0.000004m)
                 + (50m * 0.000008m);
-            Assert.Equal(expected, cost);
+            Assert.Equal(expected, cost["USD"]);
         }
 
 #if NET7_WINDOWS
@@ -197,7 +197,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
             var cost = AICostCalculator.Calculate(metrics);
 
             var expected = (100m * 0.000002m) + (30m * 0.000006m);
-            Assert.Equal(expected, cost);
+            Assert.Equal(expected, cost["USD"]);
         }
 
 #if NET7_WINDOWS
@@ -219,7 +219,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
 
             var cost = AICostCalculator.Calculate(metrics);
 
-            Assert.Equal(1234m * 0.000001m, cost);
+            Assert.Equal(1234m * 0.000001m, cost["USD"]);
         }
 
 #if NET7_WINDOWS
@@ -241,7 +241,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
 
             var cost = AICostCalculator.Calculate(metrics);
 
-            Assert.Equal(567m * 0.000005m, cost);
+            Assert.Equal(567m * 0.000005m, cost["USD"]);
         }
 
 #if NET7_WINDOWS
@@ -269,7 +269,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
             var cost = AICostCalculator.Calculate(metrics);
 
             var expected = (100m * 0.000001m) + (200m * 0.000004m);
-            Assert.Equal(expected, cost);
+            Assert.Equal(expected, cost["USD"]);
         }
 
         private static void RegisterPricing(string provider, string model, AIModelPricing pricing)

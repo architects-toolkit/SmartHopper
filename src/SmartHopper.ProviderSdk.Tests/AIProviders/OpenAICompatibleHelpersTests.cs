@@ -87,6 +87,150 @@ namespace SmartHopper.ProviderSdk.Tests.AIProviders
             Assert.Equal(120, metrics.OutputTokens);
         }
 
+        /// <summary>
+        /// JSON <c>null</c> usage fields must not abort the decode: providers occasionally
+        /// return explicit nulls for token counters (e.g. batch result items), and a single
+        /// null value previously threw mid-decode, dropping every valid metric including
+        /// the finish reason.
+        /// </summary>
+        [Fact]
+        public void DecodeCompatibleMetrics_NullUsageFields_KeepValidMetrics()
+        {
+            var provider = new FakeOpenAICompatibleProvider();
+            var response = new JObject
+            {
+                ["choices"] = new JArray(new JObject { ["finish_reason"] = "stop" }),
+                ["usage"] = new JObject
+                {
+                    ["prompt_tokens"] = null,
+                    ["prompt_tokens_details"] = null,
+                    ["completion_tokens"] = 50,
+                    ["completion_tokens_details"] = new JObject { ["reasoning_tokens"] = null },
+                },
+            };
+
+            AIMetrics metrics = provider.DecodeCompatibleMetrics(response);
+
+            Assert.Equal(0, metrics.InputTokens);
+            Assert.Equal(50, metrics.OutputTokens);
+            Assert.Equal("stop", metrics.FinishReason);
+        }
+
+        /// <summary>
+        /// A completely null <c>usage</c> node decodes to zeroed metrics instead of throwing.
+        /// </summary>
+        [Fact]
+        public void DecodeCompatibleMetrics_NullUsageNode_ReturnsZeroedMetrics()
+        {
+            var provider = new FakeOpenAICompatibleProvider();
+            var response = new JObject
+            {
+                ["choices"] = new JArray(new JObject { ["finish_reason"] = "stop" }),
+                ["usage"] = null,
+            };
+
+            AIMetrics metrics = provider.DecodeCompatibleMetrics(response);
+
+            Assert.Equal(0, metrics.InputTokens);
+            Assert.Equal(0, metrics.OutputTokens);
+            Assert.Equal("stop", metrics.FinishReason);
+        }
+
+        /// <summary>
+        /// Responses API bodies carry no <c>choices</c>; the top-level <c>status</c> is
+        /// the finish signal. <c>completed</c> maps to the normal-termination
+        /// equivalent <c>stop</c>.
+        /// </summary>
+        [Fact]
+        public void DecodeCompatibleMetrics_ResponsesApiStatus_MapsCompletedToStop()
+        {
+            var provider = new FakeOpenAICompatibleProvider();
+            var response = new JObject
+            {
+                ["status"] = "completed",
+                ["usage"] = new JObject
+                {
+                    ["input_tokens"] = 10,
+                    ["output_tokens"] = 5,
+                },
+            };
+
+            AIMetrics metrics = provider.DecodeCompatibleMetrics(response);
+
+            Assert.Equal("stop", metrics.FinishReason);
+        }
+
+        /// <summary>
+        /// A non-completed Responses API <c>status</c> is a real abnormal reason and
+        /// is surfaced verbatim rather than normalized away.
+        /// </summary>
+        [Fact]
+        public void DecodeCompatibleMetrics_ResponsesApiStatus_KeepsAbnormalStatus()
+        {
+            var provider = new FakeOpenAICompatibleProvider();
+            var response = new JObject
+            {
+                ["status"] = "incomplete",
+                ["usage"] = new JObject
+                {
+                    ["input_tokens"] = 10,
+                    ["output_tokens"] = 5,
+                },
+            };
+
+            AIMetrics metrics = provider.DecodeCompatibleMetrics(response);
+
+            Assert.Equal("incomplete", metrics.FinishReason);
+        }
+
+        /// <summary>
+        /// <c>incomplete_details.reason = "max_output_tokens"</c> is the Responses API
+        /// equivalent of Chat Completions <c>length</c> and normalizes to it.
+        /// </summary>
+        [Fact]
+        public void DecodeCompatibleMetrics_ResponsesApiStatus_MapsMaxOutputTokensToLength()
+        {
+            var provider = new FakeOpenAICompatibleProvider();
+            var response = new JObject
+            {
+                ["status"] = "incomplete",
+                ["incomplete_details"] = new JObject { ["reason"] = "max_output_tokens" },
+                ["usage"] = new JObject
+                {
+                    ["input_tokens"] = 10,
+                    ["output_tokens"] = 5,
+                },
+            };
+
+            AIMetrics metrics = provider.DecodeCompatibleMetrics(response);
+
+            Assert.Equal("length", metrics.FinishReason);
+        }
+
+        /// <summary>
+        /// Chat Completions <c>choices[0].finish_reason</c> takes precedence over a
+        /// Responses API <c>status</c> when a body carries both.
+        /// </summary>
+        [Fact]
+        public void DecodeCompatibleMetrics_ChatChoiceWinsOverStatus()
+        {
+            var provider = new FakeOpenAICompatibleProvider();
+            var response = new JObject
+            {
+                ["choices"] = new JArray(new JObject { ["finish_reason"] = "length" }),
+                ["status"] = "completed",
+                ["usage"] = new JObject
+                {
+                    ["input_tokens"] = 10,
+                    ["output_tokens"] = 5,
+                },
+            };
+
+            AIMetrics metrics = provider.DecodeCompatibleMetrics(response);
+
+            Assert.Equal("length", metrics.FinishReason);
+        }
+
         [Fact]
         public void ApplyCompatibleToolChoice_FormatsForcedToolCall()
         {

@@ -121,7 +121,7 @@ namespace SmartHopper.Infrastructure.Dialogs
             string platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "net7.0-windows" : "net7.0";
             var infoLabel = new Label
             {
-                Text = $"Endpoint: {ModelCatalogueTrust.DefaultBaseUrl}  |  Version: {VersionHelper.GetDisplayVersion()}  |  Platform: {platform}",
+                Text = $"origin: {ModelCatalogueTrust.DefaultBaseUrl}  |  Version: {VersionHelper.GetDisplayVersion()}  |  Platform: {platform}",
                 Font = new Font(SystemFont.Default, 10),
                 TextColor = SystemColors.DisabledText,
             };
@@ -226,7 +226,7 @@ namespace SmartHopper.Infrastructure.Dialogs
         {
             var dlg = new CatalogueRefreshDialog();
             dlg.Shown += (sender, e) => _ = dlg.RunRefreshAsync();
-            dlg.ShowModal(RhinoEtoApp.MainWindow);
+            dlg.ShowModalInFront(RhinoEtoApp.MainWindow);
         }
 
         /// <inheritdoc/>

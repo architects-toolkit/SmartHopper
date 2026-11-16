@@ -75,6 +75,62 @@ namespace SmartHopper.Core.ComponentBase
             Menu_AppendItem(menu, "Select Components", (s, e) => this.EnableSelectionMode());
         }
 
+        /// <summary>
+        /// Injects the synthetic <see cref="WellKnownInputs.Selection"/> entry when the
+        /// canvas selection differs from the one the last run consumed, so a selection
+        /// change retriggers processing exactly like a parameter change.
+        /// </summary>
+        protected override List<string> InputsChanged()
+        {
+            List<string> changedInputs = base.InputsChanged();
+            if (this.selection.HasPendingSelectionChange)
+            {
+                changedInputs.Add(WellKnownInputs.Selection);
+            }
+
+            return changedInputs;
+        }
+
+        /// <summary>
+        /// Captures the selection this run is about to consume, alongside the
+        /// input-hash snapshot in the base implementation.
+        /// </summary>
+        protected override void OnEnteringProcessing()
+        {
+            base.OnEnteringProcessing();
+            this.selection.CaptureRunSelection();
+        }
+
+        /// <summary>
+        /// Commits the run-time selection after a successful run so a selection
+        /// change made while work was in flight stays pending for the next solve.
+        /// </summary>
+        protected override void OnWorkerCompleted()
+        {
+            base.OnWorkerCompleted();
+            this.selection.CommitRunSelection();
+        }
+
+        /// <summary>
+        /// Commits the run-time selection on cancellation — a change made mid-run
+        /// was never consumed and must stay pending.
+        /// </summary>
+        protected override void OnTasksCancelDetected()
+        {
+            base.OnTasksCancelDetected();
+            this.selection.CommitRunSelection();
+        }
+
+        /// <summary>
+        /// Commits the run-time selection on error for the same reason as
+        /// <see cref="OnTasksCancelDetected"/>.
+        /// </summary>
+        protected override void OnEnteringError()
+        {
+            base.OnEnteringError();
+            this.selection.CommitRunSelection();
+        }
+
         /// <inheritdoc/>
         public override bool Write(GH_IWriter writer)
         {

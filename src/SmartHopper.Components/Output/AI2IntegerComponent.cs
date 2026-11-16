@@ -42,14 +42,14 @@ namespace SmartHopper.Components.Output
         private int? _fallback;
 
         public AI2IntegerComponent()
-            : base("AI to Integer", "AI→Int", "Extract integer values from AI input", GH_Exposure.primary)
+            : base("AI to Integer", "AI2Int", "Call the AI provider on the connected input(s) and extract an integer value.", GH_Exposure.primary | GH_Exposure.obscure)
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddIntegerParameter("Fallback", "F", "OPTIONAL fallback value to use when the AI response cannot be parsed as an integer. If not provided, the output will be null for unparsable responses.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Fallback", "F", "Optional fallback integer returned when the AI response cannot be parsed as an integer (leave disconnected to output null on parse failure).", GH_ParamAccess.item);
             pManager[pManager.ParamCount - 1].Optional = true;
         }
 
@@ -72,7 +72,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the component icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.aitointeger;
+        protected override Bitmap Icon => Resources.AI2Integer;
 
         /// <summary>
         /// Gets the AI tools used by this component.
@@ -98,7 +98,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Integer",
                     NickName = "I",
-                    Description = "Extracted integer value. Falls back to the Fallback input when the AI response cannot be parsed.",
+                    Description = "Extracted integer value (or the Fallback value when unparsable).",
                     ParamType = typeof(Param_Integer),
                     Access = GH_ParamAccess.tree,
                     Extractor = OutputMapping.Single(aiReturn =>
@@ -112,7 +112,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Used Fallback",
                     NickName = "UF",
-                    Description = "True when the AI response could not be parsed and the Fallback value was used (or null was emitted because no fallback was provided).",
+                    Description = "True when the AI response could not be parsed as an integer and the fallback behavior was used.",
                     ParamType = typeof(Param_Boolean),
                     Access = GH_ParamAccess.tree,
                     Extractor = OutputMapping.Single(aiReturn =>

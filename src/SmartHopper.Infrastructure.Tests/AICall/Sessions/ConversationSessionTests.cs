@@ -26,6 +26,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
     using System.Threading.Tasks;
     using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.AICall.Execution;
+    using SmartHopper.Infrastructure.AICall.Fallback;
     using SmartHopper.Infrastructure.AICall.Sessions;
     using SmartHopper.Infrastructure.AICall.Tools;
     using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -36,6 +37,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
     using SmartHopper.ProviderSdk.AIModels;
     using SmartHopper.ProviderSdk.AIProviders;
     using SmartHopper.ProviderSdk.Diagnostics;
+    using SmartHopper.ProviderSdk.Hosting;
     using SmartHopper.ProviderSdk.Settings;
     using SmartHopper.ProviderSdk.Streaming;
     using Xunit;
@@ -45,8 +47,54 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
     /// Uses a testable request and mock executor to validate session lifecycle
     /// without requiring real providers or Rhino runtime.
     /// </summary>
-    public class ConversationSessionTests
+    [Collection("ProviderSdk")]
+    public class ConversationSessionTests : IDisposable
     {
+        /// <summary>Prior registry entry for the test model, if any (restored on dispose).</summary>
+        private readonly AIModelCapabilities previousModelCaps;
+
+        /// <summary>Prior provider registry (restored on dispose).</summary>
+        private readonly IProviderRegistryHost previousRegistry;
+
+        public ConversationSessionTests()
+        {
+            // The outbound gate resolves the model's streaming capability and the provider
+            // through the shared registries; 'test-provider'/'test-model' is the fake pair
+            // used by every request here.
+            var registry = AIModelCapabilityRegistry.Instance;
+            registry.Models.TryGetValue("test-provider.test-model", out this.previousModelCaps);
+            registry.Models["test-provider.test-model"] = new AIModelCapabilities
+            {
+                Provider = "test-provider",
+                Model = "test-model",
+                Capabilities = AICapability.Text2Text,
+                SupportsStreaming = true,
+            };
+
+#if NET7_WINDOWS
+            this.previousRegistry = ProviderSdkHost.ProviderRegistry;
+            ProviderSdkHost.ProviderRegistry = new MapRegistry(
+                ("test-provider", new RecordingProvider("test-provider")));
+#endif
+        }
+
+        public void Dispose()
+        {
+            var registry = AIModelCapabilityRegistry.Instance;
+            if (this.previousModelCaps != null)
+            {
+                registry.Models["test-provider.test-model"] = this.previousModelCaps;
+            }
+            else
+            {
+                registry.Models.TryRemove("test-provider.test-model", out _);
+            }
+
+#if NET7_WINDOWS
+            ProviderSdkHost.ProviderRegistry = this.previousRegistry;
+#endif
+        }
+
         #region Construction
 
 #if NET7_WINDOWS
@@ -715,6 +763,162 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
             Assert.True(usage.Tokens > 0);
             Assert.True(usage.TokensEstimated);
         }
+
+        [Fact(DisplayName = "ConversationSession streams tool-result image to a text-only primary as evidence [Windows]")]
+        public async Task Stream_ToolResultImage_TextOnlyPrimary_ReceivesEvidenceNotImage()
+        {
+            // A tool result in history carries a model-visible image; the primary model is
+            // text-only. The session's streaming path must prepare an outbound view where
+            // the image is demoted to imageEvidence, while a vision helper sees the
+            // original bytes and context. The canonical body keeps the source image.
+            const string helper = "helper-fake";
+            const string vision = "vision-ctx";
+
+            var capabilityRegistry = AIModelCapabilityRegistry.Instance;
+            var previousModels = new Dictionary<string, AIModelCapabilities>(capabilityRegistry.Models);
+            var previousProviderRegistry = ProviderSdkHost.ProviderRegistry;
+            var previousPipeline = ProviderSdkHost.PolicyPipeline;
+
+            var helperProvider = new RecordingProvider(helper);
+            try
+            {
+                capabilityRegistry.Models.Clear();
+                capabilityRegistry.Models["test-provider.test-model"] = new AIModelCapabilities
+                {
+                    Provider = "test-provider",
+                    Model = "test-model",
+                    Capabilities = AICapability.Text2Text,
+                    SupportsStreaming = true,
+                };
+                capabilityRegistry.Models[$"{helper}.{vision}"] = new AIModelCapabilities
+                {
+                    Provider = helper,
+                    Model = vision,
+                    Capabilities = AICapability.Text2Text | AICapability.Image2Text | AICapability.TextInput,
+                };
+
+                ProviderSdkHost.ProviderRegistry = new MapRegistry(
+                    ("test-provider", new RecordingProvider("test-provider")),
+                    (helper, helperProvider));
+                ProviderSdkHost.PolicyPipeline = new DelegatingPipeline((req, ct) =>
+                {
+                    // The fallback's own helper call (request.Exec) must not recurse
+                    // into the conversion chain — it returns a plain execution copy.
+                    if (req.Provider == helper)
+                    {
+                        return Task.FromResult(new AIRequestPreparation(req.CreateExecutionCopy()));
+                    }
+
+                    return RequestModalityPreparationService.PrepareAsync(
+                        req,
+                        ModalityFallbackMode.ConfiguredProvider,
+                        (_, _, _, _) => new FallbackChain(
+                            new[] { new FallbackStep(new ImageToTextFallback(), helper, vision) },
+                            "image to text",
+                            AICapability.Text2Text),
+                        ct);
+                });
+
+                var toolResult = new AIInteractionToolResult
+                {
+                    Id = "call-1",
+                    Name = "file2md",
+                    Result = new JObject { ["content"] = "# Source markdown" },
+                    Images = new List<ToolResultImage>
+                    {
+                        new ToolResultImage
+                        {
+                            ImageData = "aW1hZ2VkYXRh",
+                            MimeType = "image/png",
+                            SendToModel = true,
+                            SourceReference = new SourceContentReference
+                            {
+                                DocumentId = "doc-1",
+                                SourceName = "paper.pdf",
+                                PageNumber = 2,
+                                AssetId = "img-1",
+                                Caption = "Figure 2: loss curve",
+                                ContextText = "The loss curve plateaus after epoch 40.",
+                                Kind = SourceContentKind.Image,
+                            },
+                        },
+                    },
+                };
+
+                var adapter = new MockStreamingAdapter();
+                adapter.Deltas.Add(MakeDelta(AICallStatus.Finished, new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = "done",
+                    Metrics = new AIMetrics
+                    {
+                        FinishReason = "stop",
+                        Provider = "test-provider",
+                        Model = "test-model",
+                        InputTokensPrompt = 20,
+                        OutputTokensGeneration = 10,
+                    },
+                }));
+
+                var request = CreateStreamingRequest(adapter);
+                request.Body = AIBodyBuilder.FromImmutable(request.Body).Add(toolResult).Build();
+
+                var session = new ConversationSession(request, executor: new MockProviderExecutor());
+                var results = new List<AIReturn>();
+                await foreach (var delta in session.Stream(
+                    new SessionOptions { ProcessTools = false },
+                    new StreamingOptions(),
+                    CancellationToken.None).ConfigureAwait(false))
+                {
+                    results.Add(delta);
+                }
+
+                // The outbound view sent to the streaming adapter keeps the primary
+                // provider/model and carries imageEvidence — no model-visible image.
+                var outbound = adapter.LastRequest;
+                var diagnostics = string.Join(" | ", results
+                    .SelectMany(r => r?.Messages ?? Enumerable.Empty<SHRuntimeMessage>())
+                    .Select(m => m?.Message));
+                Assert.True(outbound != null, "stream never ran :: " + diagnostics);
+                Assert.Equal("test-provider", outbound.Provider);
+                Assert.Equal("test-model", outbound.Model);
+                var sentToolResult = outbound.Body.Interactions.OfType<AIInteractionToolResult>().Single(r => r.Id == "call-1");
+                Assert.IsType<JArray>(sentToolResult.Result["imageEvidence"]);
+                Assert.False(sentToolResult.Images[0].SendToModel);
+
+                // The helper was invoked once with the original image bytes as a
+                // user-role interaction plus the source context/caption.
+                Assert.Equal(1, helperProvider.CallCount);
+                var helperBody = helperProvider.LastRequest.Body.Interactions.ToList();
+                Assert.Contains(helperBody, i => i is AIInteractionImage img
+                    && img.Agent == AIAgent.User && img.ImageData == "aW1hZ2VkYXRh");
+                Assert.Contains(helperBody, i => i is AIInteractionText t
+                    && t.Agent == AIAgent.User && t.Content.Contains("loss curve"));
+
+                // Canonical history keeps the original bytes and flags untouched.
+                var canonical = session.Request.Body.Interactions.OfType<AIInteractionToolResult>().Single(r => r.Id == "call-1");
+                Assert.Equal("aW1hZ2VkYXRh", canonical.Images[0].ImageData);
+                Assert.True(canonical.Images[0].SendToModel);
+                Assert.Null(canonical.Result["imageEvidence"]);
+
+                // The helper's supplied usage (100 in / 50 out) plus the primary's
+                // reported usage (20 in / 10 out) is metered exactly once — 180 total.
+                var usage = session.GetAutonomyUsage();
+                Assert.Equal(180, usage.Tokens);
+                Assert.False(usage.TokensEstimated);
+            }
+            finally
+            {
+                capabilityRegistry.Models.Clear();
+                foreach (var entry in previousModels)
+                {
+                    capabilityRegistry.Models[entry.Key] = entry.Value;
+                }
+
+                ProviderSdkHost.ProviderRegistry = previousProviderRegistry;
+                ProviderSdkHost.PolicyPipeline = previousPipeline;
+            }
+        }
 #endif
 
         #endregion
@@ -902,11 +1106,16 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
         {
             public List<AIReturn> Deltas { get; } = new List<AIReturn>();
 
+            /// <summary>The outbound request passed to <see cref="StreamAsync"/>.</summary>
+            public AIRequestCall LastRequest { get; private set; }
+
             public async IAsyncEnumerable<AIReturn> StreamAsync(
                 AIRequestCall request,
                 StreamingOptions options,
                 [EnumeratorCancellation] CancellationToken cancellationToken = default)
             {
+                this.LastRequest = request;
+
                 foreach (var delta in this.Deltas)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -915,6 +1124,129 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Sessions
 
                 await Task.CompletedTask.ConfigureAwait(false);
             }
+        }
+
+        /// <summary>
+        /// Registry lookup over a fixed provider map (test seams, never user settings).
+        /// </summary>
+        private sealed class MapRegistry : IProviderRegistryHost
+        {
+            private readonly Dictionary<string, IAIProvider> providers;
+
+            public MapRegistry(params (string Name, IAIProvider Provider)[] entries)
+            {
+                this.providers = entries.ToDictionary(e => e.Name, e => e.Provider, StringComparer.OrdinalIgnoreCase);
+            }
+
+            public IAIProvider GetProvider(string providerName)
+                => providerName != null && this.providers.TryGetValue(providerName, out var p) ? p : null;
+
+            public IAIProviderSettings GetProviderSettings(string providerName) => null;
+
+            public IEnumerable<IAIProvider> GetProviders() => this.providers.Values;
+        }
+
+        /// <summary>
+        /// Pipeline host that delegates PrepareExecutionAsync to a supplied function.
+        /// </summary>
+        private sealed class DelegatingPipeline : IPolicyPipelineHost
+        {
+            private readonly Func<AIRequestCall, CancellationToken, Task<AIRequestPreparation>> prepare;
+
+            public DelegatingPipeline(Func<AIRequestCall, CancellationToken, Task<AIRequestPreparation>> prepare)
+            {
+                this.prepare = prepare;
+            }
+
+            public Task ApplyRequestPoliciesAsync(AIRequestCall request) => Task.CompletedTask;
+
+            public Task ApplyResponsePoliciesAsync(AIReturn response) => Task.CompletedTask;
+
+            public Task<AIRequestPreparation> PrepareExecutionAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+                => this.prepare(request, cancellationToken);
+        }
+
+        /// <summary>
+        /// Deterministic provider that records requests and returns fixed evidence with
+        /// supplied metrics. Never touches the network.
+        /// </summary>
+        private sealed class RecordingProvider : IAIProvider
+        {
+            public RecordingProvider(string name)
+            {
+                this.Name = name;
+            }
+
+            public int CallCount { get; private set; }
+
+            public AIRequestCall LastRequest { get; private set; }
+
+            public string Name { get; }
+
+            public System.Drawing.Image Icon => null;
+
+            public bool IsEnabled => true;
+
+            public bool IsConfigured => true;
+
+            public string AuthenticationErrorMessage => null;
+
+            public IAIProviderModels Models => null;
+
+            public Task InitializeProviderAsync() => Task.CompletedTask;
+
+            public string Encode(AIRequestCall request) => string.Empty;
+
+            public string Encode(IAIInteraction interaction) => string.Empty;
+
+            public string Encode(List<IAIInteraction> interactions) => string.Empty;
+
+            public List<IAIInteraction> Decode(JObject response) => new List<IAIInteraction>();
+
+            public Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+                => Task.FromResult(request);
+
+            public Task<IAIReturn> Call(AIRequestCall request, CancellationToken cancellationToken = default)
+            {
+                this.CallCount++;
+                this.LastRequest = request;
+
+                var result = new AIReturn();
+                var body = AIBodyBuilder.Create()
+                    .Add(new AIInteractionText
+                    {
+                        Agent = AIAgent.Assistant,
+                        Content = "EVIDENCE-TEXT-0001",
+                        Metrics = new AIMetrics
+                        {
+                            FinishReason = "stop",
+                            Provider = this.Name,
+                            InputTokensPrompt = 100,
+                            OutputTokensGeneration = 50,
+                        },
+                    })
+                    .Build();
+                result.CreateSuccess(body, request);
+                return Task.FromResult<IAIReturn>(result);
+            }
+
+            public IAIReturn PostCall(IAIReturn response) => response;
+
+            public string GetDefaultModel(AICapability requiredCapability = AICapability.Text2Text, bool useSettings = true)
+                => "test-model";
+
+            public string SelectModel(AICapability requiredCapability, string requestedModel)
+                => requestedModel ?? "test-model";
+
+            public void RefreshCachedSettings(Dictionary<string, object> settings)
+            {
+            }
+
+            public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
+
+            public IStreamingAdapter GetStreamingAdapter() => null;
+
+            public IEnumerable<AIExtraDescriptor> GetExtraDescriptors() => Enumerable.Empty<AIExtraDescriptor>();
         }
 
         /// <summary>

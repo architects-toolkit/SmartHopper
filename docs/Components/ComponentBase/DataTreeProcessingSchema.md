@@ -106,6 +106,18 @@ This schema is now the **single** processing model: legacy branch/item helpers a
   - Does not know about `GH_Path`, branches, or grafting.
   - Returns results for **one logical invocation** only; fan-out into branches is a responsibility of DataTreeProcessor and the runner.
 
+#### 2.5 Incremental unit-result reuse
+
+`RunProcessingAsync` wraps the unit function with a reuse check when the
+component opts in (`SupportsResultReuse`). Each logical unit gets a key from
+the component reuse context plus a semantic fingerprint of its *effective*
+inputs; unchanged units replay a stored fragment instead of re-executing —
+Entwine re-indexing follows the content, identical units share one execution
+when `Share` is enabled, and batch sentinels resolve inside the stored
+fragment. See [UnitResultReuse](./UnitResultReuse.md) for the full contract
+(unit keys, commit/commit lifecycle, batch integration, opt-out rules, and the
+**Clear output cache** menu action).
+
 ### 3. Core concepts in the schema
 
 #### 3.1 Processing granularity
@@ -231,6 +243,18 @@ For **one-to-many per item** (`ItemGraft`):
   - Computes the set of paths in each input tree.
   - Restricts processing to paths that appear in **all required trees** when `onlyMatchingPaths = true`.
 - Both branch and item modes, including grafted outputs, operate **on top of this filtered set** of primary paths.
+
+#### 4.2a Data-carrying inputs only
+
+- Only inputs that carry at least one item participate in branch matching,
+  broadcasting and mismatch reporting. An input with zero items — an unwired
+  optional parameter or a tree of empty branches — is excluded from `allPaths`,
+  the broadcast-only removal scan, the matching intersection **and** the
+  unmatched-branch reporting loop: it neither requires matching nor can it
+  broadcast, so it cannot suppress real work or emit false mismatch remarks.
+- `groupIdenticalBranches` compares branch **content** with strict semantic
+  fingerprints — the same identity the unit keys use — so grouped branches are
+  guaranteed interchangeable; display-string equality is never sufficient.
 
 #### 4.3 groupIdenticalBranches
 
@@ -746,3 +770,23 @@ if (groupIdenticalBranches &&
 ```
 
 This ensures identical branch grouping works for mixed-type trees.
+
+## 9. Unit Placements & Snapshot Rebuild
+
+Each scheduled `ProcessingUnit` records a **placement** with the result store
+(`UnitResultStore.RecordPlacement`): `(unitKey, inputPath, itemIndex,
+targetPaths)`. `BuildRunTrees(topology)` replays stored fragments onto those
+placements — the canonical way to assemble output when some units were reused
+and others executed (e.g. batch completion):
+
+- Per-channel trees: every output name gets its `GH_Structure<IGH_Goo>`,
+  heterogeneous `IGH_Goo` item types preserved.
+- `ItemGraft` paths become `target.AppendElement(itemIndex)`; other topologies
+  place the fragment at each recorded target (grouped siblings included).
+- Shared units append the same fragment at every recorded seat.
+- Falls back to `ReconstructOutputTree` sentinel-walking when a restored
+  pending payload lacks placements (legacy saves).
+
+`ExtractTypedTree` never compresses branches: non-castable items and nulls are
+emitted as null placeholders (with a warning for type mismatches), keeping
+parallel output channels position-aligned.

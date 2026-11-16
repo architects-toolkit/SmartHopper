@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Img
             : base(
                 "Viewport To Image",
                 "Viewport2Img",
-                "Capture the active or named Rhino viewport as a persistent VersatileImage when Run is triggered.",
+                "Capture the active or named Rhino viewport as an image when Run? is set to true.",
                 "viewport_screenshot")
         {
         }
@@ -57,13 +57,13 @@ namespace SmartHopper.Components.Img
         };
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.aitoimg;
+        protected override Bitmap Icon => Resources.ViewportCapture;
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
             ArgumentNullException.ThrowIfNull(pManager);
-            pManager.AddTextParameter("View Name", "V", "Optional Rhino viewport name. Leave empty to capture the active view.", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("View Name", "V", "Optional Rhino viewport name (e.g., 'Perspective', 'Top'). Leave empty to capture the active viewport.", GH_ParamAccess.item, string.Empty);
             pManager.AddIntegerParameter("Width", "W", "Maximum output width in pixels.", GH_ParamAccess.item, 1024);
             pManager.AddIntegerParameter("Height", "H", "Maximum output height in pixels.", GH_ParamAccess.item, 1024);
         }
@@ -72,7 +72,7 @@ namespace SmartHopper.Components.Img
         protected override void RegisterCaptureOutputParams(GH_OutputParamManager pManager)
         {
             ArgumentNullException.ThrowIfNull(pManager);
-            pManager.AddTextParameter("View Name", "V", "Name of the captured Rhino viewport.", GH_ParamAccess.item);
+            pManager.AddTextParameter("View Name", "V", "Name of the Rhino viewport that was captured.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>

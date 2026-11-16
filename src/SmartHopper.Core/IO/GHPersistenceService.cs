@@ -97,7 +97,7 @@ namespace SmartHopper.Core.IO
                 if (version != PersistenceConstants.CurrentVersion)
                 {
 #if DEBUG
-                    Logger.For<GHPersistenceService>().Error($"[Persistence] Version mismatch or missing (found={version}); skipping V2 restore for {component.Name}");
+                    Logger.For<GHPersistenceService>().Trace($"[Persistence] Version mismatch or missing (found={version}); skipping V2 restore for {component.Name}");
 #endif
                     return result;
                 }
@@ -128,7 +128,7 @@ namespace SmartHopper.Core.IO
                         {
 #if DEBUG
                             foreach (var w in warnings)
-                                Logger.For<GHPersistenceService>().Error($"[Persistence] Decode warning for key={key}: {w}");
+                                Logger.For<GHPersistenceService>().Warning($"[Persistence] Decode warning for key={key}: {w}");
 #endif
                         }
 

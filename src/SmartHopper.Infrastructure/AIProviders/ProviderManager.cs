@@ -31,6 +31,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using Rhino;
 using SmartHopper.Infrastructure.Dialogs;
+using SmartHopper.Infrastructure.Security;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Utils;
 using SmartHopper.ProviderSdk.AIProviders;
@@ -58,6 +59,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         private readonly ConcurrentDictionary<string, bool> _unknownProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers not found in hash manifest (custom/third-party)
         private readonly ConcurrentDictionary<string, bool> _officialProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers classified as official
         private readonly ConcurrentDictionary<string, bool> _unsignedProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers loaded without a strong-name signature
+        private bool _trustRecordsDirty; // Set when ProviderTrustRecords was written without an immediate Save()
 
         private ProviderManager()
         {
@@ -83,16 +85,115 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                 // Find all external provider DLLs
                 string[] providerFiles = Directory.GetFiles(baseDirectory, "SmartHopper.Providers.*.dll");
+
+                // Decide trust for all newly detected providers in one dialog before loading
+                var settings = SmartHopperSettings.Instance;
+                this._trustRecordsDirty = false;
+                var untrustedFiles = providerFiles
+                    .Where(f => !settings.TrustedProviders.ContainsKey(Path.GetFileNameWithoutExtension(f)))
+                    .ToList();
+                if (untrustedFiles.Count > 0)
+                {
+                    var candidates = await BuildNewProviderCandidatesAsync(untrustedFiles).ConfigureAwait(false);
+                    var decisions = await PromptNewProvidersAsync(candidates).ConfigureAwait(false);
+                    foreach (var candidate in candidates)
+                    {
+                        settings.TrustedProviders[candidate.AssemblyName] =
+                            decisions.TryGetValue(candidate.AssemblyName, out var enabled) && enabled;
+
+                        // Snapshot the bytes consented to — verification-conditional trust
+                        // only applies while the file keeps matching them.
+                        this.MintTrustRecord(
+                            settings,
+                            candidate.AssemblyName,
+                            candidate.Verification?.LocalHash ?? TryComputeLocalHash(candidate.AssemblyPath),
+                            candidate.Verification?.Status == ProviderVerificationStatus.Match);
+                    }
+
+                    settings.Save();
+                    this._trustRecordsDirty = false;
+                }
+
+                // Integrity findings are collected and reported in one dialog after
+                // loading instead of one modal per provider.
+                var integrityIssues = new List<ProviderIntegrityIssue>();
+                var reconsentPaths = new List<string>();
                 foreach (string providerFile in providerFiles)
                 {
                     try
                     {
-                        await this.LoadProviderAssemblyAsync(providerFile).ConfigureAwait(false);
+                        if (await this.LoadProviderAssemblyAsync(providerFile, integrityIssues).ConfigureAwait(false) == ProviderLoadOutcome.NeedsReconsent)
+                        {
+                            reconsentPaths.Add(providerFile);
+                        }
                     }
                     catch (Exception ex)
                     {
                         Logger.For<ProviderManager>().Exception(ex, $"Error loading provider assembly {providerFile}: {ex.Message}");
                     }
+                }
+
+                // Trusted files whose bytes changed without verification get one batched
+                // re-consent prompt — declined providers are disabled outright.
+                if (reconsentPaths.Count > 0)
+                {
+                    var changed = await BuildNewProviderCandidatesAsync(reconsentPaths).ConfigureAwait(false);
+                    foreach (var candidate in changed)
+                    {
+                        candidate.TrustNote = "Changed since you enabled it and still cannot be verified — re-confirm to keep it enabled.";
+                    }
+
+                    var decisions = await PromptNewProvidersAsync(changed, reconsent: true).ConfigureAwait(false);
+                    foreach (var candidate in changed)
+                    {
+                        if (decisions.TryGetValue(candidate.AssemblyName, out var keep) && keep)
+                        {
+                            this.MintTrustRecord(
+                                settings,
+                                candidate.AssemblyName,
+                                candidate.Verification?.LocalHash ?? TryComputeLocalHash(candidate.AssemblyPath),
+                                candidate.Verification?.Status == ProviderVerificationStatus.Match);
+                            settings.TrustedProviders[candidate.AssemblyName] = true;
+                        }
+                        else
+                        {
+                            settings.TrustedProviders[candidate.AssemblyName] = false;
+                            settings.ProviderTrustRecords.Remove(candidate.AssemblyName);
+                            this._trustRecordsDirty = true;
+                        }
+                    }
+
+                    settings.Save();
+                    this._trustRecordsDirty = false;
+
+                    foreach (var candidate in changed)
+                    {
+                        if (settings.TrustedProviders.TryGetValue(candidate.AssemblyName, out var enabled) && enabled)
+                        {
+                            try
+                            {
+                                await this.LoadProviderAssemblyAsync(candidate.AssemblyPath, integrityIssues).ConfigureAwait(false);
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.For<ProviderManager>().Exception(ex, $"Error loading provider assembly {candidate.AssemblyPath}: {ex.Message}");
+                            }
+                        }
+                    }
+                }
+
+                // Persist silent re-mints (official updates, consent baselines) and
+                // tamper-driven disables accumulated during the load pass.
+                if (this._trustRecordsDirty)
+                {
+                    settings.Save();
+                    this._trustRecordsDirty = false;
+                }
+
+                // One unified report for every integrity finding raised while loading.
+                if (integrityIssues.Count > 0)
+                {
+                    await ReportIntegrityIssuesAsync(integrityIssues).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -116,6 +217,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 // After discovery, refresh settings for all providers
                 Logger.For<ProviderManager>().Trace("[ProviderManager] Provider discovery complete, refreshing settings");
                 SmartHopperSettings.Instance.RefreshProvidersLocalStorage();
+                ProviderSdk.AICall.Validation.ProviderTrustPolicy.InvalidateCache();
             }
             finally
             {
@@ -164,14 +266,128 @@ namespace SmartHopper.Infrastructure.AIProviders
                 Logger.For<ProviderManager>().Exception(ex, $"[ProviderManager] Error verifying providers: {ex.Message}");
                 return new Dictionary<string, ProviderVerificationResult>();
             }
+            finally
+            {
+                ProviderSdk.AICall.Validation.ProviderTrustPolicy.InvalidateCache();
+            }
+        }
+
+        /// <summary>Result of <see cref="LoadProviderAssemblyAsync"/> for one provider file.</summary>
+        private enum ProviderLoadOutcome
+        {
+            /// <summary>The assembly was loaded and its providers registered.</summary>
+            Loaded,
+
+            /// <summary>The file was skipped or blocked without executing its code.</summary>
+            Skipped,
+
+            /// <summary>A trusted file's bytes changed without verification — consent must be re-confirmed.</summary>
+            NeedsReconsent,
+        }
+
+        /// <summary>Decision produced by <see cref="EvaluateStoredTrust"/> for a trusted provider file.</summary>
+        internal enum StoredTrustDecision
+        {
+            /// <summary>Verified official binary — consent follows silently; re-mint the record.</summary>
+            LoadVerified,
+
+            /// <summary>Unverified, but consent still applies: unchanged bytes or a fresh baseline.</summary>
+            LoadUnverified,
+
+            /// <summary>Trusted file fails the published hash — potential tampering; disable, block and alert.</summary>
+            BlockTampered,
+
+            /// <summary>Bytes changed since unverified consent — re-confirm with the user.</summary>
+            NeedsReconsent,
+
+            /// <summary>Bytes changed and the active mode does not allow re-consenting unverified providers.</summary>
+            BlockUnverifiedChanged,
+        }
+
+        /// <summary>
+        /// Decides how a trusted provider file may load given its verification status, its
+        /// current bytes and the consent snapshot stored in <c>ProviderTrustRecords</c>.
+        /// Pure — every input is a parameter so the whole matrix is unit-testable.
+        /// </summary>
+        /// <param name="status">Verification outcome; <see langword="null"/> when the check itself failed.</param>
+        /// <param name="localHash">SHA-256 of the file on disk.</param>
+        /// <param name="record">Consent snapshot; <see langword="null"/> for entries without one.</param>
+        /// <param name="mode">User-selected integrity check mode.</param>
+        /// <param name="debugBuild"><see langword="true"/> in DEBUG builds — local rebuilds keep trust silently and never re-prompt.</param>
+        internal static StoredTrustDecision EvaluateStoredTrust(
+            ProviderVerificationStatus? status,
+            string? localHash,
+            ProviderTrustRecord? record,
+            ProviderIntegrityCheckMode mode,
+            bool debugBuild)
+        {
+            switch (status)
+            {
+                case ProviderVerificationStatus.Match:
+                    // Verified official binary — consent follows silent official updates.
+                    return StoredTrustDecision.LoadVerified;
+
+                case ProviderVerificationStatus.Mismatch:
+                    // An official-name file with wrong bytes is potential tampering —
+                    // except on DEBUG, where developer rebuilds mismatch by definition.
+                    return debugBuild ? StoredTrustDecision.LoadUnverified : StoredTrustDecision.BlockTampered;
+            }
+
+            // NotFound / Unavailable / verification failure — unverified path.
+            if (debugBuild)
+            {
+                // Local rebuilds change bytes constantly — never re-prompt on DEBUG.
+                return StoredTrustDecision.LoadUnverified;
+            }
+
+            if (record == null
+                || string.IsNullOrEmpty(record.ConsentedHash)
+                || !string.Equals(record.ConsentedHash, localHash, StringComparison.OrdinalIgnoreCase))
+            {
+                // No consent baseline (legacy or forged entry) or bytes changed since
+                // consent — Soft re-asks the user, Hard/Strict block the unverified file.
+                return mode == ProviderIntegrityCheckMode.Soft
+                    ? StoredTrustDecision.NeedsReconsent
+                    : StoredTrustDecision.BlockUnverifiedChanged;
+            }
+
+            return StoredTrustDecision.LoadUnverified;
+        }
+
+        /// <summary>
+        /// Whether the running build is a DEBUG build — passed into
+        /// <see cref="EvaluateStoredTrust"/> so the compile-time check stays in one place.
+        /// </summary>
+        internal static bool IsDebugBuild
+        {
+            get
+            {
+#if DEBUG
+                return true;
+#else
+                return false;
+#endif
+            }
         }
 
         /// <summary>
         /// Loads a provider assembly and registers any providers it contains.
         /// </summary>
         /// <param name="assemblyPath">The path to the provider assembly.</param>
-        private async Task LoadProviderAssemblyAsync(string assemblyPath)
+        /// <param name="issues">Collects integrity findings for the caller's unified report — this method never shows UI.</param>
+        /// <returns>The load outcome — files needing re-consent are handled by the caller.</returns>
+        private async Task<ProviderLoadOutcome> LoadProviderAssemblyAsync(string assemblyPath, ICollection<ProviderIntegrityIssue> issues)
         {
+            var asmName = Path.GetFileNameWithoutExtension(assemblyPath);
+            var settings = SmartHopperSettings.Instance;
+
+            // Disabled providers must never execute — skip before any verification or load.
+            if (settings.TrustedProviders.TryGetValue(asmName, out var enabled) && !enabled)
+            {
+                Logger.For<ProviderManager>().Trace($"[ProviderManager] Provider '{asmName}' is disabled — skipping load.");
+                return ProviderLoadOutcome.Skipped;
+            }
+
             try
             {
                 // Authenticode signature validation (Windows-only, skip on macOS)
@@ -184,11 +400,14 @@ namespace SmartHopper.Infrastructure.AIProviders
                     catch (CryptographicException ex)
                     {
                         Logger.For<ProviderManager>().Exception(ex, $"Authenticode signature verification failed for {assemblyPath}: {ex.Message}");
-                        await Task.Run(() => RhinoApp.InvokeOnUiThread(() =>
+                        issues.Add(new ProviderIntegrityIssue
                         {
-                            StyledMessageDialog.ShowError($"Authenticode signature verification failed for provider '{Path.GetFileName(assemblyPath)}'. Please replace it with a file downloaded from official SmartHopper sources.", "SmartHopper");
-                        })).ConfigureAwait(false);
-                        return;
+                            FileName = Path.GetFileName(assemblyPath),
+                            Severity = ProviderIntegrityIssueSeverity.Error,
+                            Status = "Authenticode signature verification failed — provider blocked",
+                            Detail = "Please replace it with a file downloaded from official SmartHopper sources.",
+                        });
+                        return ProviderLoadOutcome.Skipped;
                     }
                 }
                 else
@@ -200,16 +419,86 @@ namespace SmartHopper.Infrastructure.AIProviders
                 // In DEBUG builds, force soft check mode to allow local development
                 // In RELEASE builds, use the configured integrity check mode
                 ProviderVerificationResult? hashResult = null;
+                string platform = VersionHelper.GetPlatform();
                 try
                 {
-                    string platform = VersionHelper.GetPlatform();
-                    string version = VersionHelper.GetDisplayVersion();
-
-                    hashResult = await ProviderHashVerifier.VerifyProviderAsync(assemblyPath, version, platform)
+                    hashResult = await ProviderHashVerifier.VerifyProviderAsync(assemblyPath, VersionHelper.GetDisplayVersion(), platform)
                         .ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Logger.For<ProviderManager>().Exception(ex, $"[ProviderManager] SHA-256 verification error for {assemblyPath}: {ex.Message}");
 
-                    var effectiveMode = SmartHopperSettings.Instance.EffectiveProviderIntegrityCheckMode;
+                    // Continue — a failed check is itself unverified state below.
+                }
 
+                var effectiveMode = SmartHopperSettings.Instance.EffectiveProviderIntegrityCheckMode;
+
+                // Stored-trust evaluation: consent binds to the bytes consented to, not
+                // the assembly name — a trusted file is re-verified on every load, even
+                // when the catalogue check itself failed. Runs before the mode gate so
+                // a tampered trusted file can never ride Soft mode's warn-and-load path.
+                if (settings.TrustedProviders.TryGetValue(asmName, out var trusted) && trusted)
+                {
+                    var localHash = hashResult?.LocalHash ?? TryComputeLocalHash(assemblyPath);
+                    settings.ProviderTrustRecords.TryGetValue(asmName, out var trustRecord);
+                    var trustDecision = EvaluateStoredTrust(
+                        hashResult?.Status, localHash, trustRecord, effectiveMode, IsDebugBuild);
+
+                    switch (trustDecision)
+                    {
+                        case StoredTrustDecision.BlockTampered:
+                            // Disable so the file stays blocked across restarts until the user acts.
+                            settings.TrustedProviders[asmName] = false;
+                            this._trustRecordsDirty = true;
+
+                            issues.Add(new ProviderIntegrityIssue
+                            {
+                                FileName = Path.GetFileName(assemblyPath),
+                                Severity = ProviderIntegrityIssueSeverity.Error,
+                                Status = "Previously trusted — file no longer matches the published hash — disabled and blocked",
+                                Detail =
+                                    "The file may have been tampered with or corrupted.\n\n" +
+                                    $"Expected: {hashResult?.PublicHash}\n" +
+                                    $"Actual: {localHash}\n\n" +
+                                    "Re-download the provider from official SmartHopper sources, then re-enable it in SmartHopper → Settings → Providers.",
+                            });
+
+                            RhinoApp.WriteLine($"[SmartHopper] SECURITY: Provider '{Path.GetFileName(assemblyPath)}' failed hash verification after being trusted — disabled and blocked.");
+                            Logger.For<ProviderManager>().Warning($"[ProviderManager] Trusted provider '{asmName}' failed hash verification — disabled and blocked.");
+                            return ProviderLoadOutcome.Skipped;
+
+                        case StoredTrustDecision.NeedsReconsent:
+                            return ProviderLoadOutcome.NeedsReconsent;
+
+                        case StoredTrustDecision.BlockUnverifiedChanged:
+                            issues.Add(new ProviderIntegrityIssue
+                            {
+                                FileName = Path.GetFileName(assemblyPath),
+                                Severity = ProviderIntegrityIssueSeverity.Error,
+                                Status = $"Cannot be verified against the consent on record — blocked ({effectiveMode} mode)",
+                                Detail =
+                                    $"Either the file changed since you enabled it, or no consent record exists — and it is not in the official hash manifest. " +
+                                    $"{effectiveMode} integrity check mode only allows re-trusting unverified providers in 'Soft' mode.\n\n" +
+                                    "The provider has been blocked. Switch to 'Soft' mode to review and confirm it.",
+                            });
+
+                            RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' — unverified consent mismatch, blocked in {effectiveMode} mode.");
+                            Logger.For<ProviderManager>().Warning($"[ProviderManager] Provider '{asmName}' — unverified consent mismatch, blocked ({effectiveMode} mode).");
+                            return ProviderLoadOutcome.Skipped;
+
+                        case StoredTrustDecision.LoadVerified:
+                            this.MintTrustRecord(settings, asmName, localHash, verified: true);
+                            break;
+
+                        default: // LoadUnverified — ensure a consent baseline exists
+                            this.MintTrustRecord(settings, asmName, localHash, verified: false);
+                            break;
+                    }
+                }
+
+                if (hashResult != null)
+                {
                     switch (hashResult.Status)
                     {
                         case ProviderVerificationStatus.Match:
@@ -223,49 +512,43 @@ namespace SmartHopper.Infrastructure.AIProviders
                             if (effectiveMode == ProviderIntegrityCheckMode.Strict ||
                                 effectiveMode == ProviderIntegrityCheckMode.Hard)
                             {
-                                // Strict/Hard mode: Show error and prevent loading
-                                await Task.Run(() =>
+                                // Strict/Hard mode: report the failure and prevent loading
+                                issues.Add(new ProviderIntegrityIssue
                                 {
-                                    RhinoApp.InvokeOnUiThread(() =>
-                                    {
-                                        StyledMessageDialog.ShowError(
-                                            $"Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification.\n\n" +
-                                            $"The file's SHA-256 hash does not match the published hash from official sources. " +
-                                            $"This could indicate file corruption or tampering.\n\n" +
-                                            $"Platform: {platform}\n" +
-                                            $"Expected: {hashResult.PublicHash}\n" +
-                                            $"Actual: {hashResult.LocalHash}\n\n" +
-                                            "Please re-download the provider from official SmartHopper sources.",
-                                            "Provider Integrity Check Failed - SmartHopper");
-                                    });
-                                }).ConfigureAwait(false);
+                                    FileName = Path.GetFileName(assemblyPath),
+                                    Severity = ProviderIntegrityIssueSeverity.Error,
+                                    Status = "SHA-256 hash does not match the published hash — blocked",
+                                    Detail =
+                                        "This could indicate file corruption or tampering.\n\n" +
+                                        $"Platform: {platform}\n" +
+                                        $"Expected: {hashResult.PublicHash}\n" +
+                                        $"Actual: {hashResult.LocalHash}\n\n" +
+                                        "Please re-download the provider from official SmartHopper sources.",
+                                });
 
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' failed integrity verification and will not be loaded");
                                 Logger.For<ProviderManager>().Warning($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification and will not be loaded");
 
-                                return;
+                                return ProviderLoadOutcome.Skipped;
                             }
                             else
                             {
-                                // Soft mode: Show warning and continue loading
+                                // Soft mode: report a warning and continue loading
                                 this._mismatchedProviders[mmAsmName] = true;
 
-                                await Task.Run(() =>
+                                issues.Add(new ProviderIntegrityIssue
                                 {
-                                    RhinoApp.InvokeOnUiThread(() =>
-                                    {
-                                        StyledMessageDialog.ShowWarning(
-                                            $"WARNING: Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification.\n\n" +
-                                            $"The file's SHA-256 hash does not match the published hash from official sources. " +
-                                            $"This could indicate file corruption or tampering.\n\n" +
-                                            $"Platform: {platform}\n" +
-                                            $"Expected: {hashResult.PublicHash}\n" +
-                                            $"Actual: {hashResult.LocalHash}\n\n" +
-                                            "The provider has been loaded but will show a warning when used. " +
-                                            "Change 'Integrity Check Mode' to 'Hard' or 'Strict' in settings to block unverified providers.",
-                                            "Provider Integrity Check Warning - SmartHopper");
-                                    });
-                                }).ConfigureAwait(false);
+                                    FileName = Path.GetFileName(assemblyPath),
+                                    Severity = ProviderIntegrityIssueSeverity.Warning,
+                                    Status = "SHA-256 hash does not match the published hash — loaded with warning",
+                                    Detail =
+                                        "This could indicate file corruption or tampering.\n\n" +
+                                        $"Platform: {platform}\n" +
+                                        $"Expected: {hashResult.PublicHash}\n" +
+                                        $"Actual: {hashResult.LocalHash}\n\n" +
+                                        "The provider has been loaded but will show a warning when used. " +
+                                        "Change 'Integrity Check Mode' to 'Hard' or 'Strict' in settings to block unverified providers.",
+                                });
 
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' failed integrity verification");
                                 Logger.For<ProviderManager>().Warning($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification");
@@ -278,20 +561,21 @@ namespace SmartHopper.Infrastructure.AIProviders
                             if (effectiveMode == ProviderIntegrityCheckMode.Strict)
                             {
                                 // Strict mode: Block when hashes are unavailable
-                                await Task.Run(() => RhinoApp.InvokeOnUiThread(() =>
+                                issues.Add(new ProviderIntegrityIssue
                                 {
-                                    StyledMessageDialog.ShowError(
-                                        $"Provider '{Path.GetFileName(assemblyPath)}' cannot be loaded.\n\n" +
-                                        $"Unable to retrieve hash verification data from the official repository. " +
-                                        $"This may be due to network connectivity issues.\n\n" +
-                                        $"Strict integrity check mode requires hash verification for all providers. " +
+                                    FileName = Path.GetFileName(assemblyPath),
+                                    Severity = ProviderIntegrityIssueSeverity.Error,
+                                    Status = "Hash verification data unavailable — blocked (Strict mode)",
+                                    Detail =
+                                        "Unable to retrieve hash verification data from the official repository. " +
+                                        "This may be due to network connectivity issues.\n\n" +
+                                        "Strict integrity check mode requires hash verification for all providers. " +
                                         "Please check your internet connection and try again, or switch to 'Hard' or 'Soft' mode in settings.",
-                                        "Provider Integrity Check Failed - SmartHopper");
-                                })).ConfigureAwait(false);
+                                });
 
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: Provider '{Path.GetFileName(assemblyPath)}' blocked - hash repository unavailable in Strict mode");
                                 Logger.For<ProviderManager>().Warning($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash unavailable (Strict mode)");
-                                return;
+                                return ProviderLoadOutcome.Skipped;
                             }
                             else
                             {
@@ -312,20 +596,21 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 effectiveMode == ProviderIntegrityCheckMode.Hard)
                             {
                                 // Strict/Hard mode: Block unknown providers
-                                await Task.Run(() => RhinoApp.InvokeOnUiThread(() =>
+                                issues.Add(new ProviderIntegrityIssue
                                 {
-                                    StyledMessageDialog.ShowError(
-                                        $"Provider '{Path.GetFileName(assemblyPath)}' is not recognized.\n\n" +
+                                    FileName = Path.GetFileName(assemblyPath),
+                                    Severity = ProviderIntegrityIssueSeverity.Error,
+                                    Status = $"Not in the official manifest — blocked ({effectiveMode} mode)",
+                                    Detail =
                                         $"SHA-256 hash not found in official repository (platform: {platform}). " +
-                                        $"This provider may be a custom/third-party provider or from a different SmartHopper version.\n\n" +
+                                        "This provider may be a custom/third-party provider or from a different SmartHopper version.\n\n" +
                                         $"{effectiveMode} integrity check mode only allows verified providers. " +
-                                        $"Switch to 'Soft' mode in settings to allow third-party providers.",
-                                        "Provider Integrity Check Failed - SmartHopper");
-                                })).ConfigureAwait(false);
+                                        "Switch to 'Soft' mode in settings to allow third-party providers.",
+                                });
 
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' blocked - hash not found in {effectiveMode} mode");
                                 Logger.For<ProviderManager>().Warning($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash not found ({effectiveMode} mode)");
-                                return;
+                                return ProviderLoadOutcome.Skipped;
                             }
                             else
                             {
@@ -338,55 +623,14 @@ namespace SmartHopper.Infrastructure.AIProviders
                             break;
                     }
                 }
-                catch (Exception ex)
-                {
-                    Logger.For<ProviderManager>().Exception(ex, $"[ProviderManager] SHA-256 verification error for {assemblyPath}: {ex.Message}");
-
-                    // Continue loading - don't block on verification errors
-                }
-
-                var settings = SmartHopperSettings.Instance;
-                var asmName = Path.GetFileNameWithoutExtension(assemblyPath);
-
-                // Prompt user for providers with no trust entry
-                Logger.For<ProviderManager>().Trace($"[ProviderManager] Checking trust for provider: {asmName}");
-                Logger.For<ProviderManager>().Trace($"[ProviderManager] TrustedProviders contains '{asmName}': {settings.TrustedProviders.ContainsKey(asmName)}");
-
-                if (!settings.TrustedProviders.ContainsKey(asmName))
-                {
-                    Logger.For<ProviderManager>().Trace($"[ProviderManager] Showing trust prompt for: {asmName}");
-
-                    // Use TaskCompletionSource to properly wait for the dialog result
-                    var tcs = new TaskCompletionSource<bool>();
-                    RhinoApp.InvokeOnUiThread(new Action(() =>
-                    {
-                        try
-                        {
-                            Logger.For<ProviderManager>().Trace($"[ProviderManager] Displaying confirmation dialog for: {asmName}");
-                            bool result = StyledMessageDialog.ShowConfirmation($"A new AI provider was detected\n'{asmName}'.\n\nDo you want to enable it?\n\nIf you do not enable it now, you can do it later in the SmartHopper settings.");
-                            Logger.For<ProviderManager>().Trace($"[ProviderManager] Dialog returned: {result} for: {asmName}");
-                            tcs.SetResult(result);
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.For<ProviderManager>().Exception(ex, $"[ProviderManager] Dialog error for {asmName}: {ex.Message}");
-                            tcs.SetResult(false);
-                        }
-                    }));
-
-                    bool userConfirmed = await tcs.Task.ConfigureAwait(false);
-                    Logger.For<ProviderManager>().Trace($"[ProviderManager] User confirmed: {userConfirmed} for: {asmName}");
-                    settings.TrustedProviders[asmName] = userConfirmed;
-                    settings.Save();
-                }
-                else
-                {
-                    Logger.For<ProviderManager>().Trace($"[ProviderManager] Trust already exists for: {asmName} = {settings.TrustedProviders[asmName]}");
-                }
 
                 // Load the assembly
                 var assembly = Assembly.LoadFrom(assemblyPath);
                 var loadedAsmName = assembly.GetName().Name ?? Path.GetFileNameWithoutExtension(assemblyPath);
+
+                // Trust is decided up-front by the unified new-providers dialog in
+                // DiscoverProvidersAsync — every path reaching this point has an entry.
+                Logger.For<ProviderManager>().Trace($"[ProviderManager] Trust for '{asmName}': {(trusted ? "trusted" : "no entry")}");
 
                 // Track official/unsigned state for trust reporting
                 var providerToken = assembly.GetName().GetPublicKeyToken();
@@ -431,11 +675,152 @@ namespace SmartHopper.Infrastructure.AIProviders
                         Logger.For<ProviderManager>().Exception(ex, $"Error creating provider from factory {factoryType.FullName}: {ex.Message}");
                     }
                 }
+
+                return ProviderLoadOutcome.Loaded;
             }
             catch (Exception ex)
             {
                 Logger.For<ProviderManager>().Exception(ex, $"Error loading provider assembly {assemblyPath}: {ex.Message}");
+                return ProviderLoadOutcome.Skipped;
             }
+        }
+
+        /// <summary>Computes the SHA-256 of a provider file, returning <see langword="null"/> on failure.</summary>
+        private static string? TryComputeLocalHash(string assemblyPath)
+        {
+            try
+            {
+                return ProviderHashVerifier.CalculateFileHash(assemblyPath);
+            }
+            catch (Exception ex)
+            {
+                Logger.For<ProviderManager>().Trace($"[ProviderManager] Could not hash {assemblyPath}: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Writes the consent snapshot for a provider (the bytes consented to and whether
+        /// consent followed a catalogue match). Idempotent — no write when the stored
+        /// record already matches, so official updates re-mint silently without churn.
+        /// </summary>
+        /// <returns><see langword="true"/> when the stored record changed.</returns>
+        private bool MintTrustRecord(SmartHopperSettings settings, string asmName, string? localHash, bool verified)
+        {
+            if (string.IsNullOrEmpty(localHash))
+            {
+                return false;
+            }
+
+            if (settings.ProviderTrustRecords.TryGetValue(asmName, out var existing)
+                && string.Equals(existing.ConsentedHash, localHash, StringComparison.OrdinalIgnoreCase)
+                && existing.VerifiedTrust == verified)
+            {
+                return false;
+            }
+
+            settings.ProviderTrustRecords[asmName] = new ProviderTrustRecord
+            {
+                ConsentedHash = localHash,
+                VerifiedTrust = verified,
+            };
+            this._trustRecordsDirty = true;
+            return true;
+        }
+
+        /// <summary>
+        /// Builds the metadata rows for the unified new-providers dialog: hash
+        /// verification and bounded embedded manifest data. No provider code is
+        /// executed before the user grants trust; missing metadata uses the filename.
+        /// </summary>
+        /// <param name="assemblyPaths">Provider DLL paths lacking a trust entry.</param>
+        /// <param name="verify">Optional integrity verifier for isolated, network-free contract tests.</param>
+        internal static async Task<List<NewProviderCandidate>> BuildNewProviderCandidatesAsync(
+            List<string> assemblyPaths,
+            Func<string, Task<ProviderVerificationResult>>? verify = null)
+        {
+            var candidates = new List<NewProviderCandidate>();
+            foreach (var assemblyPath in assemblyPaths)
+            {
+                var asmName = Path.GetFileNameWithoutExtension(assemblyPath);
+                var candidate = new NewProviderCandidate
+                {
+                    AssemblyName = asmName,
+                    AssemblyPath = assemblyPath,
+                    DisplayName = asmName,
+                    LastUpdate = File.GetLastWriteTime(assemblyPath),
+                };
+
+                try
+                {
+                    candidate.Verification = await (verify != null
+                        ? verify(assemblyPath)
+                        : ProviderHashVerifier.VerifyProviderAsync(assemblyPath, VersionHelper.GetDisplayVersion(), VersionHelper.GetPlatform()))
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Logger.For<ProviderManager>().Trace($"[ProviderManager] Hash check failed for candidate {asmName}: {ex.Message}");
+                }
+
+                var manifest = ProviderManifest.Read(assemblyPath);
+                if (manifest != null)
+                {
+                    candidate.DisplayName = manifest.DisplayName;
+                    candidate.ModelCount = manifest.ModelCount;
+                }
+
+                candidates.Add(candidate);
+            }
+
+            return candidates;
+        }
+
+        /// <summary>Shows the unified providers dialog on the UI thread and returns the enable decisions.</summary>
+        /// <param name="candidates">Provider candidates to review.</param>
+        /// <param name="reconsent"><see langword="true"/> when the prompt re-confirms previously trusted providers whose files changed.</param>
+        private static Task<Dictionary<string, bool>> PromptNewProvidersAsync(List<NewProviderCandidate> candidates, bool reconsent = false)
+        {
+            var tcs = new TaskCompletionSource<Dictionary<string, bool>>();
+            RhinoApp.InvokeOnUiThread(new Action(() =>
+            {
+                try
+                {
+                    tcs.SetResult(ProviderTrustDialog.Decide(candidates, reconsent));
+                }
+                catch (Exception ex)
+                {
+                    Logger.For<ProviderManager>().Exception(ex, "[ProviderManager] New-providers dialog error");
+                    tcs.SetResult(candidates.ToDictionary(c => c.AssemblyName, _ => false));
+                }
+            }));
+            return tcs.Task;
+        }
+
+        /// <summary>
+        /// Shows every integrity finding collected during provider loading in a single
+        /// <see cref="ProviderTrustDialog"/> report. Dialog failures are logged and never
+        /// block provider discovery.
+        /// </summary>
+        private static Task ReportIntegrityIssuesAsync(IReadOnlyList<ProviderIntegrityIssue> issues)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+            RhinoApp.InvokeOnUiThread(new Action(() =>
+            {
+                try
+                {
+                    ProviderTrustDialog.ReportIssues(issues);
+                }
+                catch (Exception ex)
+                {
+                    Logger.For<ProviderManager>().Exception(ex, "[ProviderManager] Integrity-report dialog error");
+                }
+                finally
+                {
+                    tcs.TrySetResult(true);
+                }
+            }));
+            return tcs.Task;
         }
 
         /// <summary>
@@ -788,15 +1173,20 @@ namespace SmartHopper.Infrastructure.AIProviders
             Logger.For<ProviderManager>().Trace($"[ProviderManager] Provider {providerName} settings refreshed with updated values");
         }
 
-        // Implement Authenticode verification using X509Certificate
+        // Implement Authenticode verification: real WinVerifyTrust signature validation
+        // (the signature must cover the file bytes) plus publisher pinning against the
+        // host assembly's signer certificate. Windows-only; other platforms rely on the
+        // strong-name token and the SHA-256 hash manifest.
         private void VerifySignature(string filePath)
         {
-            // Authenticode: ensure the certificate matches the host assembly's certificate
-            // X509Certificate.CreateFromSignedFile is only supported on Windows
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 try
                 {
+                    var signatureStatus = AuthenticodeSignatureVerifier.Verify(filePath, out var rawStatus);
+                    if (signatureStatus is AuthenticodeSignatureStatus.Unsigned or AuthenticodeSignatureStatus.Invalid)
+                        throw new CryptographicException($"Authenticode signature verification failed for {Path.GetFileName(filePath)} (status {signatureStatus}, 0x{rawStatus:X8}).");
+
                     var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(filePath));
                     var baseCert = new X509Certificate2(X509Certificate.CreateFromSignedFile(
                         Assembly.GetExecutingAssembly().Location));

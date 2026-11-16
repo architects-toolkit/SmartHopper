@@ -1,137 +1,67 @@
 # Getting Started with SmartHopper
 
-SmartHopper is an AI-powered plugin for Grasshopper 3D that lets you integrate large language models directly into your parametric design workflows.
+SmartHopper is an open-source AI plugin for Grasshopper 3D (Rhino 8) that connects language, vision, audio, and knowledge models to your parametric workflows.
 
----
+> **Full user and developer documentation:** Visit **[docs.smarthopper.xyz](https://docs.smarthopper.xyz)** for step-by-step installation guides, provider setup walkthroughs, the visual Component Library, the AI Tools Library, and video tutorials.
 
-## Metadata
+## Two ways to work in SmartHopper
 
-| Property | Value |
-| --- | --- |
-| **Source Code** | `N/A` |
-| **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
-| **Documentation Maintainer** | Devin AI |
+### 1. The Canvas Assistant & AI Chat
 
-_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
+Click the **SmartHopper** button on the Grasshopper canvas toolbar (or drop an **AI Chat** component from `SmartHopper → A. AI`) to open an interactive chat assistant. It can read your selected components, explain or debug errors, search the McNeel and Ladybug forums, write Python or C# script components, and propose canvas edits through a review dialog with full `Ctrl+Z` undo.
 
----
+### 2. Composable Input → Output components
 
-## Why Read This?
-
-This guide introduces SmartHopper's capabilities and the basic patterns for using AI in your Grasshopper definitions. It covers the most common workflows so you can start building immediately.
-
-**You should read this if you:**
-
-- Are new to SmartHopper and want to understand what it can do
-- Want to learn the basic Input / Output workflow pattern
-- Need quick examples of common AI-assisted design tasks
-- Are choosing an AI provider and need to know what models support
-
----
-
-## End-User Guide
-
-### What Can SmartHopper Do?
-
-SmartHopper connects Grasshopper to AI providers like OpenAI, Anthropic, and Google Gemini. You can:
-
-- **Generate text** -- descriptions, code, analysis, summaries
-- **Analyze images** -- describe photos, extract information from drawings
-- **Convert speech** -- transcribe audio to text, generate speech from text
-- **Produce structured data** -- extract numbers, booleans, JSON from AI responses
-- **Work with files** -- convert PDFs, Word documents, and web pages into AI-ready content
-- **Use tools** -- let AI interact with your Grasshopper canvas (read/write components, toggle previews)
-
-### Quick Links
-
-#### Components
-
-- [Input Components](../Components/Input/index.md) -- wrap data for AI processing
-- [Output Components](../Components/Output/index.md) -- call AI and extract typed results
-- [AI Components](../Components/AI/index.md) -- model management and legacy monolithic components
-- [All Components](../Components/index.md) -- full component catalog
-
-#### Providers
-
-- [Provider Overview](../Providers/index.md) -- supported AI providers
-- [AI Capabilities](../Providers/AICapability.md) -- what each model can do
-
-#### Architecture
-
-- [Architecture Overview](../Architecture.md) -- how SmartHopper is built
-- [AI Call Pipeline](../Providers/AICall/index.md) -- how AI requests are processed
-
-### Common Workflows
-
-#### Text Generation
-
-Connect a prompt to an output component that calls the AI and extracts text:
+When you want AI inside a parametric data flow, connect any **Input** component (`SmartHopper → B. Input`) into any **Output** component (`SmartHopper → C. Output`):
 
 ```text
-[Text2AI] --> [AI2Text] --> [Text Panel]
-
+[Input component]  ──(Input >)──►  [Output component]  ──►  [Typed Grasshopper output]
+  (Text to AI,                       (AI to Text,
+   Image to AI,                       AI to Number,
+   File to AI…)                       AI to Boolean…)
 ```
 
-#### Image Analysis
+- **Input components** package Grasshopper values, images, audio, local files, web pages, forum posts, or system instructions into a single `Input >` wire. Multiple inputs wired into the same branch are combined into one AI request.
+- **Output components** call the selected AI provider and extract a typed Grasshopper result (text, list, number, integer, boolean, JSON, GhJSON, image, speech audio, or script code), plus per-branch JSON usage `Metrics`.
 
-Send an image to a vision-capable output component:
+For simple single-step tasks, SmartHopper also provides one-step convenience components in `I. Text & Lists`, `G. Media`, and `J. Script`.
+
+## Common component workflows
+
+### Text generation
 
 ```text
-[Img2AI] --> [AI2Text] --> [Text Panel]
-
+[Panel] ──► [Text to AI] ──► [AI to Text] ──► [Panel]
 ```
 
-#### Structured Data Extraction
-
-Get numbers, booleans, or JSON from AI:
+### Vision (image analysis)
 
 ```text
-[Text2AI] --> [AI2Number] --> [Addition Component]
-
+[Viewport To Image] ──► [Image to AI] ─┐
+[Panel: "Describe the massing"] ──► [Text to AI] ─┴──► [AI to Text] ──► [Panel]
 ```
 
-#### File Processing
-
-Convert documents to AI-ready content:
+### Extracting numbers or booleans for downstream components
 
 ```text
-[File2AI] --> [AI2Text] --> [Text Panel]
-
+[Text to AI] ──► [AI to Number] ──► [Addition / Series / Domain]
 ```
 
-### Choosing a Provider
-
-SmartHopper supports multiple AI providers. Each provider offers different models with different capabilities. See [AI Capabilities](../Providers/AICapability.md) to understand what each model supports.
-
-### Need Help?
-
-- Check the [component documentation](../Components/index.md) for detailed guides
-- Look at the **End-User Guide** section in any documentation file for user-focused instructions
-- Review [Architecture](../Architecture.md) for system-level understanding
-- Visit the [GitHub repository](https://github.com/architects-toolkit/SmartHopper) for issues and discussions
-
----
-
-## Developer Reference
-
-### Programmatic Flow
-
-Input components produce `AIInputPayload`; output components consume it and make the AI call. The actual C# API uses `AIInputPayload`, `AIRequestCall`, and the provider's `Call`/`Exec` methods. See [AI Call Pipeline](../Providers/AICall/index.md) and the provider docs for real programmatic examples.
-
----
-
-## Architecture & Design
-
-SmartHopper uses a composable **Input / Output** pattern:
+### Summarizing a local PDF or Office document
 
 ```text
-[Input Component]  -->  [Output Component]  -->  [Your Result]
- (prepare data)        (call AI & extract)
-
+[File Path] ──► [File to AI] ──► [AI to Text] ──► [Panel]
 ```
 
-1. **Input components** wrap your data (text, images, files, web content) into a unified `AIInputPayload`.
-2. **Output components** call the AI provider, then extract the specific result type you need (text, number, image, JSON, etc.). The provider and model are configured on the output component.
+## In-repo reference links
 
-This design decouples data preparation from AI invocation, allowing any input type to connect to any output type without requiring monolithic N*M component combinations.
+- [Components overview](../Components/index.md) — ribbon panels (`A. AI` through `K. Library`) and base class architecture
+  - [Input components (`B. Input`)](../Components/Input/index.md)
+  - [Output components (`C. Output`)](../Components/Output/index.md)
+  - [AI, Settings, Metrics & Convenience components](../Components/AI/index.md)
+  - [Canvas & GhJSON components (`D. GhJSON`)](../Components/Grasshopper/index.md)
+  - [Forums & Documents components (`E. Forums`, `F. Documents`)](../Components/Knowledge/index.md)
+  - [JSON components (`H. JSON`)](../Components/JSON/index.md)
+  - [Metrics components (`A. AI`)](../Components/Misc/index.md)
+- [Providers overview](../Providers/index.md) and [Model capabilities](../Providers/AICapability.md)
+- [Architecture overview](../Architecture.md) and [AICall pipeline](../Providers/AICall/index.md)

@@ -20,6 +20,11 @@ $repoRoot = Split-Path -Parent $hookDir
 
 $scriptPath = Join-Path $repoRoot 'tools' 'Update-InternalsVisibleTo.ps1'
 
+if (-not (Test-Path (Join-Path $repoRoot 'signing.snk'))) {
+    Write-Host "Skipping signing metadata refresh: no local signing.snk is present."
+    exit 0
+}
+
 if (Test-Path $scriptPath) {
     Write-Host "Running Update-InternalsVisibleTo.ps1..." -ForegroundColor Cyan
     & $scriptPath

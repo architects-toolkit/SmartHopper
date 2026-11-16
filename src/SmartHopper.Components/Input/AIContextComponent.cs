@@ -36,7 +36,7 @@ namespace SmartHopper.Components.Input
         /// Initializes a new instance of the <see cref="AIContextComponent"/> class.
         /// </summary>
         public AIContextComponent()
-            : base("AIContext", "AICtx", "Retrieve context from registered providers and output as AI Input Payload", "SmartHopper", "B. Input")
+            : base("AI Context", "AICtx", "Include live environment or document context (such as 'time', 'file', 'environment', 'selection', or 'viewport') in an AI request.", "SmartHopper", "B. Input")
         {
         }
 
@@ -46,16 +46,21 @@ namespace SmartHopper.Components.Input
         public override Guid ComponentGuid => new Guid("65B447B0-6DE7-48C5-97EA-52F6734FFB0A");
 
         /// <summary>
+        /// Gets the exposure level of this component in the ribbon.
+        /// </summary>
+        public override GH_Exposure Exposure => GH_Exposure.tertiary | GH_Exposure.obscure;
+
+        /// <summary>
         /// Gets the icon for this component.
         /// </summary>
-        protected override System.Drawing.Bitmap Icon => Resources.toaicontext;
+        protected override System.Drawing.Bitmap Icon => Resources.AIContext;
 
         /// <summary>
         /// Registers input parameters.
         /// </summary>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Provider ID", "ID", "The ID of the context provider to retrieve (e.g., 'time', 'file', 'rhino')", GH_ParamAccess.item);
+            pManager.AddTextParameter("Provider ID", "ID", "Context provider ID to include (e.g., 'time', 'file', 'environment', 'selection', 'viewport'). Use the Context Providers component to list all available IDs.", GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -63,8 +68,8 @@ namespace SmartHopper.Components.Input
         /// </summary>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "The context data as an AI Input Payload", GH_ParamAccess.item);
-            pManager.AddTextParameter("Display", "D", "Human-readable display of the context data", GH_ParamAccess.item);
+            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "Packaged context input ready to wire into any AI output component's 'Input >' parameter.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Display", "D", "Human-readable preview of the context key-value pairs.", GH_ParamAccess.item);
         }
 
         /// <summary>

@@ -51,15 +51,15 @@ namespace SmartHopper.Components.Input
 
         public override Guid ComponentGuid => new Guid("D9853750-B9ED-4955-95AA-F172F5ADCD84");
 
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Resources.McNeelTopic2AI;
 
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary | GH_Exposure.obscure;
 
         public McNeelTopic2AIComponent()
             : base(
                 "McNeel Topic to AI",
                 "McNeelTopic2AI",
-                "Retrieves a McNeel forum topic by ID from discourse.mcneel.com and wraps it into an AIInputPayload.",
+                "Fetch a topic (thread) by ID from the McNeel Discourse forum (discourse.mcneel.com) and package its posts to wire into any AI output component.",
                 "SmartHopper",
                 "B. Input")
         {
@@ -67,14 +67,14 @@ namespace SmartHopper.Components.Input
 
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddIntegerParameter("Topic ID", "T", "ID(s) of the forum topic(s) to retrieve from discourse.mcneel.com.", GH_ParamAccess.tree);
-            pManager.AddIntegerParameter("Max Posts", "M", "Optional maximum number of posts to retrieve (0 = all).", GH_ParamAccess.tree, 0);
+            pManager.AddIntegerParameter("Topic ID", "T", "Numeric ID(s) of the McNeel forum topic(s) to fetch.", GH_ParamAccess.tree);
+            pManager.AddIntegerParameter("Max Posts", "M", "Maximum number of posts to include from each topic (0 = all posts).", GH_ParamAccess.tree, 0);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "AIInputPayload(s) containing the retrieved topic content.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Topic JSON", "J", "Retrieved topic content as JSON.", GH_ParamAccess.tree);
+            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "Packaged forum topic content ready to wire into any AI output component's 'Input >' parameter.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Topic JSON", "J", "Fetched forum topic data in JSON format.", GH_ParamAccess.tree);
         }
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions

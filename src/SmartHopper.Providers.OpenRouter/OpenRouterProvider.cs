@@ -84,40 +84,35 @@ namespace SmartHopper.Providers.OpenRouter
         public override Image Icon => this.LoadIconFromResources(Properties.Resources.openrouter_icon);
 
         /// <inheritdoc/>
-        public override async Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        protected override async Task<AIRequestCall> PreCallCoreAsync(AIRequestCall outbound, CancellationToken cancellationToken = default)
         {
-            request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
+            await base.PreCallCoreAsync(outbound, cancellationToken).ConfigureAwait(false);
 
             // Normalize :batch aliases to the base model slug before any further processing.
-            if (request == null)
-            {
-                return request!;
-            }
-
-            request.Model = StripBatchSuffix(request.Model);
+            outbound.Model = StripBatchSuffix(outbound.Model);
 
             // Common settings
-            request.ContentType = "application/json";
-            request.Authentication = "bearer";
+            outbound.ContentType = "application/json";
+            outbound.Authentication = "bearer";
 
             // Required headers for OpenRouter usage attribution
-            request.Headers["X-Title"] = "SmartHopper";
-            request.Headers["Referer"] = "https://smarthopper.xyz";
+            outbound.Headers["X-Title"] = "SmartHopper";
+            outbound.Headers["Referer"] = "https://smarthopper.xyz";
 
             // Support models listing via GET
-            if (request.Endpoint == "/models")
+            if (outbound.Endpoint == "/models")
             {
-                request.HttpMethod = "GET";
-                request.RequestKind = AIRequestKind.Backoffice;
+                outbound.HttpMethod = "GET";
+                outbound.RequestKind = AIRequestKind.Backoffice;
             }
             else
             {
                 // Default to Chat Completions endpoint
-                request.HttpMethod = "POST";
-                request.Endpoint = "/chat/completions";
+                outbound.HttpMethod = "POST";
+                outbound.Endpoint = "/chat/completions";
             }
 
-            return request;
+            return outbound;
         }
 
         /// <inheritdoc/>
@@ -201,25 +196,106 @@ namespace SmartHopper.Providers.OpenRouter
                 ? dcToken?.ToString() ?? this.GetSetting<string>("DataCollection") ?? "deny"
                 : this.GetSetting<string>("DataCollection") ?? "deny";
 
+            var providerPrefs = new JObject
+            {
+                ["allow_fallbacks"] = allowFallbacks,
+                ["sort"] = sort,
+                ["data_collection"] = dataCollection,
+            };
+
+            // Provider routing lists (upstream provider slugs). Settings hold the default;
+            // per-request extras override them. Comma-separated strings are accepted.
+            var providerOrder = ResolveSlugList(p?.Extras, "provider_order", this.GetSetting<string>("ProviderOrder"));
+            if (providerOrder != null)
+            {
+                providerPrefs["order"] = providerOrder;
+            }
+
+            var providerOnly = ResolveSlugList(p?.Extras, "provider_only", this.GetSetting<string>("ProviderOnly"));
+            if (providerOnly != null)
+            {
+                providerPrefs["only"] = providerOnly;
+            }
+
+            var providerIgnore = ResolveSlugList(p?.Extras, "provider_ignore", this.GetSetting<string>("ProviderIgnore"));
+            if (providerIgnore != null)
+            {
+                providerPrefs["ignore"] = providerIgnore;
+            }
+
             var body = new JObject
             {
                 ["model"] = request.Model,
                 ["messages"] = messages,
                 ["max_tokens"] = maxTokens,
                 ["temperature"] = temperature,
-                ["provider"] = new JObject
-                {
-                    ["allow_fallbacks"] = allowFallbacks,
-                    ["sort"] = sort,
-                    ["data_collection"] = dataCollection,
-                },
+                ["provider"] = providerPrefs,
             };
+
+            // Unified reasoning control across heterogeneous backends:
+            //   reasoning_effort      -> reasoning.effort (low|medium|high)
+            //   reasoning_max_tokens  -> reasoning.max_tokens (int)
+            //   reasoning_exclude     -> reasoning.exclude (bool; strips reasoning from the response)
+            // OpenRouter rejects requests that carry both effort and max_tokens;
+            // effort takes precedence when both extras are supplied.
+            if (p?.Extras != null)
+            {
+                var reasoning = new JObject();
+                if (p.Extras.TryGetValue("reasoning_effort", out var reToken) && reToken != null)
+                {
+                    reasoning["effort"] = reToken.ToString();
+                }
+                else if (p.Extras.TryGetValue("reasoning_max_tokens", out var rmtToken) && rmtToken != null)
+                {
+                    reasoning["max_tokens"] = rmtToken.Value<int?>();
+                }
+
+                if (p.Extras.TryGetValue("reasoning_exclude", out var rexToken) && rexToken != null)
+                {
+                    reasoning["exclude"] = rexToken.Value<bool?>();
+                }
+
+                if (reasoning.Count > 0)
+                {
+                    body["reasoning"] = reasoning;
+                }
+            }
 
             // Request audio output when the task requires it (Text2Audio and similar):
             // chat completions needs modalities=["text","audio"] plus an audio voice/format config.
             if (request.Capability.HasFlag(AICapability.AudioOutput))
             {
                 OpenAICompatibleAudioCodec.ApplyAudioOutputParameters(body, p?.Extras);
+            }
+
+            // Image output goes through chat completions for OpenRouter image models:
+            // modalities declares image output and image_config carries the normalized
+            // size/aspect-ratio concepts for backends that honor them.
+            if (request.Capability.HasFlag(AICapability.ImageOutput))
+            {
+                body["modalities"] = new JArray { "image", "text" };
+
+                var imageInteraction = request.Body.Interactions.FirstOrDefault(i => i is AIInteractionImage) as AIInteractionImage;
+                if (imageInteraction != null)
+                {
+                    var imageConfig = new JObject();
+                    var ratio = ImageGenerationSpec.ResolveAspectRatio(imageInteraction.AspectRatio, imageInteraction.ImageSize);
+                    if (!string.IsNullOrWhiteSpace(ratio))
+                    {
+                        imageConfig["aspect_ratio"] = ratio;
+                    }
+
+                    var orSize = MapImageSizeTier(imageInteraction.ImageSize);
+                    if (!string.IsNullOrWhiteSpace(orSize))
+                    {
+                        imageConfig["image_size"] = orSize;
+                    }
+
+                    if (imageConfig.Count > 0)
+                    {
+                        body["image_config"] = imageConfig;
+                    }
+                }
             }
 
             // Apply seed, top_p, and other optional parameters from extras only
@@ -241,6 +317,10 @@ namespace SmartHopper.Providers.OpenRouter
                     body["min_p"] = minPToken.Value<double?>();
                 if (p.Extras.TryGetValue("top_a", out var topAToken) && topAToken != null)
                     body["top_a"] = topAToken.Value<double?>();
+                if (p.Extras.TryGetValue("negative_prompt", out var npToken) && npToken != null)
+                    body["negative_prompt"] = npToken.ToString();
+                if (p.Extras.TryGetValue("guidance_scale", out var gsToken) && gsToken != null)
+                    body["guidance_scale"] = gsToken.Value<double?>();
                 if (p.Extras.TryGetValue("logprobs", out var logprobsToken) && logprobsToken != null)
                     body["logprobs"] = logprobsToken.Value<bool?>();
                 if (p.Extras.TryGetValue("top_logprobs", out var topLogprobsToken) && topLogprobsToken != null)
@@ -356,6 +436,58 @@ namespace SmartHopper.Providers.OpenRouter
         /// <param name="model">The requested model name.</param>
         /// <param name="interactions">The merged interactions of the request body.</param>
         /// <returns>A stable hash-based session id, or an empty string when no seed content is available.</returns>
+        /// <summary>
+        /// Resolves an upstream-provider slug list from a per-request extra, falling back to
+        /// the provider setting. Accepts a JSON array or a comma-separated string.
+        /// </summary>
+        private static JArray? ResolveSlugList(IReadOnlyDictionary<string, JToken>? extras, string extraKey, string? settingValue)
+        {
+            if (extras != null && extras.TryGetValue(extraKey, out var token) && token != null)
+            {
+                if (token is JArray arr && arr.Count > 0)
+                {
+                    return new JArray(arr);
+                }
+
+                settingValue = token.ToString();
+            }
+
+            if (string.IsNullOrWhiteSpace(settingValue))
+            {
+                return null;
+            }
+
+            var slugs = settingValue
+                .Split(',')
+                .Select(s => s.Trim())
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToArray();
+
+            return slugs.Length > 0 ? new JArray(slugs.Cast<object>().ToArray()) : null;
+        }
+
+        /// <summary>
+        /// Maps the shared <c>WxH</c> or tier size to the OpenRouter <c>image_config.image_size</c>
+        /// vocabulary (<c>0.5K</c>, <c>1K</c>, <c>2K</c>, <c>4K</c>), snapping to the nearest tier by
+        /// longest-side pixels. Returns null when the size cannot be resolved.
+        /// </summary>
+        private static string? MapImageSizeTier(string? size)
+        {
+            var maxDim = ImageGenerationSpec.ResolveMaxDimension(size ?? string.Empty);
+            if (maxDim == null)
+            {
+                return null;
+            }
+
+            return maxDim.Value switch
+            {
+                <= 768 => "0.5K",
+                <= 1536 => "1K",
+                <= 3072 => "2K",
+                _ => "4K",
+            };
+        }
+
         private static string ComputeSessionId(string? model, IEnumerable<IAIInteraction> interactions)
         {
             try
@@ -626,10 +758,8 @@ namespace SmartHopper.Providers.OpenRouter
                     {
                         Provider = this.Name,
                         Model = response["model"]?.ToString(),
-                        InputTokensCached = metrics.InputTokensCached,
-                        InputTokensPrompt = metrics.InputTokensPrompt,
-                        OutputTokensGeneration = metrics.OutputTokensGeneration,
-                        OutputTokensReasoning = metrics.OutputTokensReasoning,
+                        Quantities = metrics.Quantities,
+                        ReportedCosts = metrics.ReportedCosts,
                         FinishReason = finishReason,
                     },
                 };
@@ -639,6 +769,12 @@ namespace SmartHopper.Providers.OpenRouter
                 if (audioInteraction != null)
                 {
                     interactions.Add(audioInteraction);
+                }
+
+                // Extract generated images (image-capable models emit message.images)
+                foreach (var imageInteraction in OpenAICompatibleImageCodec.ExtractImages(message))
+                {
+                    interactions.Add(imageInteraction);
                 }
 
                 // Extract tool calls if present
@@ -1025,8 +1161,9 @@ namespace SmartHopper.Providers.OpenRouter
                     Provider = this.Provider.Name,
                     Model = request.Model,
                     FinishReason = string.IsNullOrEmpty(finalFinishReason) ? "stop" : finalFinishReason,
-                    InputTokensPrompt = promptTokens,
-                    OutputTokensGeneration = completionTokens,
+                    Quantities = AIMetrics.QuantitiesOf(
+                        (AIQuantityKey.TextInput, AIPriceUnit.Token, promptTokens),
+                        (AIQuantityKey.TextOutput, AIPriceUnit.Token, completionTokens)),
                 };
 
                 // Align aggregate metrics finish reason as well
@@ -1167,6 +1304,61 @@ namespace SmartHopper.Providers.OpenRouter
                     "Enable Prompt Caching",
                     "Enables prompt caching optimizations: adds automatic cache_control for Anthropic models and a stable session_id for provider sticky routing so repeated requests stay on the same endpoint. OpenAI, DeepSeek, Grok, Groq, and Gemini 2.5 models cache automatically regardless of this setting.",
                     typeof(bool),
+                    null),
+
+                // Unified reasoning control across heterogeneous backends
+                new AIExtraDescriptor(
+                    "reasoning_effort",
+                    "Reasoning Effort",
+                    "Unified reasoning budget across backends: 'low', 'medium', or 'high'. Mutually exclusive with reasoning_max_tokens (effort wins when both are set).",
+                    typeof(string),
+                    null,
+                    new[] { "low", "medium", "high" }),
+                new AIExtraDescriptor(
+                    "reasoning_max_tokens",
+                    "Reasoning Max Tokens",
+                    "Raw reasoning-token budget. Mutually exclusive with reasoning_effort (effort wins when both are set).",
+                    typeof(int),
+                    null),
+                new AIExtraDescriptor(
+                    "reasoning_exclude",
+                    "Exclude Reasoning",
+                    "When true, the model still reasons internally but reasoning tokens are stripped from the response (cheaper, shorter output).",
+                    typeof(bool),
+                    null),
+
+                // Upstream provider routing (explicit slugs, comma-separated)
+                new AIExtraDescriptor(
+                    "provider_order",
+                    "Provider Order",
+                    "Comma-separated upstream provider slugs to try in order (e.g. 'google,anthropic'). Overrides the ProviderOrder setting for this request.",
+                    typeof(string),
+                    null),
+                new AIExtraDescriptor(
+                    "provider_only",
+                    "Provider Only",
+                    "Comma-separated upstream provider slugs allowed to serve this request. Overrides the ProviderOnly setting for this request.",
+                    typeof(string),
+                    null),
+                new AIExtraDescriptor(
+                    "provider_ignore",
+                    "Provider Ignore",
+                    "Comma-separated upstream provider slugs to exclude from routing. Overrides the ProviderIgnore setting for this request.",
+                    typeof(string),
+                    null),
+
+                // Image generation parameters
+                new AIExtraDescriptor(
+                    "negative_prompt",
+                    "Negative Prompt",
+                    "Describes what must NOT appear in a generated image (honored by image backends that support it).",
+                    typeof(string),
+                    null),
+                new AIExtraDescriptor(
+                    "guidance_scale",
+                    "Guidance Scale",
+                    "Diffusion guidance scale for image generation (higher = stricter prompt adherence, typical ~7.5).",
+                    typeof(double),
                     null),
             };
         }

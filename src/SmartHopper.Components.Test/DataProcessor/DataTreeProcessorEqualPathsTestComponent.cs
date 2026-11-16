@@ -50,7 +50,6 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Testing Data")
         {
             // We want the component to run when Run? toggles on, even if inputs did not change (they are internal)
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)

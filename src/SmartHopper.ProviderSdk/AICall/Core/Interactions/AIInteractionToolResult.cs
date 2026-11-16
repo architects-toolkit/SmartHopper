@@ -131,7 +131,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// <c>error</c> message field (consent rejections, validation failures) or
         /// an explicit <c>success: false</c> (synthetic fallback results).
         /// </summary>
-        private bool IsErrorResult()
+        internal bool IsErrorResult()
         {
             if (this.Result == null)
             {
@@ -162,36 +162,51 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Gets the raw markdown content for the merged call+result card: a
-        /// compact single-line "args → result" summary leads (the collapsed
-        /// bubble shows real content instead of only the first "{"), then the
-        /// pretty-printed arguments and result, then one markdown image per
-        /// attached <see cref="ToolResultImage"/>.
+        /// Gets the raw content for the merged call+result card: a one-line digest
+        /// (<c>name(params) → done|failed</c>) peeks out of the collapsed card, a
+        /// collapsible parameter table follows when the call carried structured
+        /// arguments, failures surface as a visible error callout, and the result
+        /// renders as colorized pretty JSON inside an open details block with a
+        /// "Copy raw" button carrying the compact wire payload in
+        /// <c>data-copy</c> (the chat script forwards it through the
+        /// <c>clipboard://</c> bridge). One markdown image per attached
+        /// <see cref="ToolResultImage"/> trails the card.
         /// </summary>
         public override string GetRawContentForRender()
         {
-            var argsCompact = this.Arguments != null && this.Arguments.HasValues
-                ? JsonConvert.SerializeObject(this.Arguments, Formatting.None)
-                : "{}";
+            var sb = new StringBuilder();
+            AppendCallDigestLine(sb, this.Name, this.Arguments, this.IsErrorResult() ? "failed" : "done");
 
-            string json;
+            if (NeedsStructuredArgs(this.Arguments))
+            {
+                AppendArgumentsDetails(sb, this.Arguments);
+            }
+
+            var error = this.Result?["error"]?.ToString();
+            if (!string.IsNullOrEmpty(error))
+            {
+                sb.Append("<div class=\"tool-error\">").Append(EncodeHtml(error)).Append("</div>");
+            }
+
             if (this.Result != null && this.Result.HasValues)
             {
                 var compact = JsonConvert.SerializeObject(this.Result, Formatting.None);
-                var indented = JsonConvert.SerializeObject(this.Result, Formatting.Indented);
-                json = $"``{argsCompact}`` → ``{compact}``\n\n```json\n{indented}\n```";
-            }
-            else
-            {
-                json = $"``{argsCompact}``";
+                sb.Append("<details class=\"tool-io tool-result\" open><summary>Result <span class=\"tool-size\">")
+                    .Append(FormatByteCount(compact.Length))
+                    .Append("</span></summary>")
+                    .Append("<div class=\"tool-io-bar\"><button type=\"button\" class=\"cui-copy-raw\" data-copy=\"")
+                    .Append(EncodeHtml(compact))
+                    .Append("\">Copy raw</button></div>")
+                    .Append("<pre><code class=\"language-json\">");
+                AppendJsonHtml(sb, this.Result, 0);
+                sb.Append("</code></pre></details>");
             }
 
             if (this.Images == null || this.Images.Count == 0)
             {
-                return json;
+                return sb.ToString();
             }
 
-            var sb = new StringBuilder(json);
             var label = string.IsNullOrWhiteSpace(this.Name) ? "Tool result image" : $"{this.Name} image";
             foreach (var image in this.Images)
             {
@@ -208,6 +223,43 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
             }
 
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// Gets the plain-text payload carried by the card's copy source: the
+        /// compact <c>args → result</c> summary followed by the fenced pretty
+        /// result document, preserving the readable copy semantics from before
+        /// the card moved to structured HTML.
+        /// </summary>
+        public override string GetCopyTextForRender()
+        {
+            var argsCompact = this.Arguments != null && this.Arguments.HasValues
+                ? JsonConvert.SerializeObject(this.Arguments, Formatting.None)
+                : "{}";
+
+            if (this.Result == null || !this.Result.HasValues)
+            {
+                return $"``{argsCompact}``";
+            }
+
+            var resultCompact = JsonConvert.SerializeObject(this.Result, Formatting.None);
+            var resultIndented = JsonConvert.SerializeObject(this.Result, Formatting.Indented);
+            return $"``{argsCompact}`` → ``{resultCompact}``\n\n```json\n{resultIndented}\n```";
+        }
+
+        /// <summary>
+        /// Formats a byte count for the result details header (B, KB, MB).
+        /// </summary>
+        private static string FormatByteCount(int bytes)
+        {
+            const int kb = 1024;
+            const int mb = 1024 * 1024;
+            if (bytes >= mb)
+            {
+                return $"{bytes / (double)mb:F1} MB";
+            }
+
+            return bytes >= kb ? $"{bytes / (double)kb:F1} KB" : $"{bytes} B";
         }
 
         /// <summary>

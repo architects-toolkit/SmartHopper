@@ -87,6 +87,18 @@ namespace SmartHopper.ProviderSdk.Logging
             patterns.Add(new Regex("\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b", options));
             replacements.Add("<email>");
 
+            // Single-label machine names in URL host position (e.g. 'nas-box',
+            // 'desktop-pc'): a bare host label always identifies a LAN device.
+            // 'localhost' stays readable — it names nothing — and userinfo is
+            // dropped so a lone 'user@' cannot survive the credential rule.
+            patterns.Add(new Regex("(?i)\\b((?:https?|wss?|ftp)://)(?:[^\\s:/?#@]+@)?(?!localhost\\b)" + HostLabelPattern + "(?=[:/?#\\s]|$)", options));
+            replacements.Add("$1<hostname>");
+
+            // Private-use DNS suffixes identify LAN machines in any context;
+            // these TLDs are reserved or never delegated publicly.
+            patterns.Add(new Regex("(?i)\\b" + HostLabelPattern + "(?:\\." + HostLabelPattern + ")*\\." + LanSuffixPattern + "\\b", options));
+            replacements.Add("<hostname>");
+
             // IPv4 addresses
             patterns.Add(new Regex("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b", options));
             replacements.Add("<ip>");
@@ -143,5 +155,9 @@ namespace SmartHopper.ProviderSdk.Logging
 
         private const string GhJsonSensitiveKeyPattern =
             "author|nickName|nick_name|description|pivot|text|code";
+
+        private const string HostLabelPattern = "[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?";
+
+        private const string LanSuffixPattern = "(?:local|lan|internal|intranet|corp|home|localdomain|private|arpa)";
     }
 }

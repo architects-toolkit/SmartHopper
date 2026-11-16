@@ -16,75 +16,160 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System.Collections.Generic;
 using SmartHopper.ProviderSdk.AIModels;
 
 namespace SmartHopper.ProviderSdk.AICall.Metrics
 {
     /// <summary>
     /// Centralized, provider-agnostic cost estimator for <see cref="AIMetrics"/>.
-    /// Uses per-model pricing from <see cref="AIModelCapabilityRegistry"/> and the
-    /// token buckets tracked by <see cref="AIMetrics"/>.
+    /// Joins each <see cref="AIPriceEntry"/> of the model's
+    /// <see cref="AIModelPricing"/> against the measured
+    /// <see cref="AIMetrics.Quantities"/> sharing its kind, converts the
+    /// measured unit to the billed unit, applies the pricing discount, and
+    /// accumulates the total under the pricing's currency — estimates never
+    /// mix currencies. Provider-billed amounts are not this class's business:
+    /// they live in <see cref="AIMetrics.ReportedCosts"/>.
     /// </summary>
     public static class AICostCalculator
     {
         /// <summary>
-        /// Calculates an estimated cost in USD for the supplied metrics.
+        /// Unit conversion factors into the billed unit. Only time units
+        /// convert; everything else (token, item, credit, …) is
+        /// non-convertible — a mismatch contributes zero, honestly.
+        /// </summary>
+        private static readonly Dictionary<(AIPriceUnit From, AIPriceUnit To), double> Conversions = new ()
+        {
+            [(AIPriceUnit.Second, AIPriceUnit.Minute)] = 1.0 / 60.0,
+            [(AIPriceUnit.Minute, AIPriceUnit.Second)] = 60.0,
+        };
+
+        /// <summary>
+        /// Calculates the estimated cost per currency for the supplied metrics.
         /// </summary>
         /// <param name="metrics">The metrics to estimate cost for.</param>
-        /// <returns>Estimated cost in USD. Returns <c>0</c> when pricing is unknown, free, negative, or no tokens are present.</returns>
-        public static decimal Calculate(AIMetrics metrics)
+        /// <returns>
+        /// Currency → estimated total. Empty when pricing is unknown, free,
+        /// negative, or no billable quantities are present.
+        /// </returns>
+        public static IReadOnlyDictionary<string, decimal> Calculate(AIMetrics metrics)
         {
+            var costs = new Dictionary<string, decimal>(System.StringComparer.Ordinal);
             if (metrics == null ||
                 string.IsNullOrEmpty(metrics.Provider) ||
                 string.IsNullOrEmpty(metrics.Model))
             {
-                return 0m;
+                return costs;
             }
 
             var capabilities = AIModelCapabilityRegistry.Instance?.GetCapabilities(metrics.Provider, metrics.Model);
             var pricing = capabilities?.Pricing;
-            if (pricing == null)
+            if (pricing?.Entries == null || pricing.Entries.Count == 0)
             {
-                return 0m;
+                return costs;
             }
 
-            decimal cost = 0m;
+            decimal total = 0m;
+            foreach (var entry in pricing.Entries)
+            {
+                if (entry == null || entry.Amount <= 0m)
+                {
+                    continue;
+                }
 
-            bool hasActualInput = metrics.InputTokens > 0;
-            if (hasActualInput)
-            {
-                cost += metrics.InputTokensPrompt * GetPositivePrice(pricing.TextInput);
-                cost += metrics.InputTokensCached * GetPositivePrice(pricing.CacheRead);
-                cost += metrics.InputTokensCacheWrite * GetPositivePrice(pricing.CacheWrite);
-            }
-            else if (metrics.EstimatedInputTokens > 0)
-            {
-                cost += metrics.EstimatedInputTokens * GetPositivePrice(pricing.TextInput);
-            }
-
-            bool hasActualOutput = metrics.OutputTokens > 0;
-            if (hasActualOutput)
-            {
-                cost += metrics.OutputTokensGeneration * GetPositivePrice(pricing.TextOutput);
-                cost += metrics.OutputTokensReasoning * GetPositivePrice(pricing.InternalReasoning);
-            }
-            else if (metrics.EstimatedOutputTokens > 0)
-            {
-                cost += metrics.EstimatedOutputTokens * GetPositivePrice(pricing.TextOutput);
+                var billed = BilledQuantity(metrics, entry);
+                if (billed > 0d)
+                {
+                    total += (decimal)billed * entry.Amount;
+                }
             }
 
-            return cost;
+            // Heuristic backstop: when the provider reported no usage at all on
+            // a text side, the client-side token estimate stands in for it —
+            // priced at the text rate, as before.
+            var hasActualInput = metrics.Quantity(AIQuantityKey.TextInput, AIPriceUnit.Token) > 0d
+                || metrics.Quantity(AIQuantityKey.CacheRead, AIPriceUnit.Token) > 0d
+                || metrics.Quantity(AIQuantityKey.CacheWrite, AIPriceUnit.Token) > 0d;
+            if (!hasActualInput)
+            {
+                var estimated = metrics.Quantity(AIQuantityKey.EstimatedTextInput, AIPriceUnit.Token);
+                var entry = pricing.Find(AIQuantityKey.TextInput);
+                if (estimated > 0d && entry != null && entry.Unit == AIPriceUnit.Token && entry.Amount > 0m)
+                {
+                    total += (decimal)estimated * entry.Amount;
+                }
+            }
+
+            var hasActualOutput = metrics.Quantity(AIQuantityKey.TextOutput, AIPriceUnit.Token) > 0d
+                || metrics.Quantity(AIQuantityKey.InternalReasoning, AIPriceUnit.Token) > 0d;
+            if (!hasActualOutput)
+            {
+                var estimated = metrics.Quantity(AIQuantityKey.EstimatedTextOutput, AIPriceUnit.Token);
+                var entry = pricing.Find(AIQuantityKey.TextOutput);
+                if (estimated > 0d && entry != null && entry.Unit == AIPriceUnit.Token && entry.Amount > 0m)
+                {
+                    total += (decimal)estimated * entry.Amount;
+                }
+            }
+
+            if (pricing.Discount.HasValue && pricing.Discount.Value > 0m)
+            {
+                total *= 1m - pricing.Discount.Value;
+            }
+
+            if (total > 0m && !string.IsNullOrEmpty(pricing.Currency))
+            {
+                costs[pricing.Currency] = total;
+            }
+
+            return costs;
         }
 
         /// <summary>
-        /// Returns the price when it is a positive value; otherwise returns <c>0</c>.
-        /// Negative or missing prices are treated as zero cost for that category.
+        /// Resolves how much of <paramref name="entry"/>'s kind was measured,
+        /// converted into the entry's billed unit. <c>request</c> entries bill
+        /// the call itself (one invocation per metrics record); every other
+        /// kind needs a measured quantity under <c>kind/&lt;unit&gt;</c> whose
+        /// unit converts to the billed one.
         /// </summary>
-        /// <param name="price">The optional price.</param>
-        /// <returns>A non-negative price value.</returns>
-        private static decimal GetPositivePrice(decimal? price)
+        private static double BilledQuantity(AIMetrics metrics, AIPriceEntry entry)
         {
-            return price.HasValue && price.Value > 0m ? price.Value : 0m;
+            if (entry.Kind == AIQuantityKey.Request)
+            {
+                return metrics.Quantities?.Count > 0 ? 1d : 0d;
+            }
+
+            if (metrics.Quantities == null)
+            {
+                return 0d;
+            }
+
+            var billed = 0d;
+            foreach (var kv in metrics.Quantities)
+            {
+                var sep = kv.Key.LastIndexOf('/');
+                if (sep <= 0 || !string.Equals(kv.Key.Substring(0, sep), entry.Kind, System.StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var measuredUnit = AIPriceEntry.ParseUnit(kv.Key.Substring(sep + 1));
+                if (measuredUnit == null || kv.Value <= 0d)
+                {
+                    continue;
+                }
+
+                if (measuredUnit.Value == entry.Unit)
+                {
+                    billed += kv.Value;
+                }
+                else if (Conversions.TryGetValue((measuredUnit.Value, entry.Unit), out var factor))
+                {
+                    billed += kv.Value * factor;
+                }
+            }
+
+            return billed;
         }
     }
 }

@@ -15,6 +15,7 @@ AI components that need the user to pick other Grasshopper objects on the canvas
 - Adds a *Select Components* item to the context menu.
 - `Write` / `Read` chain into `SelectingComponentCore` for GUID-based persistence on top of all the AI persistence (batch state, sentinels, hashes, outputs).
 - `RemovedFromDocument` unsubscribes the selection core from document events.
+- Overrides `InputsChanged()` to append the synthetic `WellKnownInputs.Selection` pseudo-input when the captured selection differs from the one the last run consumed (`SelectingSupport` fingerprints selected GUIDs; `OnEnteringProcessing` captures, `OnWorkerCompleted`/`OnTasksCancelDetected`/`OnEnteringError` commit). A re-selection debounces into `Processing` exactly like a parameter change.
 
 ## Public selection API
 

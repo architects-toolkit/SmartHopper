@@ -49,15 +49,15 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("F6634BBF-D0AA-473D-A528-2DC797A8B324");
 
-        protected override Bitmap Icon => Resources.toaidiscoursetopic;
+        protected override Bitmap Icon => Resources.DiscourseTopic2AI;
 
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary | GH_Exposure.obscure;
 
         public DiscourseTopic2AIComponent()
             : base(
                   "Discourse Topic to AI",
                   "DiscourseTopic2AI",
-                  "Retrieves a Discourse forum topic by ID and wraps it into an AIInputPayload for AI processing.",
+                  "Fetch a Discourse forum topic (thread) by ID from any Discourse forum and package its posts to wire into any AI output component.",
                   "SmartHopper",
                   "B. Input")
         {
@@ -65,15 +65,15 @@ namespace SmartHopper.Components.Input
 
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Base URL", "U", "Base URL(s) of the Discourse forum (e.g., https://discourse.example.com).", GH_ParamAccess.tree);
-            pManager.AddIntegerParameter("Topic ID", "T", "ID(s) of the forum topic(s) to retrieve.", GH_ParamAccess.tree);
-            pManager.AddIntegerParameter("Max Posts", "M", "Optional maximum number of posts to retrieve (0 = all).", GH_ParamAccess.tree, 0);
+            pManager.AddTextParameter("Base URL", "U", "Base URL of the Discourse forum (e.g., 'https://discourse.example.com').", GH_ParamAccess.tree);
+            pManager.AddIntegerParameter("Topic ID", "T", "Numeric ID(s) of the forum topic(s) to fetch.", GH_ParamAccess.tree);
+            pManager.AddIntegerParameter("Max Posts", "M", "Maximum number of posts to include from each topic (0 = all posts).", GH_ParamAccess.tree, 0);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "AIInputPayload(s) containing the retrieved topic content.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Topic JSON", "J", "Retrieved topic content as JSON.", GH_ParamAccess.tree);
+            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "Packaged forum topic content ready to wire into any AI output component's 'Input >' parameter.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Topic JSON", "J", "Fetched forum topic data in JSON format.", GH_ParamAccess.tree);
         }
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions

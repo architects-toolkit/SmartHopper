@@ -42,31 +42,33 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                   "Open GhPatch",
                   "OpenGhPatch",
-                  "Open a .ghpatch file from disk and return its content with validation output. Input files must have extension .ghpatch.",
+                  "Read a .ghpatch file from disk, validate its structure, and output the GhPatch document.",
                   "SmartHopper",
-                  "Grasshopper")
+                  "D. GhJSON")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("56AF5EE4-3847-49CD-A3D1-F1E12BF1C0B0");
 
         /// <inheritdoc/>
-        protected override System.Drawing.Bitmap Icon => null;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary | GH_Exposure.obscure;
+
+        /// <inheritdoc/>
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.OpenGhPatch;
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Path", "P", "Absolute file path to a .ghpatch file.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Path", "P", "Absolute path to a .ghpatch file on disk.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("GhPatch", "P", "GhPatch document content.", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("Valid", "V", "Whether the GhPatch document is valid.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Errors", "E", "List of validation errors.", GH_ParamAccess.list);
+            pManager.AddTextParameter("GhPatch", "P", "Loaded GhPatch document string.", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Valid", "V", "True if the loaded GhPatch document passed validation.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Errors", "E", "Validation errors found in the file, if any.", GH_ParamAccess.list);
         }
 
         /// <inheritdoc/>

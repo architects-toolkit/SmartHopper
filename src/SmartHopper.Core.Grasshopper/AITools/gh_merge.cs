@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using GhJSON.Core;
+using GhJSON.Core.SchemaModels;
 using GhJSON.Core.Serialization;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -72,6 +73,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Request = toolCall,
             };
 
+            var ghjsonReported = false;
             try
             {
                 // Local tool: skip metrics validation (provider/model/finish_reason not required)
@@ -90,7 +92,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var targetDoc = GhJson.FromJson(targetJson);
+                GhJsonDocument targetDoc;
+                try
+                {
+                    targetDoc = GhJson.FromJson(targetJson);
+                }
+                catch (Exception parseEx)
+                {
+                    ghjsonReported = true;
+                    throw;
+                }
+
                 targetDoc = GhJson.Fix(targetDoc).Document;
 
                 // Validate and parse source using GhJson facade
@@ -100,7 +112,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var sourceDoc = GhJson.FromJson(sourceJson);
+                GhJsonDocument sourceDoc;
+                try
+                {
+                    sourceDoc = GhJson.FromJson(sourceJson);
+                }
+                catch (Exception parseEx)
+                {
+                    ghjsonReported = true;
+                    throw;
+                }
+
                 sourceDoc = GhJson.Fix(sourceDoc).Document;
 
                 // Merge documents using GhJson façade
@@ -133,6 +155,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             catch (Exception ex)
             {
                 Logger.For<gh_merge>().Exception(ex, $"[gh_merge] Error: {ex.Message}");
+                if (!ghjsonReported)
+                {
+                }
+
                 output.CreateError(ex.Message);
                 return output;
             }

@@ -107,7 +107,7 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
                 .Build();
 
             var expected = (150m * 0.000001m) + (75m * 0.000004m);
-            Assert.Equal(expected, body.Metrics.EstimatedCost);
+            Assert.Equal(expected, body.Metrics.EstimatedCosts["USD"]);
         }
 
 #if NET7_WINDOWS

@@ -35,6 +35,7 @@ namespace SmartHopper.Infrastructure.Tests
     using SmartHopper.ProviderSdk.Streaming;
     using Xunit;
 
+    [Collection("ProviderSdk")]
     public class AdvancedConfigTests
     {
         private sealed class DummyProvider : IAIProvider
@@ -138,6 +139,8 @@ namespace SmartHopper.Infrastructure.Tests
                 };
                 return await Task.FromResult(list);
             }
+
+            public bool SupportsApiModels => true;
 
             public async Task<List<string>> RetrieveApiModels()
             {

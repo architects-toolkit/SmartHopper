@@ -29,8 +29,13 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 
 using SmartHopper.ProviderSdk.Logging;
@@ -40,9 +45,9 @@ namespace SmartHopper.Components.List
     {
         public override Guid ComponentGuid => new ("CD2E5F8A-94D4-48D7-8E68-8185341245D0");
 
-        protected override Bitmap Icon => Resources.listfilter;
+        protected override Bitmap Icon => Resources.AIListFilter;
 
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
@@ -70,21 +75,124 @@ namespace SmartHopper.Components.List
             : base(
                 "AI List Filter",
                 "AIListFilter",
-                "Filter, reorder, shuffle, repeat items or combine multiple tasks on lists of elements using natural language criteria.\nThis components takes the list as a whole. This means that each criterion will filter each full list.\nIf a tree structure is provided, criteria and lists will only match within the same branch paths.",
+                "Filter, sort, reorder, shuffle, repeat, or transform a list of items using natural-language criteria.\nProcesses each list (branch) as a whole. When data trees are provided, lists and criteria are matched by branch path.",
                 "SmartHopper",
-                "List")
+                "I. Text & Lists")
         {
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("List", "L", "REQUIRED List of items", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Criteria", "C", "REQUIRED Natural language prompt describing how to filter, reorder, shuffle, repeat items or combine multiple tasks on the list.", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("List", "L", "List of items to process.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Criteria", "C", "Natural-language instructions describing how to filter, sort, reorder, or transform the list.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Result", "R", "Result after processing the list", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Result", "R", "Processed list of items.", GH_ParamAccess.tree);
+        }
+
+        /// <summary>
+        /// Source list items per queued batch customId, captured while the worker
+        /// emits sentinels. Consumed by <see cref="OnBatchCompleted"/> to map the
+        /// model's index response back onto the unit's original items.
+        /// </summary>
+        private Dictionary<string, List<GH_String>> _batchListCache;
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Each queued call decodes to zero or more output items — the model returns
+        /// kept indices, which expand to the unit's filtered list at the sentinel's
+        /// branch. Uses <see cref="ProcessBatchResultsMany{T}"/> so multi-item unit
+        /// outputs replace their sentinel positionally inside the stored fragment.
+        /// </remarks>
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject>? results, IReadOnlyList<SHRuntimeMessage>? messages = null)
+        {
+            var sentinel = this.GetSentinelTree("Result");
+            if (results == null || sentinel == null) return;
+
+            // Decode with the provider that ran the batch — the live selection may
+            // have changed while it was in flight (mirrors ProcessBatchResultsCore).
+            var provider = ProviderManager.Instance.GetProvider(this.GetSubmittedProviderName());
+            if (provider == null) return;
+
+            var listCache = this._batchListCache;
+            this.ProcessBatchResultsMany<GH_String>(
+                "Result",
+                sentinel,
+                results,
+                (customId, resultBody) =>
+                {
+                    var interactions = provider.Decode(resultBody);
+                    var lastText = interactions
+                        ?.OfType<AIInteractionText>()
+                        .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+                    if (string.IsNullOrEmpty(lastText?.Content))
+                    {
+                        return new List<GH_String>();
+                    }
+
+                    var indices = AIResponseParser.ParseIndicesFromResponse(lastText.Content) ?? new List<int>();
+                    if (listCache == null || !listCache.TryGetValue(customId, out var sourceItems) || sourceItems == null)
+                    {
+                        return new List<GH_String>();
+                    }
+
+                    return indices
+                        .Where(idx => idx >= 0 && idx < sourceItems.Count)
+                        .Select(idx => new GH_String(sourceItems[idx]?.Value ?? string.Empty))
+                        .ToList();
+                },
+                messages);
+
+            this._batchListCache = null;
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Persists the source items behind each queued customId so an in-flight
+        /// batch resumed after save/reopen can still map returned indices onto the
+        /// original list — without it a valid index response would decode to an
+        /// empty output indistinguishable from a legitimate empty selection.
+        /// </remarks>
+        protected override JObject CaptureBatchDecodeContext()
+        {
+            var cache = this._batchListCache;
+            if (cache == null || cache.Count == 0)
+            {
+                return null;
+            }
+
+            var items = new JObject();
+            foreach (var kvp in cache)
+            {
+                items[kvp.Key] = new JArray(kvp.Value?.Select(s => s?.Value ?? string.Empty) ?? Enumerable.Empty<string>());
+            }
+
+            return new JObject { ["items"] = items };
+        }
+
+        /// <inheritdoc/>
+        protected override void RestoreBatchDecodeContext(JObject context)
+        {
+            if (context?["items"] is not JObject items)
+            {
+                return;
+            }
+
+            var restored = new Dictionary<string, List<GH_String>>(StringComparer.Ordinal);
+            foreach (var prop in items.Properties())
+            {
+                if (prop.Value is JArray arr)
+                {
+                    restored[prop.Name] = arr.Values<string>().Select(v => new GH_String(v)).ToList();
+                }
+            }
+
+            if (restored.Count > 0)
+            {
+                this._batchListCache = restored;
+            }
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -206,14 +314,14 @@ namespace SmartHopper.Components.List
                 int i = 0;
                 foreach (var criterion in normalizedCriteriaTree)
                 {
-                    Logger.For<AIListFilterWorker>().Error($"[ProcessData] Processing prompt {i + 1}/{normalizedCriteriaTree.Count}");
+                    Logger.For<AIListFilterWorker>().Trace($"[ProcessData] Processing prompt {i + 1}/{normalizedCriteriaTree.Count}");
                     var listToken = normalizedListTree[i];
                     var criterionValue = criterion?.Value;
 
                     // Skip entries where we do not have valid list JSON or criteria text
                     if (listToken == null || string.IsNullOrWhiteSpace(listToken.Value))
                     {
-                        Logger.For<AIListFilterWorker>().Error($"[ProcessData] Skipping index {i}: list JSON is null or empty");
+                        Logger.For<AIListFilterWorker>().Warning($"[ProcessData] Skipping index {i}: list JSON is null or empty");
                         i++;
                         continue;
                     }
@@ -225,9 +333,6 @@ namespace SmartHopper.Components.List
                         continue;
                     }
 
-                    Logger.For<AIListFilterWorker>().Trace($"[ProcessData] List: {listToken.Value}");
-                    Logger.For<AIListFilterWorker>().Trace($"[ProcessData] Criterion: {criterionValue}");
-
                     // Call the AI tool through the tool manager
                     var parameters = new JObject
                     {
@@ -236,11 +341,27 @@ namespace SmartHopper.Components.List
                         ["contextFilter"] = "-*",
                     };
 
-                    Logger.For<AIListFilterWorker>().Trace($"[ProcessData] Calling AI tool 'list_filter' with parameters: {parameters}");
+                    Logger.For<AIListFilterWorker>().Trace("[ProcessData] Calling AI tool 'list_filter'");
 
                     var toolResult = await parent.CallAIToolAsync(
                         "list_filter", parameters, cancellationToken)
                         .ConfigureAwait(false);
+
+                    // In batch mode, CallAIToolAsync returns a sentinel placeholder under "result".
+                    // Forward it so ReconstructOutputTree can replace it after the batch completes,
+                    // and cache the source list so OnBatchCompleted can map indices → items.
+                    var sentinel = toolResult?["result"]?.ToString();
+                    if (BatchSentinel.Is(sentinel))
+                    {
+                        outputs["Result"].Add(new GH_String(sentinel));
+                        if (BatchSentinel.TryExtract(sentinel, out var customId))
+                        {
+                            (parent._batchListCache ??= new Dictionary<string, List<GH_String>>())[customId] = branches["List"];
+                        }
+
+                        i++;
+                        continue;
+                    }
 
                     var indices = toolResult?["result"]?.ToObject<List<int>>() ?? new List<int>();
                     var filteredItems = indices
@@ -270,6 +391,7 @@ namespace SmartHopper.Components.List
                 }
 
                 this.parent.SetPersistentOutput("Result", value, DA);
+                this.parent.SetMetricsOutput(DA);
                 message = string.Empty;
             }
         }

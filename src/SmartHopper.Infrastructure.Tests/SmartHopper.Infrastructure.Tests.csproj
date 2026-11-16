@@ -54,6 +54,9 @@
   </PropertyGroup>
 
   <ItemGroup Condition="!$(TargetFramework.Contains('-windows'))">
+    <!-- Ship System.Drawing.Common so test doubles implementing IAIProvider.Icon can JIT;
+         the getters never touch GDI+, matching the ProviderSdk.Tests approach. -->
+    <PackageReference Update="System.Drawing.Common" ExcludeAssets="" />
     <!-- Prevent transitive WindowsDesktop framework references from propagating to testhost -->
     <FrameworkReference Remove="Microsoft.WindowsDesktop.App" />
     <FrameworkReference Remove="Microsoft.WindowsDesktop.App.WindowsForms" />

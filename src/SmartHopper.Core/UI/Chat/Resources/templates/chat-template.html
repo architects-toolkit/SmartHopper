@@ -4,7 +4,11 @@
     <meta charset='utf-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1'>
     <title>SmartHopper AI Chat</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' data: 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' data: 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src data: blob:; media-src data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self';">
+    <!-- Per-document bridge session token minted by the host; JS echoes it on
+         every sh:// / clipboard:// event so a foreign document cannot drive
+         the privileged host bridge. Never used for network access. -->
+    <meta name="sh-doc-token" content="{{shDocumentToken}}">
     <style type="text/css">
         {{cssChat}}
     </style>

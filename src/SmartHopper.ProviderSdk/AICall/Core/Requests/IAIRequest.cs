@@ -49,6 +49,15 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
         AICapability Capability { get; set; }
 
         /// <summary>
+        /// Gets or sets the semantic provenance label of the request — the tool name,
+        /// component tag, or call site that produced it (for example "gh_put",
+        /// "text2img", "badge_check"). Providers never mutate this value; it travels
+        /// with the request for attribution and diagnostics, and is unrelated to the
+        /// wire endpoint the provider resolves during preparation.
+        /// </summary>
+        string? Origin { get; set; }
+
+        /// <summary>
         /// Gets or sets the immutable request body.
         /// </summary>
         AIBody Body { get; set; }

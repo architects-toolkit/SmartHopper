@@ -20,10 +20,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Hosting;
 using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Settings;
 namespace SmartHopper.Infrastructure.AICall.Fallback
@@ -64,6 +64,35 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
         public static IReadOnlyList<IModalityFallback> GetRegisteredFallbacks() => RegisteredFallbacks;
 
         /// <summary>
+        /// Resolves a single conversion step — provider and model — for a fallback,
+        /// honoring provider pins, the fallback mode, and provider availability.
+        /// Unlike <see cref="Resolve"/>, this works for unregistered fallbacks (e.g. output
+        /// passthrough conversions such as TTS) and prefers the component's own model when
+        /// it already satisfies the conversion's capability.
+        /// </summary>
+        /// <param name="fallback">The conversion to run.</param>
+        /// <param name="componentProvider">The component's configured provider.</param>
+        /// <param name="componentModel">The component's configured model (preferred when capable).</param>
+        /// <param name="mode">The effective fallback mode.</param>
+        /// <returns>A resolved <see cref="FallbackStep"/>, or null when nothing can run it.</returns>
+        public FallbackStep ResolveStep(
+            IModalityFallback fallback,
+            string componentProvider,
+            string componentModel,
+            ModalityFallbackMode mode)
+        {
+            EnsureInitialized();
+            var settings = SmartHopperSettings.Load();
+            var pins = settings.FallbackProviderPins ?? new Dictionary<string, FallbackProviderPin>();
+
+            return TryResolveConversionTarget(
+                fallback, componentProvider, componentModel, mode, pins,
+                out var resolvedProvider, out var resolvedModel, out _)
+                ? new FallbackStep(fallback, resolvedProvider, resolvedModel)
+                : null;
+        }
+
+        /// <summary>
         /// Finds a chain that converts unsupported capabilities into supported ones.
         /// Returns null if no chain can cover all missing capabilities.
         /// </summary>
@@ -93,7 +122,27 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
             if (missing == AICapability.None) return null;
 
             var settings = SmartHopperSettings.Load();
-            var pins = settings.FallbackProviderPins ?? new Dictionary<string, FallbackProviderPin>();
+            return this.Resolve(providerName, modelName, required, mode, settings);
+        }
+
+        /// <summary>
+        /// Internal seam: resolve against an explicit settings snapshot so deterministic
+        /// tests never touch persisted user settings.
+        /// </summary>
+        internal FallbackChain Resolve(string providerName, string modelName, AICapability required, ModalityFallbackMode mode, SmartHopperSettings settings)
+        {
+            var modelCaps = AIModelCapabilityRegistry.Instance.GetCapabilities(providerName, modelName);
+            if (modelCaps != null && modelCaps.HasCapability(required))
+            {
+                return null; // model already supports everything
+            }
+
+            // Compute missing flags
+            var supported = modelCaps?.Capabilities ?? AICapability.None;
+            var missing = required & ~supported;
+            if (missing == AICapability.None) return null;
+
+            var pins = settings?.FallbackProviderPins ?? new Dictionary<string, FallbackProviderPin>();
             var steps = new List<FallbackStep>();
             bool usesAlt = false;
 
@@ -132,6 +181,87 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
             };
         }
 
+        /// <summary>
+        /// Resolves ONE conversion step for an explicit enrichment call. Unlike
+        /// <see cref="Resolve(string, string, AICapability, ModalityFallbackMode)"/>, this
+        /// is for caller-requested paid conversion: when the generic fallback mode is
+        /// Disabled, resolution still proceeds as ConfiguredProvider because the user
+        /// explicitly asked for AI conversion. A preferred provider is tried first; a
+        /// preferred model is used directly when the registry confirms the conversion
+        /// capability. Configured pins still apply.
+        /// </summary>
+        /// <param name="conversionCapability">The capability to convert FROM
+        /// (e.g. <see cref="AICapability.ImageInput"/>).</param>
+        /// <param name="preferredProvider">Preferred helper provider (tried first).</param>
+        /// <param name="preferredModel">Preferred helper model, used directly when the
+        /// registry confirms it can perform the conversion.</param>
+        /// <param name="mode">Active fallback mode; Disabled upgrades to ConfiguredProvider
+        /// for this explicit-requested conversion only.</param>
+        /// <returns>A single-step <see cref="FallbackChain"/>, or null when no permitted
+        /// helper can perform the conversion.</returns>
+        public FallbackChain ResolveConversion(
+            AICapability conversionCapability,
+            string preferredProvider,
+            string preferredModel,
+            ModalityFallbackMode mode)
+        {
+            return ResolveConversion(
+                conversionCapability, preferredProvider, preferredModel, mode,
+                SmartHopperSettings.Load());
+        }
+
+        /// <summary>
+        /// Internal test seam: resolve against a caller-supplied settings snapshot
+        /// instead of loading persisted user settings.
+        /// </summary>
+        internal FallbackChain ResolveConversion(
+            AICapability conversionCapability,
+            string preferredProvider,
+            string preferredModel,
+            ModalityFallbackMode mode,
+            SmartHopperSettings settings)
+        {
+            EnsureInitialized();
+
+            var effectiveMode = mode == ModalityFallbackMode.Disabled
+                ? ModalityFallbackMode.ConfiguredProvider
+                : mode;
+
+            var pins = settings?.FallbackProviderPins ?? new Dictionary<string, FallbackProviderPin>();
+
+            var fallback = FindFallbackForFlag(
+                conversionCapability, preferredProvider, effectiveMode, pins,
+                out var resolvedProvider, out var resolvedModel, out var isPinned);
+            if (fallback == null)
+            {
+                return null;
+            }
+
+            // The preferred model wins only when no explicit pin resolved — pins are
+            // authoritative and must not be overridden by a caller preference.
+            if (!isPinned && !string.IsNullOrWhiteSpace(preferredModel)
+                && !string.IsNullOrWhiteSpace(preferredProvider)
+                && AIModelCapabilityRegistry.Instance.ValidateCapabilities(
+                    preferredProvider, preferredModel, fallback.RequiresCapability))
+            {
+                resolvedProvider = preferredProvider;
+                resolvedModel = preferredModel;
+            }
+
+            if (string.IsNullOrWhiteSpace(resolvedModel))
+            {
+                return null;
+            }
+
+            var step = new FallbackStep(fallback, resolvedProvider, resolvedModel);
+            var effectiveCap = (conversionCapability & ~fallback.Handles) | fallback.ResultsIn;
+            return new FallbackChain(new List<FallbackStep> { step }, fallback.Description, effectiveCap)
+            {
+                UsesAltProvider = !string.Equals(
+                    resolvedProvider, preferredProvider, StringComparison.OrdinalIgnoreCase),
+            };
+        }
+
         private static IModalityFallback FindFallbackForFlag(
             AICapability flag,
             string componentProvider,
@@ -149,57 +279,148 @@ namespace SmartHopper.Infrastructure.AICall.Fallback
             {
                 if (fb.Handles != flag) continue;
 
-                // Check for a pin override
                 if (pins.TryGetValue(fb.Name, out var pin) && pin != null && !string.IsNullOrWhiteSpace(pin.Provider))
                 {
                     isPinned = true;
-                    if (!fb.IsAvailable(pin.Provider))
-                    {
-                        Logger.For<ModalityFallbackResolver>().Warning($"[FallbackResolver] Pinned provider '{pin.Provider}' cannot perform {fb.Name}");
-                        return null;
-                    }
+                }
 
-                    resolvedProvider = pin.Provider;
-                    resolvedModel = pin.Model
-                        ?? AIModelCapabilityRegistry.Instance.SelectBestModel(pin.Provider, null, fb.RequiresCapability);
+                if (TryResolveConversionTarget(
+                        fb, componentProvider, null, mode, pins,
+                        out resolvedProvider, out resolvedModel, out var pinFailed))
+                {
                     return fb;
                 }
 
-                // No pin — use automatic selection
-                if (mode == ModalityFallbackMode.ConfiguredProvider)
+                // A pin that targets an unavailable provider fails the flag outright —
+                // automatic selection must not silently override the user's pin.
+                if (pinFailed) return null;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Resolves the provider/model that should execute one conversion, honoring
+        /// pin overrides, the fallback mode, and provider availability. When the
+        /// component's provider is usable, <paramref name="componentModel"/> is preferred
+        /// over <see cref="AIModelCapabilityRegistry.SelectBestModel"/> when it already
+        /// satisfies the conversion's capability.
+        /// </summary>
+        /// <param name="fb">The conversion to run.</param>
+        /// <param name="componentProvider">The component's configured provider.</param>
+        /// <param name="componentModel">Preferred model, or null for automatic selection.</param>
+        /// <param name="mode">The effective fallback mode.</param>
+        /// <param name="pins">User-configured provider pins keyed by fallback name.</param>
+        /// <param name="resolvedProvider">The resolved provider.</param>
+        /// <param name="resolvedModel">The resolved model.</param>
+        /// <param name="pinFailed">True when a configured pin cannot run the conversion.</param>
+        private static bool TryResolveConversionTarget(
+            IModalityFallback fb,
+            string componentProvider,
+            string componentModel,
+            ModalityFallbackMode mode,
+            Dictionary<string, FallbackProviderPin> pins,
+            out string resolvedProvider,
+            out string resolvedModel,
+            out bool pinFailed)
+        {
+            resolvedProvider = null;
+            resolvedModel = null;
+            pinFailed = false;
+
+            // Pin override — a failed pin fails the conversion rather than falling back silently.
+            if (pins != null
+                && pins.TryGetValue(fb.Name, out var pin)
+                && pin != null
+                && !string.IsNullOrWhiteSpace(pin.Provider))
+            {
+                if (!fb.IsAvailable(pin.Provider))
                 {
-                    if (fb.IsAvailable(componentProvider))
-                    {
-                        resolvedProvider = componentProvider;
-                        resolvedModel = AIModelCapabilityRegistry.Instance.SelectBestModel(componentProvider, null, fb.RequiresCapability);
-                        return fb;
-                    }
+                    Logger.For<ModalityFallbackResolver>().Warning($"[FallbackResolver] Pinned provider '{pin.Provider}' cannot perform {fb.Name}");
+                    pinFailed = true;
+                    return false;
                 }
-                else if (mode == ModalityFallbackMode.AnyProvider)
+
+                resolvedProvider = pin.Provider;
+                if (!string.IsNullOrWhiteSpace(pin.Model))
                 {
-                    // Try the component's provider first
-                    if (fb.IsAvailable(componentProvider))
+                    // An explicit pin must itself confirm the conversion capability —
+                    // request model selection must never silently substitute another model.
+                    var pinCapabilities = AIModelCapabilityRegistry.Instance.GetCapabilities(pin.Provider, pin.Model);
+                    if (pinCapabilities == null || !pinCapabilities.HasCapability(fb.RequiresCapability))
                     {
-                        resolvedProvider = componentProvider;
-                        resolvedModel = AIModelCapabilityRegistry.Instance.SelectBestModel(componentProvider, null, fb.RequiresCapability);
-                        return fb;
+                        Logger.For<ModalityFallbackResolver>().Warning($"[FallbackResolver] Pinned model '{pin.Provider}' / '{pin.Model}' cannot perform {fb.Name} (requires {fb.RequiresCapability.ToDetailedString()})");
+                        pinFailed = true;
+                        return false;
                     }
 
-                    // Then try all configured providers
-                    foreach (var provider in ProviderManager.Instance.GetProviders())
+                    resolvedModel = pin.Model;
+                }
+                else
+                {
+                    resolvedModel = AIModelCapabilityRegistry.Instance.SelectBestModel(pin.Provider, null, fb.RequiresCapability);
+                }
+
+                return !string.IsNullOrWhiteSpace(resolvedModel);
+            }
+
+            if (mode == ModalityFallbackMode.Disabled)
+            {
+                // Passthrough conversions are the component's own function: "disabled" forbids
+                // substituting another provider or model, but the configured model may still run.
+                if (!string.IsNullOrWhiteSpace(componentProvider)
+                    && !string.IsNullOrWhiteSpace(componentModel)
+                    && ProviderSdkHost.ProviderRegistry.GetProvider(componentProvider)?.IsConfigured == true
+                    && AIModelCapabilityRegistry.Instance.ValidateCapabilities(componentProvider, componentModel, fb.RequiresCapability))
+                {
+                    resolvedProvider = componentProvider;
+                    resolvedModel = componentModel;
+                    return true;
+                }
+
+                return false;
+            }
+
+            // Component's provider first — preferred model when capable, best catalogued model otherwise.
+            if (fb.IsAvailable(componentProvider))
+            {
+                resolvedProvider = componentProvider;
+                resolvedModel = ResolveModel(componentProvider, componentModel, fb);
+                return !string.IsNullOrWhiteSpace(resolvedModel);
+            }
+
+            if (mode == ModalityFallbackMode.AnyProvider)
+            {
+                // Then try all configured providers
+                foreach (var provider in ProviderSdkHost.ProviderRegistry.GetProviders())
+                {
+                    if (string.Equals(provider.Name, componentProvider, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (fb.IsAvailable(provider.Name))
                     {
-                        if (string.Equals(provider.Name, componentProvider, StringComparison.OrdinalIgnoreCase)) continue;
-                        if (fb.IsAvailable(provider.Name))
-                        {
-                            resolvedProvider = provider.Name;
-                            resolvedModel = AIModelCapabilityRegistry.Instance.SelectBestModel(provider.Name, null, fb.RequiresCapability);
-                            return fb;
-                        }
+                        resolvedProvider = provider.Name;
+                        resolvedModel = AIModelCapabilityRegistry.Instance.SelectBestModel(provider.Name, null, fb.RequiresCapability);
+                        return !string.IsNullOrWhiteSpace(resolvedModel);
                     }
                 }
             }
 
-            return null;
+            return false;
+        }
+
+        /// <summary>
+        /// Picks the model for a conversion on a provider the fallback is available on:
+        /// the preferred (component) model when it satisfies the capability, else the
+        /// best catalogued model for it.
+        /// </summary>
+        private static string ResolveModel(string providerName, string preferredModel, IModalityFallback fb)
+        {
+            if (!string.IsNullOrWhiteSpace(preferredModel)
+                && AIModelCapabilityRegistry.Instance.ValidateCapabilities(providerName, preferredModel, fb.RequiresCapability))
+            {
+                return preferredModel;
+            }
+
+            return AIModelCapabilityRegistry.Instance.SelectBestModel(providerName, null, fb.RequiresCapability);
         }
 
         private static bool IsSingleBitFlag(AICapability flag)

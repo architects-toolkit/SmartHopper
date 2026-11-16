@@ -45,9 +45,9 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("A0F1B2C3-D4E5-4F6A-9B0C-1D2E3F4A5B6C");
 
-        protected override Bitmap Icon => Resources.discourseforumsearch;
+        protected override Bitmap Icon => Resources.DiscourseSearch;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary | GH_Exposure.obscure;
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
         {
@@ -60,23 +60,21 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "Discourse Search",
                   "DiscourseSearch",
-                  "Search for Discourse forum posts by query string in any Discourse instance.",
+                  "Search any Discourse forum by query and return matching posts as JSON.",
                   "SmartHopper",
-                  "Knowledge")
+                  "E. Forums")
         {
-            // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Base URL", "U", "REQUIRED Base URL of the Discourse forum (e.g., https://discourse.example.com).", GH_ParamAccess.item);
-            pManager.AddTextParameter("Query", "Q", "REQUIRED search query or queries for the Discourse forum.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Base URL", "U", "Base URL of the Discourse forum to search (e.g., 'https://discourse.example.com').", GH_ParamAccess.item);
+            pManager.AddTextParameter("Query", "Q", "Search query or keywords.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Discourse Posts", "P", "Tree of JSON objects, one per matching forum post.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Discourse Posts", "P", "Matching forum posts in JSON format (connect to Deconstruct Discourse Post or Discourse Post Open).", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)

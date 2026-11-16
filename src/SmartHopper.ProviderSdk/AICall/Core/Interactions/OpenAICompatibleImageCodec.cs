@@ -16,8 +16,11 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json.Linq;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
 
 namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 {
@@ -84,6 +87,69 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 ["role"] = "user",
                 ["content"] = parts,
             };
+        }
+
+        /// <summary>
+        /// Extracts generated images from an OpenAI-compatible response <c>message</c> object.
+        /// Image-capable chat models emit <c>message.images</c> as an array of
+        /// <c>{"type":"image_url","image_url":{"url":"..."}}</c> entries where the URL is
+        /// either a data URI (<c>data:&lt;mime&gt;;base64,&lt;data&gt;</c>) or a remote link.
+        /// </summary>
+        /// <param name="message">The response <c>message</c> JObject.</param>
+        /// <returns>One <see cref="AIInteractionImage"/> per decodable entry; empty when absent.</returns>
+        public static List<AIInteractionImage> ExtractImages(JObject message)
+        {
+            var results = new List<AIInteractionImage>();
+            if (!(message?["images"] is JArray images))
+            {
+                return results;
+            }
+
+            foreach (var entry in images.OfType<JObject>())
+            {
+                var url = entry["image_url"]?["url"]?.ToString() ?? entry["url"]?.ToString();
+                if (string.IsNullOrEmpty(url))
+                {
+                    continue;
+                }
+
+                if (TrySplitDataUri(url, out var mimeType, out var base64))
+                {
+                    results.Add(new AIInteractionImage { Agent = AIAgent.Assistant, ImageData = base64, MimeType = mimeType });
+                }
+                else if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
+                {
+                    results.Add(new AIInteractionImage { Agent = AIAgent.Assistant, ImageUrl = uri });
+                }
+            }
+
+            return results;
+        }
+
+        /// <summary>
+        /// Splits a <c>data:&lt;mime&gt;;base64,&lt;data&gt;</c> URI into its parts.
+        /// </summary>
+        private static bool TrySplitDataUri(string url, out string mimeType, out string base64)
+        {
+            mimeType = null;
+            base64 = null;
+            const string DataPrefix = "data:";
+            const string Base64Marker = ";base64,";
+
+            if (!url.StartsWith(DataPrefix, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var markerIndex = url.IndexOf(Base64Marker, StringComparison.Ordinal);
+            if (markerIndex < 0)
+            {
+                return false;
+            }
+
+            mimeType = url.Substring(DataPrefix.Length, markerIndex - DataPrefix.Length);
+            base64 = url.Substring(markerIndex + Base64Marker.Length);
+            return base64.Length > 0;
         }
     }
 }

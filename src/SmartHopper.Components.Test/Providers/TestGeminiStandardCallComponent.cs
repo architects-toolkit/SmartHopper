@@ -96,7 +96,7 @@ namespace SmartHopper.Components.Test.Providers
                     var builder = AIBodyBuilder.FromImmutable(call.Body);
                     builder.Add(new AIInteractionText
                     {
-                        Agent = AIAgent.Context,
+                        Agent = AIAgent.User,
                         Content = "Say 'test' in one word."
                     });
                     call.Body = builder.Build();
@@ -120,16 +120,19 @@ namespace SmartHopper.Components.Test.Providers
                     {
                         result = await provider.Call(call).ConfigureAwait(false);
 
-                        if (result != null && result.Body != null && result.Body.InteractionsCount > 0)
+                        var responseText = result?.Body?.Interactions?
+                            .OfType<AIInteractionText>()
+                            .FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.Content))
+                            ?.Content;
+
+                        if (!string.IsNullOrWhiteSpace(responseText))
                         {
                             callSuccess = true;
-                            var lastInteraction = result.Body.Interactions.LastOrDefault() as AIInteractionText;
-                            var responseText = lastInteraction?.Content ?? "No text response";
                             this._messages.Add(new GH_String($"API call successful: {responseText.Substring(0, Math.Min(50, responseText.Length))}..."));
                         }
                         else
                         {
-                            this._messages.Add(new GH_String("API call returned empty result"));
+                            this._messages.Add(new GH_String("API call returned no text interaction"));
                         }
                     }
                     catch (Exception ex)

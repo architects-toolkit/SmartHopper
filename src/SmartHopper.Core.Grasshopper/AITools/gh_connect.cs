@@ -166,10 +166,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // as no-op successes and never reach the review.
                 var stagedProposals = new List<CanvasConnectionReviewProposal>();
                 var noopConnections = new List<JObject>();
-                var filterTcs = new TaskCompletionSource<bool>();
-                Rhino.RhinoApp.InvokeOnUiThread(() =>
-                {
-                    try
+                await UiThreadMarshal.RunOnUiThreadAsync(
+                    () =>
                     {
                         foreach (var proposal in proposals)
                         {
@@ -190,15 +188,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             }
                         }
 
-                        filterTcs.SetResult(true);
-                    }
-                    catch (Exception ex)
-                    {
-                        filterTcs.SetException(ex);
-                    }
-                });
-                await filterTcs.Task
-                    .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
+                        return true;
+                    },
+                    toolCall.CancellationToken).ConfigureAwait(false);
 
                 var reviewSession = CanvasChangeReviewService.CreateConnectionSession(
                     this.toolName,
@@ -213,10 +205,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .Where(item => item.ComponentId.HasValue)
                     .Select(item => item.ComponentId!.Value)
                     .ToHashSet();
-                var connectTcs = new TaskCompletionSource<List<JObject>>();
-                Rhino.RhinoApp.InvokeOnUiThread(() =>
-                {
-                    try
+                var successfulConnections = await UiThreadMarshal.RunOnUiThreadAsync(
+                    () =>
                     {
                         toolCall.CancellationToken.ThrowIfCancellationRequested();
                         var successfulConnections = new List<JObject>();
@@ -260,20 +250,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                         if (successfulConnections.Count > 0)
                         {
-                            doc.NewSolution(false);
+                            // Defer the solve: the acknowledgement is owed once the
+                            // wires are committed, not after arbitrary downstream
+                            // computation finishes.
+                            doc.ScheduleSolution(5);
                             Instances.RedrawCanvas();
                         }
 
-                        connectTcs.SetResult(successfulConnections);
-                    }
-                    catch (Exception ex)
-                    {
-                        connectTcs.SetException(ex);
-                    }
-                });
-
-                var successfulConnections = await connectTcs.Task
-                    .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
+                        return successfulConnections;
+                    },
+                    toolCall.CancellationToken).ConfigureAwait(false);
                 var allSuccessful = noopConnections.Concat(successfulConnections).ToList();
 
                 var toolResult = new JObject

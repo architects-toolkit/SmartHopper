@@ -276,3 +276,5 @@ src/
 - [Provider System](./Providers/index.md) -- provider management
 - [Context System](./Context/index.md) -- context providers
 - [Agentic Copilot and Consent](./Architecture/agent-copilot.md) -- planning, tool surfaces, and invocation-scoped mutation review
+- [Multimodal Documents](./Architecture/multimodal-documents.md) -- document evidence, PDF rendering, and capability-aware request preparation
+- [Multimodal Implementation Review](./Architecture/multimodal-implementation-review.md) -- verification record and limitations for multimodal documents

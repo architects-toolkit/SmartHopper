@@ -1,6 +1,6 @@
 # JSON Components
 
-Pure-utility and AI-powered components for working with JSON in Grasshopper, under the `SmartHopper > JSON` category.
+Pure-utility and AI-powered components for working with JSON in Grasshopper, under the **`SmartHopper → H. JSON`** ribbon panel.
 
 ## Components
 
@@ -103,48 +103,3 @@ Supports both dot notation and bracket notation for accessing nested values:
 | `data.tags[1]` | Second element of `tags` array inside `data` |
 
 **Error Messages:** When a path fails to resolve, error messages clearly indicate the JSON path where the error occurred (e.g., `JSON Path: 'results[29].Effect' | Error: ...`), helping you quickly identify the problematic path.
-
-## Metadata
-
-- Source Code: See source repository.
-- Since Version: 2.0.0
-- Last Updated: 2026-07-21
-- Documentation Maintainer: Marc Roca Musach
-
----
-
-
-## Why Read This?
-
-This document provides details about index.
-
-
-## End-User Guide
-
-End-user guidance for index.
-
-
-## Developer Reference
-
-Example usage:
-
-`csharp
-// Placeholder example
-``r
-
-`csharp
-// Another placeholder example
-``r
-
-
-## Architecture & Design
-
-Architecture and design notes for index.
-
-```csharp
-// Example code for Developer Reference
-```
-
-```csharp
-// Additional example for Developer Reference
-```

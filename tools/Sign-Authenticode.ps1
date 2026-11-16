@@ -263,6 +263,8 @@ if ($Generate) {
         "SmartHopper.Components.dll",
         "SmartHopper.Infrastructure.dll",
         "SmartHopper.Menu.dll",
+        "SmartHopper.DocumentProcessing.dll",
+        "SmartHopper.DocumentRendering.dll",
         "SmartHopper.Providers.OpenAI.dll",
         "SmartHopper.Providers.MistralAI.dll",
         "SmartHopper.Providers.DeepSeek.dll",
@@ -270,7 +272,8 @@ if ($Generate) {
         "SmartHopper.Providers.Anthropic.dll",
         "SmartHopper.Providers.Gemini.dll",
         "SmartHopper.Providers.LocalAI.dll",
-        "SmartHopper.Providers.Ollama.dll"
+        "SmartHopper.Providers.Ollama.dll",
+        "SmartHopper.Providers.Test.dll"
     )
 
     # Test hook: allow non-SmartHopper assemblies when SMARTHOPPER_ALLOW_TEST_ASSEMBLY_SIGNING is set

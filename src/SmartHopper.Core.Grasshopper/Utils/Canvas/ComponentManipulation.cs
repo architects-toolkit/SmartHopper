@@ -21,7 +21,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using GhJSON.Core.SchemaModels;
 using GhJSON.Grasshopper;
@@ -134,6 +133,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
         /// <summary>
         /// Set lock state of a Grasshopper component by GUID.
+        /// The mutation and canvas redraw are marshalled to the UI thread so the method is
+        /// safe to call from AI-tool and MCP dispatcher threads.
         /// </summary>
         /// <param name="guid">GUID of the component.</param>
         /// <param name="locked">True to lock (disable), false to unlock (enable).</param>
@@ -141,38 +142,113 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         public static void SetComponentLock(Guid guid, bool locked, bool redraw = true)
         {
             Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] SetComponentLock: guid={guid}, locked={locked}");
-            var obj = CanvasAccess.FindInstance(guid);
-            Logger.Trace(typeof(ComponentManipulation).FullName, obj != null
-                ? $"[ComponentManipulation] Found object of type {obj.GetType().Name}"
-                : "[ComponentManipulation] Found null object");
-            if (obj is GH_Component component)
+            UiThreadMarshal.RunAndWait(() =>
             {
-                Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] Component.Locked={component.Locked}");
-                obj.RecordUndoEvent("[SH] Set Component Lock");
-                component.Locked = locked;
-                Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] New Locked={component.Locked}");
+                var obj = CanvasAccess.FindInstance(guid);
+                Logger.Trace(typeof(ComponentManipulation).FullName, obj != null
+                    ? $"[ComponentManipulation] Found object of type {obj.GetType().Name}"
+                    : "[ComponentManipulation] Found null object");
+                if (obj is GH_Component component)
+                {
+                    Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] Component.Locked={component.Locked}");
+                    obj.RecordUndoEvent("[SH] Set Component Lock");
+                    component.Locked = locked;
+                    Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] New Locked={component.Locked}");
+                    if (redraw)
+                    {
+                        Instances.RedrawCanvas();
+                        Logger.Trace(typeof(ComponentManipulation).FullName, "[ComponentManipulation] Canvas redrawn");
+                    }
+                }
+                else if (obj is IGH_Param param)
+                {
+                    Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] IGH_Param.Locked={param.Locked}");
+                    obj.RecordUndoEvent("[SH] Set Component Lock");
+                    param.Locked = locked;
+                    Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] New Locked={param.Locked}");
+                    if (redraw)
+                    {
+                        Instances.RedrawCanvas();
+                        Logger.Trace(typeof(ComponentManipulation).FullName, "[ComponentManipulation] Canvas redrawn");
+                    }
+                }
+                else
+                {
+                    Logger.Trace(typeof(ComponentManipulation).FullName, "[ComponentManipulation] Object is neither a GH_Component nor a GH_Param");
+                }
+            });
+        }
+
+        /// <summary>
+        /// Set lock state of multiple canvas objects by GUID in one UI-thread pass: a single
+        /// undo record and a single canvas redraw. Off-UI calls block until the UI thread
+        /// applies every change, so a failure on one target cannot abort the batch.
+        /// </summary>
+        /// <param name="guids">GUIDs of the components or parameters to lock/unlock.</param>
+        /// <param name="locked">True to lock (disable), false to unlock (enable).</param>
+        /// <param name="redraw">True to redraw canvas once after all changes.</param>
+        /// <returns>GUIDs whose lock state was applied.</returns>
+        public static List<Guid> SetComponentLocks(IEnumerable<Guid> guids, bool locked, bool redraw = true)
+        {
+            var updated = new List<Guid>();
+            UiThreadMarshal.RunAndWait(() =>
+            {
+                var doc = CanvasAccess.GetCurrentCanvas();
+                if (doc == null)
+                {
+                    return;
+                }
+
+                var targets = new List<IGH_DocumentObject>();
+                foreach (var guid in guids)
+                {
+                    var obj = CanvasAccess.FindInstance(guid);
+                    if (obj is GH_Component || obj is IGH_Param)
+                    {
+                        targets.Add(obj);
+                    }
+                    else
+                    {
+                        Logger.Trace(typeof(ComponentManipulation).FullName,
+                            $"[ComponentManipulation] SetComponentLocks: skipping {guid} ({(obj == null ? "not found" : $"unsupported type {obj.GetType().Name}")})");
+                    }
+                }
+
+                if (targets.Count == 0)
+                {
+                    return;
+                }
+
+                var undo = doc.UndoUtil.CreateGenericObjectEvent(
+                    locked ? "[SH] Lock Components" : "[SH] Unlock Components",
+                    targets[0]);
+                foreach (var obj in targets.Skip(1))
+                {
+                    obj.RecordUndoEvent(undo);
+                }
+
+                foreach (var obj in targets)
+                {
+                    if (obj is GH_Component component)
+                    {
+                        component.Locked = locked;
+                    }
+                    else if (obj is IGH_Param param)
+                    {
+                        param.Locked = locked;
+                    }
+
+                    updated.Add(obj.InstanceGuid);
+                }
+
+                doc.UndoUtil.RecordEvent(undo);
+
                 if (redraw)
                 {
                     Instances.RedrawCanvas();
-                    Logger.Trace(typeof(ComponentManipulation).FullName, "[ComponentManipulation] Canvas redrawn");
                 }
-            }
-            else if (obj is IGH_Param param)
-            {
-                Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] IGH_Param.Locked={param.Locked}");
-                obj.RecordUndoEvent("[SH] Set Component Lock");
-                param.Locked = locked;
-                Logger.Trace(typeof(ComponentManipulation).FullName, $"[ComponentManipulation] New Locked={param.Locked}");
-                if (redraw)
-                {
-                    Instances.RedrawCanvas();
-                    Logger.Trace(typeof(ComponentManipulation).FullName, "[ComponentManipulation] Canvas redrawn");
-                }
-            }
-            else
-            {
-                Logger.Trace(typeof(ComponentManipulation).FullName, "[ComponentManipulation] Object is neither a GH_Component nor a GH_Param");
-            }
+            });
+            return updated;
         }
 
         /// <summary>
@@ -192,7 +268,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
             try
             {
-                InvokeOnUiThreadAndWait(() =>
+                UiThreadMarshal.RunAndWait(() =>
                 {
                     var obj = CanvasAccess.FindInstance(guid);
                     if (obj == null)
@@ -231,7 +307,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             }
             catch (Exception ex)
             {
-                Logger.Exception(typeof(ComponentManipulation).FullName, ex, $"[ComponentManipulation] PulseObject failed for {guid}: {ex.Message}");
+                Debug.WriteLine($"[ComponentManipulation] PulseObject failed for {guid}: {ex.Message}");
                 return ObjectManipulationResult.Unsupported;
             }
 
@@ -250,7 +326,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             bool found = false;
             bool clicked = false;
 
-            InvokeOnUiThreadAndWait(() =>
+            UiThreadMarshal.RunAndWait(() =>
             {
                 var obj = CanvasAccess.FindInstance(guid);
                 if (obj == null)
@@ -322,91 +398,126 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// The document is never touched while a solution is in progress.
         /// </summary>
         /// <param name="guid">GUID of the target object.</param>
-        /// <param name="value">The value to apply.</param>
+        /// <param name="value">The value to apply; may be null when only switching panel mode.</param>
         /// <param name="paramName">Optional input parameter name, nickname, or zero-based index.</param>
+        /// <param name="panelMode">Optional panel emission mode: "item" emits the whole text as one item, "list" emits each line as a separate item. Only meaningful for panels.</param>
         /// <returns>Result code plus a human-readable detail message.</returns>
-        public static (ObjectManipulationResult result, string detail) SetObjectValue(Guid guid, JToken value, string? paramName = null)
+        public static (ObjectManipulationResult result, string detail) SetObjectValue(Guid guid, JToken? value, string? paramName = null, string? panelMode = null)
         {
             var result = ObjectManipulationResult.Failed;
             var detail = "Unknown failure";
 
             try
             {
-                InvokeOnUiThreadAndWait(() =>
+                UiThreadMarshal.RunAndWait(() =>
                 {
-                    var obj = CanvasAccess.FindInstance(guid);
-                    if (obj == null)
-                    {
-                        result = ObjectManipulationResult.NotFound;
-                        detail = $"No canvas object matches {guid}";
-                        return;
-                    }
-
-                    var doc = obj.OnPingDocument();
-                    if (doc != null && doc.SolutionDepth > 0)
-                    {
-                        result = ObjectManipulationResult.Busy;
-                        detail = "A Grasshopper solution is in progress; the value was not applied.";
-                        return;
-                    }
-
-                    // A named input parameter targets the component's persistent data.
-                    if (!string.IsNullOrWhiteSpace(paramName))
-                    {
-                        if (obj is not IGH_Component comp)
-                        {
-                            result = ObjectManipulationResult.Unsupported;
-                            detail = "The 'param' argument only applies to components.";
-                            return;
-                        }
-
-                        var target = ResolveInputParam(comp, paramName);
-                        if (target == null)
-                        {
-                            result = ObjectManipulationResult.NotFound;
-                            detail = $"Component '{comp.NickName}' has no input parameter matching '{paramName}'.";
-                            return;
-                        }
-
-                        result = ApplyValue(target, () => SetPersistentParamValue(target, value, out detail));
-                    }
-                    else if (!IsSupportedValueTarget(obj))
-                    {
-                        result = ObjectManipulationResult.Unsupported;
-                        detail = $"Object of type '{obj.GetType().Name}' does not accept a direct value.";
-                        return;
-                    }
-                    else
-                    {
-                        // Undo must capture the pre-change state, so record before applying.
-                        obj.RecordUndoEvent("[SH] Set Value");
-                        if (!TryApplyObjectValue(obj, value, out result, out detail))
-                        {
-                            return;
-                        }
-                    }
+                    (result, detail) = SetObjectValueOnUiThread(guid, value, paramName, panelMode, out var doc);
 
                     if (result == ObjectManipulationResult.Success)
                     {
-                        // Schedule the downstream re-solve through the normal expiration
-                        // path — always on the UI thread and only when no solve is running.
-                        if (obj is IGH_ActiveObject active)
-                        {
-                            active.ExpireSolution(true);
-                        }
-
-                        doc?.NewSolution(false);
+                        // Defer the downstream solve to a scheduled solution instead
+                        // of re-entering NewSolution inside a mutation turn (D12).
+                        doc?.ScheduleSolution(5);
                         Instances.RedrawCanvas();
                     }
                 });
             }
             catch (Exception ex)
             {
-                Logger.Exception(typeof(ComponentManipulation).FullName, ex, $"[ComponentManipulation] SetObjectValue failed for {guid}: {ex.Message}");
+                Debug.WriteLine($"[ComponentManipulation] SetObjectValue failed for {guid}: {ex.Message}");
                 return (ObjectManipulationResult.Failed, ex.Message);
             }
 
             return (result, detail);
+        }
+
+        /// <summary>
+        /// UI-thread core of <see cref="SetObjectValue"/>: applies the value and expires
+        /// the affected object but never requests a solution. Composite commits call
+        /// this inside their own UI turn and schedule one solve for the whole set.
+        /// </summary>
+        /// <param name="guid">GUID of the target object.</param>
+        /// <param name="value">The value to apply; may be null when only switching panel mode.</param>
+        /// <param name="paramName">Optional input parameter name, nickname, or zero-based index.</param>
+        /// <param name="panelMode">Optional panel emission mode.</param>
+        /// <param name="doc">The owning document, when found.</param>
+        /// <returns>Result code plus a human-readable detail message.</returns>
+        internal static (ObjectManipulationResult result, string detail) SetObjectValueOnUiThread(
+            Guid guid,
+            JToken? value,
+            string? paramName,
+            string? panelMode,
+            out GH_Document? doc)
+        {
+            var result = ObjectManipulationResult.Failed;
+            var detail = "Unknown failure";
+            doc = null;
+
+            {
+                var obj = CanvasAccess.FindInstance(guid);
+                if (obj == null)
+                {
+                    return (ObjectManipulationResult.NotFound, $"No canvas object matches {guid}");
+                }
+
+                doc = obj.OnPingDocument();
+                if (doc != null && doc.SolutionDepth > 0)
+                {
+                    return (ObjectManipulationResult.Busy, "A Grasshopper solution is in progress; the value was not applied.");
+                }
+
+                if (!string.IsNullOrEmpty(panelMode) && obj is not GH_Panel)
+                {
+                    return (ObjectManipulationResult.Unsupported, "The 'panelMode' argument only applies to panels.");
+                }
+
+                if (!string.IsNullOrEmpty(panelMode)
+                    && !string.Equals(panelMode, "item", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(panelMode, "list", StringComparison.OrdinalIgnoreCase))
+                {
+                    return (ObjectManipulationResult.Failed, $"Invalid 'panelMode': '{panelMode}'. Expected 'item' or 'list'.");
+                }
+
+                // A named input parameter targets the component's persistent data.
+                if (!string.IsNullOrWhiteSpace(paramName))
+                {
+                    if (obj is not IGH_Component comp)
+                    {
+                        return (ObjectManipulationResult.Unsupported, "The 'param' argument only applies to components.");
+                    }
+
+                    var target = ResolveInputParam(comp, paramName);
+                    if (target == null)
+                    {
+                        return (ObjectManipulationResult.NotFound, $"Component '{comp.NickName}' has no input parameter matching '{paramName}'.");
+                    }
+
+                    result = ApplyValue(target, () => SetPersistentParamValue(target, value, out detail));
+                }
+                else if (!IsSupportedValueTarget(obj))
+                {
+                    return (ObjectManipulationResult.Unsupported, $"Object of type '{obj.GetType().Name}' does not accept a direct value.");
+                }
+                else
+                {
+                    // Undo must capture the pre-change state, so record before applying.
+                    obj.RecordUndoEvent("[SH] Set Value");
+                    if (!TryApplyObjectValue(obj, value, panelMode, out result, out detail))
+                    {
+                        return (result, detail);
+                    }
+                }
+
+                if (result == ObjectManipulationResult.Success && obj is IGH_ActiveObject active)
+                {
+                    // Expire the affected object; the caller owns the actual solve
+                    // (standalone: synchronous NewSolution; composite: one scheduled
+                    // solve shared by the whole change set).
+                    active.ExpireSolution(true);
+                }
+
+                return (result, detail);
+            }
         }
 
         /// <summary>
@@ -430,14 +541,38 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// Dispatches the value application to the concrete object type. Returns false
         /// when nothing was applied (result/detail are populated either way).
         /// </summary>
-        private static bool TryApplyObjectValue(IGH_DocumentObject obj, JToken value, out ObjectManipulationResult result, out string detail)
+        private static bool TryApplyObjectValue(IGH_DocumentObject obj, JToken? value, string? panelMode, out ObjectManipulationResult result, out string detail)
         {
             switch (obj)
             {
                 case GH_Panel panel:
-                    panel.UserText = value?.ToString() ?? string.Empty;
+                    var hasText = value != null && value.Type != JTokenType.Null;
+                    if (!hasText && string.IsNullOrEmpty(panelMode))
+                    {
+                        result = ObjectManipulationResult.Failed;
+                        detail = "Nothing to apply: supply 'value' and/or 'panelMode'.";
+                        return false;
+                    }
+
+                    // GH semantics: Multiline=true emits the whole text as one item
+                    // ("item"); unchecked emits each line as a separate item ("list").
+                    if (!string.IsNullOrEmpty(panelMode))
+                    {
+                        panel.Properties.Multiline = string.Equals(panelMode, "item", StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    if (hasText)
+                    {
+                        panel.UserText = value.ToString();
+                    }
+
                     result = ObjectManipulationResult.Success;
-                    detail = $"Set panel text on '{panel.NickName}'";
+                    detail = (hasText, !string.IsNullOrEmpty(panelMode)) switch
+                    {
+                        (true, true) => $"Set panel text and panelMode={panelMode} on '{panel.NickName}'",
+                        (true, false) => $"Set panel text on '{panel.NickName}'",
+                        _ => $"Set panelMode={panelMode} on '{panel.NickName}'",
+                    };
                     return true;
 
                 case GH_Scribble scribble:
@@ -519,7 +654,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// through <see cref="GhJsonGrasshopper.ApplyParamData"/>, which owns the
         /// <c>GH_PersistentParam&lt;T&gt;</c>/<c>GH_Structure&lt;T&gt;</c> recipe.
         /// </summary>
-        private static bool SetPersistentParamValue(IGH_Param param, JToken value, out string detail)
+        private static bool SetPersistentParamValue(IGH_Param param, JToken? value, out string detail)
         {
             var settings = new GhJsonParameterSettings
             {
@@ -548,7 +683,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// registered primitive serializers with a <c>text:</c> fallback — the same
         /// conversion the GhJSON deserializer applies on the way in.
         /// </summary>
-        private static string ToSerializedDataValue(JToken value)
+        private static string ToSerializedDataValue(JToken? value)
         {
             object? primitive = value?.Type switch
             {
@@ -633,7 +768,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             }
             catch (Exception ex)
             {
-                Logger.Exception(typeof(ComponentManipulation).FullName, ex, $"[ComponentManipulation] Numeric conversion failed: {ex.Message}");
+                Debug.WriteLine($"[ComponentManipulation] Numeric conversion failed: {ex.Message}");
             }
 
             result = 0m;
@@ -656,48 +791,5 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             return RectangleF.Empty;
         }
 
-        /// <summary>
-        /// Queues <paramref name="action"/> on the Rhino UI thread and blocks until it
-        /// returns (or 30 seconds elapse). If we are already on the UI thread the action runs inline.
-        /// </summary>
-        private static void InvokeOnUiThreadAndWait(Action action)
-        {
-            if (global::Rhino.RhinoApp.InvokeRequired == false)
-            {
-                action();
-                return;
-            }
-
-            Exception? captured = null;
-            using var done = new ManualResetEventSlim(false);
-
-            global::Rhino.RhinoApp.InvokeOnUiThread(new Action(() =>
-            {
-                try
-                {
-                    action();
-                }
-                catch (Exception ex)
-                {
-                    captured = ex;
-                }
-                finally
-                {
-                    done.Set();
-                }
-            }));
-
-            if (!done.Wait(TimeSpan.FromSeconds(30)))
-            {
-                throw new TimeoutException(
-                    "Grasshopper UI thread did not process the button click within 30 s.");
-            }
-
-            if (captured != null)
-            {
-                throw new InvalidOperationException(
-                    "Button click on the Grasshopper UI thread failed.", captured);
-            }
-        }
     }
 }

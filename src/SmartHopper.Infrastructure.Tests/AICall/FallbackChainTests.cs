@@ -22,6 +22,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
     using System.Threading;
     using System.Threading.Tasks;
     using SmartHopper.Infrastructure.AICall.Fallback;
+    using SmartHopper.ProviderSdk.AICall.Core;
     using SmartHopper.ProviderSdk.AICall.Core.Interactions;
     using SmartHopper.ProviderSdk.AIModels;
     using Xunit;
@@ -53,7 +54,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
 
             public bool IsAvailable(string providerName) => true;
 
-            public Task<ModalityFallbackResult> ApplyAsync(AIBody body, string providerName, string modelName, CancellationToken ct)
+            public Task<ModalityFallbackResult> ApplyAsync(AIBody body, string providerName, string modelName, CancellationToken ct, AIRequestParameters requestParameters = null, ModalityFallbackContext context = null)
             {
                 this.RecordedProvider = providerName;
                 this.RecordedModel = modelName;

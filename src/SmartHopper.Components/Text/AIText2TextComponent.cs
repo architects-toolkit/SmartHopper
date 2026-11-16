@@ -44,7 +44,7 @@ namespace SmartHopper.Components.Text
     {
         public override Guid ComponentGuid => new ("EB073C7A-A500-4265-A45B-B1BFB38BA58E");
 
-        protected override Bitmap Icon => Resources.textgenerate;
+        protected override Bitmap Icon => Resources.AIText2Text;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
@@ -80,14 +80,14 @@ namespace SmartHopper.Components.Text
             : base(
                 "AI Text To Text",
                 "AIText2Text",
-                "Generate text from natural language instructions. You can also use this component to modify or rephrase a text.\n\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
+                "Generate, rewrite, summarize, or translate text from natural-language prompts using AI.\nWhen data trees are provided, prompts and instructions are matched by branch path.",
                 "SmartHopper",
-                "Text")
+                "I. Text & Lists")
         {
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject>? results, IReadOnlyList<SHRuntimeMessage>? messages = null)
         {
             var sentinel = this.GetSentinelTree("Result");
             if (results == null || sentinel == null) return;
@@ -99,7 +99,9 @@ namespace SmartHopper.Components.Text
                 results,
                 (customId, resultBody) =>
                 {
-                    var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
+                    // Decode with the provider that ran the batch — the live
+                    // selection may have changed while it was in flight.
+                    var provider = ProviderManager.Instance.GetProvider(this.GetSubmittedProviderName());
                     if (provider == null) return new GH_String(string.Empty);
 
                     var interactions = provider.Decode(resultBody);
@@ -114,13 +116,13 @@ namespace SmartHopper.Components.Text
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Prompt", "P", "REQUIRED The user's prompt", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Instructions", "I", "Optionally, specify what the AI should do when receiving the prompt", GH_ParamAccess.tree, string.Empty);
+            pManager.AddTextParameter("Prompt", "P", "Input text or prompt to send to the AI.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Instructions", "I", "Optional system instructions telling the AI how to process or respond to the prompt.", GH_ParamAccess.tree, string.Empty);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Result", "R", "The AI's response", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Result", "R", "AI-generated text response.", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)

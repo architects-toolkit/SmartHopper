@@ -9,7 +9,7 @@ Structural AI canvas changes are staged as a visual proposal on the actual Grass
 | Property | Value |
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Core.Grasshopper/Utils/Canvas/` |
-| **Since Version** | 2.1.0 |
+| **Since Version** | 2.0.0 |
 | **Last Updated** | 2026-09-21 |
 | **Documentation Maintainer** | Devin AI |
 
@@ -179,6 +179,7 @@ The shared review flow currently gates:
 - `gh_remove` and `gh_clear` removals
 - `gh_connect` and `gh_disconnect` wire changes
 - `gh_move` target positions
+- `gh_tidy_up`/`gh_tidy_up_selected` layout moves
 - `gh_group` and `gh_group_selected` group creation
 
 Runtime actions such as button clicks and script execution are not represented as structural diffs. They retain their existing execution semantics.
@@ -190,7 +191,9 @@ Runtime actions such as button clicks and script execution are not represented a
 - Proposed-component ghosts use real bounds: components without a live canvas instance are instantiated off-document at review time (`PopulateProposedBounds` in `CanvasChangeReviewService`) and their `Attributes.Bounds` are stored on the session; live components reuse their current bounds translated to the proposed pivot. A fixed-size estimate centered on the pivot remains only as a fallback when neither is available.
 - Proposals without pivots use GhJSON dependency-graph layout for preview; Grasshopper-aware final layout may differ slightly.
 - Non-edit `gh_put` can auto-offset the accepted network to avoid live objects, so its final global offset can differ from the proposal coordinates. Documents that update existing objects (matching `instanceGuid`) skip auto-offset by default so updated objects keep their position.
-- Specialized structural tools (`gh_tidy_up`, `gh_smart_connect`, preview/lock changes, parameter modifiers) still use their existing execution paths and can adopt the same contracts later.
+- The dialog is created on the Eto dispatcher (`Application.Instance.AsyncInvoke` with a `RhinoApp.InvokeOnUiThread` fallback when no Eto application is attached): creating the Eto `Form` on a thread the dispatcher does not pump renders a blank, dead window the user cannot approve. For the same reason, the cancellation path always marshals `dialog.Close()` through the Eto dispatcher — a timed-out or cancelled review can never leave a stale approval window or hold the mutation lock past its deadline.
+- `CanvasChangeReviewSession.SetAccepted`/`SetAllAccepted` legitimately run on tool threads (the consent pipeline applies the decision after the dialog task completes). Subscribers such as the dialog's `SelectionChanged` handler and `CanvasChangePreviewOverlay` must therefore marshal UI access themselves rather than assuming the raising thread is the UI thread.
+- Specialized structural tools (`gh_smart_connect`, preview/lock changes, parameter modifiers) still use their existing execution paths and can adopt the same contracts later.
 
 ### Related Documentation
 

@@ -49,11 +49,13 @@ namespace SmartHopper.Components.Img
             string nickname,
             string description,
             string toolName)
-            : base(name, nickname, description, "SmartHopper", "Img")
+            : base(name, nickname, description, "SmartHopper", "G. Media")
         {
             this.toolName = toolName;
-            this.RunOnlyOnInputChanges = false;
         }
+
+        /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -64,7 +66,7 @@ namespace SmartHopper.Components.Img
                 new VersatileImageParameter(),
                 "Image",
                 "I",
-                "Captured PNG as a persistent VersatileImage.",
+                "Captured screenshot image (connect to Image Viewer or Image to AI).",
                 GH_ParamAccess.item);
             pManager.AddIntegerParameter("Width", "W", "Captured image width in pixels.", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Height", "H", "Captured image height in pixels.", GH_ParamAccess.item);

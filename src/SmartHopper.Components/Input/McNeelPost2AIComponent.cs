@@ -51,15 +51,15 @@ namespace SmartHopper.Components.Input
 
         public override Guid ComponentGuid => new Guid("97F392F2-B116-42E1-A937-D6143BECEC80");
 
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Resources.McNeelPost2AI;
 
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary | GH_Exposure.obscure;
 
         public McNeelPost2AIComponent()
             : base(
                 "McNeel Post to AI",
                 "McNeelPost2AI",
-                "Retrieves a McNeel forum post by ID from discourse.mcneel.com and wraps it into an AIInputPayload.",
+                "Fetch a post by ID from the McNeel Discourse forum (discourse.mcneel.com) and package it to wire into any AI output component.",
                 "SmartHopper",
                 "B. Input")
         {
@@ -67,13 +67,13 @@ namespace SmartHopper.Components.Input
 
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddIntegerParameter("Post ID", "P", "ID(s) of the forum post(s) to retrieve from discourse.mcneel.com.", GH_ParamAccess.tree);
+            pManager.AddIntegerParameter("Post ID", "P", "Numeric ID(s) of the McNeel forum post(s) to fetch.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "AIInputPayload(s) containing the retrieved post content.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Post JSON", "J", "Retrieved post content as JSON.", GH_ParamAccess.tree);
+            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "Packaged forum post content ready to wire into any AI output component's 'Input >' parameter.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Post JSON", "J", "Fetched forum post data in JSON format.", GH_ParamAccess.tree);
         }
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions

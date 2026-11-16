@@ -47,40 +47,6 @@ namespace SmartHopper.ProviderSdk.Logging
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Strips file paths and line numbers from a stack trace, keeping only the
-        /// fully-qualified frame names, before it can reach disk or leave this machine.
-        /// </summary>
-        /// <param name="stackTrace">The raw stack trace, may be null.</param>
-        /// <returns>The normalized stack trace, or null when the input is empty.</returns>
-        public static string? NormalizeStackTrace(string? stackTrace)
-        {
-            if (string.IsNullOrWhiteSpace(stackTrace))
-            {
-                return null;
-            }
-
-            var builder = new StringBuilder(stackTrace.Length);
-            var lines = stackTrace.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var rawLine in lines)
-            {
-                var line = rawLine.Trim();
-                var paren = line.IndexOf('(');
-                var method = paren >= 0 ? line.Substring(0, paren).Trim() : line;
-
-                // Drop the "in <path>:line N" location suffix entirely.
-                var inIndex = method.IndexOf(" in ", StringComparison.Ordinal);
-                if (inIndex >= 0)
-                {
-                    method = method.Substring(0, inIndex);
-                }
-
-                builder.AppendLine(method);
-            }
-
-            return builder.ToString().TrimEnd();
-        }
-
         private static void AppendException(StringBuilder sb, Exception exception, string prefix, int depth)
         {
             var indent = new string(' ', depth * 2);

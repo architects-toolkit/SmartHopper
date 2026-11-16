@@ -42,10 +42,10 @@ namespace SmartHopper.Components.JSON
         public override Guid ComponentGuid => new Guid("83A970D9-B812-46C7-8475-717076032B4D");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.jsonclean;
+        protected override Bitmap Icon => Resources.JsonSanitizer;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary | GH_Exposure.obscure;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonSanitizerComponent"/> class.
@@ -54,29 +54,27 @@ namespace SmartHopper.Components.JSON
             : base(
                 "JSON Sanitizer",
                 "JsonSanitize",
-                "Attempts to recover a valid JSON object from a malformed or AI-generated string.\n" +
-                "Pipeline: direct parse → strip markdown code-block fences → extract first complete JSON object via brace-depth tracking → sanitize (escape control chars inside strings, normalize smart quotes, remove trailing commas, close unterminated strings and unbalanced braces/brackets).\n" +
-                "Outputs the minified JSON and a summary of the operations performed.",
+                "Extract and repair valid JSON from a malformed or AI-generated string (strips Markdown code fences, extracts the first JSON object or array, escapes control characters, fixes smart quotes and trailing commas, and closes unbalanced brackets).",
                 "SmartHopper",
-                "JSON")
+                "H. JSON")
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON", "J", "Potentially malformed JSON string (may be wrapped in markdown, contain prose, have unescaped newlines, etc.)", GH_ParamAccess.tree);
-            pManager.AddBooleanParameter("Minify", "M", "If true, output is collapsed to a single line (no structural whitespace, no line breaks). If false or omitted, output is human-readable indented JSON. Default: false.", GH_ParamAccess.item, false);
+            pManager.AddTextParameter("JSON", "J", "Raw or malformed JSON text (may include surrounding prose or Markdown code fences).", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Minify", "M", "When true, outputs compact single-line JSON; when false (default), outputs indented JSON.", GH_ParamAccess.item, false);
             pManager[1].Optional = true;
         }
 
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON", "J", "Sanitized JSON string — single-line minified when Minify is true, otherwise indented/human-readable. Empty if recovery failed.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Summary", "S", "Human-readable summary of the recovery steps performed, one line per step.", GH_ParamAccess.tree);
-            pManager.AddBooleanParameter("Is Object", "O", "True when the recovered root is a JSON object (`{...}`); false otherwise, including on failure.", GH_ParamAccess.tree);
-            pManager.AddBooleanParameter("Is Array", "A", "True when the recovered root is a JSON array (`[...]`); false otherwise, including on failure.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("JSON", "J", "Recovered JSON string (single-line when Minify is true, indented otherwise; empty if recovery failed).", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Summary", "S", "Step-by-step summary of the cleanup and repair actions performed.", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Is Object", "O", "True if the recovered root value is a JSON object ({...}).", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Is Array", "A", "True if the recovered root value is a JSON array ([...]).", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>

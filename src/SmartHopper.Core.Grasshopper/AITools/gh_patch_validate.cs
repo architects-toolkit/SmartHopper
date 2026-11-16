@@ -81,6 +81,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 Logger.For<gh_patch_validate>().Trace("[gh_patch_validate] Validating patch...");
                 var validationResult = GhJson.ValidatePatch(patchJson);
+                if (!validationResult.IsValid)
+                {
+                }
 
                 var errors = new JArray();
                 foreach (var error in validationResult.Errors)

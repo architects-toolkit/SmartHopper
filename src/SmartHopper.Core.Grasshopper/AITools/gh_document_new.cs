@@ -40,9 +40,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: "gh_document_new",
-                description: "Create a new blank Grasshopper document and make it the active document. Use gh_document_save with a filePath to save it to disk.",
+                description: "Create a new blank Grasshopper document and make it the active document. Use gh_document_save with a filePath to save it to disk." + GhDocumentTools.McpDisconnectNote,
                 category: "Canvas.Documents",
-                parametersSchema: @"{ ""type"": ""object"", ""properties"": {} }",
+                parametersSchema: @"{ ""type"": ""object"", ""properties"": { " + GhDocumentTools.AllowDisconnectSchema + @" } }",
                 execute: NewAsync,
                 mutatesCanvas: false,
                 tags: new[] { "document", "new", "file" },
@@ -55,8 +55,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
         private static Task<AIReturn> NewAsync(AIToolCall toolCall)
         {
-            return GhDocumentTools.Run(toolCall, _ =>
+            return GhDocumentTools.Run(toolCall, args =>
             {
+                GhDocumentTools.ThrowIfDisconnectsMcp(toolCall, args, target: null);
                 var doc = GhDocumentAccess.CreateBlank()
                     ?? throw new InvalidOperationException("Could not create a document: no Grasshopper canvas is available.");
                 return GhDocumentAccess.Describe(doc, doc);

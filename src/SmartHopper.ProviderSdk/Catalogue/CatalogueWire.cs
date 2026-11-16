@@ -28,7 +28,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
 {
     /// <summary>
     /// Exception thrown when catalogue wire data violates the
-    /// <c>smarthopper-models/1</c> schema. Callers must reject the whole
+    /// <c>smarthopper-models/2</c> schema. Callers must reject the whole
     /// document — never apply it partially.
     /// </summary>
     public class CatalogueProtocolException : Exception
@@ -63,7 +63,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
     }
 
     /// <summary>
-    /// Parser for the <c>smarthopper-models/1</c> wire format.
+    /// Parser for the <c>smarthopper-models/2</c> wire format.
     /// Every known field is re-validated client-side (fail closed): regex-bound
     /// identifiers, bounded strings, decimal-string money and no URL-capable
     /// fields — the same rules the server enforces at publish. Unknown
@@ -74,7 +74,10 @@ namespace SmartHopper.ProviderSdk.Catalogue
     public static class CatalogueWire
     {
         /// <summary>Protocol identifier this client understands.</summary>
-        public const string ProtocolId = "smarthopper-models/1";
+        public const string ProtocolId = "smarthopper-models/2";
+
+        /// <summary>Client protocol generation — refuses catalogues requiring newer.</summary>
+        public const int ClientProtocolVersion = 2;
 
         /// <summary>Hard size cap for catalogue payloads (2 MB).</summary>
         public const int MaxDocumentBytes = 2 * 1024 * 1024;
@@ -83,6 +86,8 @@ namespace SmartHopper.ProviderSdk.Catalogue
         private static readonly Regex ProviderIdRegex = new (@"^[a-z][a-z0-9]{0,31}$", RegexOptions.Compiled);
         private static readonly Regex CapabilityTokenRegex = new (@"^[A-Za-z][A-Za-z0-9_]{0,39}$", RegexOptions.Compiled);
         private static readonly Regex MoneyRegex = new (@"^(0|[1-9][0-9]*)(\.[0-9]+)?$", RegexOptions.Compiled);
+        private static readonly Regex CurrencyRegex = new (@"^[A-Z]{3}$", RegexOptions.Compiled);
+        private static readonly Regex PriceKindRegex = new (@"^[a-z][a-z0-9_]{0,31}(:[a-z][a-z0-9_]{0,31})?$", RegexOptions.Compiled);
 
         /// <summary>
         /// Parses raw catalogue bytes into a validated document.
@@ -128,7 +133,7 @@ namespace SmartHopper.ProviderSdk.Catalogue
             {
                 Version = version,
                 PublishedAt = RequireDateTime(root, "published_at", "document"),
-                MinClientProtocol = OptionalInt(root, "min_client_protocol") ?? 1,
+                MinClientProtocol = OptionalInt(root, "min_client_protocol") ?? 2,
             };
 
             var providers = RequireObject(root, "providers", "document");
@@ -409,29 +414,48 @@ namespace SmartHopper.ProviderSdk.Catalogue
 
             var obj = ExpectObject(token, path);
             var currency = RequireString(obj, "currency", path);
-            if (currency != "USD" && currency != "EUR")
+            if (!CurrencyRegex.IsMatch(currency))
             {
-                throw new CatalogueProtocolException($"{path}.currency: unsupported '{currency}'");
+                throw new CatalogueProtocolException($"{path}.currency: '{currency}' is not an ISO-4217 alpha-3 code");
+            }
+
+            var entriesToken = RequireArray(obj, "entries", path);
+            if (entriesToken.Count > 64)
+            {
+                throw new CatalogueProtocolException($"{path}.entries: exceeds 64 entries");
+            }
+
+            var entries = new List<AIPriceEntry>(entriesToken.Count);
+            foreach (var entryToken in entriesToken)
+            {
+                var entryObj = ExpectObject(entryToken, $"{path}.entries[]");
+                var kind = RequireString(entryObj, "kind", $"{path}.entries[]");
+                if (!PriceKindRegex.IsMatch(kind))
+                {
+                    throw new CatalogueProtocolException($"{path}.entries[].kind: '{kind}' violates the kind pattern");
+                }
+
+                var unitRaw = RequireString(entryObj, "unit", $"{path}.entries[]");
+                var unit = AIPriceEntry.ParseUnit(unitRaw);
+                if (unit == null)
+                {
+                    throw new CatalogueProtocolException($"{path}.entries[].unit: unknown '{unitRaw}'");
+                }
+
+                var amount = ParseMoney(entryObj["amount"], $"{path}.entries[].amount");
+                if (amount == null)
+                {
+                    throw new CatalogueProtocolException($"{path}.entries[].amount: required");
+                }
+
+                entries.Add(new AIPriceEntry(kind, unit.Value, amount.Value));
             }
 
             return new AIModelPricing
             {
                 Currency = currency,
-                TextInput = ParseMoney(obj["text_input"], $"{path}.text_input"),
-                TextOutput = ParseMoney(obj["text_output"], $"{path}.text_output"),
-                Request = ParseMoney(obj["request"], $"{path}.request"),
-                ImageInput = ParseMoney(obj["image_input"], $"{path}.image_input"),
-                ImageOutput = ParseMoney(obj["image_output"], $"{path}.image_output"),
-                ImageToken = ParseMoney(obj["image_token"], $"{path}.image_token"),
-                AudioInput = ParseMoney(obj["audio_input"], $"{path}.audio_input"),
-                AudioOutput = ParseMoney(obj["audio_output"], $"{path}.audio_output"),
-                VideoInput = ParseMoney(obj["video_input"], $"{path}.video_input"),
-                VideoOutput = ParseMoney(obj["video_output"], $"{path}.video_output"),
-                AudioCacheRead = ParseMoney(obj["audio_cache_read"], $"{path}.audio_cache_read"),
-                CacheRead = ParseMoney(obj["cache_read"], $"{path}.cache_read"),
-                CacheWrite = ParseMoney(obj["cache_write"], $"{path}.cache_write"),
-                InternalReasoning = ParseMoney(obj["internal_reasoning"], $"{path}.internal_reasoning"),
-                WebSearch = ParseMoney(obj["web_search"], $"{path}.web_search"),
+                Discount = ParseMoney(obj["discount"], $"{path}.discount"),
+                Entries = entries,
             };
         }
 

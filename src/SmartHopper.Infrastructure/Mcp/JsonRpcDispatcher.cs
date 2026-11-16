@@ -23,22 +23,31 @@
  */
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Infrastructure.Mcp
 {
     /// <summary>
     /// Translates JSON-RPC 2.0 envelopes into MCP method invocations against the
-    /// <see cref="AIToolMcpAdapter"/>. Concurrency is serialised by a
-    /// <see cref="SemaphoreSlim"/> so multiple HTTP clients cannot race on the
-    /// Grasshopper document (see <c>docs/Architecture/mcp-server.md</c> §6).
+    /// <see cref="AIToolMcpAdapter"/>. Control-plane methods (initialize, ping,
+    /// notifications, immutable tools/list) are never gated; long-running tool and
+    /// dynamic provider methods are admitted through a bounded lane so transport
+    /// capacity stays responsive under saturation. Document-commit serialization
+    /// is owned by the shared mutation coordinator, not this dispatcher
+    /// (see <c>docs/Architecture/mcp-server.md</c> §6).
     /// </summary>
     public sealed class JsonRpcDispatcher : IDisposable
     {
+        /// <summary>The HTTP header carrying the logical MCP session id.</summary>
+        internal const string SessionHeader = "Mcp-Session-Id";
+
         private const string ProtocolVersion = "2025-03-26";
         private const string JsonRpcVersion = "2.0";
 
@@ -49,11 +58,18 @@ namespace SmartHopper.Infrastructure.Mcp
         private const int InvalidParams = -32602;
         private const int InternalError = -32603;
 
+        // Bounded admission lane for long-running tool/provider work. Transport
+        // accepts up to 16 concurrent requests; keeping admitted work below that
+        // leaves headroom so control methods never starve behind tool execution.
+        private const int MaxAdmittedWork = 12;
+        private static readonly TimeSpan AdmissionBudget = TimeSpan.FromSeconds(1);
+
         private readonly McpServerOptions options;
         private readonly AIToolMcpAdapter adapter;
         private readonly IMcpResourceProvider? resourceProvider;
         private readonly IMcpPromptProvider? promptProvider;
-        private readonly SemaphoreSlim gate = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim admittedWork = new SemaphoreSlim(MaxAdmittedWork, MaxAdmittedWork);
+        private readonly McpSessionRegistry sessions = new McpSessionRegistry();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonRpcDispatcher"/> class.
@@ -82,10 +98,29 @@ namespace SmartHopper.Infrastructure.Mcp
         /// <summary>
         /// Parses a raw JSON-RPC request body and produces a serialized response body.
         /// Returns <c>null</c> for notifications (no <c>id</c> in the request).
+        /// Stateless variant kept for compatibility — no session correlation.
         /// </summary>
         /// <param name="requestBody">Raw request payload.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         public async Task<string?> DispatchAsync(string requestBody, CancellationToken cancellationToken = default)
+        {
+            var result = await this.DispatchRequestAsync(requestBody, null, cancellationToken).ConfigureAwait(false);
+            return result.Body;
+        }
+
+        /// <summary>
+        /// Parses a raw JSON-RPC request body and produces the transport-facing
+        /// dispatch outcome. <paramref name="sessionId"/> is the value of the
+        /// <c>Mcp-Session-Id</c> request header; an <c>initialize</c> call allocates
+        /// a fresh session returned on the result for the response header.
+        /// </summary>
+        /// <param name="requestBody">Raw request payload.</param>
+        /// <param name="sessionId">Presented <c>Mcp-Session-Id</c> header value, or null.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        public async Task<McpDispatchResult> DispatchRequestAsync(
+            string requestBody,
+            string? sessionId,
+            CancellationToken cancellationToken = default)
         {
             JObject? request;
             try
@@ -95,7 +130,7 @@ namespace SmartHopper.Infrastructure.Mcp
             catch (JsonReaderException ex)
             {
                 Logger.Warning(typeof(JsonRpcDispatcher).FullName, $"[JsonRpcDispatcher] Rejected malformed JSON-RPC payload: {ex.Message}");
-                return SerializeError(null, ParseError, $"Parse error: {ex.Message}");
+                return new McpDispatchResult { Body = SerializeError(null, ParseError, $"Parse error: {ex.Message}") };
             }
 
             var id = request["id"];
@@ -104,22 +139,107 @@ namespace SmartHopper.Infrastructure.Mcp
 
             if (string.IsNullOrWhiteSpace(method))
             {
-                return SerializeError(id, InvalidRequest, "Missing 'method'");
+                return new McpDispatchResult { Body = SerializeError(id, InvalidRequest, "Missing 'method'") };
             }
 
-            await this.gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            // Resolve the presented session. An unknown id (expired or foreign) is
+            // rejected at the transport level per the MCP streamable-HTTP contract —
+            // silently degrading to stateless would break the client's expectation
+            // that its requestId/cancellation scope still exists.
+            McpSession? session = null;
+            if (!string.IsNullOrWhiteSpace(sessionId))
+            {
+                session = this.sessions.TryGet(sessionId);
+                if (session == null)
+                {
+                    return new McpDispatchResult
+                    {
+                        StatusHint = 404,
+                        Body = SerializeError(id, InvalidRequest, "Unknown or expired Mcp-Session-Id; re-initialize"),
+                    };
+                }
+            }
+
+            // notifications/cancelled finds only the matching request inside the
+            // caller's own session; stateless callers cannot cancel by guessing ids.
+            if (string.Equals(method, "notifications/cancelled", StringComparison.Ordinal))
+            {
+                var cancelId = paramsToken?["id"];
+                if (session != null && cancelId != null)
+                {
+                    session.Requests.Cancel(cancelId);
+                }
+
+                return new McpDispatchResult { StatusHint = 204 };
+            }
+
+            // Requests carrying an id register in the session so cancellation can
+            // reach them; concurrent duplicate ids are rejected rather than
+            // overwriting each other's cancellation slot.
+            McpRequestScope? scope = null;
+            if (session != null && id != null)
+            {
+                if (!session.Requests.TryBegin(id, cancellationToken, out scope))
+                {
+                    return new McpDispatchResult
+                    {
+                        Body = SerializeError(id, InvalidRequest, "Duplicate request id: a request with this id is already in flight in this session"),
+                    };
+                }
+            }
+
+            var executionToken = scope?.Token ?? cancellationToken;
+
+            // Control-plane methods (initialize, ping, notifications, tools/list)
+            // skip admission entirely. Dynamic tool/resource/prompt execution is
+            // admitted through the bounded lane; excess work is rejected promptly
+            // rather than queued unboundedly behind long-running calls.
+            var requiresAdmission = RequiresAdmission(method);
+            var admitted = false;
+            if (requiresAdmission)
+            {
+                try
+                {
+                    admitted = await this.admittedWork.WaitAsync(AdmissionBudget, executionToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    scope?.Dispose();
+                    throw;
+                }
+
+                if (!admitted)
+                {
+                    scope?.Dispose();
+                    return new McpDispatchResult
+                    {
+                        Body = SerializeError(id, InternalError, "server_busy: admitted work capacity saturated; retry later"),
+                    };
+                }
+            }
+
             try
             {
                 JToken result;
+                string? newSessionId = null;
                 switch (method)
                 {
                     case "initialize":
                         result = this.HandleInitialize();
+                        newSessionId = this.sessions.TryCreate()?.Id;
+                        if (newSessionId == null)
+                        {
+                            return new McpDispatchResult
+                            {
+                                Body = SerializeError(id, InternalError, "Session capacity reached; retry later"),
+                            };
+                        }
+
                         break;
                     case "notifications/initialized":
                     case "initialized":
                         // Notification — no response.
-                        return null;
+                        return new McpDispatchResult { StatusHint = 204 };
                     case "ping":
                         result = new JObject();
                         break;
@@ -127,7 +247,7 @@ namespace SmartHopper.Infrastructure.Mcp
                         result = this.HandleToolsList();
                         break;
                     case "tools/call":
-                        result = await this.HandleToolsCallAsync(paramsToken).ConfigureAwait(false);
+                        result = await this.HandleToolsCallAsync(paramsToken, session, executionToken).ConfigureAwait(false);
                         break;
                     case "resources/list":
                         result = await this.HandleResourcesListAsync().ConfigureAwait(false);
@@ -142,13 +262,13 @@ namespace SmartHopper.Infrastructure.Mcp
                         result = await this.HandlePromptsGetAsync(paramsToken).ConfigureAwait(false);
                         break;
                     default:
-                        return SerializeError(id, MethodNotFound, $"Method not found: {method}");
+                        return new McpDispatchResult { Body = SerializeError(id, MethodNotFound, $"Method not found: {method}") };
                 }
 
                 if (id == null)
                 {
                     // Request without id is a notification per JSON-RPC; do not reply.
-                    return null;
+                    return new McpDispatchResult { StatusHint = 204 };
                 }
 
                 var response = new JObject
@@ -157,7 +277,11 @@ namespace SmartHopper.Infrastructure.Mcp
                     ["id"] = id,
                     ["result"] = result,
                 };
-                return response.ToString(Formatting.None);
+                return new McpDispatchResult
+                {
+                    Body = response.ToString(Formatting.None),
+                    SessionId = newSessionId,
+                };
             }
             catch (OperationCanceledException)
             {
@@ -166,18 +290,44 @@ namespace SmartHopper.Infrastructure.Mcp
             catch (Exception ex)
             {
                 Logger.Exception(typeof(JsonRpcDispatcher).FullName, ex, $"[JsonRpcDispatcher] Unhandled error dispatching '{method}': {ex.Message}");
-                return SerializeError(id, InternalError, $"Internal error: {ex.Message}");
+                return new McpDispatchResult { Body = SerializeError(id, InternalError, $"Internal error: {ex.Message}") };
             }
             finally
             {
-                this.gate.Release();
+                if (admitted)
+                {
+                    this.admittedWork.Release();
+                }
+
+                scope?.Dispose();
             }
         }
 
         /// <inheritdoc/>
         public void Dispose()
         {
-            this.gate.Dispose();
+            // 'admittedWork' is intentionally not disposed: an in-flight DispatchAsync
+            // still releases it from its finally block, so disposing here turns that
+            // release into an ObjectDisposedException whenever the server is stopped
+            // mid-request (e.g. the hosting component's document is unloaded or the
+            // component is disabled while a call is running). SemaphoreSlim only
+            // allocates unmanaged resources when AvailableWaitHandle is accessed,
+            // which never happens here.
+        }
+
+        private static bool RequiresAdmission(string method)
+        {
+            switch (method)
+            {
+                case "tools/call":
+                case "resources/list":
+                case "resources/read":
+                case "prompts/list":
+                case "prompts/get":
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private JObject HandleInitialize()
@@ -196,6 +346,14 @@ namespace SmartHopper.Infrastructure.Mcp
                     ["name"] = this.options.ServerName,
                     ["version"] = this.options.ServerVersion ?? GetAssemblyVersion(),
                 },
+                ["instructions"] =
+                    "This server is hosted by a SmartHopper MCP Server component inside a Grasshopper document. " +
+                    "The session lives only while that document is shown in the Grasshopper canvas: activating " +
+                    "a different document (gh_document_new, gh_document_switch, gh_document_open, or manually " +
+                    "in the editor) unloads the host document, stops this server, and drops the connection " +
+                    "mid-call. Prefer documentId-scoped tools such as gh_get and gh_document_list instead of " +
+                    "switching the active document; gh_document_list reports which document hosts the server " +
+                    "via hostsMcpServer.",
             };
         }
 
@@ -211,7 +369,7 @@ namespace SmartHopper.Infrastructure.Mcp
             return new JObject { ["tools"] = list };
         }
 
-        private async Task<JToken> HandleToolsCallAsync(JObject? paramsToken)
+        private async Task<JToken> HandleToolsCallAsync(JObject? paramsToken, McpSession? session, CancellationToken cancellationToken)
         {
             if (paramsToken == null)
             {
@@ -239,7 +397,7 @@ namespace SmartHopper.Infrastructure.Mcp
                 return BuildToolError("'arguments' must be a JSON object");
             }
 
-            var result = await this.adapter.ExecuteAsync(toolName!, arguments).ConfigureAwait(false);
+            var result = await this.adapter.ExecuteAsync(toolName!, arguments, session, cancellationToken).ConfigureAwait(false);
             return BuildToolCallEnvelope(result);
         }
 
@@ -374,15 +532,45 @@ namespace SmartHopper.Infrastructure.Mcp
             };
         }
 
-        private static JObject BuildToolCallEnvelope(McpToolCallResult result)
+        internal static JObject BuildToolCallEnvelope(McpToolCallResult result)
         {
             var content = new JArray();
 
-            // Binary payloads travel as native MCP content blocks: a result carrying
-            // {imageBase64, mimeType:"image/..."} becomes an "image" block while the
-            // remaining metadata (width, height, savedTo, ...) stays in a text block.
-            if (!result.IsError && TryBuildImageContent(result.Payload, out var imageBlock, out var metadataPayload))
+            // Typed tool-result images: one native MCP image block per model-visible
+            // image, ordered as produced; page/id descriptors stay in the text payload —
+            // no base64 is ever mined from or embedded into JSON.
+            var modelVisible = result.Images?.Where(i =>
+                i?.SendToModel == true
+                && !string.IsNullOrEmpty(i.ImageData)
+                && i.MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true)
+                .ToList() ?? new List<ToolResultImage>();
+
+            // The structured-content source is the payload itself on the typed path and
+            // the binary-stripped metadata on the legacy screenshot path.
+            JToken structuredSource = result.Payload;
+
+            if (!result.IsError && modelVisible.Count > 0)
             {
+                foreach (var image in modelVisible)
+                {
+                    content.Add(new JObject
+                    {
+                        ["type"] = "image",
+                        ["data"] = image.ImageData,
+                        ["mimeType"] = image.MimeType,
+                    });
+                }
+
+                content.Add(new JObject
+                {
+                    ["type"] = "text",
+                    ["text"] = result.Payload.ToString(Formatting.None),
+                });
+            }
+            // Legacy single-screenshot payload mapper retained for old producers.
+            else if (!result.IsError && TryBuildImageContent(result.Payload, out var imageBlock, out var metadataPayload))
+            {
+                structuredSource = metadataPayload!;
                 content.Add(imageBlock);
                 content.Add(new JObject
                 {
@@ -399,11 +587,61 @@ namespace SmartHopper.Infrastructure.Mcp
                 });
             }
 
-            return new JObject
+            // Compact structured metadata — always an object; scalar/array payloads
+            // wrap under "result" without changing the text payload. No image bytes
+            // are carried on any path.
+            var structured = structuredSource is JObject structuredObj
+                ? (JObject)structuredObj.DeepClone()
+                : new JObject { ["result"] = structuredSource };
+            structured.Remove("imageBase64");
+            structured.Remove("base64Data");
+            if (modelVisible.Count > 0)
+            {
+                structured["nativeImageOrder"] = new JArray(
+                    modelVisible.Select(i => i.SourceReference?.AssetId ?? string.Empty));
+            }
+
+            // Forwarded tool diagnostics reach the model in two places: a typed
+            // _meta projection for machines and an extra text block for clients
+            // that only surface content. Metadata alone is not model-visible.
+            if (result.Diagnostics != null && result.Diagnostics.Count > 0)
+            {
+                var diagnosticsJson = new JArray(result.Diagnostics.Select(d => d.ToJson()));
+                content.Add(new JObject
+                {
+                    ["type"] = "text",
+                    ["text"] = new JObject { ["diagnostics"] = diagnosticsJson }.ToString(Formatting.None),
+                });
+            }
+
+            var envelope = new JObject
             {
                 ["content"] = content,
                 ["isError"] = result.IsError,
+                ["structuredContent"] = structured,
             };
+
+            // Helper/usage metrics and diagnostics forwarded verbatim under _meta —
+            // survives error results and stays out of text/structuredContent.
+            JObject? meta = null;
+            if (result.ExtraMetrics != null && result.ExtraMetrics.Count > 0)
+            {
+                meta ??= new JObject();
+                meta["smarthopper/helperUsage"] = JArray.FromObject(result.ExtraMetrics);
+            }
+
+            if (result.Diagnostics != null && result.Diagnostics.Count > 0)
+            {
+                meta ??= new JObject();
+                meta["smarthopper/diagnostics"] = new JArray(result.Diagnostics.Select(d => d.ToJson()));
+            }
+
+            if (meta != null)
+            {
+                envelope["_meta"] = meta;
+            }
+
+            return envelope;
         }
 
         /// <summary>

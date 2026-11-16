@@ -40,12 +40,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: "gh_document_open",
-                description: "Open a Grasshopper document (.gh or .ghx) from an absolute file path and make it the active document. If the file is already open, it is activated instead of opened twice.",
+                description: "Open a Grasshopper document (.gh or .ghx) from an absolute file path and make it the active document. If the file is already open, it is activated instead of opened twice." + GhDocumentTools.McpDisconnectNote,
                 category: "Canvas.Documents",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""filePath"": { ""type"": ""string"", ""description"": ""Absolute path to an existing .gh or .ghx file."" }
+                        ""filePath"": { ""type"": ""string"", ""description"": ""Absolute path to an existing .gh or .ghx file."" },
+                        " + GhDocumentTools.AllowDisconnectSchema + @"
                     },
                     ""required"": [""filePath""]
                 }",
@@ -68,6 +69,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     throw new InvalidOperationException(error);
                 }
 
+                GhDocumentTools.ThrowIfDisconnectsMcp(toolCall, args, GhDocumentAccess.FindByPath(fullPath));
                 var doc = GhDocumentAccess.Open(fullPath, out var alreadyOpen)
                     ?? throw new InvalidOperationException($"Could not open '{fullPath}'. The file may be invalid or no Grasshopper canvas is available.");
 

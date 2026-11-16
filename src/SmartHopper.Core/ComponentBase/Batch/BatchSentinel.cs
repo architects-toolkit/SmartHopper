@@ -17,6 +17,9 @@
  */
 
 using System;
+using System.Collections;
+using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
 using SmartHopper.Core.ComponentBase;
 
 namespace SmartHopper.Core.ComponentBase.Batch
@@ -67,6 +70,99 @@ namespace SmartHopper.Core.ComponentBase.Batch
             if (contentLength <= 0) return false;
             customId = value.Substring(Prefix.Length, contentLength);
             return true;
+        }
+
+        /// <summary>
+        /// Returns true when the tree contains at least one sentinel item.
+        /// Used by the parent-owned submission handoff to find the output
+        /// parameters that carry deferred work.
+        /// </summary>
+        /// <param name="tree">Structure to scan; <c>null</c> yields <c>false</c>.</param>
+        public static bool TreeContainsSentinel(IGH_Structure tree)
+        {
+            if (tree == null) return false;
+            foreach (GH_Path path in tree.Paths)
+            {
+                var branch = tree.get_Branch(path);
+                if (branch == null) continue;
+                foreach (var item in branch)
+                {
+                    if (item is GH_String str && Is(str?.Value))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Removes every sentinel item from the tree in place and returns the number
+        /// of items removed. Raw sentinels are transport-only and must never reach
+        /// published output — unresolved or orphaned placeholders are stripped here
+        /// so a degraded run cannot leak them as data.
+        /// </summary>
+        /// <param name="tree">Structure to clean; <c>null</c> is a no-op.</param>
+        /// <returns>Count of sentinel items removed.</returns>
+        public static int StripFrom(IGH_Structure tree)
+        {
+            if (tree == null) return 0;
+            int removed = 0;
+            foreach (GH_Path path in tree.Paths)
+            {
+                if (tree.get_Branch(path) is not IList branch) continue;
+                for (int i = branch.Count - 1; i >= 0; i--)
+                {
+                    if (branch[i] is GH_String str && Is(str?.Value))
+                    {
+                        branch.RemoveAt(i);
+                        removed++;
+                    }
+                }
+            }
+
+            return removed;
+        }
+
+        /// <summary>
+        /// Returns a new <see cref="GH_Structure{IGH_Goo}"/> containing every
+        /// non-sentinel item of <paramref name="tree"/>, preserving the original
+        /// branch layout (empty branches keep their path). Unlike
+        /// <see cref="StripFrom"/> it never mutates the source: the source may
+        /// be the pending fragment captured for sentinel reconstruction, which
+        /// must keep its placeholders while the published copy drops them.
+        /// </summary>
+        /// <param name="tree">Structure to copy; <c>null</c> yields <c>null</c>.</param>
+        public static GH_Structure<IGH_Goo> WithoutSentinels(IGH_Structure tree)
+        {
+            if (tree == null)
+            {
+                return null;
+            }
+
+            var clean = new GH_Structure<IGH_Goo>();
+            foreach (GH_Path path in tree.Paths)
+            {
+                clean.EnsurePath(path);
+                var branch = tree.get_Branch(path);
+                if (branch == null)
+                {
+                    continue;
+                }
+
+                foreach (var item in branch)
+                {
+                    if (item is GH_String str && Is(str?.Value))
+                    {
+                        continue;
+                    }
+
+                    clean.Append(item as IGH_Goo ?? new GH_String(item?.ToString() ?? string.Empty), path);
+                }
+            }
+
+            return clean;
         }
     }
 }

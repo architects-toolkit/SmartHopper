@@ -53,6 +53,12 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         AIMetrics Metrics { get; init; }
 
         /// <summary>
+        /// Gets the provenance of this interaction inside a source document, when known.
+        /// Lets text, images and tool outputs carry their page/figure attribution end-to-end.
+        /// </summary>
+        SourceContentReference SourceReference { get; init; }
+
+        /// <summary>
         /// Returns a new <see cref="IAIInteraction"/> of the same concrete type with the specified
         /// <see cref="TurnId"/>, preserving all other fields.
         /// </summary>
@@ -75,5 +81,11 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// <see cref="Metrics"/>, preserving all other fields.
         /// </summary>
         IAIInteraction WithMetrics(AIMetrics metrics);
+
+        /// <summary>
+        /// Returns a new <see cref="IAIInteraction"/> of the same concrete type with the specified
+        /// <see cref="SourceReference"/>, preserving all other fields.
+        /// </summary>
+        IAIInteraction WithSourceReference(SourceContentReference source);
     }
 }

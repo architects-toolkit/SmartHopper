@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Output
         /// Initializes a new instance of the <see cref="AI2MarkdownComponent"/> class.
         /// </summary>
         public AI2MarkdownComponent()
-            : base("AI to Markdown", "AI→MD", "Generate formatted markdown text from AI input", GH_Exposure.tertiary)
+            : base("AI to Markdown", "AI2MD", "Call the AI provider on the connected input(s) and return Markdown-formatted text.", GH_Exposure.tertiary)
         {
         }
 
@@ -49,7 +49,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the component icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.aitomd;
+        protected override Bitmap Icon => Resources.AI2Markdown;
 
         /// <summary>
         /// Gets the AI tools used by this component.
@@ -75,7 +75,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Markdown",
                     NickName = "M",
-                    Description = "Generated markdown text",
+                    Description = "AI-generated Markdown text.",
                     ParamType = typeof(Param_String),
                     Access = GH_ParamAccess.tree,
                     Extractor = OutputMapping.Single(aiReturn =>

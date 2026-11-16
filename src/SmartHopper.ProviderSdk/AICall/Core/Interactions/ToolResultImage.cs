@@ -52,5 +52,12 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// Gets the image height in pixels, when known.
         /// </summary>
         public int? Height { get; init; }
+
+        /// <summary>
+        /// Gets the provenance of this image inside a source document, when known.
+        /// Associates the tool-produced image with its page/figure so visual evidence
+        /// can be converted to text without losing attribution.
+        /// </summary>
+        public SourceContentReference SourceReference { get; init; }
     }
 }

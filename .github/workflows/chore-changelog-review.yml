@@ -124,7 +124,7 @@ jobs:
         uses: ./.github/actions/documentation/changelog-review
         with:
           mistral-api-key: ${{ secrets.MISTRAL_API_KEY }}
-          model: mistral-medium-latest
+          model: ${{ vars.MISTRAL_MODEL || 'mistral-large-4-0' }}
           commit: false
           commit-messages: ${{ steps.commits.outputs.messages }}
 

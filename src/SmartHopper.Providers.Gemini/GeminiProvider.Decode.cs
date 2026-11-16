@@ -24,6 +24,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 
 using SmartHopper.ProviderSdk.Logging;
@@ -291,20 +292,36 @@ namespace SmartHopper.Providers.Gemini
                 var promptTokenCount = usageMetadata["promptTokenCount"]?.Value<int>() ?? 0;
                 if (promptTokenCount > 0)
                 {
-                    metrics = metrics with { InputTokensPrompt = promptTokenCount };
+                    metrics = metrics.WithQuantity(AIQuantityKey.TextInput, AIPriceUnit.Token, promptTokenCount);
                 }
 
                 var candidatesTokenCount = usageMetadata["candidatesTokenCount"]?.Value<int>() ?? 0;
                 if (candidatesTokenCount > 0)
                 {
-                    metrics = metrics with { OutputTokensGeneration = candidatesTokenCount };
+                    metrics = metrics.WithQuantity(AIQuantityKey.TextOutput, AIPriceUnit.Token, candidatesTokenCount);
                 }
 
                 // Extract thinking tokens (thoughtsTokenCount) for models that support thinking
                 var thoughtsTokenCount = usageMetadata["thoughtsTokenCount"]?.Value<int>() ?? 0;
                 if (thoughtsTokenCount > 0)
                 {
-                    metrics = metrics with { OutputTokensReasoning = thoughtsTokenCount };
+                    metrics = metrics.WithQuantity(AIQuantityKey.InternalReasoning, AIPriceUnit.Token, thoughtsTokenCount);
+                }
+
+                // Modality detail arrays: [{modality:"AUDIO"|"IMAGE"|"VIDEO"|"TEXT",
+                // tokenCount:n}] — non-text subsets move to their own kind so
+                // they bill at modality rates, not text rates.
+                metrics = SubtractModalityTokens(metrics, usageMetadata["promptTokensDetails"] as JArray, inputSide: true);
+                metrics = SubtractModalityTokens(metrics, usageMetadata["candidatesTokensDetails"] as JArray, inputSide: false);
+
+                // Surface the first candidate's raw finishReason on the metrics interaction so
+                // aggregated call metrics carry the terminal reason, not just token counts.
+                // Keep the wire value verbatim — FinishReasonNormalizeResponsePolicy canonicalizes.
+                var finishReason = (jObject["candidates"] as JArray)?.OfType<JObject>()
+                    .FirstOrDefault()?["finishReason"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(finishReason))
+                {
+                    metrics = metrics with { FinishReason = finishReason };
                 }
 
                 if (metrics.InputTokensPrompt > 0 || metrics.OutputTokensGeneration > 0)
@@ -324,6 +341,57 @@ namespace SmartHopper.Providers.Gemini
             {
                 Logger.For<GeminiProvider>().Exception(ex, $"[GeminiProvider] Error extracting usage metadata: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Records a Gemini <c>*TokensDetails</c> modality array: non-text
+        /// modality tokens move from the text bucket to their own kind so
+        /// overlapping buckets never double-bill.
+        /// </summary>
+        private static AIMetrics SubtractModalityTokens(AIMetrics metrics, JArray details, bool inputSide)
+        {
+            if (details == null)
+            {
+                return metrics;
+            }
+
+            var textKind = inputSide ? AIQuantityKey.TextInput : AIQuantityKey.TextOutput;
+            foreach (var detail in details.OfType<JObject>())
+            {
+                var modality = detail["modality"]?.ToString();
+                var count = detail["tokenCount"]?.Value<int>() ?? 0;
+                if (count <= 0)
+                {
+                    continue;
+                }
+
+                var kind = inputSide
+                    ? modality switch
+                    {
+                        "AUDIO" => AIQuantityKey.AudioInput,
+                        "IMAGE" => AIQuantityKey.ImageInput,
+                        "VIDEO" => AIQuantityKey.VideoInput,
+                        _ => null,
+                    }
+                    : modality switch
+                    {
+                        "AUDIO" => AIQuantityKey.AudioOutput,
+                        "IMAGE" => AIQuantityKey.ImageOutput,
+                        "VIDEO" => AIQuantityKey.VideoOutput,
+                        _ => null,
+                    };
+                if (kind == null)
+                {
+                    continue;
+                }
+
+                var textRemaining = Math.Max(0, metrics.Quantity(textKind, AIPriceUnit.Token) - count);
+                metrics = metrics
+                    .WithQuantity(kind, AIPriceUnit.Token, count)
+                    .WithQuantity(textKind, AIPriceUnit.Token, textRemaining);
+            }
+
+            return metrics;
         }
     }
 }

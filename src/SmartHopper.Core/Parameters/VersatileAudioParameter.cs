@@ -39,7 +39,7 @@ namespace SmartHopper.Core.Parameters
             : base(
                 "VersatileAudio",
                 "VAudio",
-                "A versatile audio type accepting file paths, URLs, base64, data-URIs, and extracted document audio with metadata.",
+                "Audio data accepting a local file path, HTTP/HTTPS URL, base64 string, data URI, or synthesized speech audio.",
                 "SmartHopper",
                 "Parameters",
                 GH_ParamAccess.item)

@@ -51,7 +51,7 @@ namespace SmartHopper.Components.Script
         public override Guid ComponentGuid => new Guid("B9E66C95-2A7D-46AB-9E37-7C28F8202F4A");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.scriptgenerate;
+        protected override Bitmap Icon => Resources.AIScriptGenerate;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.primary;
@@ -85,25 +85,24 @@ namespace SmartHopper.Components.Script
             : base(
                   "AI Script Generate",
                   "AIScriptGen",
-                  "Create or edit Grasshopper script components from natural language instructions. Outputs GhJSON that can be placed on canvas using GH Put.\nIn create mode: processes each prompt as a separate branch.\nIn edit mode: matches prompts to selected components in order.",
+                  "Create new Grasshopper script components (Python, C#, VB.NET, or IronPython) from natural-language instructions, or edit existing ones selected on the canvas.\nOutputs a GhJSON document ready to place or update on the canvas with Place GhJSON (GhPut).",
                   "SmartHopper",
-                  "Script")
+                  "J. Script")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Prompt", "P", "REQUIRED instructions describing how to create or edit the script. In edit mode, prompts are matched to selected components in order.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Prompt", "P", "Instructions describing what the script should do, its inputs and outputs, and the preferred language (Python, C#, VB.NET, or IronPython). When components are selected on the canvas, prompts are matched to the selected script components in order.", GH_ParamAccess.list);
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("GhJSON", "J", "GhJSON representation of the script component. Use GH Put to place on canvas. One branch per input.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Summary", "Sm", "Brief summary of the generated script and design decisions. One branch per input.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Information", "I", "Informational message from the operation. One branch per input.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("GhJSON", "J", "GhJSON representation of the generated or updated script component (connect to Place GhJSON to add or update it on the canvas).", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Summary", "Sm", "Summary of the generated script and its parameter layout.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Information", "I", "Status and diagnostic messages from the script generator.", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
@@ -248,7 +247,7 @@ namespace SmartHopper.Components.Script
                 }
 
                 // Extract and collect messages from tool result (errors, warnings, etc.)
-                var toolMessages = RuntimeMessageUtility.ExtractMessages(toolResult);
+                var toolMessages = toolResult.ExtractMessages();
                 foreach (var m in toolMessages) this.CollectMessage(m);
 
                 var hasErrors = toolMessages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error);

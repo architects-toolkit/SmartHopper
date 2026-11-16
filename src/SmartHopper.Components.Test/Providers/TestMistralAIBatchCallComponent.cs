@@ -23,7 +23,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
-using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.ProviderSdk.AICall.Batch;
@@ -32,6 +31,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
@@ -95,17 +95,14 @@ namespace SmartHopper.Components.Test.Providers
                     var builder = AIBodyBuilder.FromImmutable(call.Body);
                     builder.Add(new AIInteractionText
                     {
-                        Agent = AIAgent.Context,
+                        Agent = AIAgent.User,
                         Content = "Say 'batch test' in two words."
                     });
                     call.Body = builder.Build();
 
-                    // Build the test request with service_tier=batch
-                    call.Parameters = new AIRequestParameters
-                    {
-                        Model = this._parent.GetModel(),
-                        Extras = new Dictionary<string, JToken> { { "service_tier", "batch" } },
-                    };
+                    // Initialize like production requests (provider/model/endpoint/capability);
+                    // no service_tier extra — it is not a MistralAI request parameter.
+                    call.Initialize("MistralAI", this._parent.GetModel(), call.Body, "/chat/completions", AICapability.Text2Text);
 
                     // Resolve provider and verify it supports batch
                     var provider = ProviderManager.Instance.GetProvider("MistralAI");

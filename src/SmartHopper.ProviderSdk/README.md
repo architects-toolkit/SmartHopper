@@ -24,7 +24,7 @@ assemblies.
 - Settings descriptors: `SettingDescriptor`, secret flags, validation result types.
 - Streaming: `IStreamingAdapter` and provider-facing delta/result types.
 - Host-injected abstractions a provider receives: `IProviderSettingsStore`,
-  `IProviderLogger`, `IProviderHttpClientFactory`, `IProviderDiagnostics`.
+  `ILogger`, `IProviderHttpClientFactory`, `IProviderDiagnostics`.
 - Compatibility metadata: `SmartHopperProviderSdkVersionAttribute`,
   `SmartHopperProviderIdAttribute`, `BuiltAgainstSdkAttribute`.
 

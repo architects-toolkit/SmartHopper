@@ -474,7 +474,7 @@ namespace SmartHopper.Infrastructure.Dialogs
         public static void Show(Dictionary<string, ProviderVerificationResult> results, string version, string platform, bool hasErrors)
         {
             var dlg = new ProviderVerificationDialog(results, version, platform);
-            dlg.ShowModal(RhinoEtoApp.MainWindow);
+            dlg.ShowModalInFront(RhinoEtoApp.MainWindow);
         }
 
         /// <inheritdoc/>

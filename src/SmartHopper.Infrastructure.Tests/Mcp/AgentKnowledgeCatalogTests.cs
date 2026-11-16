@@ -62,6 +62,19 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             Assert.True(prompt.IndexOf("Rhino 8", StringComparison.OrdinalIgnoreCase) < prompt.IndexOf(customInstructions, StringComparison.Ordinal));
         }
 
+        /// <summary>Generation guidance must omit coordinates but preserve imported layouts.</summary>
+        [Fact]
+        public void GhJsonGuidance_RequiresPivotlessGenerationAndPreservesAuthoredPositions()
+        {
+            var core = AgentKnowledgeCatalog.ComposeGrasshopperSystemPrompt(string.Empty);
+            var guidance = AgentKnowledgeCatalog.GetInstructions("ghjson");
+
+            Assert.Contains("NEVER include `pivot`", core);
+            Assert.Contains("compact automatic layout", core);
+            Assert.Contains("NEVER emit `pivot`", guidance);
+            Assert.Contains("preserves supplied pivots exactly", guidance);
+        }
+
         [Fact]
         public void ListDocuments_HidesInternalCoreFromMcpResources()
         {

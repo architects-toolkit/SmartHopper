@@ -416,7 +416,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
-                Logger.For<gh_get>().Trace($"[gh_get] internalized: {includeInternalizedData}, runtime: {includeRuntimeData}, messages: {includeMessages}, depth: {connectionDepth}, metadata: {includeMetadata}, viewportOnly: {viewportOnly}, page: {page}, pageSize: {pageSize}, detail: {detail}");
+                Logger.For<gh_get>().Trace($"[gh_get] includeInternalizedData: {includeInternalizedData}, includeRuntimeData: {includeRuntimeData}, includeMessages: {includeMessages}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}, viewportOnly: {viewportOnly}, page: {page}, pageSize: {pageSize}, detail: {detail}");
 
                 // Build the query using CanvasSelector
                 // Document: active canvas by default, or another open document by documentId

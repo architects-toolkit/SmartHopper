@@ -90,6 +90,31 @@ namespace SmartHopper.Infrastructure.Tests
             Assert.False(disabledTool.Enabled);
         }
 
+#if NET7_WINDOWS
+        /// <summary>
+        /// Tests that discovery marks itself complete even when no tool-source
+        /// assemblies can be loaded — an absent optional pack must not abort or
+        /// endlessly retry discovery.
+        /// </summary>
+        [Fact(DisplayName = "DiscoverTools ShouldComplete WhenToolSourcesAbsent [Windows]")]
+#else
+        /// <summary>
+        /// Tests that discovery marks itself complete even when no tool-source
+        /// assemblies can be loaded — an absent optional pack must not abort or
+        /// endlessly retry discovery.
+        /// </summary>
+        [Fact(DisplayName = "DiscoverTools ShouldComplete WhenToolSourcesAbsent [Core]")]
+#endif
+        public void DiscoverTools_ShouldComplete_WhenToolSourcesAbsent()
+        {
+            this.ResetTools();
+            AIToolManager.DiscoverTools();
+            var discovered = typeof(AIToolManager)
+                .GetField("_toolsDiscovered", BindingFlags.Static | BindingFlags.NonPublic)
+                ?.GetValue(null);
+            Assert.Equal(true, discovered);
+        }
+
         private void ResetTools()
         {
             typeof(AIToolManager).GetMethod("ResetTools", BindingFlags.Static | BindingFlags.NonPublic)?.Invoke(null, null);

@@ -43,6 +43,13 @@ namespace SmartHopper.Core.ComponentBase.Contracts
         public const string Run = "Run?";
 
         /// <summary>
+        /// Synthetic pseudo-input name representing the canvas object selection.
+        /// Not a real parameter; appears in <c>InputsChanged()</c> when the
+        /// selected objects differ from the selection the last run consumed.
+        /// </summary>
+        public const string Selection = "Selection";
+
+        /// <summary>
         /// Name of the optional <c>Settings</c> input registered by
         /// <see cref="AIStatefulAsyncComponentBase"/>.
         /// </summary>

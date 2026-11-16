@@ -36,6 +36,13 @@ namespace SmartHopper.ProviderSdk.Hosting
         /// null when the provider is not registered.
         /// </summary>
         IAIProviderSettings GetProviderSettings(string providerName);
+
+        /// <summary>
+        /// Enumerate the registered providers (configured and trusted by the host).
+        /// Default empty when the host does not expose enumeration.
+        /// </summary>
+        System.Collections.Generic.IEnumerable<IAIProvider> GetProviders()
+            => System.Linq.Enumerable.Empty<IAIProvider>();
     }
 
     /// <summary>

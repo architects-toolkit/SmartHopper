@@ -75,6 +75,19 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
         public string ContentType { get; set; } = "application/json";
 
         /// <summary>
+        /// Gets the canonical request this execution copy descends from. Set by
+        /// <see cref="CreateExecutionCopy"/> to the root request — copies of copies
+        /// keep pointing at the original caller-owned instance. Null on requests
+        /// that are not execution copies.
+        /// </summary>
+        /// <remarks>
+        /// Pipeline stages use <c>Source</c> to attach per-logical-request state
+        /// (for example SmartHopper Cloud's idempotency keys) to the canonical
+        /// instance instead of a transient copy.
+        /// </remarks>
+        public AIRequestCall? Source { get; internal set; }
+
+        /// <summary>
         /// Gets the encoded request for the specified provider.
         /// </summary>
         public string EncodedRequestBody
@@ -132,15 +145,6 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                     SHRuntimeMessageOrigin.Validation,
                     SHMessageCode.UnknownProvider,
                     $"Unknown provider '{this.Provider}'"));
-            }
-
-            if (string.IsNullOrEmpty(this.Endpoint))
-            {
-                messages.Add(new SHRuntimeMessage(
-                    SHRuntimeMessageSeverity.Error,
-                    SHRuntimeMessageOrigin.Validation,
-                    SHMessageCode.BodyInvalid,
-                    "Endpoint is required"));
             }
 
             // Check model and body only in Generation request kind
@@ -213,6 +217,20 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                             SHMessageCode.BodyInvalid,
                             "At least one interaction is required"));
                     }
+                    else if (!this.Body.HasConversationContent())
+                    {
+                        // Every provider routes system/context/summary interactions to its
+                        // instruction channel (system messages, system_instruction, the
+                        // top-level "system" field). A body made only of them would submit a
+                        // generation request with no conversational input — Gemini and
+                        // Anthropic answer HTTP 400 outright, and the remaining providers
+                        // generate a meaningless continuation from instructions alone.
+                        messages.Add(new SHRuntimeMessage(
+                            SHRuntimeMessageSeverity.Error,
+                            SHRuntimeMessageOrigin.Validation,
+                            SHMessageCode.BodyInvalid,
+                            "Request body has no conversation content — at least one user, assistant, or tool interaction is required (system/context instructions alone cannot be answered)."));
+                    }
 
                     if (effectiveCapability.HasFlag(AICapability.JsonOutput) && string.IsNullOrEmpty(this.Body.JsonOutputSchema))
                     {
@@ -245,6 +263,48 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
         }
 
         /// <summary>
+        /// Creates a detached copy of this request safe for outbound submission: mutable
+        /// fields (headers, request-level messages, preparation cache reference) are
+        /// detached so preparation can replace the body without touching canonical
+        /// session evidence, while the immutable <see cref="AIBody"/> and
+        /// <see cref="AIRequestParameters"/> instances are retained by reference until
+        /// the preparation step assigns a transformed body.
+        /// </summary>
+        /// <returns>A new <see cref="AIRequestCall"/> carrying this request's full configuration.</returns>
+        public virtual AIRequestCall CreateExecutionCopy()
+        {
+            var copy = new AIRequestCall
+            {
+                Provider = this.Provider,
+                Origin = this.Origin,
+                Endpoint = this.Endpoint,
+                Source = this.Source ?? this,
+                RequestKind = this.RequestKind,
+                ToolSurface = this.ToolSurface,
+                WantsStreaming = this.WantsStreaming,
+                HttpMethod = this.HttpMethod,
+                Authentication = this.Authentication,
+                ContentType = this.ContentType,
+                Headers = new Dictionary<string, string>(this.Headers ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase),
+                Body = this.Body,
+                Parameters = this.Parameters,
+                TimeoutSeconds = this.TimeoutSeconds,
+                SkipMetricsValidation = this.SkipMetricsValidation,
+                ForceToolCall = this.ForceToolCall,
+                ForceToolName = this.ForceToolName,
+                PreparationCache = this.PreparationCache,
+            };
+
+            copy.Capability = this.capability;
+            copy.Model = this.RequestedModel;
+            copy.Messages = this.StoredMessages != null
+                ? new List<SHRuntimeMessage>(this.StoredMessages)
+                : new List<SHRuntimeMessage>();
+
+            return copy;
+        }
+
+        /// <summary>
         /// Executes a single provider turn without streaming (backward compatibility).
         /// </summary>
         /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
@@ -267,6 +327,8 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
             stopwatch.Start();
 
             Logger.For<AIRequestCall>().Trace($"[AIRequest.Exec] Provider='{this.Provider}', Model='{this.Model}', ToolFilter='{this.Body?.ToolFilter ?? "null"}'");
+
+            AIRequestPreparation preparation = null;
 
             try
             {
@@ -296,20 +358,78 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                     return errorResult;
                 }
 
-                // Validate early to avoid provider calls when request is invalid
-                var (rqOk, rqErrors) = this.IsValid();
+                // Model-bound preparation: adapt outbound media to the resolved model's
+                // confirmed capabilities. Produces a detached execution copy; the canonical
+                // request/body keep the original session evidence. Blocking errors abort
+                // the provider call — failed or missing conversions are never submitted.
+                preparation = await ProviderSdkHost.PolicyPipeline.PrepareExecutionAsync(this, cancellationToken).ConfigureAwait(false);
+                var outbound = preparation?.Request;
+
+                // Fail closed: a null preparation or null prepared request must never
+                // silently submit an unprepared execution copy — and charged helper
+                // metrics recorded so far are still surfaced.
+                if (outbound == null)
+                {
+                    stopwatch.Stop();
+                    var failed = this.BuildErrorReturn("Request preparation failed");
+                    if (preparation?.ExtraMetrics != null)
+                    {
+                        failed.ExtraMetrics.AddRange(preparation.ExtraMetrics);
+                    }
+
+                    return failed;
+                }
+
+                // Strict final outbound gate (modality + structural + trust) runs here
+                // independently of whether the active host already ran any of it.
+                preparation.Messages.AddRange(AIRequestPreparation.ValidateOutboundRequest(outbound));
+
+                if (preparation.HasBlockingErrors)
+                {
+                    stopwatch.Stop();
+                    var blocked = this.BuildErrorReturn("Request preparation failed");
+                    if (preparation.ExtraMetrics.Count > 0)
+                    {
+                        blocked.ExtraMetrics.AddRange(preparation.ExtraMetrics);
+                    }
+
+                    foreach (var message in preparation.Messages)
+                    {
+                        if (message != null)
+                        {
+                            blocked.AddRuntimeMessage(message);
+                        }
+                    }
+
+                    return blocked;
+                }
+
+                // Validate the outbound view only — source media that adaptation resolved
+                // must not fail validation here, and leftover unsupported media does.
+                var (rqOk, rqErrors) = outbound.IsValid();
                 if (!rqOk)
                 {
                     stopwatch.Stop();
-                    return this.BuildErrorReturn("Request validation failed");
+                    var invalid = this.BuildErrorReturn("Request validation failed");
+                    if (preparation.ExtraMetrics.Count > 0)
+                    {
+                        invalid.ExtraMetrics.AddRange(preparation.ExtraMetrics);
+                    }
+
+                    return invalid;
                 }
 
                 // Guard against missing provider
-                if (this.ProviderInstance == null)
+                if (outbound.ProviderInstance == null)
                 {
                     stopwatch.Stop();
                     var errorResult = new AIReturn();
                     errorResult.CreateProviderError("Provider is missing", this);
+                    if (preparation.ExtraMetrics.Count > 0)
+                    {
+                        errorResult.ExtraMetrics.AddRange(preparation.ExtraMetrics);
+                    }
+
                     return errorResult;
                 }
 
@@ -318,20 +438,36 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                 if (stream)
                 {
                     // Use streaming mode
-                    result = await this.ExecStreamingInternal(cancellationToken).ConfigureAwait(false);
+                    result = await outbound.ExecStreamingInternal(cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
                     // Use non-streaming mode
-                    result = await this.ProviderInstance.Call(this, cancellationToken).ConfigureAwait(false);
+                    result = await outbound.ProviderInstance.Call(outbound, cancellationToken).ConfigureAwait(false);
                 }
 
-                // Provider returned null result
+                // Provider returned null result — paid helper work must still be metered.
                 if (result == null)
                 {
                     stopwatch.Stop();
                     var none = new AIReturn();
                     none.CreateProviderError("Provider returned no response", this);
+                    if (preparation?.ExtraMetrics != null && preparation.ExtraMetrics.Count > 0)
+                    {
+                        none.ExtraMetrics.AddRange(preparation.ExtraMetrics);
+                    }
+
+                    if (preparation?.Messages != null)
+                    {
+                        foreach (var message in preparation.Messages)
+                        {
+                            if (message != null)
+                            {
+                                none.AddRuntimeMessage(message);
+                            }
+                        }
+                    }
+
                     return none;
                 }
 
@@ -341,8 +477,29 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                     result.CreateProviderError("Provider returned no response", this);
                 }
 
-                // Run response policies to decode/normalize/validate the response
+                // Carry preparation output forward: helper-call metrics are metered once,
+                // separately from the primary call, and non-blocking diagnostics surface.
                 var air = (AIReturn)result;
+                if (preparation != null)
+                {
+                    if (preparation.ExtraMetrics != null && preparation.ExtraMetrics.Count > 0)
+                    {
+                        air.ExtraMetrics.AddRange(preparation.ExtraMetrics);
+                    }
+
+                    if (preparation.Messages != null)
+                    {
+                        foreach (var message in preparation.Messages)
+                        {
+                            if (message != null)
+                            {
+                                air.AddRuntimeMessage(message);
+                            }
+                        }
+                    }
+                }
+
+                // Run response policies to decode/normalize/validate the response
                 try
                 {
                     Logger.For<AIRequestCall>().Trace($"[AIRequest.Exec] before policies: interactions={air?.Body?.InteractionsCount ?? 0}, new={string.Join(",", air?.Body?.InteractionsNew ?? new System.Collections.Generic.List<int>())}");
@@ -370,6 +527,11 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                 stopwatch.Stop();
                 var errorResult = new AIReturn();
                 errorResult.CreateProviderError("Call cancelled or timed out", this);
+                if (preparation?.ExtraMetrics != null)
+                {
+                    errorResult.ExtraMetrics.AddRange(preparation.ExtraMetrics);
+                }
+
                 return errorResult;
             }
             catch (TimeoutException ex)
@@ -378,6 +540,11 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                 Logger.For<AIRequestCall>().Exception(ex, "[AIRequest.Exec] Call timed out");
                 var errorResult = new AIReturn();
                 errorResult.CreateProviderError("Call cancelled or timed out", this);
+                if (preparation?.ExtraMetrics != null)
+                {
+                    errorResult.ExtraMetrics.AddRange(preparation.ExtraMetrics);
+                }
+
                 return errorResult;
             }
             catch (HttpRequestException ex)
@@ -398,6 +565,11 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                     errorResult.CreateNetworkError(raw, this);
                 }
 
+                if (preparation?.ExtraMetrics != null)
+                {
+                    errorResult.ExtraMetrics.AddRange(preparation.ExtraMetrics);
+                }
+
                 return errorResult;
             }
             catch (Exception ex)
@@ -409,6 +581,11 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                 var error = this.ExtractProviderErrorMessage(ex);
                 var errorResult = new AIReturn();
                 errorResult.CreateProviderError(error, this);
+                if (preparation?.ExtraMetrics != null)
+                {
+                    errorResult.ExtraMetrics.AddRange(preparation.ExtraMetrics);
+                }
+
                 return errorResult;
             }
         }
@@ -502,17 +679,17 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
         /// <param name="provider">Provider ID to use (for example, the assembly name of the provider).</param>
         /// <param name="model">Model name to target. If incompatible, the provider's default model will be used.</param>
         /// <param name="systemPrompt">System message inserted as the first interaction of the request.</param>
-        /// <param name="endpoint">Provider endpoint or route. If null, an empty string will be used.</param>
+        /// <param name="origin">Semantic provenance label for this request (tool name, component tag); stored on <see cref="AIRequestBase.Origin"/>.</param>
         /// <param name="capability">Desired capabilities for this request (input/output and options).</param>
         /// <param name="toolFilter">Optional tool filter expression (e.g., "-*" to disable all tools).</param>
-        public void Initialize(string provider, string model, string systemPrompt, string? endpoint, AICapability capability = AICapability.TextOutput, string? toolFilter = null)
+        public void Initialize(string provider, string model, string systemPrompt, string? origin, AICapability capability = AICapability.TextOutput, string? toolFilter = null)
         {
             var interactionList = new List<IAIInteraction>
             {
                 new AIInteractionText { Agent = AIAgent.System, Content = systemPrompt },
             };
 
-            this.Initialize(provider, model, interactionList, endpoint ?? string.Empty, capability, toolFilter ?? string.Empty);
+            this.Initialize(provider, model, interactionList, origin, capability, toolFilter ?? string.Empty);
         }
 
         /// <summary>

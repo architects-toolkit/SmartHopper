@@ -3,6 +3,21 @@
 This folder contains vendored third-party code shipped inside the SmartHopper
 WebView chat UI. Each entry lists the upstream project and its license.
 
+## DOMPurify
+
+- **File**: `../js/purify.min.js` (in the sibling `js/` resource folder)
+- **Project**: `dompurify` — XSS sanitizer for HTML, MathML and SVG.
+- **Source**: npm package `dompurify@2.5.8`, `dist/purify.min.js`
+  (UMD bundle exposing `DOMPurify`; vendored byte-for-byte from the upstream
+  npm tarball, sha512 `o1vSNgrmYMQObbSSvF/1brBYEQPHhV1+gsmrusO7/GXtp1T9rCS8cXFqVxK/9crT1jA6Ccv+5MTSjBNqr7Sovw==`).
+- **License**: Apache-2.0 OR MPL-2.0 (dual-licensed; upstream notices are
+  embedded in the file's license banner).
+
+The vendored file is a byte-for-byte copy of the upstream build artifact and is
+inlined into the chat HTML page by `ChatResourceManager` as a data URI. Do not
+edit it in place; upgrade it by replacing it with a newer upstream build and
+recording the version here.
+
 ## chat-ui toolkit
 
 - **File**: `chat-ui.iife.js`

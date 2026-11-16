@@ -163,6 +163,77 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
         }
 
 #if NET7_WINDOWS
+        [Fact(DisplayName = "Combine_MetricsLessContribution_KeepsLastFootprint [Windows]")]
+#else
+        [Fact(DisplayName = "Combine_MetricsLessContribution_KeepsLastFootprint [Core]")]
+#endif
+        public void Combine_MetricsLessContribution_KeepsLastFootprint()
+        {
+            var first = new AIMetrics
+            {
+                Provider = "openai",
+                Model = "gpt-test",
+                InputTokensPrompt = 5000,
+                OutputTokensGeneration = 500,
+            };
+
+            var second = new AIMetrics
+            {
+                Provider = "openai",
+                Model = "gpt-test",
+                InputTokensPrompt = 6000,
+                OutputTokensGeneration = 500,
+            };
+
+            var combined = new AIMetrics()
+                .WithCombined(first)
+                .WithCombined(second)
+                .WithCombined(new AIMetrics());
+
+            Assert.Equal(6500, combined.LastEffectiveTotalTokens);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ContextUsagePercent_UsesLastCallFootprint [Windows]")]
+#else
+        [Fact(DisplayName = "ContextUsagePercent_UsesLastCallFootprint [Core]")]
+#endif
+        public void ContextUsagePercent_UsesLastCallFootprint()
+        {
+            ProviderSdkTestHelper.ResetCapabilityRegistry();
+            AIModelCapabilityRegistry.Instance.SetCapabilities(new AIModelCapabilities
+            {
+                Provider = "openai",
+                Model = "gpt-test",
+                ContextLimit = 10000,
+            });
+
+            var first = new AIMetrics
+            {
+                Provider = "openai",
+                Model = "gpt-test",
+                InputTokensPrompt = 5000,
+                OutputTokensGeneration = 500,
+            };
+
+            var second = new AIMetrics
+            {
+                Provider = "openai",
+                Model = "gpt-test",
+                InputTokensPrompt = 6000,
+                OutputTokensGeneration = 500,
+            };
+
+            var combined = new AIMetrics()
+                .WithCombined(first)
+                .WithCombined(second)
+                .WithCombined(new AIMetrics());
+
+            Assert.NotNull(combined.ContextUsagePercent);
+            Assert.Equal(0.65, combined.ContextUsagePercent.Value, 4);
+        }
+
+#if NET7_WINDOWS
         [Fact(DisplayName = "Combine_SumsEstimatedCost [Windows]")]
 #else
         [Fact(DisplayName = "Combine_SumsEstimatedCost [Core]")]
@@ -188,12 +259,12 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
                 OutputTokensGeneration = 25,
             };
 
-            var firstCost = first.EstimatedCost;
-            var secondCost = second.EstimatedCost;
+            var firstCost = first.EstimatedCosts["USD"];
+            var secondCost = second.EstimatedCosts["USD"];
 
             first = first.WithCombined(second);
 
-            Assert.Equal(firstCost + secondCost, first.EstimatedCost);
+            Assert.Equal(firstCost + secondCost, first.EstimatedCosts["USD"]);
         }
 
 #if NET7_WINDOWS
@@ -214,8 +285,8 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
                 OutputTokensGeneration = 50,
             };
 
-            var cost1 = metrics.EstimatedCost;
-            var cost2 = metrics.EstimatedCost;
+            var cost1 = metrics.EstimatedCosts["USD"];
+            var cost2 = metrics.EstimatedCosts["USD"];
 
             Assert.Equal(cost1, cost2);
         }

@@ -32,14 +32,10 @@ using Grasshopper;
 using Grasshopper.GUI.Canvas;
 using Rhino;
 using SmartHopper.Core.UI.Chat;
-using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Settings;
-using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Logging;
-using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Core.UI
 {
@@ -53,18 +49,16 @@ namespace SmartHopper.Core.UI
         private const int ButtonSize = 48;
         private const int ButtonMargin = 20;
 
-        // Predefined system prompt for SmartHopper assistant
-        private const string DefaultSystemPrompt = """
-            Act as SmartHopper's general-purpose canvas assistant. Help with parametric design, algorithmic problem-solving, definition quality, debugging, scripting, and performance. Explain complex concepts clearly and retrieve focused instruction topics before specialized work.
-            """;
-
         // Private fields
         private static readonly object LockObject = new object();
         private static bool isInitialized;
         private static Bitmap? buttonIcon;
 
         // Button fields
-        private static RectangleF buttonBounds; // Window/client coordinates for both drawing and interaction
+        // Bounds are stored per canvas: every hooked canvas re-stamps its own entry on paint,
+        // so a hidden canvas repainting cannot stomp the visible canvas's hit region.
+        // Values are window/client coordinates used for both drawing and interaction.
+        private static readonly Dictionary<GH_Canvas, RectangleF> buttonBoundsByCanvas = new Dictionary<GH_Canvas, RectangleF>();
         private static bool isHovering;
         private static bool isPressed;
 
@@ -149,7 +143,7 @@ namespace SmartHopper.Core.UI
                 }
                 else
                 {
-                    Logger.Error(typeof(CanvasButton).FullName, "[CanvasButton] Skipping initialization because EnableCanvasButton is disabled");
+                    Logger.Trace(typeof(CanvasButton).FullName, "[CanvasButton] Skipping initialization because EnableCanvasButton is disabled");
                 }
             }
             catch (Exception ex)
@@ -174,7 +168,7 @@ namespace SmartHopper.Core.UI
                     // Check if Grasshopper is available
                     if (Instances.ActiveCanvas != null || Instances.DocumentServer != null)
                     {
-                        Logger.Error(typeof(CanvasButton).FullName, "[CanvasButton] Grasshopper is available, proceeding with initialization");
+                        Logger.Trace(typeof(CanvasButton).FullName, "[CanvasButton] Grasshopper is available, proceeding with initialization");
                         return;
                     }
                 }
@@ -236,7 +230,7 @@ namespace SmartHopper.Core.UI
                 using (var ms = new MemoryStream(providersResources.smarthopper_256))
                 {
                     buttonIcon = new Bitmap(ms);
-                    Logger.Error(typeof(CanvasButton).FullName, "[CanvasButton] Button icon loaded successfully");
+                    Logger.Trace(typeof(CanvasButton).FullName, "[CanvasButton] Button icon loaded successfully");
                 }
             }
             catch (Exception ex)
@@ -324,7 +318,8 @@ namespace SmartHopper.Core.UI
                 canvas.MouseMove -= OnCanvasMouseMove;
 
                 hookedCanvases.Remove(canvas);
-                Logger.Error(typeof(CanvasButton).FullName, "[CanvasButton] Canvas events unhooked successfully");
+                buttonBoundsByCanvas.Remove(canvas);
+                Logger.Trace(typeof(CanvasButton).FullName, "[CanvasButton] Canvas events unhooked successfully");
             }
             catch (Exception ex)
             {
@@ -371,7 +366,7 @@ namespace SmartHopper.Core.UI
 
                 // Update button position based on current canvas and window
                 UpdateButtonPosition(canvas);
-                DrawButton(canvas.Graphics);
+                DrawButton(canvas, canvas.Graphics);
             }
             catch (Exception ex)
             {
@@ -388,15 +383,15 @@ namespace SmartHopper.Core.UI
             // This ensures the button stays fixed in the viewport regardless of canvas panning
             var x = canvas.ClientSize.Width - ButtonSize - ButtonMargin;
             var y = ButtonMargin;
-            buttonBounds = new RectangleF(x, y, ButtonSize, ButtonSize);
+            buttonBoundsByCanvas[canvas] = new RectangleF(x, y, ButtonSize, ButtonSize);
         }
 
         /// <summary>
         /// Draws the button on the canvas.
         /// </summary>
-        private static void DrawButton(Graphics graphics)
+        private static void DrawButton(GH_Canvas canvas, Graphics graphics)
         {
-            if (buttonIcon == null)
+            if (buttonIcon == null || !buttonBoundsByCanvas.TryGetValue(canvas, out var buttonBounds))
             {
                 return;
             }
@@ -493,10 +488,10 @@ namespace SmartHopper.Core.UI
                 return;
             }
 
-            if (IsPointInButton(new PointF(e.X, e.Y)))
+            if (sender is GH_Canvas canvas && IsPointInButton(canvas, new PointF(e.X, e.Y)))
             {
                 isPressed = true;
-                (sender as GH_Canvas)?.Refresh();
+                canvas.Refresh();
             }
         }
 
@@ -510,19 +505,20 @@ namespace SmartHopper.Core.UI
                 return;
             }
 
-            if (isPressed && IsPointInButton(new PointF(e.X, e.Y)))
+            var canvas = sender as GH_Canvas;
+            if (isPressed && canvas != null && IsPointInButton(canvas, new PointF(e.X, e.Y)))
             {
                 isPressed = false;
 
                 // Trigger the chat dialog
                 Task.Run(async () => await TriggerChatDialog().ConfigureAwait(false));
 
-                (sender as GH_Canvas)?.Refresh();
+                canvas.Refresh();
             }
             else if (isPressed)
             {
                 isPressed = false;
-                (sender as GH_Canvas)?.Refresh();
+                canvas?.Refresh();
             }
         }
 
@@ -537,7 +533,7 @@ namespace SmartHopper.Core.UI
             }
 
             var wasHovering = isHovering;
-            isHovering = IsPointInButton(new PointF(e.X, e.Y));
+            isHovering = sender is GH_Canvas canvas && IsPointInButton(canvas, new PointF(e.X, e.Y));
 
             if (wasHovering != isHovering)
             {
@@ -546,11 +542,11 @@ namespace SmartHopper.Core.UI
         }
 
         /// <summary>
-        /// Checks if a point is within the button bounds.
+        /// Checks if a point is within the button bounds for the specified canvas.
         /// </summary>
-        private static bool IsPointInButton(PointF point)
+        private static bool IsPointInButton(GH_Canvas canvas, PointF point)
         {
-            if (!IsEnabled())
+            if (!IsEnabled() || !buttonBoundsByCanvas.TryGetValue(canvas, out var buttonBounds))
             {
                 return false;
             }
@@ -621,78 +617,12 @@ namespace SmartHopper.Core.UI
         }
 
         /// <summary>
-        /// Triggers the AI chat dialog with the predefined system prompt.
+        /// Triggers the AI chat dialog reusing the stable canvas-assistant dialog ID,
+        /// so repeated clicks focus the existing dialog instead of opening new ones.
         /// </summary>
-        private static async Task TriggerChatDialog()
+        private static Task TriggerChatDialog()
         {
-            try
-            {
-                Logger.Error(typeof(CanvasButton).FullName, "[CanvasButton] Triggering AI chat dialog");
-
-                // Resolve provider and model from SmartHopperAssistant settings with fallbacks
-                var providerManager = ProviderManager.Instance;
-                var assistant = SmartHopperSettings.Instance?.SmartHopperAssistant;
-
-                var requestedProviderName = assistant?.AssistantProvider;
-
-                // Treat "(Default)" as request to use configured default provider
-                var isDefaultProviderSelected = string.Equals(requestedProviderName, "(Default)", StringComparison.Ordinal);
-                var providerNameToUse = (!string.IsNullOrWhiteSpace(requestedProviderName) && !isDefaultProviderSelected)
-                    ? requestedProviderName
-                    : providerManager.GetDefaultAIProvider();
-
-                var provider = providerManager.GetProvider(providerNameToUse);
-
-                // If a requested provider is not available, fall back to the default provider
-                if (provider == null)
-                {
-                    var fallbackProviderName = providerManager.GetDefaultAIProvider();
-                    if (!string.Equals(fallbackProviderName, providerNameToUse, StringComparison.OrdinalIgnoreCase))
-                    {
-                        provider = providerManager.GetProvider(fallbackProviderName);
-                    }
-                }
-
-                if (provider == null)
-                {
-                    Logger.Trace(typeof(CanvasButton).FullName, "[CanvasButton] No AI provider available");
-                    StyledMessageDialog.ShowError("No available AI provider was found. Please check the SmartHopper settings to ensure that at least one AI provider is both configured and enabled.", "SmartHopper Assistant");
-                    return;
-                }
-
-                var providerName = provider.Name;
-                var requestedModel = assistant?.AssistantModel;
-
-                // If user selected (Default) provider, always use provider default model
-                var model = isDefaultProviderSelected
-                    ? provider.GetDefaultModel(AICapability.Text2Text)
-                    : (!string.IsNullOrWhiteSpace(requestedModel)
-                        ? requestedModel
-                        : provider.GetDefaultModel(AICapability.Text2Text));
-
-                Logger.Trace(typeof(CanvasButton).FullName, $"[CanvasButton] Using provider: {providerName}, model: {model}");
-
-                // Create and process the web chat worker
-                var greetingEnabled = assistant?.EnableAIGreeting == true;
-                var chatWorker = WebChatUtils.CreateWebChatWorker(
-                    providerName,
-                    model,
-                    endpoint: "canvas-chat",
-                    systemPrompt: DefaultSystemPrompt,
-                    toolFilter: "Canvas,GhJSON,Knowledge,AgentPlanning,Scripting,AIProviders",
-                    componentId: CanvasChatDialogId,
-                    progressReporter: null,
-                    onUpdate: null,
-                    generateGreeting: greetingEnabled);
-
-                await chatWorker.ProcessChatAsync(default).ConfigureAwait(false);
-
-                Logger.Trace(typeof(CanvasButton).FullName, "[CanvasButton] Chat dialog completed");
-            }
-            catch (Exception ex)
-            {
-                Logger.Exception(typeof(CanvasButton).FullName, ex, $"[CanvasButton] Error triggering chat dialog: {ex.Message}");
-            }
+            return WebChatUtils.OpenAssistantChatDialogAsync(CanvasChatDialogId, "canvas-chat");
         }
     }
 }

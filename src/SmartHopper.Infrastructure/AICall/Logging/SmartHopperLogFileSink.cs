@@ -35,7 +35,14 @@ namespace SmartHopper.Infrastructure.AICall.Logging
     /// </summary>
     public sealed class SmartHopperLogFileSink : ILogSink
     {
+#if DEBUG
+        // Debug builds raise the size cutoff so long development sessions (provider storms,
+        // batch polling at Trace level) do not roll over and lose diagnostic history.
+        // Time-based retention (LogRetentionDays) still applies unchanged.
+        private const long DefaultMaxFileSizeBytes = 1024L * 1024 * 1024; // 1 GB
+#else
         private const long DefaultMaxFileSizeBytes = 100L * 1024 * 1024; // 100 MB
+#endif
         private const int MaxPendingLines = 50000;
 
         private readonly ILogFormatter _formatter;
@@ -118,7 +125,7 @@ namespace SmartHopper.Infrastructure.AICall.Logging
                 return;
             }
 
-            // Bound the pending queue so that a logging burst
+            // Bound the pending queue like the OTLP publisher: a logging burst
             // must never exhaust host memory — oldest lines are dropped first.
             while (this._queue.Count >= MaxPendingLines)
             {

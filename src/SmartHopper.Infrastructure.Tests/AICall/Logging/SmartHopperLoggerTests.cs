@@ -69,8 +69,11 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Logging
         }
 
         /// <summary>
-        /// Logging should be disabled when every local sink is off.
+        /// Logging should be disabled when the master logging switch is off.
+        /// In DEBUG builds diagnostics consent is forced on, so this scenario
+        /// cannot occur — the test is compiled out.
         /// </summary>
+#if !DEBUG
         [Fact]
         public void IsEnabled_ReturnsFalse_WhenLoggingDisabled()
         {
@@ -86,6 +89,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Logging
                 Assert.False(ProviderSdkHost.Logger.IsEnabled(ProviderLogLevel.Error));
             }
         }
+#endif
 
         /// <summary>
         /// Only log levels at or above the configured sink level should be enabled.
