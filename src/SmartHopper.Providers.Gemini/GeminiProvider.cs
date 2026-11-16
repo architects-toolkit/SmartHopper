@@ -385,6 +385,15 @@ namespace SmartHopper.Providers.Gemini
 
             if (parts.Count > 0)
             {
+                // Echo back provider-owned continuation data captured at decode time.
+                // Gemini requires thoughtSignature on model parts (especially
+                // functionCall parts) for multi-turn tool calling.
+                var signature = interaction.ProviderData?["thoughtSignature"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(signature) && role == "model" && parts[0] is JObject firstPart)
+                {
+                    firstPart["thoughtSignature"] = signature;
+                }
+
                 return new JObject
                 {
                     { "role", role },
@@ -905,11 +914,22 @@ namespace SmartHopper.Providers.Gemini
                         continue;
                     }
 
+                    // Tool schemas are canonical JSON Schema (draft-07+): e.g. "type" may be a
+                    // string array. Gemini's `parameters` field maps to its restricted Schema
+                    // proto and rejects those shapes; `parametersJsonSchema` is the documented
+                    // full-JSON-Schema field and is mutually exclusive with `parameters`.
+                    var parameters = function["parameters"] as JObject ?? new JObject();
+                    if (parameters["type"] == null)
+                    {
+                        parameters = (JObject)parameters.DeepClone();
+                        parameters["type"] = "object";
+                    }
+
                     declarations.Add(new JObject
                     {
                         { "name", function["name"]?.ToString() ?? string.Empty },
                         { "description", function["description"]?.ToString() ?? string.Empty },
-                        { "parameters", function["parameters"] as JObject ?? new JObject { { "type", "object" } } },
+                        { "parametersJsonSchema", parameters },
                     });
                 }
 

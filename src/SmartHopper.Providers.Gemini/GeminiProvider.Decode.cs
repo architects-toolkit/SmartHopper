@@ -78,10 +78,14 @@ namespace SmartHopper.Providers.Gemini
                     if (parts != null)
                     {
                         var textParts = new List<string>();
+                        JObject textSignature = null;
+                        JObject danglingSignature = null;
 
                         foreach (var part in parts.OfType<JObject>())
                         {
                             var isThought = part["thought"]?.Value<bool>() == true;
+                            var signature = SignatureProviderData(part);
+                            var partProducedInteraction = false;
 
                             if (part.ContainsKey("text"))
                             {
@@ -89,6 +93,8 @@ namespace SmartHopper.Providers.Gemini
                                 if (!string.IsNullOrWhiteSpace(text) && !isThought)
                                 {
                                     textParts.Add(text);
+                                    textSignature = signature ?? textSignature;
+                                    partProducedInteraction = true;
                                 }
                             }
 
@@ -101,7 +107,9 @@ namespace SmartHopper.Providers.Gemini
                                     {
                                         Agent = AIAgent.Assistant,
                                         Reasoning = reasoning,
+                                        ProviderData = signature,
                                     });
+                                    partProducedInteraction = true;
                                 }
                             }
 
@@ -116,8 +124,10 @@ namespace SmartHopper.Providers.Gemini
                                         Id = funcCall["id"]?.ToString() ?? string.Empty,
                                         Name = funcCall["name"]?.ToString() ?? string.Empty,
                                         Arguments = funcCall["args"] as JObject ?? new JObject(),
+                                        ProviderData = signature,
                                     };
                                     result.Add(toolCall);
+                                    partProducedInteraction = true;
                                 }
                             }
 
@@ -170,6 +180,7 @@ namespace SmartHopper.Providers.Gemini
                                             Data = audioBytes,
                                             MimeType = effectiveMimeType,
                                             Metrics = audioMetrics,
+                                            ProviderData = signature,
                                         });
                                         Logger.For<GeminiProvider>().Trace($"[GeminiProvider] Decoded audio response: {mimeType}");
                                     }
@@ -181,9 +192,17 @@ namespace SmartHopper.Providers.Gemini
                                             Agent = AIAgent.Assistant,
                                             ImageData = data,
                                             MimeType = mimeType,
+                                            ProviderData = signature,
                                         });
                                     }
+
+                                    partProducedInteraction = true;
                                 }
+                            }
+
+                            if (!partProducedInteraction && signature != null)
+                            {
+                                danglingSignature ??= signature;
                             }
                         }
 
@@ -193,7 +212,19 @@ namespace SmartHopper.Providers.Gemini
                             {
                                 Agent = AIAgent.Assistant,
                                 Content = string.Join(string.Empty, textParts),
+                                ProviderData = textSignature,
                             });
+                        }
+
+                        // A signature-only trailing part belongs to the turn's last produced
+                        // interaction: it must round-trip even when it carries no content.
+                        if (danglingSignature != null && result.Count > 0 && result[result.Count - 1] is AIInteractionBase last)
+                        {
+                            var merged = last.ProviderData != null
+                                ? (JObject)last.ProviderData.DeepClone()
+                                : new JObject();
+                            merged["thoughtSignature"] ??= danglingSignature["thoughtSignature"];
+                            result[result.Count - 1] = last with { ProviderData = merged };
                         }
                     }
                 }
@@ -205,6 +236,22 @@ namespace SmartHopper.Providers.Gemini
                 Logger.For<GeminiProvider>().Exception(ex, $"Error decoding Gemini response: {ex.Message}");
                 return new List<IAIInteraction>();
             }
+        }
+
+        /// <summary>
+        /// Builds <see cref="IAIInteraction.ProviderData"/> carrying the part's
+        /// <c>thoughtSignature</c> when present. Gemini requires the signature to be
+        /// echoed back verbatim on subsequent requests (multi-turn tool calling).
+        /// </summary>
+        /// <param name="part">The response content part to inspect.</param>
+        /// <returns>A <see cref="JObject"/> with the signature, or null when absent.</returns>
+        private static JObject SignatureProviderData(JObject part)
+        {
+            var sig = part?["thoughtSignature"]?.ToString()
+                      ?? part?["thought_signature"]?.ToString();
+            return string.IsNullOrWhiteSpace(sig)
+                ? null
+                : new JObject { ["thoughtSignature"] = sig };
         }
 
         /// <summary>
