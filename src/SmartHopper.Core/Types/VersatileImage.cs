@@ -161,7 +161,6 @@ namespace SmartHopper.Core.Types
             return new VersatileImage
             {
                 Kind = VersatileImageKind.Base64,
-                Bitmap = null!,
                 RawValue = base64Data,
                 Id = string.Empty,
                 Context = string.Empty,
@@ -190,7 +189,6 @@ namespace SmartHopper.Core.Types
             return new VersatileImage
             {
                 Kind = kind,
-                Bitmap = null,
                 RawValue = trimmedInput,
                 Id = null,
                 Context = null,
@@ -262,7 +260,6 @@ namespace SmartHopper.Core.Types
             return new VersatileImage
             {
                 Kind = VersatileImageKind.Base64,
-                Bitmap = null,
                 RawValue = base64Data,
                 Id = id ?? "img",
                 Context = context ?? string.Empty,
