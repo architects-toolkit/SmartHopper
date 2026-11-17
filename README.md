@@ -3,7 +3,7 @@
 [![Version](https://img.shields.io/badge/version-2.0.0--dev.261107-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Status](https://img.shields.io/badge/status-Unstable%20Development-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![.NET CI](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=tests&logo=dotnet&style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
-[![Ready to use](https://img.shields.io/badge/ready_to_use-NO-brown?style=for-the-badge)](https://smarthopper.xyz/#installation)
+[![Ready to use](https://img.shields.io/badge/ready_to_use-NO-brown?style=for-the-badge)](https://smarthopper.xyz/#install)
 [![License](https://img.shields.io/badge/license-LGPL%20v3-white?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/blob/main/LICENSE)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/architects-toolkit/SmartHopper)
 
@@ -14,7 +14,10 @@
 > As designers, we don't settle for finished products: we make them.  
 > SmartHopper is an evolving toolkit that connects Grasshopper with AI, so you can make more, explore faster, and turn ideas into working definitions.
 
-**100+ AI tools · 100+ Grasshopper components · 8 AI providers · MCP Server**
+Embed AI directly inside your definitions with **native parametric components**, work alongside a **customizable agentic canvas assistant**, or connect **Claude, Codex, Cursor, and VS Code** through the **built-in MCP server** — with staged diff reviews, `Ctrl+Z` undo, and your choice of cloud or offline local models.
+
+<!-- markdownlint-disable-next-line MD036 -->
+**80+ AI tools · 90+ Grasshopper components · 8 AI providers · MCP Server**
 
 
 </div>
@@ -50,10 +53,29 @@ SmartHopper connects your ideas, your Grasshopper canvas, and the AI provider of
  [Native Grasshopper output]
 ```
 
-1. **Drop a component** or open the AI chat.
-2. **Describe what you want** in plain language, or let SmartHopper read the components already on your canvas.
-3. **Receive native Grasshopper data** — text, numbers, booleans, images, audio, JSON, scripts, or even placed components on canvas.
-4. **Keep iterating** without leaving Rhino, switching apps, or parsing raw LLM output.
+Any input component connects to any output component, and you can merge multiple inputs (such as a prompt, a screenshot, and a PDF) into a single AI call. For common single-step tasks, SmartHopper also includes ready-made components such as **AI Text To Text**, **AI List Filter**, **AI Text To Image**, and **AI Script Generate**.
+
+![A `Text to AI` input component feeding an `AI to Text` output component on the Grasshopper canvas](img/v2-components-pipeline.png)
+
+### 2. Customizable agentic canvas assistant (`AI Chat`)
+
+Click the **SmartHopper** button on the Grasshopper canvas (or drop an **AI Chat** component into your file) to open an interactive agentic assistant with customizable system instructions and access to 80+ AI tools. It can read your selected components, diagnose runtime errors, look up solutions on the McNeel and Ladybug forums, write or review script components, and stage edits to your definition that you review item by item before applying.
+
+![The canvas assistant diagnosing why a selected component is not returning a value](img/v2-chat-dialog.png)
+
+### 3. Built-in MCP server for external agents
+
+Start the **SmartHopper MCP Server** component to expose your canvas over a local, token-protected Model Context Protocol endpoint. External agents such as **Claude Desktop, Claude Code, OpenAI Codex, Cursor, or VS Code** can inspect your definition and (when you allow it) propose canvas edits through the same reviewed, undo-safe tool pipeline.
+
+![The MCP Server component exposing a local streamable HTTP endpoint on the canvas](img/v2-mcp-server.png)
+
+## Key capabilities
+
+- **Wire AI into your definition with native Grasshopper types.** Wrap inputs (`Text to AI`, `Image to AI`, `File to AI`, `Web to AI`, `Canvas to AI`) and extract typed outputs (`AI to Text`, `AI to Number`, `AI to Boolean`, `AI to JSON`, `AI to GhJSON`, `AI to Image`, `AI to Speech`, `AI to Script`) that plug straight into standard Grasshopper parameters.
+- **Generate, edit, and review scripts.** Describe what you need in Python, C#, VB.NET, or IronPython and get a ready-to-run script component with inputs, outputs, and code — or run a static AI review on an existing script.
+- **Bring documents, web pages, and forum threads into Grasshopper.** Convert PDFs, Word docs, spreadsheets, emails, and web pages to clean Markdown, or search and summarize threads from the McNeel Discourse forum, the Ladybug Tools forum, or any Discourse community.
+- **Inspect, tidy, diff, and patch definitions.** Let AI diagnose runtime errors, group and align messy graphs, or apply `.ghpatch` diffs to update existing definitions in place.
+- **Multimodal vision and audio.** Analyze viewport or canvas screenshots, generate reference images, transcribe speech to text, or synthesize audio directly inside Grasshopper.
 
 ## Component gallery
 
@@ -100,10 +122,9 @@ SmartHopper works with the providers you already use. Check the [full provider f
 
 **Quick start:**
 
-1. Install SmartHopper.
-2. Restart Rhino and open Grasshopper.
-3. Open SmartHopper settings and add an API key for your chosen provider, or set up a local Ollama/LocalAI server.
-4. Drop a SmartHopper component and start designing with AI.
+1. Restart Rhino and open Grasshopper.
+2. Open **SmartHopper → Settings** in the Grasshopper menu bar, click your provider's tile on the **General** tab to paste an API key (or point to your local server), and select your **Default AI provider**.
+3. Click the **SmartHopper** button on the canvas to chat with the assistant, or drop **Text to AI** → **AI to Text** onto the canvas and set **Run?** to `True`.
 
 [Watch the quickstart video on Vimeo](https://vimeo.com/1126454690)
 
