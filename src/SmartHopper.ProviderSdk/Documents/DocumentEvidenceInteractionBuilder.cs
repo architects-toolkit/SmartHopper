@@ -18,7 +18,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -188,14 +187,13 @@ namespace SmartHopper.ProviderSdk.Documents
                 return sourceName;
             }
 
-            try
-            {
-                return Path.GetFileName(sourceName);
-            }
-            catch
-            {
-                return sourceName;
-            }
+            // Split on both separator conventions — the recorded path may come
+            // from a different OS than the host, while Path.GetFileName only
+            // recognizes the host's separators and would leak the absolute path.
+            var trimmed = sourceName.TrimEnd('/', '\\');
+            var lastSeparator = trimmed.LastIndexOfAny(new[] { '/', '\\' });
+            var fileName = lastSeparator >= 0 ? trimmed.Substring(lastSeparator + 1) : trimmed;
+            return string.IsNullOrWhiteSpace(fileName) ? "document" : fileName;
         }
     }
 }

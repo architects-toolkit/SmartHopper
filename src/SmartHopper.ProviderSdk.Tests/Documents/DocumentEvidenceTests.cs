@@ -143,6 +143,17 @@ namespace SmartHopper.ProviderSdk.Tests.Documents
         }
 
         [Fact]
+        public void Builder_PosixSourceName_IsBasenamed()
+        {
+            var doc = SampleDocument() with { SourceName = "/Users/name/docs/report.pdf" };
+            var interactions = DocumentEvidenceInteractionBuilder.Build(doc, null);
+
+            var text = interactions.OfType<AIInteractionText>().First();
+            Assert.Contains("report.pdf", text.Content);
+            Assert.DoesNotContain("/Users/name", text.Content); // basename, never the absolute path
+        }
+
+        [Fact]
         public void Builder_EmitsPagesInPageNumberOrder()
         {
             var doc = SampleDocument() with
