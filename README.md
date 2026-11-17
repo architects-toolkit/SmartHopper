@@ -122,22 +122,9 @@ SmartHopper works with the providers you already use. Pick a global default in *
 2. Open **SmartHopper → Settings** in the Grasshopper menu bar, paste an API key on your provider's tab (or point to your local server), and select your **Default AI provider** on the **General** tab.
 3. Click the **SmartHopper** button on the canvas to chat with the assistant, or drop **Text to AI** → **AI to Text** onto the canvas and set **Run?** to `True`.
 
-## Documentation & video walkthroughs
+## Documentation
 
-Full documentation lives at **[docs.smarthopper.xyz](https://docs.smarthopper.xyz)**:
-
-- [**User Guide**](https://docs.smarthopper.xyz/docs/intro) — installation, provider setup, canvas assistant, how-to guides, and troubleshooting
-- [**Component Library**](https://docs.smarthopper.xyz/docs/components) — every Grasshopper component, organized by ribbon panel
-- [**AI Tools Library**](https://docs.smarthopper.xyz/docs/ai-tools) — all 100+ tools available to the assistant and MCP clients
-- [**Developer Guide**](https://docs.smarthopper.xyz/docs/developer/overview) — architecture, module map, and how to build custom providers, tools, and components (see also the in-repo [`/docs`](docs/Architecture.md) reference)
-
-### Video tutorials on Vimeo
-
-- [Quickstart walkthrough](https://vimeo.com/1126454690)
-- [Canvas assistant (AI chat)](https://vimeo.com/1126454713)
-- [Generate and edit script components](https://vimeo.com/1144166204)
-- [AI-powered components](https://vimeo.com/1126454744)
-- [Select an AI provider](https://vimeo.com/1126547055)
+Full documentation lives at **[docs.smarthopper.xyz](https://docs.smarthopper.xyz)** — including the [User Guide](https://docs.smarthopper.xyz/docs/intro), [Component Library](https://docs.smarthopper.xyz/docs/components), [AI Tools Library](https://docs.smarthopper.xyz/docs/ai-tools) and [Developer Guide](https://docs.smarthopper.xyz/docs/developer/overview) (see also the in-repo [`/docs`](docs/Architecture.md) reference). [Video walkthroughs](https://docs.smarthopper.xyz/docs/videos) are also available — they were recorded on a previous version; updated videos are coming soon.
 
 ## Contributing
 
