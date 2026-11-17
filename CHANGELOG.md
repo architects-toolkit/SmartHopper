@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-alpha.1] - 2026-11-17
+
 Many thanks to the following contributors to this release:
 
 - [marc-romu](https://github.com/marc-romu)
@@ -22,78 +24,74 @@ Many thanks to the following contributors to this release:
 
 ### Security
 
-- Isolated the embedded chat bridge to trusted documents, blocked unexpected navigation, and updated DOMPurify to address HTML sanitization bypasses.
-- Strengthened provider signature, hash, and consent verification before loading code. Disabled providers never load, changed third-party providers require renewed approval, and trust previews do not execute candidate assemblies.
-- External downloads now require per-origin approval, validate destinations and redirects, isolate credentials, and enforce size limits. The default download cap is 16 MiB; proxy-only source networks are unsupported.
-- Model catalogue updates verify signatures, reject stale or replayed versions, and retain a verified offline cache. PDF rendering uses a separately verified renderer; external document images use the same approved-source boundary.
-- Provider secrets migrate to authenticated AES-256-GCM encryption where supported, retaining the existing macOS fallback. Diagnostics redact credentials, prompts, personal data, and private hostnames.
-- Restricted MCP to loopback with browser-origin and DNS-rebinding protections, bounded requests, and timeouts. Tool execution rechecks permissions and request filters; external tools remain opt-in.
+- Hardened chat security with trusted document isolation and improved HTML sanitization.
+- Enhanced provider security with stricter signature verification and renewed consent for changed third-party providers.
+- Added per-origin approval and 16 MiB size limit for external downloads.
+- Secured model catalogue updates with signature verification and verified offline cache; hardened PDF/image rendering.
+- Upgraded provider secrets to AES-256-GCM encryption and enhanced diagnostic privacy redaction.
+- Restricted MCP to loopback with DNS-rebinding protections; external tools remain opt-in.
 
 ### Added
 
-- **Richer assistant conversations:** open independent chats, attach images and PDFs, queue messages during a run, and delegate focused work to background subagents.
-- **Interactive planning:** approve proposed plans, follow live task cards, answer multiple-choice questions, and use suggested follow-up prompts. Plan approval does not pre-approve canvas edits.
-- **Autonomy controls:** configurable time and token budgets, live usage indicators, limit extensions, and explicit approval to continue after a limit is reached.
-- **Document awareness:** chat tracks the active Grasshopper document, document switches, and meaningful canvas changes, with selection and viewport context.
-- **Reviewed canvas editing:** non-modal visual previews for structural changes, one undo step per mutating tool call, and `gh_apply_changes` for a coordinated change set with one review and scheduled solve.
-- New tools to set component and parameter values, switch panel item/list mode, edit individual data-tree branches or items, rerun components, and change selection.
-- New tools to list, create, open, switch, and save Grasshopper documents, including access to non-active documents by ID.
-- Canvas and Rhino viewport screenshots, high-resolution canvas exports, optional image saving, and tools to frame or highlight relevant components.
-- **GhJSON artifact cards:** validate, inspect, copy, and explicitly place generated definitions on the canvas without pasting large JSON documents into chat.
-- **Incremental result reuse:** eligible components cache unchanged processing units across runs and save/reopen. Added `Cache outputs`, `Clear output cache`, and AI Settings `Share` controls.
-- **Metrics provenance:** cached results retain their original usage, cost, completion timestamp, and execution ID, with reused results identified and shared executions deduplicated.
-- **Multimodal document evidence:** PDF text, embedded images, rendered pages, and region crops stay ordered together. File components support page/region selection and separate `Rendered Pages` outputs; visual AI descriptions are explicitly labeled.
-- MCP resources and reusable prompts share embedded Grasshopper guidance with chat. MCP also supports native image results, session-scoped mutation retry protection, cancellation, and separate editing, view-control, external-tool, and auto-approval controls.
-- Signed remote model catalogue updates, a manual refresh dialog with source/status reporting, and offline fallback to verified cache or built-in models.
-- Local diagnostic logging with configurable levels and retention, scrubbed clipboard reports, and diagnostic ZIP exports with version information.
-- Shared image size and aspect-ratio controls, plus provider-specific image, reasoning, routing, caching, and media options through Extra Settings.
+- **Richer assistant conversations:** multiple independent chats, image/PDF attachments, message queuing, and background subagents.
+- **Interactive planning:** approve plans, live task cards, multiple-choice questions, and suggested follow-ups (plan approval doesn't pre-approve canvas edits).
+- **Autonomy controls:** configurable time/token budgets, live usage indicators, and approval prompts when limits are reached.
+- **Document awareness:** chat tracks active document, switches, canvas changes, and selection/viewport context.
+- **Reviewed canvas editing:** visual previews for changes, single undo per action, and `gh_apply_changes` for coordinated change sets.
+- New canvas tools for setting component values, editing data trees, rerunning components, and changing selection.
+- New document management tools to list, create, open, switch, and save Grasshopper files.
+- Canvas/viewport screenshots, high-res exports, and tools to frame or highlight components.
+- **GhJSON artifact cards:** validate, inspect, and place generated definitions on canvas without pasting JSON into chat.
+- **Incremental result reuse:** cache unchanged component results across runs and sessions, with new `Cache outputs` and `Share` controls.
+- **Metrics provenance:** cached results retain original usage, cost, and timestamps; reused results are identified.
+- **Multimodal document evidence:** ordered PDF text, images, and page crops with page/region selection in File components.
+- Enhanced MCP with shared Grasshopper guidance, native image results, cancellation, and granular approval controls.
+- Signed model catalogue updates with manual refresh dialog and offline fallback to verified cache.
+- Local diagnostic logging with configurable retention and scrubbed ZIP exports.
+- Shared image size/aspect controls and provider-specific options (reasoning, routing, caching) in Extra Settings.
 
 ### Changed
 
-- Refreshed chat with the Canopy theme, readable combined tool cards, and native planning/approval controls. Redesigned component icons, ribbon organization, names, and descriptions.
-- Simplified Settings with provider tiles and in-place configuration, dedicated Security and Developer sections, and consolidated provider discovery and integrity dialogs.
-- **Breaking (component execution):** all stateful components use the same `Run?` contract. A false-to-true edge triggers processing; unchanged inputs with Run held true stay idle. Run=false disarms future work; use Cancel to abort active work.
-- Automatic model selection prefers a capable manual choice, then the capability's endorsed default, then the best capable model. Deprecated models are excluded from automatic selection.
-- Refreshed model capabilities, aliases, pricing, and defaults across providers, including OpenAI GPT-6 Luna, Anthropic Claude 5.5, Gemini 3.8 Flash, and Mistral Large 4. The catalogue is authoritative for covered providers and removes unavailable entries.
-- **Breaking (metrics/pricing):** metrics now expose `quantities` and currency-separated `costs.estimated`/`costs.reported`; pricing uses explicit kind/unit/amount entries. Update consumers of the old flat JSON shape, which now yields empty dictionaries; Deconstruct Metrics exposes Quantities and Costs. Catalogue protocol v1 is no longer accepted.
-- **Breaking (Provider SDK):** interactions, bodies, returns, and metrics are immutable records; use builders, copy helpers, and `AIMetrics.WithCombined` instead of in-place mutation.
-- **Breaking (Provider SDK):** preparation is asynchronous and works on detached execution copies. Replace `PreCall` overrides with `PreCallCoreAsync`; use `Origin`/`origin:` and `OverrideOrigin` for provenance, reserving `Endpoint` for resolved API routes.
-- **Breaking (Provider SDK):** direct interface implementations must add `SupportsApiModels` and `AuthenticationErrorMessage`. Pricing accessors use modality/direction names such as `TextInput`, `TextOutput`, and `CacheRead`.
-- Tool categories are hierarchical and large catalogues load tools progressively. Provider tools are now `providers_list`, `providers_models`, and `gh_component_set_provider`; `gh_get` adds summary/projection filters and prefers `instanceGuids` while retaining `guidFilter` as an alias.
-- GhJSON placement and Tidy Up share compact, bounds-aware layout with port alignment and collision handling. Supplied pivots remain fixed; connected pivotless components use those anchors. AI-generated definitions omit pivots.
-- File/web adapters preserve original multimodal evidence without an AI call; optional visual enrichment uses the shared helper pipeline. Provider-bound modality conversion preserves canonical source evidence.
-- File context now uses the `file` key, merges File Metadata, and leaves selection details to the dedicated selection context provider.
-- Consolidated provider request, schema, role, HTTP, and usage handling, with broader deterministic cross-platform tests. Simplified release/hotfix automation around `main`, tagged releases, stabilization lines, and configurable AI-assisted workflows.
-
-### Removed
-
-- **Breaking (saved definitions):** removed MCP LAN access and its `AX` input. `Allow External Tools` moves to index 6: old AX wiring now feeds that input, while wiring to the former index 7 drops on load. Review existing MCP definitions.
-- **Breaking (image components/tools):** removed shared Quality/Style inputs, `text2img` quality/style arguments, and SDK `ImageQuality`/`ImageStyle` fields. Use the `quality` provider extra; style is no longer supported. Remaining component inputs shift, so review existing wiring.
-- **Breaking (file/web components/tools):** removed Image Mode and `imageMode`; use evidence extraction and explicit visual-enrichment controls. Old file-component wiring may feed `Pages` and fail validation; old trailing web-component wires drop on load.
-- Removed `RunOnlyOnInputChanges` in favor of the shared `Run?` contract, and removed the duplicate File Context component; use File Metadata instead.
-- Removed specialized `gh_get_*` variants covered by `gh_get`, `gh_get_selected`, `gh_get_by_guid`, and `gh_get_errors`. Use runtime/internalized-data flags, type/attribute filters, and `viewportOnly` for equivalent queries.
-- Removed unsupported Gemini image extras, ignored Ollama `num_ctx`/`top_k`, and LocalAI `cfg_scale`/`width`/`height`; renamed LocalAI `steps` to `step`.
-- **Breaking (Provider SDK):** replaced `IProviderLogger`/`DebugProviderLogger` with `Logging.ILogger`/`DebugLogger`, and moved `ProviderLogLevel` into `Logging`. Removed duplicate model-manager and provider schema-adapter implementations.
-- Retired the separate `dev` branch and obsolete synchronization/history workflows. Post-release development versions now use the version-bump workflow.
+- Refreshed chat UI with Canopy theme, improved tool cards, and redesigned component icons/ribbon.
+- Simplified Settings with provider tiles, in-place configuration, and dedicated Security/Developer sections.
+- **Breaking:** unified `Run?` contract for all stateful components—false-to-true triggers processing; use Cancel to abort active work.
+- Improved automatic model selection prioritizing manual choices then endorsed defaults; deprecated models excluded.
+- Updated model catalogue with new models (GPT-6 Luna, Claude 5.5, Gemini 3.8 Flash, Mistral Large 4) and refreshed capabilities/pricing.
+- **Breaking:** metrics now use `quantities` and separated `costs.estimated`/`costs.reported`; update consumers of old flat JSON shape.
+- Hierarchical tool categories with progressive loading; renamed provider tools to `providers_list`, `providers_models`, `gh_component_set_provider`.
+- Improved GhJSON placement and Tidy Up layout with port alignment and collision handling.
+- File/web adapters preserve original multimodal evidence; optional visual enrichment available.
+- File context now uses `file` key and merges File Metadata.
+- Consolidated provider request handling; simplified release automation workflows.
 
 ### Fixed
 
-- **Batch reliability:** prevented duplicate submissions, late callbacks reviving cancelled runs, unresolved placeholders leaking into outputs, and incomplete results being reported as successful.
-- Batch save/reopen and manual imports preserve submission timing, provider/model identity, decode context, cached fragments, and secondary outputs. Added `gh_batch_import_results`; imports no longer resubmit completed paid work.
-- Corrected batch execution and result reuse for Boolean, list-filter, and output-adapter components, including mixed cached/fresh results, shared units, and caching-disabled runs.
-- **Accurate metrics:** fixed missing or duplicate usage, reasoning/cache-token double counting, per-unit counts, result ordering, timestamps, provider/model/role attribution, and autonomy/context usage counters.
-- **Reliable change detection:** Settings/Extras, geometry, and captured-selection changes invalidate the right units. Mid-run edits remain pending; run parameters stay frozen. Empty inputs, null items, and output placeholders preserve tree alignment.
-- Corrected provider image routing, sizing, base64 decoding, and persistence across OpenAI, Gemini, OpenRouter, and LocalAI, including macOS image construction.
-- Restored end-to-end speech generation/transcription, provider-specific voices, typed audio playback, and request-option forwarding without blocking Rhino's UI thread.
-- Fixed Gemini tool schemas, thought signatures, batch payloads, finish reasons, thinking levels, and service tiers; Anthropic reasoning/schema/sampling compatibility; OpenAI reasoning parameters and Responses decoding; and OpenRouter option conflicts.
-- Modality fallbacks now validate capabilities, skip unconfigured providers, preserve per-step provider/model choices, retry eligible conversion failures, and return verbatim pure-modality conversions.
-- Fixed chat startup with withdrawn defaults, streaming message grouping, interrupted tool-call history, finished tool-card states, stale counters, and attachment handling.
-- **Safer canvas mutations:** fixed deletion undo, existing-object updates, duplicate-wire/no-op reporting, UI-thread access, staged placement previews, and cancelled/timed-out operations applying later. Mutations schedule one solve instead of blocking acknowledgements.
-- Improved canvas/tool responsiveness, component keyword searches, off-screen viewport capture, layout measurement, pivot conversion, and canvas-button hit testing across zoom levels and documents.
-- Improved MCP session isolation, diagnostics, validation errors, responsive control methods, and retry/cancellation behavior, preventing repeated mutations after connection loss.
-- Fixed hidden consent/review dialogs, missing tool/runtime errors, stale warnings, misleading cancellation success, settings overflow/polling, and clipboard contention.
-- Fixed provider trust refresh/caching and LocalAI/Ollama signing, removed sensitive payload logging, and prevented document-evidence headers from exposing local paths.
-- Corrected Discourse summarization tool names, Canvas to AI completion, provider overrides, build/test portability, and release/version-validation failures.
+- **Batch reliability:** fixed duplicate submissions, cancelled run revival, and incomplete results reported as successful.
+- Batch save/reopen and imports preserve timing and provider identity; added `gh_batch_import_results` to avoid resubmitting paid work.
+- Fixed batch execution and result reuse for Boolean, list-filter, and output-adapter components.
+- **Accurate metrics:** fixed duplicate usage, token double-counting, ordering, timestamps, and attribution.
+- **Reliable change detection:** fixed cache invalidation for settings/geometry/selection changes; preserved tree alignment for empty inputs.
+- Fixed image routing, sizing, and persistence across OpenAI, Gemini, OpenRouter, and LocalAI.
+- Restored speech generation/transcription with provider voices and non-blocking audio playback.
+- Fixed provider compatibility for Gemini, Anthropic, OpenAI, and OpenRouter (tool schemas, reasoning, batch payloads).
+- Improved modality fallbacks with capability validation and per-step provider preservation.
+- Fixed chat startup, streaming grouping, tool-call history, and attachment handling.
+- **Safer canvas mutations:** fixed undo, duplicate-wire reporting, and cancelled operations; mutations now schedule single solve.
+- Improved canvas responsiveness, keyword search, viewport capture, and hit testing across zoom levels.
+- Improved MCP session isolation and retry behavior, preventing repeated mutations after connection loss.
+- Fixed hidden dialogs, missing errors, stale warnings, and clipboard contention.
+- Fixed provider trust refresh and signing; removed sensitive logging and local path exposure.
+- Fixed Discourse summarization, Canvas to AI completion, and provider overrides.
+
+### Removed
+
+- **Breaking:** removed MCP LAN access and `AX` input; `Allow External Tools` moved to index 6—review existing MCP wiring.
+- **Breaking:** removed shared Quality/Style inputs from image components; use `quality` provider extra instead—review existing wiring.
+- **Breaking:** removed Image Mode from file/web components; use evidence extraction instead—review existing wiring.
+- Removed `RunOnlyOnInputChanges` (use `Run?` contract) and duplicate File Context component (use File Metadata).
+- Removed specialized `gh_get_*` variants; use `gh_get` with filters instead.
+- Removed unsupported provider options (Gemini image extras, Ollama `num_ctx`/`top_k`, LocalAI `cfg_scale` etc.); renamed LocalAI `steps` to `step`.
+- Retired `dev` branch; development now uses version-bump workflow.
 
 ## [2.0.0-dev.260821] - 2026-08-21
 
