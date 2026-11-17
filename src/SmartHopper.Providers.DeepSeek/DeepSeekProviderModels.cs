@@ -48,7 +48,7 @@ namespace SmartHopper.Providers.DeepSeek
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between January 2026 and April 2026
+                // Released between February 2026 and May 2026
 
                 new AIModelCapabilities
                 {
@@ -62,14 +62,14 @@ namespace SmartHopper.Providers.DeepSeek
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
-        {
-            Entries =
-            {
-                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000008134m),
-                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000016268m),
-                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000016268m),
-            },
-        },
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000008134m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000016268m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000016268m),
+                        },
+                    },
                     Aliases = new List<string> { "deepseek-v4-flash" },
                 },
 
@@ -84,19 +84,67 @@ namespace SmartHopper.Providers.DeepSeek
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
-        {
-            Entries =
-            {
-                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002088m),
-                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004176m),
-                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000174m),
-            },
-        },
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000009m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                        },
+                    },
                 },
 
 
 
                 // Deprecated models
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek-v4.1-flash-1017",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = 0,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 10, 17),
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000036m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000003m),
+                        },
+                    },
+                    Aliases = new List<string> { "deepseek-flash-latest", "deepseek-v4-1-flash-1017", "deepseek-v4.1-flash-1017:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek-v4.1-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -5,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 9, 10),
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000112m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000336m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000000336m),
+                        },
+                    },
+                    Aliases = new List<string> { "deepseek-v4.1-flash:batch", "deepseek-v4-1-flash" },
+                },
 
                 new AIModelCapabilities
                 {
@@ -107,60 +155,28 @@ namespace SmartHopper.Providers.DeepSeek
                     SupportsBatch = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = 0,
+                    Rank = -10,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 21),
                     Pricing = new AIModelPricing
-        {
-            Entries =
-            {
-                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000022m),
-                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000066m),
-                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000007m),
-            },
-        },
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000022m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000066m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000007m),
+                        },
+                    },
                     BatchPricing = new AIModelPricing
-        {
-            Entries =
-            {
-                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000011m),
-                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000033m),
-                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000035m),
-            },
-        },
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000011m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000033m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000035m),
+                        },
+                    },
                     Aliases = new List<string> { "deepseek-v4-flash-vision-exp:batch" },
-                },
-
-                // Renamed/withdrawn V4.1 flash variants: not accepted by the live API
-                // (only deepseek-flash / deepseek-v4-pro are served). Kept as deprecated
-                // tombstones so catalogue merges and stale caches converge on the rename.
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek-v4.1-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -2,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 10, 17),
-                    Aliases = new List<string> { "deepseek-v4.1-flash:batch", "deepseek-v4-1-flash" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek-v4.1-flash-1017",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -3,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 10, 17),
-                    Aliases = new List<string> { "deepseek-flash-latest", "deepseek-v4-1-flash-1017" },
                 },
 
                 new AIModelCapabilities
@@ -170,7 +186,7 @@ namespace SmartHopper.Providers.DeepSeek
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Deprecated = true,
-                    Rank = -5,
+                    Rank = -15,
                     ContextLimit = 163840,
                     Created = new DateTime(2024, 12, 26),
                 },
@@ -182,7 +198,7 @@ namespace SmartHopper.Providers.DeepSeek
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Deprecated = true,
-                    Rank = -10,
+                    Rank = -20,
                     ContextLimit = 64000,
                 }
             };
