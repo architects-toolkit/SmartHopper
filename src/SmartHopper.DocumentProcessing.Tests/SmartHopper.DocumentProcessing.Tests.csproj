@@ -22,6 +22,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>SmartHopper.DocumentProcessing.Tests</AssemblyName>
     <IsPackable>false</IsPackable>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\SmartHopper.DocumentProcessing\SmartHopper.DocumentProcessing.csproj" />
@@ -38,6 +39,13 @@
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
   </ItemGroup>
+  <ItemGroup Condition="!$(TargetFramework.Contains('-windows'))">
+    <!-- Prevent transitive WindowsDesktop framework references from propagating to testhost -->
+    <FrameworkReference Remove="Microsoft.WindowsDesktop.App" />
+    <FrameworkReference Remove="Microsoft.WindowsDesktop.App.WindowsForms" />
+    <FrameworkReference Remove="Microsoft.WindowsDesktop.App.WPF" />
+  </ItemGroup>
+
   <!-- Stage the isolated renderer into this test host's output (its own bin folder). -->
   <Import Project="..\SmartHopper.DocumentRendering\DocumentRendering.Packaging.targets" />
 </Project>
