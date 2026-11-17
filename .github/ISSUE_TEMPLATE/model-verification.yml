@@ -94,9 +94,7 @@ body:
         - Gemini / gemini-3.1-flash-image-preview
         - Gemini / gemini-2.5-flash-image
         - Gemini / gemini-3-pro-image-preview
-        - Gemini / gemini-2.5-flash-lite
         - Gemini / gemini-2.5-flash
-        - Gemini / gemini-2.5-pro
         - Gemini / gemma-3-4b-it
         - Gemini / gemma-3-12b-it
         - Gemini / gemma-3-27b-it
@@ -182,6 +180,8 @@ body:
         - OpenAI / gpt-image-2-2026-04-21
         - OpenAI / gpt-image-2.5-flare-2026-09-08
         - OpenAI / gpt-image-2.5-sunburst-2026-09-08
+        - OpenAI / gpt-image-2.6-flare
+        - OpenAI / gpt-image-2.6-sunburst
         - OpenAI / gpt-live-1
         - OpenAI / gpt-live-transcribe
         - OpenAI / gpt-transcribe
@@ -459,7 +459,6 @@ body:
         - OpenRouter / relace/relace-apply-3
         - OpenRouter / qwen/qwen3-vl-235b-a22b-instruct
         - OpenRouter / mistralai/mistral-medium-3.1
-        - OpenRouter / openai/gpt-5-mini
         - OpenRouter / nousresearch/hermes-4-405b
         - OpenRouter / anthropic/claude-haiku-4.5
         - OpenRouter / openai/gpt-5-image-mini
