@@ -23,7 +23,7 @@ All new type/method names in these packages are **proposed**, not existing APIs.
 - SmartHopper currently defaults to sibling source references when present; package fallback in `SmartHopper.Core.Grasshopper.csproj` is 1.3.6. Both modes must be verified before shipping.
 - The build-generated `Directory.Build.props` public-key change is not part of this work. Do not stage keys, certificates, local settings, temporary rigs, or raw logs.
 
-Evidence: [D12/F8 live reproduction](../Reviews/261115%20PR-C%20D12%20F8%20Live%20Reproduction.md) and [live report](../Reviews/261110%20MCP%20Live%20Test%20Report.md).
+Evidence: [D12/F8 live reproduction](../Reviews/261115%20PR-C%20D12%20F8%20Live%20Reproduction.md).
 
 ## Scope And Completion Contract
 

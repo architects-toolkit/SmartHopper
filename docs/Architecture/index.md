@@ -2,7 +2,6 @@
 
 - [MCP server](mcp-server.md) — embedded Model Context Protocol server exposing AI tools.
 - [Structured logging](logging.md) — local logger, sinks, scopes, diagnostics UI.
-- [Telemetry and diagnostics consent](telemetry.md) — community stats vs diagnostics, privacy mechanics, trace correlation.
 - [Multimodal documents](multimodal-documents.md) — document evidence model, hybrid PDF extraction/rendering, capability-aware request preparation and surface behavior.
 - [Multimodal implementation review](multimodal-implementation-review.md) — implementation verification record and limitations for the multimodal documents feature.
 - [Agent copilot](agent-copilot.md)
