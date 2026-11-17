@@ -19,9 +19,11 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Eto.Drawing;
 using Eto.Forms;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Utils;
@@ -156,7 +158,7 @@ namespace SmartHopper.Menu.Dialogs
 
             var descriptionLabel = new Label
             {
-                Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\n\nIt currently supports MistralAI, OpenAI, DeepSeek, Anthropic, Gemini and OpenRouter.",
+                Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\n\nIt currently supports " + GetSupportedProviderNames() + ".",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
             };
@@ -294,6 +296,18 @@ namespace SmartHopper.Menu.Dialogs
                 },
             };
 
+            var grasshopperIconsLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "- Aidan Newsome for", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("grasshopper-icons", "https://github.com/aidannewsome/grasshopper-icons"),
+                    new Label { Text = "(recovered David Rutten icon set, McNeel guide terms)", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
             var githubLinkLabel = CreateLinkButton("Open an issue on GitHub", GitHubUrl);
 
             var newtonsoftJsonLink = new StackLayout
@@ -382,6 +396,66 @@ namespace SmartHopper.Menu.Dialogs
                 },
             };
 
+            var pdfToImageLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("PDFtoImage", "https://github.com/sungaila/PDFtoImage"),
+                    new Label { Text = "(Apache 2.0 License) - PDF page rendering", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var pdfiumLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("PDFium", "https://pdfium.googlesource.com/pdfium/"),
+                    new Label { Text = "(BSD-3-Clause License) - bundled by PDFtoImage", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var skiaSharpLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("SkiaSharp", "https://github.com/mono/SkiaSharp"),
+                    new Label { Text = "(MIT License) - bundled by PDFtoImage", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var angleSharpLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("AngleSharp", "https://github.com/AngleSharp/AngleSharp"),
+                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var excelDataReaderLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("ExcelDataReader", "https://github.com/ExcelDataReader/ExcelDataReader"),
+                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
             var reverseMarkdownLink = new StackLayout
             {
                 Orientation = Orientation.Horizontal,
@@ -403,6 +477,30 @@ namespace SmartHopper.Menu.Dialogs
                     new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("SmartReader", "https://github.com/andrei-tatar/SmartReader"),
                     new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var domPurifyLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("DOMPurify", "https://github.com/cure53/DOMPurify"),
+                    new Label { Text = "(Apache-2.0 OR MPL-2.0 License) - chat HTML sanitization", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var chatUiLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "- Architect's Toolkit for", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("chat-ui", "https://github.com/architects-toolkit/chat-ui"),
+                    new Label { Text = "(MIT License) - vendored chat view", Font = new Font(SystemFont.Default, 10) },
                 },
             };
 
@@ -434,7 +532,7 @@ namespace SmartHopper.Menu.Dialogs
                             CreateLinkButton("Microsoft .NET runtime packages", "https://github.com/dotnet/runtime"),
                             new Label
                             {
-                                Text = "System.Net.Http, System.Text.Json, System.Text.RegularExpressions, System.Security.Cryptography.Pkcs, System.Drawing.Common, System.Resources.Extensions (MIT License)",
+                                Text = "System.Net.Http, System.Text.Json, System.Text.RegularExpressions, System.Text.Encoding.CodePages, System.Security.Cryptography.Pkcs, System.Formats.Asn1, System.Drawing.Common, System.Resources.Extensions (MIT License)",
                                 Font = new Font(SystemFont.Default, 10),
                                 Wrap = WrapMode.Word,
                             },
@@ -481,13 +579,25 @@ namespace SmartHopper.Menu.Dialogs
             {
                 contentLayout.Items.Add(new Label
                 {
-                    Text = "KEEP IN MIND THAT SMARTHOPPER IS STILL IN ITS EARLY STAGES OF DEVELOPMENT AND MAY HAVE BUGS OR LIMITATIONS. FILES SAVED WITH THIS VERSION MAY NOT BE COMPATIBLE WITH FUTURE VERSIONS.",
+                    Text = "THIS IS A PRERELEASE VERSION OF SMARTHOPPER — IT MAY CONTAIN BUGS OR UNFINISHED FEATURES, AND FILES SAVED WITH IT MAY NOT BE COMPATIBLE WITH FUTURE VERSIONS.",
                     Font = new Font(SystemFont.Default, 10),
                     Wrap = WrapMode.Word,
                     TextColor = Colors.DarkRed,
                 });
                 contentLayout.Items.Add(null); // spacing
             }
+
+            // Show warning only on debug compilations
+#if DEBUG
+            contentLayout.Items.Add(new Label
+            {
+                Text = "DEBUG BUILD — this is a development compilation and may contain bugs, extra logging or unfinished features. Do not redistribute.",
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                TextColor = Colors.DarkRed,
+            });
+            contentLayout.Items.Add(null); // spacing
+#endif
 
             contentLayout.Items.Add(new StackLayout
             {
@@ -513,14 +623,22 @@ namespace SmartHopper.Menu.Dialogs
             contentLayout.Items.Add(documentFormatOpenXmlLink);
             contentLayout.Items.Add(mimeKitLink);
             contentLayout.Items.Add(pdfPigLink);
+            contentLayout.Items.Add(pdfToImageLink);
+            contentLayout.Items.Add(pdfiumLink);
+            contentLayout.Items.Add(skiaSharpLink);
             contentLayout.Items.Add(reverseMarkdownLink);
             contentLayout.Items.Add(smartReaderLink);
+            contentLayout.Items.Add(angleSharpLink);
+            contentLayout.Items.Add(excelDataReaderLink);
             contentLayout.Items.Add(jsonSchemaNetLink);
+            contentLayout.Items.Add(domPurifyLink);
+            contentLayout.Items.Add(chatUiLink);
             contentLayout.Items.Add(microsoftNetPackagesLink);
             contentLayout.Items.Add(materialIconsLink);
             contentLayout.Items.Add(lobeIconsLink);
             contentLayout.Items.Add(rhinoIconLink);
             contentLayout.Items.Add(ladybugIconLink);
+            contentLayout.Items.Add(grasshopperIconsLink);
             contentLayout.Items.Add(logoDesignThanksLabel);
             contentLayout.Items.Add(null); // spacing
             contentLayout.Items.Add(null); // spacing
@@ -538,6 +656,40 @@ namespace SmartHopper.Menu.Dialogs
             };
 
             return mainContentLayout;
+        }
+
+        /// <summary>
+        /// Resolves the comma-separated list of registered provider display names
+        /// for the description text, so new providers are mentioned automatically.
+        /// Falls back to the bundled provider list when the registry is
+        /// unavailable — the About dialog must never fail to render.
+        /// </summary>
+        private static string GetSupportedProviderNames()
+        {
+            const string fallback = "MistralAI, OpenAI, DeepSeek, Anthropic, Gemini, OpenRouter, Ollama, LocalAI and SmartHopper Cloud";
+
+            try
+            {
+                var names = ProviderManager.Instance.GetProviders(includeUntrusted: true)
+                    .Select(p => p.Name)
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+
+                if (names.Length == 0)
+                {
+                    return fallback;
+                }
+
+                return names.Length == 1
+                    ? names[0]
+                    : string.Join(", ", names.Take(names.Length - 1)) + " and " + names[names.Length - 1];
+            }
+            catch
+            {
+                return fallback;
+            }
         }
 
         private static LinkButton CreateLinkButton(string text, string url)

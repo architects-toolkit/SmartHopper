@@ -36,10 +36,10 @@ namespace SmartHopper.Components.JSON
         public override Guid ComponentGuid => new Guid("9299C148-3301-4FBC-8CE4-EBD495F99B29");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.jsonobj;
+        protected override Bitmap Icon => Resources.JsonObject;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonObjectComponent"/> class.
@@ -48,23 +48,23 @@ namespace SmartHopper.Components.JSON
             : base(
                 "JSON Object",
                 "JsonObject",
-                "Create a JSON object from key-value pairs.\nNumbers, booleans and valid JSON arrays/objects are auto-coerced from their string representation.",
+                "Create a JSON object from parallel lists of property keys and values.\nNumbers, booleans, and valid JSON objects or arrays are preserved as native JSON values.",
                 "SmartHopper",
-                "JSON")
+                "H. JSON")
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Key", "K", "List of property keys", GH_ParamAccess.list);
-            pManager.AddGenericParameter("Value", "V", "List of values (number, boolean, string, or nested JSON auto-coerced)", GH_ParamAccess.list);
+            pManager.AddTextParameter("Key", "K", "Property names (must match the number of values).", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Value", "V", "Property values corresponding to each key (strings, numbers, booleans, or nested JSON).", GH_ParamAccess.list);
         }
 
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON", "J", "JSON object string", GH_ParamAccess.item);
+            pManager.AddTextParameter("JSON", "J", "Formatted JSON object string.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>

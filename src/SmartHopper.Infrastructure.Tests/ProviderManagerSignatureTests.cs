@@ -30,6 +30,7 @@ namespace SmartHopper.Infrastructure.Tests
     using Microsoft.CodeAnalysis;
     using Microsoft.CodeAnalysis.CSharp;
     using SmartHopper.Infrastructure.AIProviders;
+    using SmartHopper.Infrastructure.Security;
     using SmartHopper.ProviderSdk.AIProviders;
     using SmartHopper.ProviderSdk.Logging;
     using Xunit;
@@ -340,6 +341,157 @@ namespace SmartHopper.Infrastructure.Tests
                 // Best effort cleanup; do not fail the test if files are locked.
             }
         }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "AuthenticodeVerify_UnsignedFile_NotAccepted [Windows]")]
+        public void AuthenticodeVerify_UnsignedFile_NotAccepted()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                throw new SkipException("WinVerifyTrust requires Windows");
+            }
+
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".dll");
+            File.WriteAllText(tempFile, "dummy content");
+            try
+            {
+                var status = AuthenticodeSignatureVerifier.Verify(tempFile, out var raw);
+                this.output.WriteLine($"Unsigned file status: {status} (0x{raw:X8})");
+                Assert.True(
+                    status is AuthenticodeSignatureStatus.Unsigned or AuthenticodeSignatureStatus.Invalid,
+                    $"Expected Unsigned/Invalid, got {status}");
+            }
+            finally
+            {
+                if (File.Exists(tempFile))
+                {
+                    File.Delete(tempFile);
+                }
+            }
+        }
+
+        [Fact(DisplayName = "AuthenticodeVerify_SignedFile_IntegrityVerified [Windows]")]
+        public void AuthenticodeVerify_SignedFile_IntegrityVerified()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                throw new SkipException("WinVerifyTrust requires Windows");
+            }
+
+            if (!this.IsCertificateCreationSupported())
+            {
+                this.output.WriteLine("Skipping certificate creation test - not supported in current environment");
+                return;
+            }
+
+            const string password = "testpw";
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".dll");
+            var pfxFile = Path.ChangeExtension(tempFile, ".pfx");
+            try
+            {
+                var syntaxTree = CSharpSyntaxTree.ParseText("public class Dummy {};");
+                var refs = new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
+                var compilation = CSharpCompilation.Create(
+                    Path.GetFileNameWithoutExtension(tempFile),
+                    new[] { syntaxTree },
+                    refs,
+                    new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+                Assert.True(compilation.Emit(tempFile).Success, "Failed to compile dummy assembly");
+
+                var assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                var solutionDir = Path.GetFullPath(Path.Combine(assemblyDir, "../../../../.."));
+                var script = Path.Combine(solutionDir, "tools", "Sign-Authenticode.ps1");
+
+                EnsureWindowsKitsOnPath();
+                this.GeneratePfx(script, pfxFile, password);
+                this.SignAuthenticode(tempFile, pfxFile, password);
+
+                var status = AuthenticodeSignatureVerifier.Verify(tempFile, out var raw);
+                this.output.WriteLine($"Signed file status: {status} (0x{raw:X8})");
+                Assert.True(
+                    status is AuthenticodeSignatureStatus.Valid or AuthenticodeSignatureStatus.ValidUntrusted,
+                    $"Expected Valid/ValidUntrusted, got {status} (0x{raw:X8})");
+            }
+            finally
+            {
+                if (File.Exists(tempFile))
+                {
+                    File.Delete(tempFile);
+                }
+
+                if (File.Exists(pfxFile))
+                {
+                    File.Delete(pfxFile);
+                }
+            }
+        }
+
+        [Fact(DisplayName = "AuthenticodeVerify_TamperedSignedFile_Rejected [Windows]")]
+        public void AuthenticodeVerify_TamperedSignedFile_Rejected()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                throw new SkipException("WinVerifyTrust requires Windows");
+            }
+
+            if (!this.IsCertificateCreationSupported())
+            {
+                this.output.WriteLine("Skipping certificate creation test - not supported in current environment");
+                return;
+            }
+
+            const string password = "testpw";
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".dll");
+            var pfxFile = Path.ChangeExtension(tempFile, ".pfx");
+            try
+            {
+                var syntaxTree = CSharpSyntaxTree.ParseText("public class Dummy {};");
+                var refs = new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
+                var compilation = CSharpCompilation.Create(
+                    Path.GetFileNameWithoutExtension(tempFile),
+                    new[] { syntaxTree },
+                    refs,
+                    new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+                Assert.True(compilation.Emit(tempFile).Success, "Failed to compile dummy assembly");
+
+                var assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                var solutionDir = Path.GetFullPath(Path.Combine(assemblyDir, "../../../../.."));
+                var script = Path.Combine(solutionDir, "tools", "Sign-Authenticode.ps1");
+
+                EnsureWindowsKitsOnPath();
+                this.GeneratePfx(script, pfxFile, password);
+                this.SignAuthenticode(tempFile, pfxFile, password);
+
+                // Tamper: append bytes after signing — the embedded digest no longer
+                // covers the image even though the certificate blob is intact.
+                using (var stream = new FileStream(tempFile, FileMode.Append, FileAccess.Write))
+                {
+                    stream.Write(new byte[] { 0xDE, 0xAD, 0xBE, 0xEF }, 0, 4);
+                }
+
+                var status = AuthenticodeSignatureVerifier.Verify(tempFile, out var raw);
+                this.output.WriteLine($"Tampered file status: {status} (0x{raw:X8})");
+
+                // A tampered file must never reach Valid/ValidUntrusted — WinVerifyTrust
+                // reports BAD_DIGEST or NOSIGNATURE depending on how the digest fails.
+                Assert.True(
+                    status is AuthenticodeSignatureStatus.Unsigned or AuthenticodeSignatureStatus.Invalid,
+                    $"Expected Unsigned/Invalid for tampered file, got {status} (0x{raw:X8})");
+            }
+            finally
+            {
+                if (File.Exists(tempFile))
+                {
+                    File.Delete(tempFile);
+                }
+
+                if (File.Exists(pfxFile))
+                {
+                    File.Delete(pfxFile);
+                }
+            }
+        }
+#endif
 
         // #if NET7_WINDOWS
         //         [Fact(DisplayName = "VerifySignature_FullySigned_DoesNotThrow [Windows]")]

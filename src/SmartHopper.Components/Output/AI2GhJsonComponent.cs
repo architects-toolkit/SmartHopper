@@ -25,6 +25,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Utilities;
@@ -40,7 +41,7 @@ namespace SmartHopper.Components.Output
         /// Initializes a new instance of the <see cref="AI2GhJsonComponent"/> class.
         /// </summary>
         public AI2GhJsonComponent()
-            : base("AI to GhJSON", "AI→GhJSON", "Generate Grasshopper components in GhJSON format", GH_Exposure.tertiary)
+            : base("AI to GhJSON", "AI2GhJSON", "Call the AI provider on the connected input(s) and return a Grasshopper definition in GhJSON format.", GH_Exposure.tertiary)
         {
         }
 
@@ -52,7 +53,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the component icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.aitogh;
+        protected override Bitmap Icon => Resources.AI2GhJson;
 
         /// <summary>
         /// Gets the AI tools used by this component.
@@ -79,7 +80,7 @@ namespace SmartHopper.Components.Output
         /// </summary>
         protected override string GetInternalSystemPrompt()
         {
-            return "You are a Grasshopper definition generator. Generate valid GhJSON format component definitions based on user requirements.";
+            return "You are a Grasshopper definition generator. Generate valid GhJSON format component definitions based on user requirements. " + GhJsonGenerationPolicy.Instructions;
         }
 
         /// <summary>
@@ -93,7 +94,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "GhJSON",
                     NickName = "G",
-                    Description = "Generated GhJSON definition",
+                    Description = "Generated Grasshopper definition in GhJSON format (connect to Validate GhJSON or Place GhJSON).",
                     ParamType = typeof(Param_String),
                     Access = GH_ParamAccess.tree,
                     Extractor = OutputMapping.Single(aiReturn =>
@@ -125,7 +126,7 @@ namespace SmartHopper.Components.Output
         /// </summary>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Place on Canvas", "P", "Automatically place generated components on canvas", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Place on Canvas", "P", "When true, automatically places the generated GhJSON components on the canvas.", GH_ParamAccess.item, false);
         }
     }
 }

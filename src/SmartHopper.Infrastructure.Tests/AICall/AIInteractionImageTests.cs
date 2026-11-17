@@ -158,8 +158,6 @@ namespace SmartHopper.Infrastructure.Tests.AICall
             interaction = interaction.WithRequest("A cat wearing sunglasses");
             Assert.Equal("A cat wearing sunglasses", interaction.OriginalPrompt);
             Assert.Equal("1024x1024", interaction.ImageSize);
-            Assert.Equal("standard", interaction.ImageQuality);
-            Assert.Equal("vivid", interaction.ImageStyle);
         }
 
         [Fact(DisplayName = "WithRequest_WithCustomSize_OverridesDefault")]

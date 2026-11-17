@@ -57,7 +57,8 @@ namespace SmartHopper.Providers.Anthropic
         {
             this.Models = new AnthropicProviderModels(this);
 
-            // No provider-specific schema adapter required at the moment.
+            // Register provider-specific JSON schema adapter
+            JsonSchemaAdapterRegistry.Register(new AnthropicJsonSchemaAdapter());
         }
 
         /// <summary>
@@ -95,32 +96,32 @@ namespace SmartHopper.Providers.Anthropic
         }
 
         /// <inheritdoc/>
-        public override async Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        protected override async Task<AIRequestCall> PreCallCoreAsync(AIRequestCall outbound, CancellationToken cancellationToken = default)
         {
-            request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
+            await base.PreCallCoreAsync(outbound, cancellationToken).ConfigureAwait(false);
 
-            switch (request.Endpoint)
+            switch (outbound.Endpoint)
             {
                 case "/models":
-                    request.HttpMethod = "GET";
-                    request.RequestKind = AIRequestKind.Backoffice;
+                    outbound.HttpMethod = "GET";
+                    outbound.RequestKind = AIRequestKind.Backoffice;
                     break;
                 default:
-                    request.HttpMethod = "POST";
-                    request.Endpoint = "/messages"; // Anthropic Messages API
+                    outbound.HttpMethod = "POST";
+                    outbound.Endpoint = "/messages"; // Anthropic Messages API
                     break;
             }
 
-            request.ContentType = "application/json";
-            request.Authentication = "x-api-key";
+            outbound.ContentType = "application/json";
+            outbound.Authentication = "x-api-key";
 
-            if (!request.Headers.ContainsKey("anthropic-version"))
+            if (!outbound.Headers.ContainsKey("anthropic-version"))
             {
                 // Default version if not provided by caller
-                request.Headers["anthropic-version"] = "2023-06-01";
+                outbound.Headers["anthropic-version"] = "2023-06-01";
             }
 
-            return request;
+            return outbound;
         }
 
         // No CustomizeHttpClientHeaders override; headers are provided in request.Headers.
@@ -137,8 +138,8 @@ namespace SmartHopper.Providers.Anthropic
                     return string.Empty;
                 }
 
-                var contentBlock = this.CreateContentBlock(interaction);
-                if (contentBlock == null)
+                var contentBlocks = this.CreateContentBlocks(interaction);
+                if (contentBlocks == null)
                 {
                     return string.Empty;
                 }
@@ -146,7 +147,7 @@ namespace SmartHopper.Providers.Anthropic
                 var message = new JObject
                 {
                     ["role"] = role,
-                    ["content"] = new JArray { contentBlock, },
+                    ["content"] = contentBlocks,
                 };
 
                 return message.ToString();
@@ -160,7 +161,8 @@ namespace SmartHopper.Providers.Anthropic
 
         /// <summary>
         /// Sorts content blocks according to Anthropic API requirements.
-        /// Text blocks must come before tool_use blocks in the same message.
+        /// Thinking blocks must come first; text blocks must come before
+        /// tool_use blocks in the same message.
         /// </summary>
         private JArray SortContentBlocks(JArray contentBlocks)
         {
@@ -170,6 +172,7 @@ namespace SmartHopper.Providers.Anthropic
             }
 
             var sorted = new JArray();
+            var thinkingBlocks = new List<JToken>();
             var textBlocks = new List<JToken>();
             var toolUseBlocks = new List<JToken>();
             var otherBlocks = new List<JToken>();
@@ -179,7 +182,12 @@ namespace SmartHopper.Providers.Anthropic
                 if (block is JObject obj)
                 {
                     var type = obj["type"]?.ToString();
-                    if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(type, "redacted_thinking", StringComparison.OrdinalIgnoreCase))
+                    {
+                        thinkingBlocks.Add(block);
+                    }
+                    else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
                     {
                         textBlocks.Add(block);
                     }
@@ -198,7 +206,12 @@ namespace SmartHopper.Providers.Anthropic
                 }
             }
 
-            // Add in order: text, tool_use, others
+            // Add in order: thinking, text, tool_use, others
+            foreach (var block in thinkingBlocks)
+            {
+                sorted.Add(block);
+            }
+
             foreach (var block in textBlocks)
             {
                 sorted.Add(block);
@@ -246,6 +259,36 @@ namespace SmartHopper.Providers.Anthropic
                 default:
                     return null;
             }
+        }
+
+        /// <summary>
+        /// Creates the content blocks for an interaction. Assistant text
+        /// interactions carrying provider-owned thinking blocks (captured at
+        /// decode into <see cref="IAIInteraction.ProviderData"/>) replay them
+        /// verbatim ahead of the text block — Anthropic requires thinking
+        /// blocks echoed back unchanged on continuation turns.
+        /// Returns null if the interaction should not be sent or has no content.
+        /// </summary>
+        private JArray CreateContentBlocks(IAIInteraction interaction)
+        {
+            var blocks = new JArray();
+            if (interaction is AIInteractionText &&
+                string.Equals(this.GetRoleForAgent(interaction.Agent), "assistant", StringComparison.Ordinal) &&
+                interaction.ProviderData?["thinking"] is JArray thinkingBlocks)
+            {
+                foreach (var b in thinkingBlocks)
+                {
+                    blocks.Add(b);
+                }
+            }
+
+            var block = this.CreateContentBlock(interaction);
+            if (block != null)
+            {
+                blocks.Add(block);
+            }
+
+            return blocks.Count > 0 ? blocks : null;
         }
 
         /// <summary>
@@ -387,6 +430,28 @@ namespace SmartHopper.Providers.Anthropic
         }
 
         /// <summary>
+        /// Builds the Anthropic <c>cache_control</c> object, honoring the
+        /// <c>cache_ttl</c> extra (<c>"5m"</c> or <c>"1h"</c>) when present.
+        /// The 1-hour tier carries a deeper cache-write discount than the 5-minute default.
+        /// </summary>
+        private static JObject BuildCacheControl(IReadOnlyDictionary<string, JToken>? extras)
+        {
+            var control = new JObject { ["type"] = "ephemeral" };
+            if (extras != null &&
+                extras.TryGetValue("cache_ttl", out var ttlToken) && ttlToken != null)
+            {
+                var ttl = ttlToken.ToString();
+                if (string.Equals(ttl, "5m", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(ttl, "1h", StringComparison.OrdinalIgnoreCase))
+                {
+                    control["ttl"] = ttl;
+                }
+            }
+
+            return control;
+        }
+
+        /// <summary>
         /// Extracts the textual representation of a tool_result content block, preserving non-text JSON as stringified JSON.
         /// </summary>
         private static string ExtractToolResultText(JToken resultContent)
@@ -499,9 +564,9 @@ namespace SmartHopper.Providers.Anthropic
                         continue; // Skip interactions without a role
                     }
 
-                    // Get content block for this interaction
-                    var contentBlock = this.CreateContentBlock(interaction);
-                    if (contentBlock == null)
+                    // Get content blocks for this interaction
+                    var contentBlocks = this.CreateContentBlocks(interaction);
+                    if (contentBlocks == null)
                     {
                         continue; // Skip if no content
                     }
@@ -512,7 +577,7 @@ namespace SmartHopper.Providers.Anthropic
                         // Role changed: finalize previous message if exists
                         if (currentRole != null && currentContentBlocks != null && currentContentBlocks.Count > 0)
                         {
-                            // Sort content blocks: text must come before tool_use for Anthropic API
+                            // Sort content blocks: thinking and text must come before tool_use for Anthropic API
                             var sortedContent = this.SortContentBlocks(currentContentBlocks);
                             messages.Add(new JObject
                             {
@@ -523,12 +588,15 @@ namespace SmartHopper.Providers.Anthropic
 
                         // Start new message
                         currentRole = role;
-                        currentContentBlocks = new JArray { contentBlock };
+                        currentContentBlocks = contentBlocks;
                     }
                     else
                     {
                         // Same role: append to current content blocks
-                        currentContentBlocks?.Add(contentBlock);
+                        foreach (var b in contentBlocks)
+                        {
+                            currentContentBlocks?.Add(b);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -574,8 +642,16 @@ namespace SmartHopper.Providers.Anthropic
                 ["model"] = request.Model,
                 ["messages"] = messages,
                 ["max_tokens"] = maxTokens,
-                ["temperature"] = temperature,
             };
+
+            // The effort-capable model family deprecated the sampling parameters and
+            // returns HTTP 400 when any non-default temperature/top_p/top_k is sent;
+            // omit them there and keep them for older models.
+            bool supportsSampling = SupportsSamplingParameters(request.Model);
+            if (supportsSampling)
+            {
+                requestBody["temperature"] = temperature;
+            }
 
             // Apply optional parameters from extras only
             // Note: effort goes inside output_config, container goes at top level
@@ -587,12 +663,12 @@ namespace SmartHopper.Providers.Anthropic
                     requestBody["seed"] = seedToken.Value<int?>();
                 }
 
-                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                if (supportsSampling && p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
                 {
                     requestBody["top_p"] = topPToken.Value<double?>();
                 }
 
-                if (p.Extras.TryGetValue("top_k", out var topKToken) && topKToken != null)
+                if (supportsSampling && p.Extras.TryGetValue("top_k", out var topKToken) && topKToken != null)
                 {
                     requestBody["top_k"] = topKToken.Value<int?>();
                 }
@@ -605,19 +681,58 @@ namespace SmartHopper.Providers.Anthropic
             }
 
             // Priority: 1) Extra settings per-request, 2) Global provider setting
-            var effort = p?.Extras != null &&
+            var requestedEffort = p?.Extras != null &&
                          p.Extras.TryGetValue("effort", out var effortToken) &&
                          effortToken != null
                          ? effortToken.ToString()
                          : this.GetSetting<string>("ReasoningEffort");
 
-            effort = this.NormalizeAnthropicEffort(effort, request.Model);
+            var effort = this.NormalizeAnthropicEffort(requestedEffort, request.Model);
 
             if (!string.IsNullOrWhiteSpace(effort))
             {
                 outputConfig ??= new JObject();
                 Logger.For<AnthropicProvider>().Trace($"[AnthropicProvider] Using reasoning effort: {effort}");
                 outputConfig["effort"] = effort;
+            }
+
+            // Emit the request-side thinking config the family requires — without it,
+            // 4.6/4.7/4.8 never think at all and 5.x think invisibly (display defaults
+            // to "omitted": billed thinking tokens, empty thinking blocks).
+            var thinkingMode = GetAnthropicThinkingMode(request.Model);
+            if (!string.IsNullOrWhiteSpace(requestedEffort) && thinkingMode != AnthropicThinkingMode.None)
+            {
+                if (thinkingMode == AnthropicThinkingMode.Adaptive)
+                {
+                    requestBody["thinking"] = new JObject
+                    {
+                        ["type"] = "adaptive",
+                        ["display"] = "summarized",
+                    };
+                    Logger.For<AnthropicProvider>().Trace("[AnthropicProvider] Using adaptive thinking (display=summarized)");
+                }
+                else
+                {
+                    var budget = MapEffortToBudgetTokens(requestedEffort, maxTokens);
+                    if (budget.HasValue)
+                    {
+                        requestBody["thinking"] = new JObject
+                        {
+                            ["type"] = "enabled",
+                            ["budget_tokens"] = budget.Value,
+                        };
+
+                        // Extended thinking requires temperature=1 and no top_p/top_k.
+                        requestBody["temperature"] = 1;
+                        requestBody.Remove("top_p");
+                        requestBody.Remove("top_k");
+                        Logger.For<AnthropicProvider>().Trace($"[AnthropicProvider] Using extended thinking: budget_tokens={budget.Value}");
+                    }
+                    else
+                    {
+                        Logger.For<AnthropicProvider>().Warning($"[AnthropicProvider] Skipping extended thinking: budget_tokens must be >=1024 and <max_tokens ({maxTokens}).");
+                    }
+                }
             }
 
             // Priority: 1) Extra settings per-request, 2) Global provider setting
@@ -639,9 +754,6 @@ namespace SmartHopper.Providers.Anthropic
                 try
                 {
                     var schemaObj = JObject.Parse(jsonSchema);
-
-                    // Anthropic requires additionalProperties=false on all object schemas in structured output mode
-                    InjectAdditionalPropertiesFalse(schemaObj);
 
                     var svc = JsonSchemaService.Instance;
                     var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
@@ -694,6 +806,8 @@ namespace SmartHopper.Providers.Anthropic
                 && p.Extras.TryGetValue("enable_caching", out var ecToken)
                 && ecToken?.Value<bool>() == true;
 
+            var cacheControl = BuildCacheControl(p?.Extras);
+
             // After collecting both conversation system texts and optional schema instruction,
             // set the top-level system field, joining entries with "\n---\n".
             if (systemTexts.Count > 0)
@@ -713,7 +827,7 @@ namespace SmartHopper.Providers.Anthropic
                             {
                                 ["type"] = "text",
                                 ["text"] = combinedSystem,
-                                ["cache_control"] = new JObject { ["type"] = "ephemeral" },
+                                ["cache_control"] = cacheControl.DeepClone(),
                             },
                         };
                     }
@@ -731,7 +845,7 @@ namespace SmartHopper.Providers.Anthropic
             // when the last cacheable block already carries the same cache_control TTL.
             if (enableCaching)
             {
-                requestBody["cache_control"] = new JObject { ["type"] = "ephemeral" };
+                requestBody["cache_control"] = cacheControl;
             }
 
             // Add tools if requested: map OpenAI-style tools to Anthropic 'tools'
@@ -841,6 +955,7 @@ namespace SmartHopper.Providers.Anthropic
                 string reasoningText = string.Empty;
                 var toolCalls = new List<AIInteractionToolCall>();
                 var toolResults = new List<AIInteractionToolResult>();
+                JArray providerThinking = null;
 
                 if (content != null)
                 {
@@ -865,10 +980,17 @@ namespace SmartHopper.Providers.Anthropic
                             {
                                 thinkingParts.Add(t);
                             }
+
+                            // Verbatim block (signature included) — Anthropic requires
+                            // thinking blocks echoed back unchanged on continuation turns.
+                            providerThinking ??= new JArray();
+                            providerThinking.Add(block.DeepClone());
                         }
                         else if (string.Equals(type, "redacted_thinking", StringComparison.OrdinalIgnoreCase))
                         {
                             thinkingParts.Add("[redacted thinking]");
+                            providerThinking ??= new JArray();
+                            providerThinking.Add(block.DeepClone());
                         }
                         else if (string.Equals(type, "tool_use", StringComparison.OrdinalIgnoreCase))
                         {
@@ -936,6 +1058,7 @@ namespace SmartHopper.Providers.Anthropic
                     Content = contentText,
                     Reasoning = reasoningText,
                     Metrics = this.DecodeMetrics(response),
+                    ProviderData = providerThinking != null ? new JObject { ["thinking"] = providerThinking } : null,
                 };
 
                 Logger.For<AnthropicProvider>().Trace($"[Anthropic] Decode creating text interaction: content='{contentText.Substring(0, Math.Min(50, contentText.Length))}...', toolCalls={toolCalls.Count}, toolResults={toolResults.Count}");
@@ -973,25 +1096,35 @@ namespace SmartHopper.Providers.Anthropic
 
             try
             {
-                var inputTokensPrompt = response["usage"] is JObject usage
-                    ? usage["input_tokens"]?.Value<int>() ?? 0
-                    : 0;
-                var outputTokensGeneration = response["usage"] is JObject usage2
-                    ? usage2["output_tokens"]?.Value<int>() ?? 0
-                    : 0;
-                var inputTokensCached = response["usage"] is JObject usage3
-                    ? usage3["cache_read_input_tokens"]?.Value<int>() ?? 0
-                    : 0;
-                var inputTokensCacheWrite = response["usage"] is JObject usage4
-                    ? usage4["cache_creation_input_tokens"]?.Value<int>() ?? 0
-                    : 0;
+                var quantities = new Dictionary<string, double>(StringComparer.Ordinal);
+                var usage = response["usage"] as JObject;
+                if (usage != null)
+                {
+                    SetAnthropicQuantities(quantities, usage, new AIMetrics());
+
+                    // Billed server-side tool usage (e.g. web_search_requests).
+                    if (usage["server_tool_use"] is JObject serverToolUse)
+                    {
+                        foreach (var prop in serverToolUse.Properties())
+                        {
+                            if (!prop.Name.EndsWith("_requests", StringComparison.Ordinal))
+                            {
+                                continue;
+                            }
+
+                            var count = prop.Value?.Value<int>() ?? 0;
+                            var toolName = prop.Name.Substring(0, prop.Name.Length - "_requests".Length);
+                            if (count > 0 && toolName.Length > 0)
+                            {
+                                SetQuantity(quantities, AIQuantityKey.Tool(toolName), AIPriceUnit.Invocation, count);
+                            }
+                        }
+                    }
+                }
 
                 return new AIMetrics
                 {
-                    InputTokensPrompt = inputTokensPrompt,
-                    OutputTokensGeneration = outputTokensGeneration,
-                    InputTokensCached = inputTokensCached,
-                    InputTokensCacheWrite = inputTokensCacheWrite,
+                    Quantities = quantities,
                     FinishReason = response["stop_reason"]?.ToString() ?? string.Empty,
                 };
             }
@@ -1001,6 +1134,33 @@ namespace SmartHopper.Providers.Anthropic
             }
 
             return new AIMetrics();
+        }
+
+        /// <summary>
+        /// Writes the Anthropic token buckets into <paramref name="quantities"/>,
+        /// falling back to <paramref name="previous"/> values for absent fields
+        /// (streaming deltas report subsets).
+        /// </summary>
+        private static void SetAnthropicQuantities(Dictionary<string, double> quantities, JObject usage, AIMetrics previous)
+        {
+            SetQuantity(quantities, AIQuantityKey.TextInput, AIPriceUnit.Token,
+                usage["input_tokens"]?.Value<int>() ?? previous.Quantity(AIQuantityKey.TextInput, AIPriceUnit.Token));
+            SetQuantity(quantities, AIQuantityKey.TextOutput, AIPriceUnit.Token,
+                usage["output_tokens"]?.Value<int>() ?? previous.Quantity(AIQuantityKey.TextOutput, AIPriceUnit.Token));
+            SetQuantity(quantities, AIQuantityKey.CacheRead, AIPriceUnit.Token,
+                usage["cache_read_input_tokens"]?.Value<int>() ?? previous.Quantity(AIQuantityKey.CacheRead, AIPriceUnit.Token));
+            SetQuantity(quantities, AIQuantityKey.CacheWrite, AIPriceUnit.Token,
+                usage["cache_creation_input_tokens"]?.Value<int>() ?? previous.Quantity(AIQuantityKey.CacheWrite, AIPriceUnit.Token));
+            SetQuantity(quantities, AIQuantityKey.InternalReasoning, AIPriceUnit.Token,
+                usage["output_tokens_details"]?["thinking_tokens"]?.Value<int>() ?? previous.Quantity(AIQuantityKey.InternalReasoning, AIPriceUnit.Token));
+        }
+
+        private static void SetQuantity(Dictionary<string, double> quantities, string kind, AIPriceUnit unit, double value)
+        {
+            if (value != 0d)
+            {
+                quantities[AIQuantityKey.Key(kind, unit)] = value;
+            }
         }
 
         /// <summary>
@@ -1129,6 +1289,14 @@ namespace SmartHopper.Providers.Anthropic
                 AIInteractionToolCall? currentToolCall = null;
                 var toolArgsBuffer = new StringBuilder();
 
+                // Track thinking blocks: visible text for Reasoning, verbatim
+                // blocks (signature included) for multi-turn replay.
+                var thinkingBuffer = new StringBuilder();
+                var currentThinkingText = new StringBuilder();
+                var signatureBuffer = new StringBuilder();
+                var providerThinking = new JArray();
+                var thinkingBlockOpen = false;
+
                 // Determine idle timeout from request; fall back to shared default if invalid.
                 var idleTimeout = TimeSpan.FromSeconds((double)(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : TimeoutDefaults.DefaultTimeoutSeconds));
                 await foreach (var data in this.ReadSseDataAsync(
@@ -1172,6 +1340,21 @@ namespace SmartHopper.Providers.Anthropic
                             toolArgsBuffer.Clear();
                             Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] Tool call initialized: id={currentToolCall.Id}, name={currentToolCall.Name}, currentToolCall set to non-null");
                         }
+                        else if (contentBlock != null && string.Equals(blockType, "thinking", StringComparison.OrdinalIgnoreCase))
+                        {
+                            thinkingBlockOpen = true;
+                            currentThinkingText.Clear();
+                            signatureBuffer.Clear();
+                            currentThinkingText.Append(contentBlock["thinking"]?.ToString());
+                            signatureBuffer.Append(contentBlock["signature"]?.ToString());
+                            thinkingBuffer.Append(contentBlock["thinking"]?.ToString());
+                        }
+                        else if (contentBlock != null && string.Equals(blockType, "redacted_thinking", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // redacted_thinking arrives complete at block start (opaque data field)
+                            providerThinking.Add(contentBlock.DeepClone());
+                            thinkingBuffer.Append("[redacted thinking]");
+                        }
                     }
                     else if (string.Equals(type, "content_block_delta", StringComparison.OrdinalIgnoreCase))
                     {
@@ -1191,13 +1374,46 @@ namespace SmartHopper.Providers.Anthropic
                                 {
                                     Agent = AIAgent.Assistant,
                                     Content = textBuffer.ToString(),
-                                    Reasoning = string.Empty,
+                                    Reasoning = thinkingBuffer.ToString(),
                                     Metrics = new AIMetrics { Provider = this.provider.Name, Model = request.Model },
                                 };
 
                                 var deltaRet = new AIReturn { Request = request, Status = AICallStatus.Streaming };
                                 deltaRet.SetBody(new List<IAIInteraction> { snapshot });
                                 yield return deltaRet;
+                            }
+                        }
+
+                        // Handle thinking deltas (summarized reasoning text)
+                        else if (string.Equals(deltaType, "thinking_delta", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var t = delta?["thinking"]?.ToString();
+                            if (!string.IsNullOrEmpty(t))
+                            {
+                                currentThinkingText.Append(t);
+                                thinkingBuffer.Append(t);
+
+                                var snapshot = new AIInteractionText
+                                {
+                                    Agent = AIAgent.Assistant,
+                                    Content = textBuffer.ToString(),
+                                    Reasoning = thinkingBuffer.ToString(),
+                                    Metrics = new AIMetrics { Provider = this.provider.Name, Model = request.Model },
+                                };
+
+                                var deltaRet = new AIReturn { Request = request, Status = AICallStatus.Streaming };
+                                deltaRet.SetBody(new List<IAIInteraction> { snapshot });
+                                yield return deltaRet;
+                            }
+                        }
+
+                        // Handle signature deltas (encrypted reasoning, streamed in chunks)
+                        else if (string.Equals(deltaType, "signature_delta", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var s = delta?["signature"]?.ToString();
+                            if (!string.IsNullOrEmpty(s))
+                            {
+                                signatureBuffer.Append(s);
                             }
                         }
 
@@ -1216,6 +1432,20 @@ namespace SmartHopper.Providers.Anthropic
                     {
                         var blockIndex = parsed["index"]?.Value<int>();
                         Logger.For<AnthropicStreamingAdapter>().Trace($"[Anthropic] content_block_stop: index={blockIndex}, hasCurrentToolCall={currentToolCall != null}");
+
+                        // Close an open thinking block — store verbatim for replay
+                        if (thinkingBlockOpen)
+                        {
+                            providerThinking.Add(new JObject
+                            {
+                                ["type"] = "thinking",
+                                ["thinking"] = currentThinkingText.ToString(),
+                                ["signature"] = signatureBuffer.ToString(),
+                            });
+                            thinkingBlockOpen = false;
+                            currentThinkingText.Clear();
+                            signatureBuffer.Clear();
+                        }
 
                         // Tool arguments are complete - parse and store
                         if (currentToolCall != null)
@@ -1257,18 +1487,15 @@ namespace SmartHopper.Providers.Anthropic
                         // message_start carries the initial usage (input + cache tokens)
                         if (parsed["message"]?["usage"] is JObject startUsage)
                         {
-                            var inputTokensPrompt = startUsage["input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt;
-                            var outputTokensGeneration = startUsage["output_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration;
-                            var inputTokensCached = startUsage["cache_read_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCached;
-                            var inputTokensCacheWrite = startUsage["cache_creation_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCacheWrite;
-
-                            streamMetrics = streamMetrics with
-                            {
-                                InputTokensPrompt = inputTokensPrompt,
-                                OutputTokensGeneration = outputTokensGeneration,
-                                InputTokensCached = inputTokensCached,
-                                InputTokensCacheWrite = inputTokensCacheWrite,
-                            };
+                            streamMetrics = streamMetrics
+                                .WithQuantity(AIQuantityKey.TextInput, AIPriceUnit.Token,
+                                    startUsage["input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt)
+                                .WithQuantity(AIQuantityKey.TextOutput, AIPriceUnit.Token,
+                                    startUsage["output_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration)
+                                .WithQuantity(AIQuantityKey.CacheRead, AIPriceUnit.Token,
+                                    startUsage["cache_read_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCached)
+                                .WithQuantity(AIQuantityKey.CacheWrite, AIPriceUnit.Token,
+                                    startUsage["cache_creation_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCacheWrite);
                         }
                     }
                     else if (string.Equals(type, "message_delta", StringComparison.OrdinalIgnoreCase))
@@ -1277,18 +1504,40 @@ namespace SmartHopper.Providers.Anthropic
 
                         if (parsed["usage"] is JObject usage)
                         {
-                            var inputTokensPrompt = usage["input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt;
-                            var outputTokensGeneration = usage["output_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration;
-                            var inputTokensCached = usage["cache_read_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCached;
-                            var inputTokensCacheWrite = usage["cache_creation_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCacheWrite;
+                            streamMetrics = streamMetrics
+                                .WithQuantity(AIQuantityKey.TextInput, AIPriceUnit.Token,
+                                    usage["input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt)
+                                .WithQuantity(AIQuantityKey.TextOutput, AIPriceUnit.Token,
+                                    usage["output_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration)
+                                .WithQuantity(AIQuantityKey.CacheRead, AIPriceUnit.Token,
+                                    usage["cache_read_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCached)
+                                .WithQuantity(AIQuantityKey.CacheWrite, AIPriceUnit.Token,
+                                    usage["cache_creation_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCacheWrite);
 
-                            streamMetrics = streamMetrics with
+                            // thinking_tokens rides inside output_tokens — reported for observability
+                            var thinkingTokens = usage["output_tokens_details"]?["thinking_tokens"]?.Value<int>();
+                            if (thinkingTokens > 0)
                             {
-                                InputTokensPrompt = inputTokensPrompt,
-                                OutputTokensGeneration = outputTokensGeneration,
-                                InputTokensCached = inputTokensCached,
-                                InputTokensCacheWrite = inputTokensCacheWrite,
-                            };
+                                streamMetrics = streamMetrics.WithQuantity(AIQuantityKey.InternalReasoning, AIPriceUnit.Token, thinkingTokens.Value);
+                            }
+
+                            if (usage["server_tool_use"] is JObject serverToolUse)
+                            {
+                                foreach (var prop in serverToolUse.Properties())
+                                {
+                                    if (!prop.Name.EndsWith("_requests", StringComparison.Ordinal))
+                                    {
+                                        continue;
+                                    }
+
+                                    var count = prop.Value?.Value<int>() ?? 0;
+                                    var toolName = prop.Name.Substring(0, prop.Name.Length - "_requests".Length);
+                                    if (count > 0 && toolName.Length > 0)
+                                    {
+                                        streamMetrics = streamMetrics.WithQuantity(AIQuantityKey.Tool(toolName), AIPriceUnit.Invocation, count);
+                                    }
+                                }
+                            }
                         }
 
                         // The stop_reason is nested under "delta" in message_delta events
@@ -1325,14 +1574,15 @@ namespace SmartHopper.Providers.Anthropic
                 var finalBuilder = AIBodyBuilder.Create();
 
                 // Add text if present
-                if (textBuffer.Length > 0)
+                if (textBuffer.Length > 0 || thinkingBuffer.Length > 0)
                 {
                     var finalInteraction = new AIInteractionText
                     {
                         Agent = AIAgent.Assistant,
                         Content = textBuffer.ToString(),
-                        Reasoning = string.Empty,
+                        Reasoning = thinkingBuffer.Length > 0 ? thinkingBuffer.ToString() : null,
                         Metrics = streamMetrics,
+                        ProviderData = providerThinking.Count > 0 ? new JObject { ["thinking"] = providerThinking } : null,
                     };
                     finalBuilder.Add(finalInteraction, markAsNew: false);
                 }
@@ -1365,65 +1615,29 @@ namespace SmartHopper.Providers.Anthropic
         }
 
         /// <summary>
-        /// Recursively adds additionalProperties=false to all object-type schemas in a JSON schema.
-        /// Anthropic requires this for structured output mode with output_config.format.schema.
-        /// </summary>
-        private static void InjectAdditionalPropertiesFalse(JToken token)
-        {
-            if (token is JObject obj)
-            {
-                var type = obj["type"]?.ToString();
-                if (type == "object")
-                {
-                    // Only add if not already present
-                    if (!obj.ContainsKey("additionalProperties"))
-                    {
-                        obj["additionalProperties"] = false;
-                    }
-                }
-
-                // Recurse into all properties
-                foreach (var property in obj.Properties().ToList())
-                {
-                    InjectAdditionalPropertiesFalse(property.Value);
-                }
-            }
-            else if (token is JArray arr)
-            {
-                foreach (var item in arr)
-                {
-                    InjectAdditionalPropertiesFalse(item);
-                }
-            }
-        }
-
-        /// <summary>
         /// Normalizes the effort value for the given Anthropic model.
         /// Automatically downgrades <c>xhigh</c> or <c>max</c> to <c>high</c>
         /// for models that do not officially support those levels, preventing 400 errors.
+        /// Returns <see langword="null"/> (drops the parameter) for models older
+        /// than the 4.6 generation, which reject <c>output_config.effort</c> outright.
         /// </summary>
         /// <param name="effort">The requested effort level.</param>
         /// <param name="model">The model identifier.</param>
-        /// <returns>The normalized effort level.</returns>
-        private string NormalizeAnthropicEffort(string effort, string model)
+        /// <returns>The normalized effort level, or <see langword="null"/> when the model does not support effort.</returns>
+        private string? NormalizeAnthropicEffort(string? effort, string? model)
         {
             if (string.IsNullOrWhiteSpace(effort) || string.IsNullOrWhiteSpace(model))
             {
                 return effort;
             }
 
-            var modelLower = model.ToLowerInvariant();
+            var (supportsEffort, supportsXhigh, supportsMax) = GetAnthropicEffortSupport(model);
 
-            // Models that support xhigh: fable-5, mythos-5, opus-4-8, opus-4-7
-            bool supportsXhigh = modelLower.Contains("fable-5")
-                || modelLower.Contains("mythos-5")
-                || modelLower.Contains("opus-4-8")
-                || modelLower.Contains("opus-4-7");
-
-            // Models that support max: xhigh models + opus-4-6 + sonnet-4-6
-            bool supportsMax = supportsXhigh
-                || modelLower.Contains("opus-4-6")
-                || modelLower.Contains("sonnet-4-6");
+            if (!supportsEffort)
+            {
+                Logger.For<AnthropicStreamingAdapter>().Warning($"[AnthropicProvider] Model '{model}' does not support the effort parameter; dropping effort='{effort}'.");
+                return null;
+            }
 
             if (!supportsXhigh && string.Equals(effort, "xhigh", StringComparison.OrdinalIgnoreCase))
             {
@@ -1438,6 +1652,163 @@ namespace SmartHopper.Providers.Anthropic
             }
 
             return effort;
+        }
+
+        /// <summary>
+        /// Returns the effort-parameter support levels for the given Anthropic model family.
+        /// The effort-capable family (5.x plus opus-4-6/4-7/4-8 and sonnet-4-6) accepts
+        /// <c>output_config.effort</c>; older generations reject it outright with
+        /// HTTP 400 "This model does not support the effort parameter."
+        /// </summary>
+        /// <param name="model">The model identifier.</param>
+        private static (bool SupportsEffort, bool SupportsXhigh, bool SupportsMax) GetAnthropicEffortSupport(string model)
+        {
+            var modelLower = model.ToLowerInvariant();
+
+            // Models that support xhigh: fable-5, mythos-5, opus-4-8, opus-4-7
+            bool supportsXhigh = modelLower.Contains("fable-5")
+                || modelLower.Contains("mythos-5")
+                || modelLower.Contains("opus-4-8")
+                || modelLower.Contains("opus-4-7");
+
+            // Models that support max: xhigh models + opus-4-6 + sonnet-4-6
+            bool supportsMax = supportsXhigh
+                || modelLower.Contains("opus-4-6")
+                || modelLower.Contains("sonnet-4-6");
+
+            // Models that accept output_config.effort at all: max-capable models
+            // plus the rest of the 5.x family.
+            bool supportsEffort = supportsMax
+                || modelLower.Contains("opus-5")
+                || modelLower.Contains("sonnet-5")
+                || modelLower.Contains("haiku-5");
+
+            return (supportsEffort, supportsXhigh, supportsMax);
+        }
+
+        /// <summary>
+        /// The thinking configuration a model family accepts on the request.
+        /// Adaptive families (all 5.x lines, fable/mythos, and every 4.6+ model)
+        /// take <c>thinking:{type:"adaptive"}</c>; 4.5-era and 3.7 models only
+        /// accept manual extended thinking (<c>{type:"enabled",budget_tokens}</c>);
+        /// anything older rejects the field outright.
+        /// </summary>
+        private enum AnthropicThinkingMode
+        {
+            None,
+            Adaptive,
+            Extended,
+        }
+
+        /// <summary>
+        /// Classifies the model into the thinking mode its family supports.
+        /// </summary>
+        /// <param name="model">The model identifier.</param>
+        private static AnthropicThinkingMode GetAnthropicThinkingMode(string? model)
+        {
+            if (string.IsNullOrWhiteSpace(model))
+            {
+                return AnthropicThinkingMode.None;
+            }
+
+            var m = model.ToLowerInvariant();
+
+            // 5.x+ families and the fable/mythos lines are adaptive-only.
+            if (m.Contains("fable") || m.Contains("mythos")
+                || m.Contains("opus-5") || m.Contains("sonnet-5") || m.Contains("haiku-5"))
+            {
+                return AnthropicThinkingMode.Adaptive;
+            }
+
+            // First numeric segments of claude-<tier>-<maj>-<min> ids (dotted
+            // spellings like claude-sonnet-4.5 parse identically). Eight-digit
+            // date suffixes (-YYYYMMDD) are skipped, not read as the minor.
+            var digits = new List<int>();
+            var current = new StringBuilder();
+            foreach (var c in m)
+            {
+                if (char.IsDigit(c))
+                {
+                    current.Append(c);
+                }
+                else if (current.Length > 0)
+                {
+                    var n = int.Parse(current.ToString());
+                    if (n < 10000000)
+                    {
+                        digits.Add(n);
+                    }
+
+                    current.Clear();
+                }
+            }
+
+            if (current.Length > 0)
+            {
+                var n = int.Parse(current.ToString());
+                if (n < 10000000)
+                {
+                    digits.Add(n);
+                }
+            }
+
+            if (!m.Contains("claude") || digits.Count == 0)
+            {
+                return AnthropicThinkingMode.None;
+            }
+
+            var maj = digits[0];
+            var min = digits.Count > 1 ? digits[1] : 0;
+            if (maj > 4 || (maj == 4 && min >= 6))
+            {
+                return AnthropicThinkingMode.Adaptive;
+            }
+
+            if (maj == 4 || (maj == 3 && min >= 7))
+            {
+                return AnthropicThinkingMode.Extended;
+            }
+
+            return AnthropicThinkingMode.None;
+        }
+
+        /// <summary>
+        /// Maps an effort level to an extended-thinking <c>budget_tokens</c>
+        /// value. The API requires budget >= 1024 and strictly below
+        /// <c>max_tokens</c>; returns null when both constraints cannot be met.
+        /// </summary>
+        private static int? MapEffortToBudgetTokens(string? effort, int maxTokens)
+        {
+            var baseBudget = (effort ?? string.Empty).ToLowerInvariant() switch
+            {
+                "low" => 1024,
+                "medium" => 4096,
+                "high" => 8192,
+                "xhigh" => 16384,
+                "max" => 32768,
+                _ => 4096,
+            };
+
+            var budget = Math.Min(baseBudget, maxTokens - 1);
+            return budget >= 1024 ? budget : (int?)null;
+        }
+
+        /// <summary>
+        /// Whether the given Anthropic model accepts the sampling parameters
+        /// (<c>temperature</c>, <c>top_p</c>, <c>top_k</c>). The effort-capable
+        /// family deprecated them in favour of <c>output_config.effort</c> and
+        /// answers HTTP 400 when a non-default value is sent
+        /// (e.g. "`temperature` is deprecated for this model.").
+        /// </summary>
+        /// <param name="model">The model identifier.</param>
+        private static bool SupportsSamplingParameters(string? model)
+        {
+            if (string.IsNullOrWhiteSpace(model))
+            {
+                return true;
+            }
+
+            return !GetAnthropicEffortSupport(model).SupportsEffort;
         }
 
         #region IAIBatchProvider
@@ -1455,14 +1826,12 @@ namespace SmartHopper.Providers.Anthropic
 
             foreach (var (customId, request) in items)
             {
-                var preparedRequest = await this.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
-                var encodedBody = this.Encode(preparedRequest);
+                var (preparedRequest, paramsObj) = await this.EncodeBatchItemAsync(request, cancellationToken).ConfigureAwait(false);
                 if (firstEncodedBody == null)
                 {
-                    firstEncodedBody = encodedBody;
+                    firstEncodedBody = paramsObj.ToString();
                 }
 
-                var paramsObj = JObject.Parse(encodedBody);
                 requestsArray.Add(new JObject
                 {
                     ["custom_id"] = customId,
@@ -1586,6 +1955,7 @@ namespace SmartHopper.Providers.Anthropic
             {
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 Logger.For<AnthropicStreamingAdapter>().Warning($"[Anthropic] Batch cancel failed ({(int)response.StatusCode}): {content}");
+                throw new InvalidOperationException($"HTTP {(int)response.StatusCode}: {content}");
             }
             else
             {
@@ -1695,19 +2065,14 @@ namespace SmartHopper.Providers.Anthropic
                 }
                 else if (string.Equals(resultType, "errored", StringComparison.OrdinalIgnoreCase))
                 {
-                    var errorMsg = resultObj?["error"]?.ToString();
-                    if (resultObj?["error"] is JObject errorObj)
-                    {
-                        errorMsg = errorObj["error"] is JObject innerError
-                            ? innerError["message"]?.ToString()
-                            : errorObj["message"]?.ToString() ?? errorObj.ToString();
-                    }
-
+                    // Shared extraction handles object, scalar and nested
+                    // {"error": {"message": …}} shapes uniformly.
+                    var errorMsg = AIBatchResultParser.ExtractItemErrorMessage(resultObj?["error"]);
                     messages.Add(new SHRuntimeMessage(
                         SHRuntimeMessageSeverity.Error,
                         SHRuntimeMessageOrigin.Provider,
                         SHMessageCode.BatchItemError,
-                        $"Batch item {lineCustomId}: {errorMsg ?? "Unknown error"}"));
+                        $"{AIBatchResultParser.ItemMessagePrefix}{lineCustomId}: {errorMsg ?? "Unknown error"}"));
                 }
                 else if (string.Equals(resultType, "canceled", StringComparison.OrdinalIgnoreCase))
                 {
@@ -1715,7 +2080,7 @@ namespace SmartHopper.Providers.Anthropic
                         SHRuntimeMessageSeverity.Error,
                         SHRuntimeMessageOrigin.Provider,
                         SHMessageCode.BatchItemCanceled,
-                        $"Batch item {lineCustomId}: Request was canceled before it could be processed"));
+                        $"{AIBatchResultParser.ItemMessagePrefix}{lineCustomId}: Request was canceled before it could be processed"));
                 }
                 else if (string.Equals(resultType, "expired", StringComparison.OrdinalIgnoreCase))
                 {
@@ -1723,7 +2088,7 @@ namespace SmartHopper.Providers.Anthropic
                         SHRuntimeMessageSeverity.Warning,
                         SHRuntimeMessageOrigin.Provider,
                         SHMessageCode.BatchItemExpired,
-                        $"Batch item {lineCustomId}: Request expired before it could be sent to the model (batch exceeded 24-hour limit)"));
+                        $"{AIBatchResultParser.ItemMessagePrefix}{lineCustomId}: Request expired before it could be sent to the model (batch exceeded 24-hour limit)"));
                 }
             }
 
@@ -1788,6 +2153,13 @@ namespace SmartHopper.Providers.Anthropic
                     "Caches the stable prompt prefix (tools + system prompt) with an explicit breakpoint, plus automatic caching of growing conversation history. Requires the prefix to be identical across requests, above the model's minimum (1024-4096 tokens), and reused within 5 minutes. Cache writes cost 1.25x input price; reads cost 0.1x.",
                     typeof(bool),
                     null),
+                new AIExtraDescriptor(
+                    "cache_ttl",
+                    "Cache TTL",
+                    "Prompt-cache lifetime: '5m' (default) or '1h' (~90% discount on cache writes). Applied to every emitted cache_control breakpoint. Requires enable_caching.",
+                    typeof(string),
+                    null,
+                    new[] { "5m", "1h" }),
             };
         }
     }

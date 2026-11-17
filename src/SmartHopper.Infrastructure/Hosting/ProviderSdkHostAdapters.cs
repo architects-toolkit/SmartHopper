@@ -19,8 +19,10 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Logging;
 using SmartHopper.Infrastructure.AICall.Policies;
@@ -28,9 +30,11 @@ using SmartHopper.Infrastructure.AIContext;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Dialogs;
+using SmartHopper.Infrastructure.Networking;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AICall.Validation;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Hosting;
@@ -52,6 +56,10 @@ namespace SmartHopper.Infrastructure.Hosting
         /// <inheritdoc />
         public IAIProviderSettings GetProviderSettings(string providerName)
             => ProviderManager.Instance.GetProviderSettings(providerName);
+
+        /// <inheritdoc />
+        public System.Collections.Generic.IEnumerable<IAIProvider> GetProviders()
+            => ProviderManager.Instance.GetProviders();
     }
 
     /// <summary>
@@ -69,6 +77,11 @@ namespace SmartHopper.Infrastructure.Hosting
             }
 
             await PolicyPipeline.Default.ApplyRequestPoliciesAsync(request).ConfigureAwait(false);
+            if (ProviderTrustPolicy.Evaluate(request).Verdict != ProviderTrustVerdict.Block)
+            {
+                // Unlike advisory request policies, source-access failure must abort the call.
+                await ExternalImageMaterializer.ApplyAsync(request).ConfigureAwait(false);
+            }
         }
 
         /// <inheritdoc />
@@ -80,6 +93,17 @@ namespace SmartHopper.Infrastructure.Hosting
             }
 
             await PolicyPipeline.Default.ApplyResponsePoliciesAsync(response).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc />
+        public Task<AIRequestPreparation> PrepareExecutionAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        {
+            if (request == null)
+            {
+                return Task.FromResult(new AIRequestPreparation(null));
+            }
+
+            return AICall.Fallback.RequestModalityPreparationService.PrepareAsync(request, cancellationToken);
         }
     }
 
@@ -153,10 +177,10 @@ namespace SmartHopper.Infrastructure.Hosting
                 return;
             }
 
-            // Provider diagnostics also arrive from background workers: Eto/WPF
-            // windows must be created on the UI (STA) thread, otherwise their
-            // constructor throws and the original report is lost. Marshal the
-            // dialog instead of showing it inline.
+            // Provider diagnostics also arrive from background workers (OAuth,
+            // runtime polling): Eto/WPF windows must be created on the UI (STA)
+            // thread, otherwise their constructor throws and the original
+            // report is lost. Marshal the dialog instead of showing it inline.
             global::Rhino.RhinoApp.InvokeOnUiThread(new Action(() =>
                 StyledMessageDialog.ShowError(message.Message, providerName ?? "SmartHopper")));
         }
@@ -202,6 +226,11 @@ namespace SmartHopper.Infrastructure.Hosting
         public bool IsEnabled(ProviderLogLevel level)
         {
             var state = this._routingState;
+            if (!state.MasterEnabled)
+            {
+                return false;
+            }
+
             foreach (var sink in state.Sinks)
             {
                 if (sink.IsEnabled && level >= sink.MinLevel)
@@ -221,6 +250,10 @@ namespace SmartHopper.Infrastructure.Hosting
         public void Log(ProviderLogLevel level, string category, string message)
         {
             var state = this._routingState;
+            if (!state.MasterEnabled)
+            {
+                return;
+            }
 
             var anySink = false;
             foreach (var sink in state.Sinks)
@@ -279,12 +312,11 @@ namespace SmartHopper.Infrastructure.Hosting
 
             // Attach the exception details to the entry scope so sinks that emit
             // structured output can carry error.type / exception.stacktrace
-            // alongside the message. The stack is stripped of file paths before
-            // it can reach disk.
+            // alongside the message.
             var exceptionScope = new Dictionary<string, object>
             {
                 ["exception.type"] = exception.GetType().Name,
-                ["exception.stacktrace"] = SmartHopperLogExceptionFormatter.NormalizeStackTrace(exception.StackTrace) ?? string.Empty,
+                ["exception.stacktrace"] = exception.StackTrace ?? string.Empty,
             };
 
             using (LogScopeContext.BeginScope(exceptionScope))
@@ -327,6 +359,7 @@ namespace SmartHopper.Infrastructure.Hosting
         private SmartHopperLogRoutingState BuildRoutingState()
         {
             var settings = this.GetSettings();
+            const bool masterEnabled = true;
 
             var states = new List<SmartHopperLogSinkState>(this._sinks.Count);
             foreach (var sink in this._sinks)
@@ -341,7 +374,7 @@ namespace SmartHopper.Infrastructure.Hosting
                 states.Add(new SmartHopperLogSinkState(sink, enabled, minLevel));
             }
 
-            return new SmartHopperLogRoutingState(states);
+            return new SmartHopperLogRoutingState(masterEnabled, states);
         }
 
         private SmartHopperSettings? GetSettings()
@@ -358,10 +391,13 @@ namespace SmartHopper.Infrastructure.Hosting
 
         private sealed class SmartHopperLogRoutingState
         {
-            public SmartHopperLogRoutingState(IReadOnlyList<SmartHopperLogSinkState> sinks)
+            public SmartHopperLogRoutingState(bool masterEnabled, IReadOnlyList<SmartHopperLogSinkState> sinks)
             {
+                this.MasterEnabled = masterEnabled;
                 this.Sinks = sinks;
             }
+
+            public bool MasterEnabled { get; }
 
             public IReadOnlyList<SmartHopperLogSinkState> Sinks { get; }
         }

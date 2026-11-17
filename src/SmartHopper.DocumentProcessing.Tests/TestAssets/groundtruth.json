@@ -1,0 +1,123 @@
+{
+  "kind": "synthetic fixture, not research",
+  "pageCount": 4,
+  "plot": {
+    "page": 1,
+    "figure": "Figure 1",
+    "xAxis": "Time (s)",
+    "yAxis": "Temperature (C)",
+    "scales": "linear",
+    "seriesA": {
+      "style": "red solid",
+      "points": [
+        [
+          0,
+          10
+        ],
+        [
+          1,
+          20
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          3,
+          30
+        ]
+      ]
+    },
+    "seriesB": {
+      "style": "blue dashed",
+      "points": [
+        [
+          0,
+          20
+        ],
+        [
+          1,
+          10
+        ],
+        [
+          2,
+          30
+        ],
+        [
+          3,
+          20
+        ]
+      ]
+    },
+    "errorBar": {
+      "series": "A",
+      "x": 2,
+      "center": 10,
+      "lower": 8,
+      "upper": 12
+    },
+    "region": {
+      "page": 1,
+      "x": 0.07,
+      "y": 0.28,
+      "width": 0.84,
+      "height": 0.49
+    }
+  },
+  "scanOnlyPage": 2,
+  "rotatedCroppedPage": {
+    "page": 3,
+    "rotation": 90,
+    "mediaWidth": 842,
+    "mediaHeight": 595,
+    "visibleWidth": 515,
+    "visibleHeight": 740,
+    "hasGreenSquareAnnotation": true
+  },
+  "table": {
+    "page": 4,
+    "control": {
+      "mean": 12.5,
+      "unit": "mM"
+    },
+    "treatment": {
+      "mean": 9.0,
+      "unit": "mM"
+    },
+    "equation": "E = mc^2"
+  },
+  "observedPages": [
+    {
+      "page": 1,
+      "visibleWidth": 595.0,
+      "visibleHeight": 842.0,
+      "textCharacters": 731,
+      "rasterImageInstances": 0,
+      "vectorPaths": 29
+    },
+    {
+      "page": 2,
+      "visibleWidth": 595.0,
+      "visibleHeight": 842.0,
+      "textCharacters": 0,
+      "rasterImageInstances": 1,
+      "vectorPaths": 0
+    },
+    {
+      "page": 3,
+      "visibleWidth": 515.0,
+      "visibleHeight": 740.0,
+      "textCharacters": 80,
+      "rasterImageInstances": 0,
+      "vectorPaths": 3
+    },
+    {
+      "page": 4,
+      "visibleWidth": 595.0,
+      "visibleHeight": 842.0,
+      "textCharacters": 202,
+      "rasterImageInstances": 0,
+      "vectorPaths": 9
+    }
+  ]
+}

@@ -25,11 +25,13 @@ public sealed class AIInputPayload
 ```
 
 **Payload Types:**
+
 - `Text` — Text content interactions
 - `Image` — Image content interactions
 - `Audio` — Audio content interactions
 - `Context` — Context provider filters
-- `Unknown` — Mixed or unclassified payloads
+- `Multimodal` — Mixed ordered text/image/audio/document payloads (e.g. produced by `File to AI`/`Web to AI` via `AIInputPayload.FromInteractions`); a presentation classification only — required input capabilities derive from the interactions, not the label
+- `Unknown` — Unclassified payloads
 
 ### Merging Strategy
 
@@ -40,7 +42,8 @@ When multiple `GH_AIInputPayload` inputs are wired to the same branch path on an
 3. **Result**: A single `AIBody` with all interactions in sequence
 
 Example:
-```
+
+```text
 Wire 0: Text("Hello") → Interaction 0
 Wire 1: Text("World") → Interaction 1
 Wire 2: Context("time") → Context filter added
@@ -63,12 +66,14 @@ Use `AIInputPayloadRenderer.RenderToUserText(payload)` for formatted display.
 ### Input Adapters
 
 Input adapters are **synchronous, stateless** components that:
+
 1. Accept Grasshopper data (text, images, files, etc.)
 2. Create `AIInteraction` objects
 3. Wrap in `AIInputPayload`
 4. Output as `GH_AIInputPayload`
 
 Example: `Text2AI` component
+
 ```csharp
 public class Text2AIComponent : GH_Component
 {
@@ -107,7 +112,7 @@ The `AIContextComponent` is a special input adapter that:
 
 Example flow:
 
-```
+```text
 AIContextComponent("time") → GH_AIInputPayload(Context("time"))
                                     ↓
                           [Output Component]
@@ -157,6 +162,15 @@ var interaction = imageSource.ToInteraction();
 var payload = AIInputPayload.FromImage(interaction);
 ```
 
+### Creating a Multimodal Document Payload
+
+```csharp
+// Ordered interactions composing one document (text + model-visible images).
+var payload = AIInputPayload.FromInteractions(interactions);
+// PayloadType resolves to Multimodal when more than one modality is present;
+// required input capabilities are always derived from the interactions.
+```
+
 ### Merging Payloads
 
 ```csharp
@@ -197,29 +211,25 @@ var summary = AIInputPayloadRenderer.GetSummary(payload);
 
 ---
 
-
 ## Why Read This?
 
 This document provides details about AIInputPayload.
-
 
 ## End-User Guide
 
 End-user guidance for AIInputPayload.
 
-
 ## Developer Reference
 
 Example usage:
 
-`csharp
+```csharp
 // Placeholder example
-``r
+```
 
-`csharp
+```csharp
 // Another placeholder example
-``r
-
+```
 
 ## Architecture & Design
 

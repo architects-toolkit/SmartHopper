@@ -19,6 +19,7 @@
 using System;
 using System.Drawing;
 using System.IO;
+using System.Threading;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Components.Properties;
@@ -33,6 +34,8 @@ namespace SmartHopper.Components.Img
     {
         private Bitmap _displayBitmap;
         private readonly object _bitmapLock = new object();
+        private int _imageLoadGeneration;
+        private CancellationTokenSource _imageLoadCancellation;
 
         // Execution throttling fields
         private DateTime _lastSaveTime = DateTime.MinValue;
@@ -43,7 +46,7 @@ namespace SmartHopper.Components.Img
         public override Guid ComponentGuid => new Guid("F8E7D6C5-B4A3-9281-7065-43E1F2A9B8C7");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.imgviewer;
+        protected override Bitmap Icon => Resources.ImageViewer;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.primary;
@@ -55,9 +58,9 @@ namespace SmartHopper.Components.Img
             : base(
                 "Image Viewer",
                 "ImgView",
-                "Display bitmap images on the canvas and save them to disk.",
+                "Display images directly on the Grasshopper canvas and optionally save them to disk.",
                 "SmartHopper",
-                "Data Visualization")
+                "G. Media")
         {
         }
 
@@ -70,9 +73,9 @@ namespace SmartHopper.Components.Img
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Image", "I", "VersatileImage to display", GH_ParamAccess.item);
-            pManager.AddTextParameter("File Path", "F", "File path to save the image.\nAdd one of the compatible extensions to the file name: .png, .jpg, .bmp, .gif or .tiff", GH_ParamAccess.item, string.Empty);
-            pManager.AddBooleanParameter("Save?", "S", "Trigger to save the image to the specified file path", GH_ParamAccess.item, false);
+            pManager.AddGenericParameter("Image", "I", "Image to display on the canvas.", GH_ParamAccess.item);
+            pManager.AddTextParameter("File Path", "F", "Destination file path when saving the image to disk.\nSupported extensions: .png, .jpg, .bmp, .gif, .tiff.", GH_ParamAccess.item, string.Empty);
+            pManager.AddBooleanParameter("Save?", "S", "Set to true (or connect a Button) to save the image to the specified File Path.", GH_ParamAccess.item, false);
 
             // Make parameters optional
             pManager[1].Optional = true;
@@ -87,6 +90,10 @@ namespace SmartHopper.Components.Img
         /// <inheritdoc/>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            var generation = Interlocked.Increment(ref this._imageLoadGeneration);
+            this._imageLoadCancellation?.Cancel();
+            this._imageLoadCancellation?.Dispose();
+            this._imageLoadCancellation = new CancellationTokenSource();
             // Get inputs
             IGH_Goo imageGoo = null;
             string filePath = string.Empty;
@@ -104,14 +111,9 @@ namespace SmartHopper.Components.Img
                 // Try to get bitmap from GH_VersatileImage
                 if (imageGoo is GH_VersatileImage versatileImage && versatileImage.Value != null)
                 {
-                    try
-                    {
-                        bitmap = versatileImage.Value.ToBitmap();
-                    }
-                    catch (Exception ex)
-                    {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Failed to convert VersatileImage to Bitmap: {ex.Message}");
-                    }
+                    this.SetDisplayBitmap(null);
+                    this.LoadImageAsync(versatileImage.Value, filePath, run, generation, this._imageLoadCancellation.Token);
+                    return;
                 }
 
                 // Try to get bitmap from GH_ObjectWrapper
@@ -127,6 +129,51 @@ namespace SmartHopper.Components.Img
                 }
             }
 
+            this.ApplyBitmap(bitmap, filePath, run, imageGoo != null);
+        }
+
+        /// <summary>Resolves image bytes asynchronously without blocking Grasshopper's synchronous solve hook.</summary>
+        private async void LoadImageAsync(VersatileImage image, string filePath, bool save, int generation, CancellationToken token)
+        {
+            try
+            {
+                var bitmap = await image.ToBitmapAsync(token).ConfigureAwait(false);
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                {
+                    if (generation != this._imageLoadGeneration || token.IsCancellationRequested)
+                    {
+                        if (!ReferenceEquals(bitmap, image.Bitmap))
+                        {
+                            bitmap.Dispose();
+                        }
+
+                        return;
+                    }
+
+                    this.ApplyBitmap(bitmap, filePath, save);
+                    this.OnDisplayExpired(false);
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                // A newer source superseded this download.
+            }
+            catch (Exception ex)
+            {
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                {
+                    if (generation == this._imageLoadGeneration)
+                    {
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Image retrieval failed: {ex.Message}");
+                        this.OnDisplayExpired(false);
+                    }
+                });
+            }
+        }
+
+        /// <summary>Displays an already-resolved bitmap and performs an explicitly requested save.</summary>
+        private void ApplyBitmap(Bitmap bitmap, string filePath, bool run, bool hasInput = true)
+        {
             if (bitmap != null)
             {
                 // Always update display bitmap
@@ -225,7 +272,7 @@ namespace SmartHopper.Components.Img
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Run triggered but no file path provided");
                 }
             }
-            else if (imageGoo != null)
+            else if (hasInput)
             {
                 this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Input is not a valid bitmap image");
                 this.SetDisplayBitmap(null);

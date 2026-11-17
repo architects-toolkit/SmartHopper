@@ -24,10 +24,9 @@ using System.IO.Compression;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security;
-using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using SmartHopper.Infrastructure.AICall.Logging;
-using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Utils;
 using SmartHopper.ProviderSdk.Logging;
 
@@ -48,6 +47,15 @@ namespace SmartHopper.Infrastructure.Diagnostics
         private const int ClipboardRetryDelayMs = 200;
 
         /// <summary>
+        /// Matches the leading "timestamp [Level]" of a log entry produced by
+        /// <see cref="SmartHopperLogFormatter"/>. Lines that do not match are
+        /// continuations (exception stack traces, multi-line messages).
+        /// </summary>
+        private static readonly Regex LogEntryStart = new Regex(
+            @"^\d{4}-\d{2}-\d{2}T\S+ \[(?<level>Trace|Info|Warning|Error)\]",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+        /// <summary>
         /// Opens the log folder in the platform file manager, creating it if necessary.
         /// </summary>
         public static void OpenLogFolder()
@@ -64,10 +72,12 @@ namespace SmartHopper.Infrastructure.Diagnostics
 
         /// <summary>
         /// Generates a privacy-safe markdown diagnostics report for sharing on GitHub.
+        /// The log tail is kept at Info level and above so Trace chatter (settings
+        /// reloads, catalogue polling) does not drown the entries a maintainer needs.
         /// </summary>
-        /// <param name="maxLogBytes">Maximum number of bytes to include from the latest log file.</param>
+        /// <param name="maxLogBytes">Maximum number of bytes to read from the tail of the latest log file, before level filtering.</param>
         /// <returns>A redacted diagnostics report.</returns>
-        public static string GenerateReport(int maxLogBytes = 50000)
+        public static string GenerateReport(int maxLogBytes = 200000)
         {
             var report = new StringBuilder();
             report.AppendLine("## SmartHopper Diagnostics");
@@ -86,12 +96,14 @@ namespace SmartHopper.Infrastructure.Diagnostics
                 return report.ToString();
             }
 
-            var logContent = ReadTail(logPath, maxLogBytes);
+            var logContent = FilterToReportableEntries(ReadTail(logPath, maxLogBytes));
             var scrubbed = SmartHopperLogScrubber.Scrub(logContent);
 
             report.AppendLine("## Recent Logs");
             report.AppendLine();
-            report.AppendLine(scrubbed);
+            report.AppendLine(string.IsNullOrWhiteSpace(scrubbed)
+                ? "_No log entries at Info level or above in the captured window._"
+                : scrubbed);
 
             return report.ToString();
         }
@@ -111,10 +123,10 @@ namespace SmartHopper.Infrastructure.Diagnostics
             try
             {
                 var infoPath = Path.Combine(tempDirectory, "info.txt");
-                File.WriteAllText(infoPath, GenerateReport(maxLogBytes: 100000));
+                File.WriteAllText(infoPath, GenerateReport(maxLogBytes: 400000));
 
                 // diagnostics.json carries the anonymous install hash and versions so a
-                // shared zip can be correlated when the user reports an issue.
+                // shared zip can be joined with collector-side telemetry investigations.
                 var diagnosticsPath = Path.Combine(tempDirectory, "diagnostics.json");
                 File.WriteAllText(diagnosticsPath, BuildDiagnosticsJson());
 
@@ -224,6 +236,42 @@ namespace SmartHopper.Infrastructure.Diagnostics
         }
 
         /// <summary>
+        /// Keeps only log entries at <see cref="ProviderLogLevel.Info"/> or above.
+        /// Continuation lines (exception stack traces, multi-line messages) stay
+        /// attached to the entry that produced them, and leading fragments of an
+        /// entry truncated mid-way by <see cref="ReadTail"/> are kept as well.
+        /// </summary>
+        /// <param name="logContent">The raw log tail.</param>
+        /// <returns>The filtered log text.</returns>
+        internal static string FilterToReportableEntries(string logContent)
+        {
+            if (string.IsNullOrEmpty(logContent))
+            {
+                return string.Empty;
+            }
+
+            var kept = new StringBuilder(logContent.Length);
+            var keepCurrent = true;
+
+            foreach (var rawLine in logContent.Split('\n'))
+            {
+                var line = rawLine.TrimEnd('\r');
+                var match = LogEntryStart.Match(line);
+                if (match.Success)
+                {
+                    keepCurrent = !string.Equals(match.Groups["level"].Value, "Trace", StringComparison.Ordinal);
+                }
+
+                if (keepCurrent)
+                {
+                    kept.Append(line).Append('\n');
+                }
+            }
+
+            return kept.ToString().TrimEnd('\n');
+        }
+
+        /// <summary>
         /// Reads the trailing portion of a file up to <paramref name="maxBytes"/>.
         /// </summary>
         /// <param name="path">The file to read.</param>
@@ -256,42 +304,12 @@ namespace SmartHopper.Infrastructure.Diagnostics
         /// </summary>
         private static string BuildDiagnosticsJson()
         {
-            string installationHash = "unknown";
-            try
-            {
-                installationHash = GetInstallationHash();
-            }
-            catch
-            {
-                // Hash must never break diagnostics export.
-            }
-
             var json = new Newtonsoft.Json.Linq.JObject
             {
-                ["installationHash"] = installationHash,
                 ["smarthopperVersion"] = Utils.VersionHelper.GetDisplayVersion(),
                 ["osType"] = Utils.VersionHelper.GetPlatform(),
             };
             return json.ToString(Newtonsoft.Json.Formatting.Indented);
-        }
-
-        /// <summary>
-        /// Computes a local, anonymous installation hash used only inside user-generated
-        /// diagnostics exports. Nothing leaves the machine unless the user shares the zip.
-        /// </summary>
-        private static string GetInstallationHash()
-        {
-            var salt = SmartHopperSettings.Instance.DiagnosticsInstallationSalt;
-            var identity = $"{salt}|{Environment.MachineName}|{Environment.UserName}";
-            using var sha = SHA256.Create();
-            var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(identity));
-            var builder = new StringBuilder(bytes.Length * 2);
-            foreach (var b in bytes)
-            {
-                builder.Append(b.ToString("x2"));
-            }
-
-            return builder.ToString();
         }
 
         private static void AddFileToArchive(ZipArchive archive, string filePath, string entryName)

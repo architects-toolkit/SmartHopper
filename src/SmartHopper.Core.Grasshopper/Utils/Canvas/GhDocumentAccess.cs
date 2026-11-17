@@ -23,6 +23,7 @@ using System.Linq;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Contracts;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
@@ -94,6 +95,35 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         }
 
         /// <summary>
+        /// Resolves the stable document identity a mutation call targets, for MCP
+        /// requestId binding: an explicit <c>documentId</c> argument wins (its GUID
+        /// is the identity itself, no UI round-trip), otherwise the ambient active
+        /// document. Returns <c>null</c> when no binding can be resolved — the
+        /// reservation then relies on its recorded binding instead of blocking.
+        /// </summary>
+        /// <param name="arguments">The tool call's business arguments.</param>
+        /// <returns>The document identity string, or null when unresolved.</returns>
+        public static string? ResolveMcpBinding(JObject? arguments)
+        {
+            var requested = arguments?.Value<string>("documentId");
+            if (Guid.TryParse(requested, out var parsed))
+            {
+                return parsed.ToString("D");
+            }
+
+            try
+            {
+                return GetActiveDocument()?.DocumentID.ToString("D");
+            }
+            catch
+            {
+                // A busy or torn-down UI must not fail the reservation: an
+                // unresolved binding joins on the recorded one instead.
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Gets the display name of a document (file name, or "Untitled").
         /// </summary>
         /// <param name="doc">The document.</param>
@@ -120,7 +150,30 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 ["isActive"] = ReferenceEquals(doc, activeDocument),
                 ["isModified"] = doc.IsModified,
                 ["objectCount"] = doc.ObjectCount,
+                ["hostsMcpServer"] = HostsEnabledMcpServer(doc),
             });
+        }
+
+        /// <summary>
+        /// Returns whether the document contains an enabled SmartHopper MCP Server
+        /// component — that is, an instance of the component whose
+        /// <see cref="ICanvasProtectedComponent.IsProtected"/> is true. Unloading such
+        /// a document releases the component's hold on the shared server, which stops
+        /// it when it was the last holder.
+        /// </summary>
+        /// <param name="doc">The document to inspect.</param>
+        /// <returns>True when the document hosts an enabled MCP server component.</returns>
+        public static bool HostsEnabledMcpServer(GH_Document? doc)
+        {
+            if (doc == null)
+            {
+                return false;
+            }
+
+            return CanvasAccess.RunOnUiThread(() =>
+                doc.Objects.OfType<GH_Component>().Any(c =>
+                    c.ComponentGuid == WellKnownComponentGuids.McpServerComponent
+                    && c is ICanvasProtectedComponent { IsProtected: true }));
         }
 
         /// <summary>

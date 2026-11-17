@@ -112,63 +112,63 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <inheritdoc/>
-        public override async Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        protected override async Task<AIRequestCall> PreCallCoreAsync(AIRequestCall outbound, CancellationToken cancellationToken = default)
         {
             // First do the base PreCall.
-            request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
+            await base.PreCallCoreAsync(outbound, cancellationToken).ConfigureAwait(false);
 
             // Setup HTTP method, content type, and authentication
-            request.HttpMethod = "POST";
-            request.ContentType = "application/json";
-            request.Authentication = "bearer";
+            outbound.HttpMethod = "POST";
+            outbound.ContentType = "application/json";
+            outbound.Authentication = "bearer";
 
             // Determine endpoint based on request capability and settings.
             // The Responses API is a superset of Chat Completions and is recommended by OpenAI
             // for all new projects. We default to /v1/responses for text, vision, tools, and JSON.
             // Only legacy endpoints (images, audio) and explicit overrides use other paths.
-            if (request.Capability.HasFlag(AICapability.ImageOutput))
+            if (outbound.Capability.HasFlag(AICapability.ImageOutput))
             {
-                request.Endpoint = "/images/generations";
+                outbound.Endpoint = "/images/generations";
             }
-            else if (request.Capability.HasFlag(AICapability.SpeechInput))
+            else if (outbound.Capability.HasFlag(AICapability.SpeechInput))
             {
                 // Speech-to-Text (STT) endpoint
-                request.Endpoint = "/audio/transcriptions";
+                outbound.Endpoint = "/audio/transcriptions";
             }
-            else if (request.Capability.HasFlag(AICapability.SpeechOutput))
+            else if (outbound.Capability.HasFlag(AICapability.SpeechOutput))
             {
                 // Text-to-Speech (TTS) endpoint
-                request.Endpoint = "/audio/speech";
+                outbound.Endpoint = "/audio/speech";
             }
-            else if (request.Capability.HasFlag(AICapability.AudioInput)
-                     || request.Capability.HasFlag(AICapability.AudioOutput)
-                     || (request.Body?.Interactions?.OfType<AIInteractionAudio>().Any() ?? false))
+            else if (outbound.Capability.HasFlag(AICapability.AudioInput)
+                     || outbound.Capability.HasFlag(AICapability.AudioOutput)
+                     || (outbound.Body?.Interactions?.OfType<AIInteractionAudio>().Any() ?? false))
             {
                 // Multimodal chat audio (input_audio content parts and modalities/audio
                 // parameters) is only supported by Chat Completions; the Responses API
                 // cannot carry audio payloads. Requests whose body already carries an
                 // AIInteractionAudio are routed here regardless of the declared capability.
-                request.Endpoint = "/chat/completions";
+                outbound.Endpoint = "/chat/completions";
             }
-            else if (request.Endpoint == "/models")
+            else if (outbound.Endpoint == "/models")
             {
-                request.HttpMethod = "GET";
-                request.RequestKind = AIRequestKind.Backoffice;
+                outbound.HttpMethod = "GET";
+                outbound.RequestKind = AIRequestKind.Backoffice;
             }
-            else if (string.Equals(request.Endpoint, "/chat/completions", StringComparison.OrdinalIgnoreCase)
+            else if (string.Equals(outbound.Endpoint, "/chat/completions", StringComparison.OrdinalIgnoreCase)
                      || this.GetSetting<bool>("ForceChatCompletions"))
             {
                 // Explicit Chat Completions override or user forcing legacy endpoint
-                request.Endpoint = "/chat/completions";
+                outbound.Endpoint = "/chat/completions";
             }
             else
             {
                 // Default to Responses API for all text, vision, tool, and JSON requests.
                 // This includes reasoning models, structured outputs, and function calling.
-                request.Endpoint = "/responses";
+                outbound.Endpoint = "/responses";
             }
 
-            return request;
+            return outbound;
         }
 
         /// <inheritdoc/>
@@ -204,7 +204,7 @@ namespace SmartHopper.Providers.OpenAI
             }
             else
             {
-                throw new NotSupportedException($"Unsupported OpenAI endpoint: {request.Endpoint}");
+                throw new NotSupportedException($"Unsupported OpenAI origin: {request.Endpoint}");
             }
         }
 
@@ -588,16 +588,20 @@ namespace SmartHopper.Providers.OpenAI
 
                     return interactions;
                 }
-                else if (response["text"] != null && (response["task"] != null || response["choices"] == null))
-                {
-                    // Audio transcription response (STT): verbose payloads carry a "task" field;
-                    // plain json responses only carry "text" plus usage metadata.
-                    return this.ProcessAudioTranscriptionResponseData(response);
-                }
                 else if (response["output"] != null)
                 {
-                    // Responses API output (e.g., reasoning models with reasoning summaries)
+                    // Responses API output (e.g., reasoning models with reasoning summaries).
+                    // Must be checked before the bare "text" sniff: the Responses API echoes
+                    // the request's text config ({format, verbosity}) at top level, which a
+                    // text-only check would mistake for a transcription payload.
                     return this.ProcessResponsesApiData(response);
+                }
+                else if (response["text"]?.Type == JTokenType.String && (response["task"] != null || response["choices"] == null))
+                {
+                    // Audio transcription response (STT): verbose payloads carry a "task" field;
+                    // plain json responses only carry "text" plus usage metadata — and in both
+                    // cases "text" is the transcript string itself, never a config object.
+                    return this.ProcessAudioTranscriptionResponseData(response);
                 }
                 else if (response["choices"] != null)
                 {
@@ -739,10 +743,12 @@ namespace SmartHopper.Providers.OpenAI
 
             // Configure tokens and parameters based on model family
             // - o-series (o1/o3/o4...) and gpt-5: use max_completion_tokens and reasoning_effort; omit temperature
+            //   (the reasoning family rejects temperature/top_p/penalties/logprobs with HTTP 400)
             // - others: use max_tokens and temperature
             // reasoning_effort is officially supported alongside tools on o-series and gpt-5 models
             // (see https://platform.openai.com/docs/api-reference/chat/create and the GPT-5 cookbook).
-            if (OSeriesModelRegex().IsMatch(request.Model) || Gpt5ModelRegex().IsMatch(request.Model))
+            bool isReasoningFamily = OSeriesModelRegex().IsMatch(request.Model) || Gpt5ModelRegex().IsMatch(request.Model);
+            if (isReasoningFamily)
             {
                 requestBody["reasoning_effort"] = reasoningEffort;
                 requestBody["max_completion_tokens"] = maxTokens;
@@ -753,30 +759,32 @@ namespace SmartHopper.Providers.OpenAI
                 requestBody["temperature"] = temperature;
             }
 
-            // Apply all optional parameters from extras only
+            // Apply all optional parameters from extras only.
+            // Sampling extras are gated by the same model family: extras supplied by the
+            // caller would otherwise re-introduce parameters the main path omits.
             if (p?.Extras != null)
             {
-                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                if (!isReasoningFamily && p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
                 {
                     requestBody["top_p"] = topPToken.Value<double?>();
                 }
 
-                if (p.Extras.TryGetValue("presence_penalty", out var ppToken) && ppToken != null)
+                if (!isReasoningFamily && p.Extras.TryGetValue("presence_penalty", out var ppToken) && ppToken != null)
                 {
                     requestBody["presence_penalty"] = ppToken;
                 }
 
-                if (p.Extras.TryGetValue("frequency_penalty", out var fpToken) && fpToken != null)
+                if (!isReasoningFamily && p.Extras.TryGetValue("frequency_penalty", out var fpToken) && fpToken != null)
                 {
                     requestBody["frequency_penalty"] = fpToken;
                 }
 
-                if (p.Extras.TryGetValue("logprobs", out var logprobsToken) && logprobsToken != null)
+                if (!isReasoningFamily && p.Extras.TryGetValue("logprobs", out var logprobsToken) && logprobsToken != null)
                 {
                     requestBody["logprobs"] = logprobsToken.Value<bool?>();
                 }
 
-                if (p.Extras.TryGetValue("top_logprobs", out var topLogprobsToken) && topLogprobsToken != null)
+                if (!isReasoningFamily && p.Extras.TryGetValue("top_logprobs", out var topLogprobsToken) && topLogprobsToken != null)
                 {
                     requestBody["top_logprobs"] = topLogprobsToken.Value<int?>();
                 }
@@ -869,7 +877,8 @@ namespace SmartHopper.Providers.OpenAI
 
             // Reasoning configuration is only supported by o-series and GPT-5 models on the Responses API.
             // Sending "reasoning" to other models (e.g. gpt-4o-mini) produces an unsupported_parameter error.
-            if (OSeriesModelRegex().IsMatch(request.Model) || Gpt5ModelRegex().IsMatch(request.Model))
+            bool isReasoningFamily = OSeriesModelRegex().IsMatch(request.Model) || Gpt5ModelRegex().IsMatch(request.Model);
+            if (isReasoningFamily)
             {
                 var reasoningObj = new JObject
                 {
@@ -880,25 +889,27 @@ namespace SmartHopper.Providers.OpenAI
                 requestBody["reasoning"] = reasoningObj;
             }
 
-            // Apply optional parameters from extras
+            // Apply optional parameters from extras. The reasoning family rejects the
+            // sampling parameters (temperature/top_p/penalties) with HTTP 400, so caller
+            // extras are dropped for those models just like the main path omits them.
             if (p?.Extras != null)
             {
-                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                if (!isReasoningFamily && p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
                 {
                     requestBody["top_p"] = topPToken.Value<double?>();
                 }
 
-                if (p.Extras.TryGetValue("presence_penalty", out var ppToken) && ppToken != null)
+                if (!isReasoningFamily && p.Extras.TryGetValue("presence_penalty", out var ppToken) && ppToken != null)
                 {
                     requestBody["presence_penalty"] = ppToken;
                 }
 
-                if (p.Extras.TryGetValue("frequency_penalty", out var fpToken) && fpToken != null)
+                if (!isReasoningFamily && p.Extras.TryGetValue("frequency_penalty", out var fpToken) && fpToken != null)
                 {
                     requestBody["frequency_penalty"] = fpToken;
                 }
 
-                if (p.Extras.TryGetValue("temperature", out var tempToken) && tempToken != null)
+                if (!isReasoningFamily && p.Extras.TryGetValue("temperature", out var tempToken) && tempToken != null)
                 {
                     requestBody["temperature"] = tempToken.Value<double?>();
                 }
@@ -1038,8 +1049,7 @@ namespace SmartHopper.Providers.OpenAI
             // Define default values
             string prompt = string.Empty;
             string size = "1024x1024";
-            string quality = "standard";
-            string style = "vivid";
+            string aspectRatio = null;
 
             // Get parameters from AIInteractionImage in interactions
             if (request.Body.Interactions.Count > 0)
@@ -1049,9 +1059,8 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     prompt = imageRequest.OriginalPrompt ?? string.Empty;
                     size = imageRequest.ImageSize ?? "1024x1024";
-                    quality = imageRequest.ImageQuality ?? "standard";
-                    style = imageRequest.ImageStyle ?? "vivid";
-                    Logger.For<OpenAIProvider>().Trace($"[OpenAI] Image parameters extracted: prompt='{prompt.Substring(0, Math.Min(50, prompt.Length))}...', size={size}, quality={quality}, style={style}");
+                    aspectRatio = imageRequest.AspectRatio;
+                    Logger.For<OpenAIProvider>().Trace($"[OpenAI] Image parameters extracted: prompt='{prompt.Substring(0, Math.Min(50, prompt.Length))}...', size={size}, aspectRatio={aspectRatio}");
                 }
                 else
                 {
@@ -1069,24 +1078,71 @@ namespace SmartHopper.Providers.OpenAI
                 Logger.For<OpenAIProvider>().Trace($"[OpenAI] No interactions found");
             }
 
-            // Build request payload for image generation
+            // Build request payload for image generation. Size and aspect ratio are
+            // provider-agnostic inputs normalized to OpenAI's size vocabulary; unsupported
+            // ratios snap to the closest supported size.
             var requestPayload = new JObject
             {
                 ["model"] = request.Model,
                 ["prompt"] = prompt,
                 ["n"] = 1,
-                ["size"] = size,
+                ["size"] = ToOpenAiSize(size, aspectRatio, request.Model),
             };
 
-            // Add quality and style for DALL-E 3 models
-            if (request.Model.Contains("dall-e-3", StringComparison.OrdinalIgnoreCase))
+            //   quality           -> quality (dall-e-3: standard|hd; gpt-image: low|medium|high|auto)
+            //   background        -> background (gpt-image: transparent|opaque|auto)
+            //   output_format     -> output_format (gpt-image: png|jpeg|webp)
+            //   output_compression-> output_compression (gpt-image: 0-100, jpeg/webp)
+            var extras = request.Parameters?.Extras;
+            if (extras != null)
             {
-                requestPayload["quality"] = quality;
-                requestPayload["style"] = style;
+                if (extras.TryGetValue("quality", out var qualityToken) && qualityToken != null)
+                {
+                    requestPayload["quality"] = qualityToken.ToString();
+                }
+
+                if (extras.TryGetValue("background", out var bgToken) && bgToken != null)
+                {
+                    requestPayload["background"] = bgToken.ToString();
+                }
+
+                if (extras.TryGetValue("output_format", out var fmtToken) && fmtToken != null)
+                {
+                    requestPayload["output_format"] = fmtToken.ToString();
+                }
+
+                if (extras.TryGetValue("output_compression", out var compToken) && compToken != null)
+                {
+                    requestPayload["output_compression"] = compToken.Value<int?>();
+                }
             }
 
             Logger.For<OpenAIProvider>().Trace($"[OpenAI] ImageGeneration Request: {requestPayload}");
             return requestPayload.ToString();
+        }
+
+        /// <summary>
+        /// Maps the provider-agnostic size/aspect-ratio inputs to an OpenAI <c>size</c> value.
+        /// gpt-image models support <c>1024x1024</c>, <c>1536x1024</c>, <c>1024x1536</c> and
+        /// <c>auto</c>; dall-e-3 supports <c>1024x1024</c>, <c>1792x1024</c>, <c>1024x1792</c>.
+        /// Landscape/portrait ratios select the corresponding variant; anything else snaps to
+        /// the closest supported size by aspect ratio.
+        /// </summary>
+        private static string ToOpenAiSize(string size, string aspectRatio, string model)
+        {
+            if (string.Equals(size?.Trim(), "auto", StringComparison.OrdinalIgnoreCase))
+            {
+                return "auto";
+            }
+
+            var isDallE3 = model?.IndexOf("dall-e-3", StringComparison.OrdinalIgnoreCase) >= 0;
+            var landscape = isDallE3 ? "1792x1024" : "1536x1024";
+            var portrait = isDallE3 ? "1024x1792" : "1024x1536";
+
+            var ratio = ImageGenerationSpec.ResolveAspectRatio(aspectRatio, size);
+            return ImageGenerationSpec.TryParseRatio(ratio, out var w, out var h)
+                ? w > h ? landscape : w < h ? portrait : "1024x1024"
+                : "1024x1024";
         }
 
         /// <summary>
@@ -1349,7 +1405,7 @@ namespace SmartHopper.Providers.OpenAI
 
             try
             {
-                Logger.For<OpenAIProvider>().Error("[OpenAI] ProcessResponsesApiData - Processing response");
+                Logger.For<OpenAIProvider>().Trace("[OpenAI] ProcessResponsesApiData - Processing response");
 
                 var output = responseJson["output"] as JArray;
                 if (output == null)
@@ -1522,6 +1578,7 @@ namespace SmartHopper.Providers.OpenAI
 
                 var imageData = dataArray[0];
                 var imageUrl = imageData["url"]?.ToString() ?? string.Empty;
+                var b64Json = imageData["b64_json"]?.ToString() ?? string.Empty;
                 var revisedPrompt = imageData["revised_prompt"]?.ToString() ?? string.Empty;
 
                 // Get original image request parameters
@@ -1533,13 +1590,14 @@ namespace SmartHopper.Providers.OpenAI
                     Agent = AIAgent.Assistant,
                     OriginalPrompt = originalImageInteraction?.OriginalPrompt ?? string.Empty,
                     ImageSize = originalImageInteraction?.ImageSize ?? "1024x1024",
-                    ImageQuality = originalImageInteraction?.ImageQuality ?? "standard",
-                    ImageStyle = originalImageInteraction?.ImageStyle ?? "vivid",
+                    AspectRatio = originalImageInteraction?.AspectRatio,
                 };
 
-                // Set the result data from the API response
+                // Set the result data from the API response. gpt-image models return
+                // b64_json; dall-e returns a hosted url.
                 resultInteraction = resultInteraction.WithResult(
                     imageUrl: imageUrl,
+                    imageData: b64Json,
                     revisedPrompt: revisedPrompt);
 
                 Logger.For<OpenAIProvider>().Trace($"[OpenAI] Final AIInteractionImage result: URL={imageUrl}, revisedPrompt='{revisedPrompt?.Substring(0, Math.Min(50, revisedPrompt?.Length ?? 0))}...'");
@@ -2363,8 +2421,9 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = this.Provider.Name,
                     Model = request.Model,
                     FinishReason = string.IsNullOrEmpty(finalFinishReason) ? "stop" : finalFinishReason,
-                    InputTokensPrompt = promptTokens,
-                    OutputTokensGeneration = completionTokens,
+                    Quantities = AIMetrics.QuantitiesOf(
+                        (AIQuantityKey.TextInput, AIPriceUnit.Token, promptTokens),
+                        (AIQuantityKey.TextOutput, AIPriceUnit.Token, completionTokens)),
                 };
 
                 // Align aggregate metrics finish reason as well
@@ -2447,10 +2506,8 @@ namespace SmartHopper.Providers.OpenAI
 
             foreach (var (customId, request) in items)
             {
-                var preparedRequest = await this.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
-                var encodedBody = this.Encode(preparedRequest);
-                if (firstEncodedBody == null) firstEncodedBody = encodedBody;
-                var bodyObj = JObject.Parse(encodedBody);
+                var (preparedRequest, bodyObj) = await this.EncodeBatchItemAsync(request, cancellationToken).ConfigureAwait(false);
+                if (firstEncodedBody == null) firstEncodedBody = bodyObj.ToString();
 
                 // Derive the endpoint from the prepared request (e.g. /responses or /chat/completions).
                 // OpenAI batch requires all lines to target the same endpoint.
@@ -2632,6 +2689,7 @@ namespace SmartHopper.Providers.OpenAI
             {
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 Logger.For<OpenAIStreamingAdapter>().Warning($"[OpenAI] Batch cancel failed ({(int)response.StatusCode}): {content}");
+                throw new InvalidOperationException($"HTTP {(int)response.StatusCode}: {content}");
             }
             else
             {
@@ -2739,25 +2797,11 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     results[lineCustomId] = resultBody;
 
-                    // Extract finish/status warnings for both Chat Completions and Responses API
-                    string finishReason = null;
+                    // Canonical finish-reason normalization covers both Chat
+                    // Completions and Responses API shapes.
+                    var finishReason = AIFinishReason.FromOpenAIResponse(resultBody);
 
-                    // Chat Completions format: choices[0].finish_reason
-                    var choices = resultBody["choices"] as JArray;
-                    var firstChoice = choices?.FirstOrDefault() as JObject;
-                    finishReason = firstChoice?["finish_reason"]?.ToString();
-
-                    // Responses API format: status field (e.g. "completed", "incomplete", "failed")
-                    if (string.IsNullOrEmpty(finishReason))
-                    {
-                        var status = resultBody["status"]?.ToString();
-                        if (!string.IsNullOrEmpty(status) && status != "completed")
-                        {
-                            finishReason = status;
-                        }
-                    }
-
-                    if (!string.IsNullOrEmpty(finishReason) && finishReason != "stop")
+                    if (AIFinishReason.IsAbnormal(finishReason))
                     {
                         messages.Add(new SHRuntimeMessage(
                             SHRuntimeMessageSeverity.Warning,
@@ -2768,14 +2812,17 @@ namespace SmartHopper.Providers.OpenAI
                 }
                 else
                 {
-                    var errorMsg = resultBody?["error"]?["message"]?.ToString()
-                        ?? resultLine["error"]?["message"]?.ToString()
+                    // Shared extraction: the error field may be an object, a
+                    // scalar, or null — indexing ["message"] on a scalar JValue
+                    // throws InvalidOperationException.
+                    var errorMsg = AIBatchResultParser.ExtractItemErrorMessage(resultBody?["error"])
+                        ?? AIBatchResultParser.ExtractItemErrorMessage(resultLine["error"])
                         ?? $"HTTP {statusCode}";
                     messages.Add(new SHRuntimeMessage(
                         SHRuntimeMessageSeverity.Error,
                         SHRuntimeMessageOrigin.Provider,
                         SHMessageCode.BatchItemError,
-                        $"Batch item {lineCustomId}: {errorMsg}"));
+                        $"{AIBatchResultParser.ItemMessagePrefix}{lineCustomId}: {errorMsg}"));
                 }
             }
 
@@ -2843,6 +2890,35 @@ namespace SmartHopper.Providers.OpenAI
                     "Cache Key",
                     "Optional string to improve cache routing when many requests share a long common prefix. Combine with '24h' retention for batch jobs.",
                     typeof(string),
+                    null),
+
+                // Image generation parameters (gpt-image family)
+                new AIExtraDescriptor(
+                    "quality",
+                    "Image Quality",
+                    "Image render quality for gpt-image/dall-e image requests.",
+                    typeof(string),
+                    null,
+                    new[] { "low", "medium", "high", "auto", "standard", "hd" }),
+                new AIExtraDescriptor(
+                    "background",
+                    "Image Background",
+                    "Background handling for gpt-image requests: 'transparent', 'opaque', or 'auto'.",
+                    typeof(string),
+                    null,
+                    new[] { "transparent", "opaque", "auto" }),
+                new AIExtraDescriptor(
+                    "output_format",
+                    "Output Format",
+                    "Image output encoding for gpt-image requests: 'png', 'jpeg', or 'webp'.",
+                    typeof(string),
+                    null,
+                    new[] { "png", "jpeg", "webp" }),
+                new AIExtraDescriptor(
+                    "output_compression",
+                    "Output Compression",
+                    "Compression level (0-100) for jpeg/webp image outputs. Ignored for png.",
+                    typeof(int),
                     null),
             };
         }

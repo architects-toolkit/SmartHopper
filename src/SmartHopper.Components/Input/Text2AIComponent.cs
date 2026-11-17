@@ -33,23 +33,23 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("1B98B6D8-1F08-4981-BDE8-9FFB6B7F2646");
 
-        protected override Bitmap Icon => Resources.toaitext;
+        protected override Bitmap Icon => Resources.Text2AI;
 
         public Text2AIComponent()
             : base(
                   "Text to AI",
                   "Text2AI",
-                  "Wraps text input into an AIInputPayload for AI processing.",
-                  GH_Exposure.secondary)
+                  "Package a text prompt or message to wire into any AI output component.",
+                  GH_Exposure.primary)
         {
         }
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Text", "T", "Text content to wrap into an AIInputPayload.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Text", "T", "Text prompt or content to send to the AI.", GH_ParamAccess.item);
         }
 
-        protected override string PayloadOutputDescription => "AIInputPayload wrapping the text.";
+        protected override string PayloadOutputDescription => "Packaged text input ready to wire into any AI output component's 'Input >' parameter.";
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {

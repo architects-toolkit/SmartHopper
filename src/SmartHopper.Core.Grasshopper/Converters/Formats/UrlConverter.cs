@@ -77,7 +77,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
         private static HttpClient CreateDefaultHttpClient()
         {
-            var client = new HttpClient();
+            var client = SmartHopper.Infrastructure.Networking.ExternalDataHttpClient.Create();
             string version = VersionHelper.GetDisplayVersion();
             client.DefaultRequestHeaders.UserAgent.ParseAdd($"SmartHopper/{version} (+https://github.com/architects-toolkit/SmartHopper)");
             return client;
@@ -87,6 +87,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
         public async Task<FileConversionResult> ConvertAsync(string filePath, FileConversionOptions options)
         {
+            using var sourceAccessScope = SmartHopper.Infrastructure.Networking.ExternalSourceAccess.BeginScope();
             // For UrlConverter, filePath is actually a URL
             var url = filePath;
 
@@ -282,6 +283,12 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             {
                 Logger.For<UrlConverter>().Exception(ex, $"[UrlConverter] Timeout: {ex.Message}");
                 return FileConversionResult.Failure("url", $"Timed out fetching URL: {url}", FileConversionFailureReason.NetworkError);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Consent denials are a refusal, not a conversion failure — let them
+                // propagate so the calling tool reports an explicit runtime error.
+                throw;
             }
             catch (Exception ex)
             {

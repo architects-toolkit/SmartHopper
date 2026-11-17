@@ -50,7 +50,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
             var tool = new show_ghjson().GetTools().Single();
 
             Assert.Equal("show_ghjson", tool.Name);
-            Assert.Equal("GhJSON.Tools", tool.Category);
+            Assert.Equal("GhJSON.Generation", tool.Category);
             Assert.False(tool.MutatesCanvas);
             Assert.True(tool.Annotations.ReadOnlyHint == true);
         }

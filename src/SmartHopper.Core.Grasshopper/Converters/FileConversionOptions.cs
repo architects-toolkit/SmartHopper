@@ -161,6 +161,24 @@ namespace SmartHopper.Core.Grasshopper.Converters
         public bool ExtractImages { get; set; } = false;
 
         /// <summary>
+        /// Gets or sets the optional selected 1-based PDF page numbers. Null means the whole
+        /// document; an empty list is invalid. Applies to PDF format.
+        /// </summary>
+        public System.Collections.Generic.IReadOnlyList<int> Pages { get; set; }
+
+        /// <summary>
+        /// Gets or sets an optional normalized detail region on a selected PDF page.
+        /// Applies to PDF format.
+        /// </summary>
+        public SmartHopper.DocumentProcessing.DocumentRegionSelection Region { get; set; }
+
+        /// <summary>
+        /// Gets or sets the cancellation token observed during conversion. Defaults to
+        /// <see cref="System.Threading.CancellationToken.None"/>.
+        /// </summary>
+        public System.Threading.CancellationToken CancellationToken { get; set; } = System.Threading.CancellationToken.None;
+
+        /// <summary>
         /// Gets or sets the maximum content length in characters.
         /// If the converted content exceeds this length, it will be truncated.
         /// A value of 0 or less means no limit.
@@ -249,6 +267,9 @@ namespace SmartHopper.Core.Grasshopper.Converters
                 BaseUrl = this.BaseUrl,
                 MaxDownloadBytes = this.MaxDownloadBytes,
                 MinContentLength = this.MinContentLength,
+                Pages = this.Pages,
+                Region = this.Region,
+                CancellationToken = this.CancellationToken,
             };
         }
     }

@@ -35,10 +35,15 @@ This document covers the core request types used to construct, validate, and exe
 SmartHopper provides a layered request model:
 
 - `IAIRequest` defines the minimal contract any AI request must satisfy.
-- `AIRequestBase` adds common fields like `Endpoint`, default `Body`, and `Capability`, plus model resolution.
+- `AIRequestBase` adds common fields like `Origin`, `Endpoint`, default `Body`, and `Capability`, plus model resolution.
 - `AIRequestCall` is the concrete HTTP-ready request with method, authentication, and execution logic.
 
-To execute a request, you construct an `AIRequestCall`, initialize it with a provider, model, body, endpoint, and capability, then call `Exec()`. The execution automatically runs the always-on policy pipeline before and after the provider call.
+Two fields with related names carry deliberately different meanings:
+
+- **`Origin`** — the *semantic* provenance label set by the caller: tool name (`gh_put`, `text2text`), component tag, fallback label (`fallback:stt`), chat surface (`canvas-chat`). It travels untouched to the wire copy and drives attribution (e.g., SmartHopper Cloud's `X-SmartHopper-Origin` header) and logging.
+- **`Endpoint`** — the *wire* route resolved by the provider during `PreCallAsync` (e.g., `/chat/completions`, `/models/{model}:generateContent`). Callers should leave it unset; a non-empty value is an explicit wire-path override reserved for backoffice-style requests (`/models`, batch status paths).
+
+To execute a request, you construct an `AIRequestCall`, initialize it with a provider, model, body, origin, and capability, then call `Exec()`. The execution automatically runs the always-on policy pipeline before and after the provider call.
 
 For simple single-turn calls without tools, `Exec()` is sufficient. For multi-turn conversations with tool execution, wrap the request in a `ConversationSession` and use `RunToStableResult` with `SessionOptions`.
 
@@ -60,22 +65,23 @@ For simple single-turn calls without tools, `Exec()` is sufficient. For multi-tu
 ### AIRequestBase
 
 - File: `AIRequestBase.cs`
-- Adds: `Endpoint`, default `Body`, `Capability`
+- Adds: `Origin`, `Endpoint`, default `Body`, `Capability`
 - Model resolution (provider-scoped):
   - The `Model` property resolves to a provider-capable model for the requested `Capability`.
   - If a requested model is incompatible or missing, a provider default is selected via the model registry.
   - Validation notes are surfaced via structured `SHRuntimeMessage`s.
 - Initialization helpers:
-  - `Initialize(provider, model, body, endpoint, capability)`
-  - `Initialize(provider, model, interactions, endpoint, capability, toolFilter?)`
+  - `Initialize(provider, model, body, origin, capability)`
+  - `Initialize(provider, model, interactions, origin, capability, toolFilter?)`
 
 ### AIRequestCall
 
 - File: `AIRequestCall.cs`
 - HTTP wiring: `HttpMethod` (default `POST`), `Authentication` (default `bearer`), `ContentType` (`application/json`)
+- `Source`: set by `CreateExecutionCopy()` to the canonical (root) request; copies of copies flatten to the same root. Pipeline stages key per-request state (e.g., Cloud idempotency keys) on `Source` instead of the transient copy.
 - Encoded payload: `EncodedRequestBody` uses `ProviderInstance.Encode(this)` if valid
 - Validation extends base:
-  - Requires `Provider`, `Endpoint`, `HttpMethod`, `Authentication`
+  - Requires `Provider`, `HttpMethod`, `Authentication`
   - Requires `Capability` with both input and output (e.g., `Text2Text`, `Text2Json`, etc.)
   - If `Body` requires JSON output but `Capability` lacks `JsonOutput`, it is inferred
   - If `Body.ToolFilter` enables tools and `Capability` lacks `FunctionCalling`, it is inferred
@@ -103,7 +109,7 @@ req.Initialize(
     provider: "openai",
     model: "gpt-4o-mini",
     body: body,
-    endpoint: string.Empty,
+    origin: "my_feature",
     capability: AICapability.Text2Text);
 
 var result = await req.Exec();
@@ -124,7 +130,7 @@ req.Initialize(
     provider: "openai",
     model: "gpt-4o-mini",
     body: body,
-    endpoint: string.Empty,
+    origin: "my_feature",
     capability: AICapability.ToolChat,
     toolFilter: "*");
 
@@ -151,14 +157,21 @@ var last = result.Body.GetLastInteraction();
 
 ### Execution Flow
 
-1. Caller constructs and initializes an `AIRequestCall`.
-2. `IsValid()` runs the request through `AIRequestBase` validation plus HTTP-specific checks.
-3. If valid, the policy pipeline runs request policies to normalize and prepare the payload.
-4. `ProviderInstance.Encode(this)` produces the provider-specific wire format.
-5. The HTTP call is executed with the configured method, authentication, and content type.
-6. The raw response is decoded by the provider.
-7. Response policies run to standardize finish reasons, validate schemas, and attach diagnostics.
+1. Caller constructs and initializes an `AIRequestCall` (the *canonical* request).
+2. `Exec()` runs request policies and the provider trust check.
+3. `PrepareExecutionAsync` produces a **detached execution copy** (media adaptation, approved-source materialization) — the canonical request keeps original session evidence.
+4. The outbound gate (`ValidateOutboundRequest` + `IsValid`) runs on the copy.
+5. `provider.Call(copy)` → `PreCallAsync` detaches **another** execution copy and hands it to `PreCallCoreAsync`, where the provider resolves wire fields (`Endpoint`, `HttpMethod`, `Authentication`, `Headers`) — the copy reaching the provider is never caller-owned, so preparation cannot mutate caller state.
+6. `Encode(outbound)` produces the provider-specific wire format; `CallApi` executes the HTTP call.
+7. Response policies standardize finish reasons, validate schemas, and attach diagnostics.
 8. An `AIReturn` is returned with the final body, messages, metrics, and success state.
+
+### Immutability Contract
+
+- The canonical request is **never mutated** by pipeline stages: `PrepareExecutionAsync` (stage 1) and `PreCallAsync` (stage 2) each work on `CreateExecutionCopy()` output.
+- `AIProvider.PreCallAsync` enforces this centrally — providers override `PreCallCoreAsync(outbound)` and mutate the supplied copy freely; they never see the caller's instance.
+- Execution copies know their lineage: `copy.Source` resolves to the canonical root request, which is where per-logical-request state (idempotency keys, retry fingerprints) belongs.
+- Batch submit paths (`EncodeBatchItemAsync`) run the same stage-2 preparation so queued requests get identical wire treatment.
 
 ### Policy Integration
 

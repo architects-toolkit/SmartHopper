@@ -29,6 +29,7 @@ using Grasshopper.Kernel.Types;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AIContext;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.AI
@@ -42,10 +43,10 @@ namespace SmartHopper.Components.AI
         public override Guid ComponentGuid => new Guid("F8A2C4D1-3B5E-4A7F-9C0D-1E2F3A4B5C6D");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.contextproviders;
+        protected override Bitmap Icon => Resources.AIContextProviders;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary | GH_Exposure.obscure;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
@@ -63,11 +64,10 @@ namespace SmartHopper.Components.AI
             : base(
                   "Context Providers",
                   "CxtProviders",
-                  "Retrieve the list of all registered AI context providers.",
+                  "List the IDs of all registered AI context providers (such as 'time', 'file', 'environment', 'selection', and 'viewport').",
                   "SmartHopper",
                   "A. AI")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <summary>
@@ -85,7 +85,7 @@ namespace SmartHopper.Components.AI
         /// <param name="pManager">The parameter manager.</param>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Providers", "P", "List of registered AI context provider IDs", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Providers", "P", "Registered AI context provider IDs that can be passed to the AIContext component.", GH_ParamAccess.tree);
         }
 
         /// <summary>
@@ -188,7 +188,7 @@ namespace SmartHopper.Components.AI
 
                         if (this._result.TryGetValue("Info", out var info) && info is string infoMsg)
                         {
-                            this._parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, infoMsg);
+                            this.CollectMessage(SHRuntimeMessageSeverity.Info, infoMsg);
                         }
 
                         message = "Context providers output set successfully";
@@ -203,7 +203,7 @@ namespace SmartHopper.Components.AI
                     var err = this._result.TryGetValue("Error", out var errObj) && errObj is string errMsg
                         ? errMsg
                         : "Error occurred while retrieving context providers";
-                    this._parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, err);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, err);
                     message = err;
                 }
             }

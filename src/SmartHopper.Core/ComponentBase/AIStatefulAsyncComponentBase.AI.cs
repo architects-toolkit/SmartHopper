@@ -90,10 +90,12 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         /// <typeparam name="T">The return type: JObject for CallAIToolAsync, AIReturn for CallAIAsync.</typeparam>
         /// <param name="request">The request to queue (AIToolCall or AIRequestCall).</param>
-        /// <param name="identifier">Identifier for logging (tool name or endpoint).</param>
+        /// <param name="identifier">Identifier for logging (tool name or component origin).</param>
         /// <param name="sentinelFactory">Factory function to create the sentinel result.</param>
+        /// <param name="metricsRole">Role label recorded for the queued custom ID so
+        /// batch-decoded metrics can be attributed (e.g. "main", "tool:{name}").</param>
         /// <returns>Sentinel result if queued successfully, null if should execute synchronously.</returns>
-        private T TryQueueBatchRequest<T>(AIRequestCall request, string identifier, Func<string, T> sentinelFactory)
+        private T TryQueueBatchRequest<T>(AIRequestCall request, string identifier, Func<string, T> sentinelFactory, string metricsRole = "main")
         {
             if (!this.IsBatchRequest())
                 return default(T);
@@ -118,10 +120,21 @@ namespace SmartHopper.Core.ComponentBase
                 var index = this._batchState.Queue?.Count ?? 0;
                 var customId = AIBatchSubmission.GenerateCustomId(identifier, index);
 
-                if (this._batchState.Queue == null) this._batchState.Queue = new List<(string, AIRequestCall)>();
+                if (this._batchState.Queue == null) this._batchState.Queue = new List<(string, AIRequestCall, string)>();
                 if (this._batchState.SentinelIds == null) this._batchState.SentinelIds = new HashSet<string>();
-                this._batchState.Queue.Add((customId, request));
+
+                // The role rides with the queued item — the request itself does not
+                // carry component attribution once submitted for batch decoding.
+                // CaptureSubmittedRequestInfo moves it into SubmittedRoles at submission.
+                this._batchState.Queue.Add((customId, request, metricsRole));
                 this._batchState.SentinelIds.Add(customId);
+
+                // Associate the sentinel with the processing unit that queued it so
+                // decoded batch results can resolve inside the stored fragment.
+                if (!string.IsNullOrEmpty(this.CurrentUnitKey))
+                {
+                    this.ResultStore.RegisterSentinel(customId, this.CurrentUnitKey);
+                }
 
                 Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] Queued batch item #{index}: customId={customId}, identifier={identifier}");
                 return sentinelFactory(customId);
@@ -145,7 +158,9 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         /// <param name="result">The <see cref="AIReturn"/> to process.</param>
         /// <param name="origin">Origin tag used for message attribution.</param>
-        private void ProcessAIResult(AIReturn result, string origin)
+        /// <param name="metricsRole">Role label applied to the recorded metrics entry
+        /// (e.g. "main" for the primary call, "tool:{name}" for a direct tool call).</param>
+        private void ProcessAIResult(AIReturn result, string origin, string metricsRole = "main")
         {
             var metrics = result?.Metrics;
             var hasProviderMetrics = metrics != null
@@ -159,7 +174,20 @@ namespace SmartHopper.Core.ComponentBase
 
                 // Accumulate per-branch metrics for non-batch multi-branch solves.
                 // Batch mode skips this path (sentinels are returned before ProcessAIResult).
-                this.CombineIntoPersistedMetrics(metrics with { DataCount = 1 }, "main"); // One AI call = one processing unit
+                this.CombineIntoPersistedMetrics(metrics with { DataCount = 1 }, metricsRole); // One AI call = one processing unit
+            }
+
+            // Meter helper calls performed during request preparation once, separately
+            // from the primary call (each entry already carries its own provider/model).
+            if (result?.ExtraMetrics != null)
+            {
+                foreach (var extra in result.ExtraMetrics)
+                {
+                    if (extra != null)
+                    {
+                        this.CombineIntoPersistedMetrics(extra, "fallback");
+                    }
+                }
             }
 
             if (result?.Messages != null && result.Messages.Count > 0)
@@ -326,10 +354,23 @@ namespace SmartHopper.Core.ComponentBase
                     var sentinel = this.TryQueueBatchRequest(
                         batchRequest,
                         toolName,
-                        customId => ToolCallResult.FromBatchSentinel(new JObject { ["result"] = BatchSentinel.Wrap(customId) }));
+                        customId => ToolCallResult.FromBatchSentinel(new JObject { ["result"] = BatchSentinel.Wrap(customId) }),
+                        metricsRole: $"tool:{toolName}");
 
                     if (sentinel != null)
                         return sentinel;
+                }
+                else if (tools.TryGetValue(toolName, out _))
+                {
+                    // The tool advertises the Batch surface but provides no BuildRequest,
+                    // so no queueable request can be built. Falling back to synchronous
+                    // execution silently would hide a paid direct call behind a batch
+                    // request — surface the degradation once per run instead.
+                    this.SetPersistentRuntimeMessage(
+                        $"batch_tool_no_request_{toolName}",
+                        GH_RuntimeMessageLevel.Remark,
+                        $"Tool '{toolName}' cannot be submitted as a batch request; processing in regular mode.",
+                        false);
                 }
             }
 
@@ -348,7 +389,7 @@ namespace SmartHopper.Core.ComponentBase
 
                 if (toolResultInteraction?.Result != null)
                 {
-                    result = new ToolCallResult(toolResult.Success, toolResultInteraction.Result, toolResult.Messages);
+                    result = new ToolCallResult(toolResult.Success, toolResultInteraction.Result, toolResult.Messages, images: toolResultInteraction.Images);
                 }
                 else
                 {
@@ -373,7 +414,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // Store snapshot and surface messages
-            this.ProcessAIResult(toolResult, "ai");
+            this.ProcessAIResult(toolResult, "ai", $"tool:{toolName}");
             return result;
         }
 

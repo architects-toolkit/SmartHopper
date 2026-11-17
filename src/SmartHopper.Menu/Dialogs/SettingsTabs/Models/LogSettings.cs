@@ -24,8 +24,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs.Models
     /// Model for the Logging settings tab.
     /// </summary>
     /// <remarks>
-    /// Local, on-machine logging only — these properties tune the individual sinks
-    /// and nothing leaves the machine.
+    /// Local (on-machine) logging follows the diagnostics consent — there is no
+    /// separate master switch. These properties only tune the individual sinks.
     /// </remarks>
     public class LogSettings
     {

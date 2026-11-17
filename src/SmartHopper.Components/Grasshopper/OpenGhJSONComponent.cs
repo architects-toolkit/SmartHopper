@@ -43,31 +43,33 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                   "Open GhJSON",
                   "OpenGhJSON",
-                  "Open a .ghjson file from disk and return its content with validation output. Input files must have extension .ghjson.",
+                  "Read a .ghjson file from disk, validate its structure, and output the GhJSON document.",
                   "SmartHopper",
-                  "Grasshopper")
+                  "D. GhJSON")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("D2FF1BE9-C365-4F6A-96CC-959BF252768A");
 
         /// <inheritdoc/>
-        protected override System.Drawing.Bitmap Icon => null;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+
+        /// <inheritdoc/>
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.OpenGhJSON;
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Path", "P", "Absolute file path to a .ghjson file.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Path", "P", "Absolute path to a .ghjson file on disk.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("GhJSON", "G", "GhJSON document content.", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("Valid", "V", "Whether the GhJSON document is valid.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Errors", "E", "List of validation errors.", GH_ParamAccess.list);
+            pManager.AddTextParameter("GhJSON", "G", "Loaded GhJSON document string.", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Valid", "V", "True if the loaded GhJSON document passed validation.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Errors", "E", "Validation errors found in the file, if any.", GH_ParamAccess.list);
         }
 
         /// <inheritdoc/>

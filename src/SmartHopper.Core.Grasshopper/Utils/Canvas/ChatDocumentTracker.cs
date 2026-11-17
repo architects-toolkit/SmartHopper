@@ -32,7 +32,6 @@ using Rhino;
 using SmartHopper.Core.UI.Chat;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
-using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
     /// <summary>
@@ -91,7 +90,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 }
                 catch (Exception ex)
                 {
-                    Logger.For<ChatDocumentTracker>().Exception(ex, $"[ChatDocumentTracker] Start failed: {ex.Message}");
+                    Debug.WriteLine($"[ChatDocumentTracker] Start failed: {ex.Message}");
                     return Array.Empty<AIInteractionDocumentEvent>();
                 }
             }
@@ -171,7 +170,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 }
                 catch (Exception ex)
                 {
-                    Logger.For<ChatDocumentTracker>().Exception(ex, $"[ChatDocumentTracker] CollectChanges failed: {ex.Message}");
+                    Debug.WriteLine($"[ChatDocumentTracker] CollectChanges failed: {ex.Message}");
                     return Array.Empty<AIInteractionDocumentEvent>();
                 }
             }
@@ -203,7 +202,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 }
                 catch (Exception ex)
                 {
-                    Logger.For<ChatDocumentTracker>().Exception(ex, $"[ChatDocumentTracker] Rebaseline failed: {ex.Message}");
+                    Debug.WriteLine($"[ChatDocumentTracker] Rebaseline failed: {ex.Message}");
                 }
             }
         }
@@ -316,14 +315,14 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
                 if (!done.Wait(UiThreadTimeout))
                 {
-                    Logger.For<ChatDocumentTracker>().Trace("[ChatDocumentTracker] Timed out waiting for the UI thread");
+                    Debug.WriteLine("[ChatDocumentTracker] Timed out waiting for the UI thread");
                     timedOut = true;
                 }
             }
 
             if (error != null)
             {
-                Logger.For<ChatDocumentTracker>().Trace($"[ChatDocumentTracker] Capture failed: {error.Message}");
+                Debug.WriteLine($"[ChatDocumentTracker] Capture failed: {error.Message}");
             }
 
             snapshot = result;

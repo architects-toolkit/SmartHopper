@@ -42,13 +42,20 @@ namespace SmartHopper.Components.Grasshopper
     public class AIGhReportComponent : AIStatefulAsyncComponentBase
     {
         /// <inheritdoc/>
+        /// <summary>
+        /// This component's work has side effects or consumes external state
+        /// (canvas mutations, chat history, file/web fetches) so per-unit results
+        /// are not reusable across runs.
+        /// </summary>
+        protected override bool SupportsResultReuse => false;
+
         public override Guid ComponentGuid => new Guid("5FDC1E07-DA09-4051-A89E-7FFCF5DEC6B7");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Resources.AIGhReport;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "gh_report" };
@@ -67,23 +74,23 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                   "AI Canvas Report",
                   "AIGhReport",
-                  "Generate a comprehensive canvas status report including object counts, topology, groups, scribbles, viewport contents, metadata, and runtime messages. Optionally includes an AI-generated summary of the file purpose and current view.",
+                  "Generate a structured status report of the current Grasshopper canvas — component and wire counts, topology, groups, scribbles, viewport contents, file metadata, and runtime errors or warnings — with an optional AI summary.",
                   "SmartHopper",
-                  "Grasshopper")
+                  "D. GhJSON")
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Include Summary", "S", "When true, generates an AI-powered brief summary of the file purpose and current view using the selected provider/model.", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Include Summary", "S", "When true, asks the selected AI provider to generate a brief summary of what the definition does and what is currently in view.", GH_ParamAccess.item, false);
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Report", "Rpt", "Structured markdown report of the canvas status", GH_ParamAccess.item);
-            pManager.AddTextParameter("Summary", "Sum", "AI-generated summary of the file purpose and current view (empty when Include Summary is false)", GH_ParamAccess.item);
+            pManager.AddTextParameter("Report", "Rpt", "Structured Markdown report of the current Grasshopper canvas.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Summary", "Sum", "AI-generated summary of the definition's purpose and current view (empty when Include Summary is false).", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
@@ -165,6 +172,7 @@ namespace SmartHopper.Components.Grasshopper
             {
                 this.parent.SetPersistentOutput("Report", new GH_String(this.report), DA);
                 this.parent.SetPersistentOutput("Summary", new GH_String(this.summary), DA);
+                this.parent.SetMetricsOutput(DA);
                 message = string.Empty;
             }
         }

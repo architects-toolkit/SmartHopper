@@ -81,7 +81,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""properties"": {
                         ""text"": { ""type"": ""string"", ""description"": ""The text to evaluate"" },
                         ""question"": { ""type"": ""string"", ""description"": ""The true/false question to evaluate"" },
-                        ""fallback"": { ""type"": ""boolean"", ""description"": ""Optional fallback value to use when AI response cannot be parsed as true/false. If not provided, the result will be null for unparsable responses"" }
+                        ""fallback"": { ""type"": ""boolean"", ""description"": ""Optional fallback value to use when AI response cannot be parsed as true/false. If not provided, the result will be null for unparsable responses"" },
+                        ""contextFilter"": { ""type"": ""string"", ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*')."" }
                     },
                     ""required"": [""text"", ""question"" ]
                 }",
@@ -126,8 +127,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 provider: toolCall.Provider,
                 model: toolCall.Model,
                 body: requestBody,
-                endpoint: this.toolName,
+                origin: this.toolName,
                 capability: this.toolCapabilityRequirements);
+
+            // Forward per-request parameters (extras, sampling, timeout) to the provider call
+            if (toolCall.Parameters != null)
+            {
+                request.Parameters = toolCall.Parameters;
+            }
             return request;
         }
 

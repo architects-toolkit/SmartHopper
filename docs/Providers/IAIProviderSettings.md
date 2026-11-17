@@ -48,7 +48,8 @@ Implementations should expose an `EnableStreaming` setting descriptor (type `boo
 
 ### Interface Members
 
-- `IEnumerable<SettingDescriptor> GetSettingDescriptors()` — name, description, default, secret flag, hidden flag, allowed values, etc. `SettingDescriptor.IsHidden` keeps a setting stored (and encrypted when `IsSecret`) while omitting it from the settings UI and preserving it when visible settings are saved.
+- `IEnumerable<SettingDescriptor> GetSettingDescriptors()` — the **persisted schema only**: name, description, default, secret flag, hidden flag, allowed values, etc. `SettingDescriptor.IsHidden` keeps a setting stored (and encrypted when `IsSecret`) while omitting it from the settings UI and preserving it when visible settings are saved. Implementations must only construct descriptors — never evaluate live provider state — because the settings store enumerates them while resolving secret flags inside `GetSetting`/`SetSetting` calls.
+- `IEnumerable<ProviderSurfaceElement> GetSurface()` — the ordered list the settings dialog renders: persisted settings as `BoundSettingElement` rows interleaved with live `ChromeElement` rows (`StatusChrome` status labels, `ActionChrome` buttons that invoke provider actions directly, `LinkChrome` hyperlinks). Chrome is evaluated through delegates at render/repaint time and never touches the settings store. The default implementation wraps every non-hidden descriptor, so providers that do not need live chrome change nothing.
 - `bool ValidateSettings(Dictionary<string, object> settings)` — enforce required/allowed values and sanitization.
 - `bool EnableStreaming { get; }` — provider-level toggle to allow/disable streaming responses.
 

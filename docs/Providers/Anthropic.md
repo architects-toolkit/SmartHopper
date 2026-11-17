@@ -98,6 +98,16 @@ Submit multiple requests as a batch through `IAIBatchProvider.SubmitBatchAsync` 
 
 Streaming is enabled by default. Responses are streamed in real-time via SSE. For a concrete example, see `docs/Providers/AICall/Streaming.md` and `src/SmartHopper.Providers.Anthropic/AnthropicProvider.Streaming.cs`.
 
+### Reasoning / Extended Thinking
+
+Request encoding emits a `thinking` field whenever `ReasoningEffort` resolves non-empty (per-request `effort` extra overrides the provider setting; default `medium`). The field shape depends on the model family:
+
+- **Adaptive family** — all 5.x lines, `fable`/`mythos`, and every 4.6+ model: `thinking: {"type":"adaptive","display":"summarized"}`. Without the field these models never think (4.6–4.8) or think invisibly (5.x defaults `display` to `omitted`, billing thinking tokens that return empty). `output_config.effort` is still sent alongside and steers depth.
+- **Extended family** — 4.5-era and 3.7 models: `thinking: {"type":"enabled","budget_tokens":N}` with effort mapped to a budget (low→1024, medium→4096, high→8192, xhigh→16384, max→32768, clamped strictly below `max_tokens`). The API then requires `temperature=1` and no `top_p`/`top_k`, which the encoder enforces. `output_config.effort` is not emitted for these models.
+- **Older models** (3.5 and below): no `thinking` field — they reject it.
+
+Thinking blocks decode onto `AIInteractionText.Reasoning`; each block's `signature` (encrypted reasoning state) is preserved verbatim in `IAIInteraction.ProviderData["thinking"]` and re-emitted ahead of the text block when assistant history is replayed — Anthropic requires thinking blocks echoed back unchanged on continuation turns, and tool-use loops that strip them fail. Streaming handles `thinking_delta`, `signature_delta` and `redacted_thinking` events the same way. Reported `usage.output_tokens_details.thinking_tokens` maps to `internal_reasoning` metrics (already included in `output_tokens`, never added twice).
+
 ### Tool Calling
 
 Anthropic supports function calling via native `tools` parameters. Forced tool calls are supported using the `tool_choice` object format:

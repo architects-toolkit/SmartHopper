@@ -269,7 +269,13 @@ namespace SmartHopper.Core.DataTree
                 .Select(kvp =>
                 {
                     var branch = kvp.Value;
-                    var branchData = branch.Select(item => item.ToString());
+                    // Strict fingerprints: identical-branch grouping must agree
+                    // with unit-key identity (which is computed strict). The
+                    // non-strict display fingerprint could group branches whose
+                    // strict identities differ, replaying a result the owning
+                    // units never produced.
+                    var branchData = (branch ?? Enumerable.Empty<T>())
+                        .Select(item => SemanticFingerprint.Of(item, strict: true));
                     return $"{kvp.Key}:{string.Join(",", branchData)}";
                 });
 
@@ -427,16 +433,23 @@ namespace SmartHopper.Core.DataTree
             var pathsToApplyMap = new Dictionary<GH_Path, List<GH_Path>>();
             messages ??= new List<SHRuntimeMessage>();
 
+            // Only data-carrying inputs participate in branch matching: an input
+            // with no items (unwired optional parameter, or only empty branches)
+            // neither requires matching nor can broadcast values — it must not
+            // contribute paths to the processing obligation nor trigger mismatch
+            // remarks. Computed once here; used by matching AND reporting below.
+            var dataTrees = trees.Where(t => t.Value.DataCount > 0).ToList();
+
             if (!onlyMatchingPaths)
             {
-                allPaths = GetAllUniquePaths(trees.Values);
+                allPaths = GetAllUniquePaths(dataTrees.Select(t => t.Value));
 
                 Logger.For<ProcessingResult<T>>().Trace($"[DataTreeProcessor] All paths: {string.Join(", ", allPaths)}");
 
                 // Remove paths from flat trees that are truly broadcast-only
                 if (allPaths.Count > 1)
                 {
-                    var treeList = trees.Values.ToList();
+                    var treeList = dataTrees.Select(t => t.Value).ToList();
                     var pathsToRemove = new List<GH_Path>();
 
                     for (int i = 0; i < treeList.Count; i++)
@@ -509,7 +522,10 @@ namespace SmartHopper.Core.DataTree
                 }
             }
 
-            var matchingPaths = GetMatchingPaths(trees.Values);
+            // dataTrees (declared above) also gates the matching set: an
+            // input with no items must not delete the other inputs' paths
+            // from the intersection.
+            var matchingPaths = GetMatchingPaths(dataTrees.Select(t => t.Value));
             var processingPaths = onlyMatchingPaths ? matchingPaths : allPaths;
 
             // Check for paths that will be completely omitted due to no match (OnlyMatchingPaths mode)
@@ -527,10 +543,16 @@ namespace SmartHopper.Core.DataTree
                 }
             }
 
-            // Check for unmatched paths when not using OnlyMatchingPaths
-            if (!onlyMatchingPaths && trees.Count >= 2 && allPaths.Count > matchingPaths.Count)
+            // Check for unmatched paths when not using OnlyMatchingPaths —
+            // only among inputs that actually carry data (see dataTrees above).
+            if (!onlyMatchingPaths && dataTrees.Count >= 2 && allPaths.Count > matchingPaths.Count)
             {
-                foreach (var kvp in trees)
+                // Collect each input's unmatched branches first, so the whole
+                // mismatch is reported once instead of one mirrored remark per
+                // input complaining about the same condition.
+                var unmatchedInputs = new List<(string Name, List<GH_Path> Paths)>();
+
+                foreach (var kvp in dataTrees)
                 {
                     var treeName = kvp.Key;
                     var tree = kvp.Value;
@@ -538,8 +560,8 @@ namespace SmartHopper.Core.DataTree
 
                     foreach (var path in tree.Paths)
                     {
-                        // Check if this path exists in ALL other trees
-                        bool existsInAllOthers = trees
+                        // Check if this path exists in ALL other data-carrying trees
+                        bool existsInAllOthers = dataTrees
                             .Where(t => t.Key != treeName)
                             .All(t => t.Value.PathExists(path));
 
@@ -562,15 +584,20 @@ namespace SmartHopper.Core.DataTree
 
                         if (!isBroadcastOnly)
                         {
-                            var pathList = FormatEnumeration(unmatchedPaths.Select(p => p.ToString()));
-                            var otherTrees = FormatEnumeration(trees.Where(t => t.Key != treeName).Select(t => t.Key));
-                            messages.Add(new SHRuntimeMessage(
-                                SHRuntimeMessageSeverity.Info,
-                                SHRuntimeMessageOrigin.Validation,
-                                SHMessageCode.TreePathMismatch,
-                                $"Input '{treeName}' has branches {pathList} that don't match with {otherTrees}. These branches will receive broadcast values from other inputs."));
+                            unmatchedInputs.Add((treeName, unmatchedPaths));
                         }
                     }
+                }
+
+                if (unmatchedInputs.Count > 0)
+                {
+                    var detail = string.Join(" and ", unmatchedInputs
+                        .Select(u => $"'{u.Name}' has branches {FormatEnumeration(u.Paths.Select(p => p.ToString()))}"));
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Info,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.TreePathMismatch,
+                        $"Input {detail} that don't match each other. These branches will receive broadcast values from other inputs."));
                 }
             }
 
@@ -1155,7 +1182,9 @@ namespace SmartHopper.Core.DataTree
         /// <summary>
         /// Extracts a strongly-typed <see cref="GH_Structure{U}"/> from a heterogeneous result
         /// produced by <see cref="RunAsync{T}"/>.
-        /// Items that cannot be cast to <typeparamref name="U"/> are silently skipped.
+        /// Nulls and items that cannot be cast to <typeparamref name="U"/> are preserved as
+        /// null placeholders — silently dropping them would compress the branch and
+        /// misalign parallel output channels that share positions.
         /// </summary>
         /// <typeparam name="U">The concrete <see cref="IGH_Goo"/> type to extract.</typeparam>
         /// <param name="result">The untyped result dictionary returned by <see cref="RunAsync{T}"/>.</param>
@@ -1164,7 +1193,7 @@ namespace SmartHopper.Core.DataTree
         public static GH_Structure<U> ExtractTypedTree<U>(
             Dictionary<string, GH_Structure<IGH_Goo>> result,
             string key)
-            where U : class, IGH_Goo
+            where U : IGH_Goo
         {
             if (result == null || !result.TryGetValue(key, out var src))
             {
@@ -1182,12 +1211,19 @@ namespace SmartHopper.Core.DataTree
 
                 foreach (var item in branch)
                 {
-                    // Only append if cast succeeds - silently skip invalid items
-                    var castItem = item as U;
-                    if (castItem != null)
+                    if (item is U castItem)
                     {
                         typed.Append(castItem, path);
+                        continue;
                     }
+
+                    if (item != null)
+                    {
+                        Logger.Warning("DataTreeProcessor",
+                            $"[DataTreeProcessor] Output '{key}' item of type '{item.GetType().Name}' is not {typeof(U).Name} — emitting null placeholder at {path}");
+                    }
+
+                    typed.Append(default, path);
                 }
             }
 

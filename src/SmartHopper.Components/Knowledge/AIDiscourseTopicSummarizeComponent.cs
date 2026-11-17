@@ -39,48 +39,53 @@ namespace SmartHopper.Components.Knowledge
     /// </summary>
     public class AIDiscourseTopicSummarizeComponent : AIStatefulAsyncComponentBase
     {
+        /// <summary>
+        /// This component's work has side effects or consumes external state
+        /// (canvas mutations, chat history, file/web fetches) so per-unit results
+        /// are not reusable across runs.
+        /// </summary>
+        protected override bool SupportsResultReuse => false;
+
         public override Guid ComponentGuid => new Guid("C204112B-AACD-4E4E-B4F1-5131719A57E2");
 
-        protected override Bitmap Icon => Resources.discoursetopicsummarize;
+        protected override Bitmap Icon => Resources.AIDiscourseTopicSummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary | GH_Exposure.obscure;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
             "AIDiscourseTopicSumm",
-            "discourse_topic_summarize",
+            "discourse_forum_topic_summarize",
             "Discourse Topic",
             "Discourse Summary",
             "Forum Topic Summary",
         };
 
         /// <inheritdoc/>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "discourse_topic_summarize" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "discourse_forum_topic_summarize" };
 
         public AIDiscourseTopicSummarizeComponent()
             : base(
                   "AI Discourse Topic Summarize",
                   "AIDiscourseTopicSumm",
-                  "Generate a concise summary of a Discourse forum topic (all posts) by topic ID from any Discourse instance using the configured AI provider.",
+                  "Generate a concise AI summary of a Discourse forum topic (thread) by topic ID from any Discourse forum.",
                   "SmartHopper",
-                  "Knowledge")
+                  "E. Forums")
         {
-            // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Base URL", "U", "REQUIRED Base URL of the Discourse forum (e.g., https://discourse.example.com).", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Topic Id", "T", "REQUIRED ID or list of IDs of the forum topic(s) to summarize.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Instructions", "I", "Optional targeted summary instructions to focus on a specific question, target, or concern.", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("Base URL", "U", "Base URL of the Discourse forum (e.g., 'https://discourse.example.com').", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Topic Id", "T", "Numeric ID(s) of the forum topic(s) to summarize.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Instructions", "I", "Optional instructions to focus the summary on a specific question or aspect.", GH_ParamAccess.item, string.Empty);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Summary", "S", "AI-generated summary of the forum topic.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Title", "T", "Title of the forum topic.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("URL", "U", "URL of the forum topic.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("URL", "U", "Direct URL to the forum topic.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Post Count", "P", "Number of posts included in the summary.", GH_ParamAccess.tree);
         }
 
@@ -192,11 +197,11 @@ namespace SmartHopper.Components.Knowledge
                                         parameters["instructions"] = this.instructions;
                                     }
 
-                                    var toolResult = await this.parent.CallAIToolAsync("discourse_topic_summarize", parameters, token).ConfigureAwait(false);
+                                    var toolResult = await this.parent.CallAIToolAsync("discourse_forum_topic_summarize", parameters, token).ConfigureAwait(false);
 
                                     if (toolResult == null)
                                     {
-                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'discourse_topic_summarize' returned no result.");
+                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'discourse_forum_topic_summarize' returned no result.");
                                         continue;
                                     }
 

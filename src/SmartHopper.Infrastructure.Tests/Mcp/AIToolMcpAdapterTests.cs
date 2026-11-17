@@ -21,6 +21,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.AICall.Tools;
@@ -282,7 +283,6 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
 
                 var ret = new AIReturn
                 {
-                    Request = call,
                     SkipRequestValidation = true,
                     SkipMetricsValidation = true,
                 };
@@ -314,7 +314,6 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             {
                 var ret = new AIReturn
                 {
-                    Request = call,
                     SkipRequestValidation = true,
                     SkipMetricsValidation = true,
                 };
@@ -424,7 +423,6 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
                 observed = call.InvocationContext;
                 var ret = new AIReturn
                 {
-                    Request = call,
                     SkipRequestValidation = true,
                     SkipMetricsValidation = true,
                 };
@@ -459,7 +457,6 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
                 calls++;
                 var ret = new AIReturn
                 {
-                    Request = call,
                     SkipRequestValidation = true,
                     SkipMetricsValidation = true,
                 };
@@ -475,13 +472,14 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
                 new McpServerOptions { ExposeMutatingTools = true },
                 () => tools,
                 Executor);
+            var session = new McpSession("test-session");
             var args = new JObject { ["requestId"] = $"req-{Guid.NewGuid():N}" };
 
-            var first = await adapter.ExecuteAsync("gh_put", args);
-            var second = await adapter.ExecuteAsync("gh_put", args);
+            var first = await adapter.ExecuteAsync("gh_put", args, session, CancellationToken.None);
+            var second = await adapter.ExecuteAsync("gh_put", args, session, CancellationToken.None);
 
+            Assert.True(!first.IsError, first.ErrorMessage ?? "no message");
             Assert.Equal(1, calls);
-            Assert.False(first.IsError);
             Assert.False(second.IsError);
             Assert.Equal(1, (int?)second.Payload["call"]);
         }
@@ -496,7 +494,6 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
                 calls++;
                 var ret = new AIReturn
                 {
-                    Request = call,
                     SkipRequestValidation = true,
                     SkipMetricsValidation = true,
                 };
@@ -512,9 +509,10 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
                 new McpServerOptions { ExposeMutatingTools = true },
                 () => tools,
                 Executor);
+            var session = new McpSession("test-session");
 
-            await adapter.ExecuteAsync("gh_put", new JObject { ["requestId"] = $"req-{Guid.NewGuid():N}" });
-            await adapter.ExecuteAsync("gh_put", new JObject { ["requestId"] = $"req-{Guid.NewGuid():N}" });
+            await adapter.ExecuteAsync("gh_put", new JObject { ["requestId"] = $"req-{Guid.NewGuid():N}" }, session, CancellationToken.None);
+            await adapter.ExecuteAsync("gh_put", new JObject { ["requestId"] = $"req-{Guid.NewGuid():N}" }, session, CancellationToken.None);
 
             Assert.Equal(2, calls);
         }
@@ -529,7 +527,6 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
                 calls++;
                 var ret = new AIReturn
                 {
-                    Request = call,
                     SkipRequestValidation = true,
                     SkipMetricsValidation = true,
                 };
@@ -558,10 +555,16 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             {
                 var ret = new AIReturn
                 {
-                    Request = call,
                     SkipRequestValidation = true,
                     SkipMetricsValidation = true,
                 };
+                // Production shape: schema-validation failures reach the adapter as a
+                // Tool-origin "Tool error: ..." (from CreateToolError) plus the attached
+                // Validation-origin structured messages that carry expectedSchema.
+                ret.AddRuntimeMessage(
+                    SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageSeverity.Error,
+                    SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageOrigin.Tool,
+                    "Tool error: Arguments for tool 'gh_put' are missing required properties: q");
                 ret.AddRuntimeMessage(
                     SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageSeverity.Error,
                     SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageOrigin.Validation,
@@ -580,6 +583,140 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             Assert.Equal("object", (string?)result.Payload["expectedSchema"]?["type"]);
             Assert.Equal("string", (string?)result.Payload["expectedSchema"]?["properties"]?["q"]?["type"]);
             Assert.Null(result.Payload["tools"]);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_SuccessWithWarning_PreservesDiagnostics()
+        {
+            var tools = BuildCatalog(("gh_get", ReadOnlySchema, false));
+            Task<AIReturn> Executor(AIToolCall call)
+            {
+                var ret = new AIReturn
+                {
+                    SkipRequestValidation = true,
+                    SkipMetricsValidation = true,
+                };
+                ret.SetBody(AIBody.Empty.WithAppended(new AIInteractionToolResult
+                {
+                    Name = call.GetToolCall().Name,
+                    Result = new JObject { ["ok"] = true },
+                }));
+                ret.AddRuntimeMessage(
+                    SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageSeverity.Warning,
+                    SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageOrigin.Tool,
+                    "Unrecognized argument(s) 'bogus' were ignored by tool 'gh_get'.");
+                return Task.FromResult(ret);
+            }
+
+            var adapter = new AIToolMcpAdapter(new McpServerOptions(), () => tools, Executor);
+            var result = await adapter.ExecuteAsync("gh_get", new JObject());
+
+            Assert.False(result.IsError);
+            Assert.True((bool?)result.Payload["ok"]);
+            Assert.NotNull(result.Diagnostics);
+            var diagnostic = Assert.Single(result.Diagnostics!);
+            Assert.Equal(SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageSeverity.Warning, diagnostic.Severity);
+            Assert.Equal(SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageOrigin.Tool, diagnostic.Origin);
+            Assert.Contains("bogus", diagnostic.Message);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_PayloadPlusError_ReturnsErrorWithPartialPayload()
+        {
+            var tools = BuildCatalog(("gh_put", ReadOnlySchema, true));
+            Task<AIReturn> Executor(AIToolCall call)
+            {
+                var ret = new AIReturn
+                {
+                    SkipRequestValidation = true,
+                    SkipMetricsValidation = true,
+                };
+                ret.SetBody(AIBody.Empty.WithAppended(new AIInteractionToolResult
+                {
+                    Name = call.GetToolCall().Name,
+                    Result = new JObject { ["placed"] = 3 },
+                }));
+                ret.AddRuntimeMessage(
+                    SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageSeverity.Error,
+                    SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageOrigin.Tool,
+                    "partial apply failed");
+                return Task.FromResult(ret);
+            }
+
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { ExposeMutatingTools = true },
+                () => tools,
+                Executor);
+            var result = await adapter.ExecuteAsync("gh_put", new JObject());
+
+            // A payload cannot hide an error: the call fails, the partial result survives.
+            Assert.True(result.IsError);
+            Assert.Equal("partial apply failed", result.ErrorMessage);
+            Assert.Equal(3, (int?)result.Payload["result"]?["placed"]);
+            Assert.NotNull(result.Diagnostics);
+            Assert.Contains(result.Diagnostics!, d =>
+                d.Severity == SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageSeverity.Error);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_EmptySuccessStaysSuccessfulWithoutDiagnostics()
+        {
+            var tools = BuildCatalog(("gh_get", ReadOnlySchema, false));
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions(),
+                () => tools,
+                call =>
+                {
+                    var ret = new AIReturn
+                    {
+                        SkipRequestValidation = true,
+                        SkipMetricsValidation = true,
+                    };
+                    return Task.FromResult(ret);
+                });
+
+            var result = await adapter.ExecuteAsync("gh_get", new JObject());
+
+            Assert.False(result.IsError);
+            Assert.Null(result.Diagnostics);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_DuplicateRequestId_ReplayPreservesDiagnostics()
+        {
+            var tools = BuildCatalog(("gh_put", ReadOnlySchema, true));
+            Task<AIReturn> Executor(AIToolCall call)
+            {
+                var ret = new AIReturn
+                {
+                    SkipRequestValidation = true,
+                    SkipMetricsValidation = true,
+                };
+                ret.SetBody(AIBody.Empty.WithAppended(new AIInteractionToolResult
+                {
+                    Name = call.GetToolCall().Name,
+                    Result = new JObject { ["ok"] = true },
+                }));
+                ret.AddRuntimeMessage(
+                    SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageSeverity.Warning,
+                    SmartHopper.ProviderSdk.Diagnostics.SHRuntimeMessageOrigin.Tool,
+                    "kept warning");
+                return Task.FromResult(ret);
+            }
+
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { ExposeMutatingTools = true },
+                () => tools,
+                Executor);
+            var session = new McpSession("test-session");
+            var args = new JObject { ["requestId"] = $"req-{Guid.NewGuid():N}" };
+
+            var first = await adapter.ExecuteAsync("gh_put", args, session, CancellationToken.None);
+            var second = await adapter.ExecuteAsync("gh_put", args, session, CancellationToken.None);
+
+            Assert.NotNull(first.Diagnostics);
+            Assert.NotNull(second.Diagnostics);
+            Assert.Equal("kept warning", second.Diagnostics!.Single().Message);
         }
 
         private static IReadOnlyDictionary<string, AITool> BuildCatalog(params (string name, string schema, bool mutatesCanvas)[] entries)

@@ -25,12 +25,12 @@ using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Utils.Components;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
-using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
@@ -63,7 +63,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         },
                         ""query"": {
                             ""type"": ""string"",
-                            ""description"": ""Partial name matching filter. Returns components whose name or nickname contains this text (case-insensitive).""
+                            ""description"": ""Partial matching filter. Returns components whose name, nickname, or keywords contain this text (case-insensitive), best match first.""
                         },
                         ""includeDetails"": {
                             ""type"": ""array"",
@@ -110,50 +110,78 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.GetArgumentsOrEmpty();
                 var server = Instances.ComponentServer;
                 var categoryFilters = args["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
-                var query = args["query"]?.ToString() ?? args["nameFilter"]?.ToString() ?? string.Empty;
+                // A nonempty 'query' wins; 'nameFilter' remains as a legacy alias.
+                var query = args["query"]?.ToString();
+                if (string.IsNullOrWhiteSpace(query))
+                {
+                    query = args["nameFilter"]?.ToString() ?? string.Empty;
+                }
                 var includeDetails = args["includeDetails"]?.ToObject<List<string>>() ?? new List<string>();
                 var maxResults = args["maxResults"]?.ToObject<int>() ?? 100;
                 var (includeCats, excludeCats) = FilterParser.ParseIncludeExclude(categoryFilters, FilterParser.CategorySynonyms);
 
-                // Retrieve all component proxies in one call
-                var proxies = server.ObjectProxies.ToList();
+                // Snapshot proxy metadata on the UI thread: the catalogue and proxy
+                // descriptors are WinForms-owned, while ranking works off-thread on
+                // the immutable entries.
+                var snapshot = new List<(IGH_ObjectProxy Proxy, ComponentSearchEntry Entry)>();
+                Utils.Canvas.UiThreadMarshal.RunAndWait(() =>
+                {
+                    foreach (var p in server.ObjectProxies)
+                    {
+                        snapshot.Add((p, new ComponentSearchEntry(
+                            p.Guid,
+                            p.Desc?.Name,
+                            p.Desc?.NickName,
+                            p.Desc?.Keywords as IReadOnlyList<string> ?? p.Desc?.Keywords?.ToList(),
+                            p.Desc?.Category,
+                            p.Desc?.SubCategory)));
+                    }
+                });
+
+                var entries = snapshot.Select(s => s.Entry).ToList();
 
                 // Apply category filters (match against Category and SubCategory)
                 if (includeCats.Any() || excludeCats.Any())
                 {
-                    proxies = proxies
-                        .Where(p => FilterParser.PassesCategoryFilter(
-                            p.Desc?.Category,
-                            p.Desc?.SubCategory,
+                    entries = entries
+                        .Where(e => FilterParser.PassesCategoryFilter(
+                            e.Category,
+                            e.SubCategory,
                             includeCats,
                             excludeCats))
                         .ToList();
                 }
 
-                // Apply query filter if provided
-                if (!string.IsNullOrEmpty(query))
-                {
-                    var filterLower = query.ToLowerInvariant();
-                    proxies = proxies.Where(p =>
-                        (p.Desc?.Name?.ToLowerInvariant().Contains(filterLower) ?? false) ||
-                        (p.Desc?.NickName?.ToLowerInvariant().Contains(filterLower) ?? false)).ToList();
-                }
+                // Rank by name/nickname/keywords when a query is given; otherwise
+                // entries keep registry order. Ranking also deduplicates by type GUID.
+                var ranked = ComponentSearchRanker.Rank(entries, query);
 
                 // Apply max results limit
                 if (maxResults > 0)
                 {
-                    proxies = proxies.Take(maxResults).ToList();
+                    ranked = ranked.Take(maxResults).ToList();
                 }
 
-                var list = proxies.Select(p =>
+                var proxiesByGuid = snapshot
+                    .GroupBy(s => s.Entry.Guid)
+                    .ToDictionary(g => g.Key, g => g.First().Proxy);
+
+                var list = ranked.Select(e => proxiesByGuid[e.Guid]).Select(p =>
                 {
                     // Some proxies cannot be instantiated (missing add-on assemblies,
                     // obsolete stubs, …); a single failure must not kill the listing.
                     var inputs = new List<object>();
                     var outputs = new List<object>();
+
+                    // Only instantiate when input/output details were requested:
+                    // CreateInstance is expensive (deserializes user objects) and can
+                    // throw for broken proxies, so metadata-only listings skip it.
+                    var wantsParams = includeDetails.Count == 0
+                        || includeDetails.Contains("inputs")
+                        || includeDetails.Contains("outputs");
                     try
                     {
-                        var instance = p.CreateInstance();
+                        var instance = wantsParams ? p.CreateInstance() : null;
                         if (instance is IGH_Component comp)
                         {
                             instance.CreateAttributes();
@@ -198,7 +226,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                     catch (Exception ex)
                     {
-                        Logger.For<gh_list_components>().Exception(ex, $"[gh_list_components] Skipping introspection for proxy '{p.Desc?.Name}' ({p.Guid}): {ex.Message}");
+                        System.Diagnostics.Debug.WriteLine($"[gh_list_components] Skipping introspection for proxy '{p.Desc?.Name}' ({p.Guid}): {ex.Message}");
                     }
 
                     // Build component object based on includeDetails selection

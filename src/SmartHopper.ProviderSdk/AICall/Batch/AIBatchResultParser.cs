@@ -21,6 +21,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.ProviderSdk.AICall.Batch
@@ -29,12 +30,84 @@ namespace SmartHopper.ProviderSdk.AICall.Batch
     /// Shared parser for the OpenAI-style batch result wire shape:
     /// <c>{ "custom_id": "…", "response": { "status_code": N, "body": {…} }, "error": {…} }</c>
     /// items inside a JSON array or an object carrying a <c>results</c> array.
-    /// Providers that consume this shape share the extraction so item semantics —
-    /// first-wins merge, per-item error messages and finish-reason warnings — cannot
-    /// drift apart.
+    /// Providers that consume this shape (OpenRouter, SmartHopper Cloud) share the
+    /// extraction so item semantics — first-wins merge, per-item error messages and
+    /// finish-reason warnings — cannot drift apart.
     /// </summary>
     public static class AIBatchResultParser
     {
+        /// <summary>
+        /// Prefix of every per-item diagnostic message emitted by the batch
+        /// parsers (<c>"Batch item {customId}: …"</c>). Single contract point —
+        /// consumers locating the item a message belongs to (e.g. completion
+        /// accounting splitting provider-failed ids from retryable ones) match
+        /// on this prefix instead of a hard-coded literal.
+        /// </summary>
+        public const string ItemMessagePrefix = "Batch item ";
+
+        /// <summary>
+        /// Extracts the human-readable error message from a batch item
+        /// <c>error</c> field, tolerating every wire shape providers actually
+        /// emit: an object with a <c>message</c> member (or nested error
+        /// objects), a plain scalar (string/number), or <c>null</c>. Returns
+        /// <c>null</c> when the token carries no usable error text.
+        /// </summary>
+        /// <param name="error">The <c>error</c> token from a result item.</param>
+        public static string? ExtractItemErrorMessage(JToken? error)
+        {
+            if (error == null || error.Type == JTokenType.Null || error.Type == JTokenType.Undefined)
+            {
+                return null;
+            }
+
+            if (error is JObject errorObj)
+            {
+                // Standard shape: {"message": "…"} — some providers nest
+                // {"error": {"message": "…"}}; take the deepest message found.
+                if (errorObj["error"] is JObject nested)
+                {
+                    return nested["message"]?.ToString() ?? nested.ToString(Formatting.None);
+                }
+
+                return errorObj["message"]?.ToString() ?? errorObj.ToString(Formatting.None);
+            }
+
+            // Scalar error (string code, numeric status, boolean flag).
+            var scalar = error.ToString();
+            return string.IsNullOrWhiteSpace(scalar) ? null : scalar;
+        }
+
+        /// <summary>
+        /// Locates the <c>customId</c> a provider-side per-item error message
+        /// refers to. Matches messages of shape <c>"Batch item {id}: …"</c>
+        /// with <see cref="SHRuntimeMessageSeverity.Error"/> severity and
+        /// <see cref="SHMessageCode.BatchItemError"/> — the format every batch
+        /// result parser in the SDK emits for terminal remote item failures.
+        /// </summary>
+        /// <param name="message">The diagnostic message to inspect.</param>
+        /// <param name="customId">The extracted customId on success.</param>
+        public static bool TryGetFailedItemCustomId(SHRuntimeMessage? message, out string? customId)
+        {
+            customId = null;
+            if (message == null
+                || message.Severity != SHRuntimeMessageSeverity.Error
+                || message.Code != SHMessageCode.BatchItemError
+                || message.Message == null
+                || !message.Message.StartsWith(ItemMessagePrefix, System.StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var end = message.Message.IndexOf(':', ItemMessagePrefix.Length);
+            if (end <= ItemMessagePrefix.Length)
+            {
+                return false;
+            }
+
+            customId = message.Message.Substring(ItemMessagePrefix.Length, end - ItemMessagePrefix.Length);
+            return true;
+        }
+
         /// <summary>
         /// Parses and merges every content blob in <paramref name="fileContents"/> into a single
         /// completed <see cref="AIBatchStatus"/>. Duplicate <c>custom_id</c> entries keep the
@@ -170,15 +243,20 @@ namespace SmartHopper.ProviderSdk.AICall.Batch
                 return;
             }
 
-            var error = item["error"];
-            if (error != null)
+            // The error field arrives as an object ({"message": "…"}), a plain
+            // scalar (code/status string), JSON null, or a boolean flag — only
+            // an actual error payload short-circuits the response path. The
+            // previous object-shaped assumption (error["message"]) threw
+            // InvalidOperationException on scalar/null values, which the poll
+            // loop then retried forever on the same completed batch.
+            var errorMsg = ExtractItemErrorMessage(item["error"]);
+            if (errorMsg != null)
             {
-                var errorMsg = error["message"]?.ToString() ?? error.ToString();
                 messages.Add(new SHRuntimeMessage(
                     SHRuntimeMessageSeverity.Error,
                     SHRuntimeMessageOrigin.Provider,
                     SHMessageCode.BatchItemError,
-                    $"Batch item {customId}: {errorMsg}"));
+                    $"{ItemMessagePrefix}{customId}: {errorMsg}"));
                 return;
             }
 
@@ -190,30 +268,28 @@ namespace SmartHopper.ProviderSdk.AICall.Batch
             {
                 results[customId] = responseBody;
 
-                // Surface non-standard finish reasons as warnings.
-                var choices = responseBody["choices"] as JArray;
-                var firstChoice = choices?.FirstOrDefault() as JObject;
-                var finishReason = firstChoice?["finish_reason"]?.ToString()
-                    ?? responseBody["status"]?.ToString();
+                // Surface abnormal finish reasons as warnings — the canonical
+                // normalizer covers both Chat Completions and Responses API shapes.
+                var finishReason = AIFinishReason.FromOpenAIResponse(responseBody);
 
-                if (!string.IsNullOrEmpty(finishReason) && finishReason != "stop")
+                if (AIFinishReason.IsAbnormal(finishReason))
                 {
                     messages.Add(new SHRuntimeMessage(
                         SHRuntimeMessageSeverity.Warning,
                         SHRuntimeMessageOrigin.Provider,
                         SHMessageCode.BatchItemFinishReason,
-                        $"Batch item {customId}: completed with finish_reason='{finishReason}'"));
+                        $"{ItemMessagePrefix}{customId}: completed with finish_reason='{finishReason}'"));
                 }
             }
             else
             {
-                var errorText = responseBody?["error"]?.ToString()
+                var errorText = ExtractItemErrorMessage(responseBody?["error"])
                     ?? (statusCode > 0 ? $"HTTP {statusCode}" : "Unknown batch item error");
                 messages.Add(new SHRuntimeMessage(
                     SHRuntimeMessageSeverity.Error,
                     SHRuntimeMessageOrigin.Provider,
                     SHMessageCode.BatchItemError,
-                    $"Batch item {customId}: {errorText}"));
+                    $"{ItemMessagePrefix}{customId}: {errorText}"));
             }
         }
     }

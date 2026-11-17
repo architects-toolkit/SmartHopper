@@ -1,77 +1,20 @@
-# Audio Components
+# Media Components (`G. Media`)
 
-Audio components provide audio playback and visualization capabilities within Grasshopper.
+Components in `src/SmartHopper.Components/Img/` and `src/SmartHopper.Components/Audio/` for generating, analyzing, viewing, saving, and capturing images and audio under the **`SmartHopper → G. Media`** ribbon panel.
 
----
+## Component catalog (`SmartHopper → G. Media`)
 
-## Metadata
-
-| Property | Value |
-| --- | --- |
-| **Source Code** | `src/SmartHopper.Core.Grasshopper/Components/Audio/` |
-| **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
-| **Documentation Maintainer** | Devin AI |
-
-_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
-
----
-
-## Why Read This?
-
-Audio components extend Grasshopper with the ability to play, visualize, and process audio directly on the canvas. They bridge the gap between parametric design and multimedia workflows, enabling speech-to-text and text-to-speech integrations.
-
-**You should read this if you:**
-
-- Want to play or visualize audio files inside Grasshopper
-- Need to integrate speech-to-text or text-to-speech into your definitions
-- Are building custom components that consume or produce audio data
-
----
-
-## End-User Guide
-
-### Component Table
-
-| Component Class | Nickname | Category | Description |
+| Component | Display Name | Nickname | Purpose |
 | --- | --- | --- | --- |
-| `AudioViewerComponent` | Audio Viewer | Playback | Displays and plays audio files with waveform visualization |
+| `AIText2ImgComponent` | AI Text To Image | `AIText2Img` | Generates images from text prompts (`Prompt`, `Size`, `Quality`, `Style`, `Aspect Ratio` → `Image`, `Revised Prompt`) using `text2img` |
+| `AIImg2TextComponent` | AI Image To Text | `AIImg2Text` | Describes or analyzes images (`Image`, optional `Prompt` → `Description`) using `img2text` |
+| `ImageViewerComponent` | Image Viewer | `ImgView` | Displays an image on the Grasshopper canvas and optionally saves it to `File Path` when `Save?` is `True` |
+| `AudioViewerComponent` | Audio Viewer | `AudioView` | Previews audio with an on-canvas waveform and Play button; saves to `File Path` when `Save?` is `True` (held `True` re-saves on every input change, a pulse saves once) |
+| `CanvasCaptureComponent` | Canvas To Image | `Canvas2Img` | Captures the visible Grasshopper canvas as a `VersatileImage` (`Image`, `Width`, `Height`) using `canvas_screenshot` |
+| `ViewportCaptureComponent` | Viewport To Image | `Viewport2Img` | Captures the active or named Rhino viewport as a `VersatileImage` (`Image`, `Width`, `Height`, `View Name`) using `viewport_screenshot` |
 
----
+## Related documentation
 
-## Developer Reference
-
-### Using the Audio Viewer
-
-The `AudioViewerComponent` can be referenced programmatically to display audio data:
-
-```csharp
-// Create an audio viewer instance and load an audio file
-var audioViewer = new AudioViewerComponent();
-audioViewer.LoadAudioFile("path/to/audio.wav");
-audioViewer.Play();
-
-```
-
-### Integrating with AI Audio Workflows
-
-Audio components work seamlessly with AI-powered speech components:
-
-```csharp
-// Pipe Audio2AI output into the viewer
-var audioInput = Audio2AIComponent.CaptureMicrophoneInput();
-var viewer = new AudioViewerComponent();
-viewer.SetAudioStream(audioInput);
-viewer.RefreshWaveform();
-
-```
-
----
-
-## Architecture & Design
-
-- Audio components integrate with the AI audio interaction system
-- Support for multiple audio formats (WAV, MP3, MPEG, etc.)
-- Waveform visualization for audio content inspection
-- Used in conjunction with `Audio2AIComponent` for speech-to-text workflows
-- Used with `AI2SpeechComponent` for text-to-speech output playback
+- [Input Components (`Image to AI`, `Audio to AI`)](../Input/index.md)
+- [Output Components (`AI to Image`, `AI to Speech`)](../Output/index.md)
+- [VersatileAudio architecture](../../Architecture/VersatileAudio.md)

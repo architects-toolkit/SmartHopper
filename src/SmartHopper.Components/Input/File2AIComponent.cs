@@ -22,6 +22,8 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -36,8 +38,12 @@ using SmartHopper.Core.Grasshopper.AITools;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Core.Models;
 using SmartHopper.Core.Types;
+using SmartHopper.DocumentProcessing;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Documents;
 
 using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Input
@@ -50,22 +56,6 @@ namespace SmartHopper.Components.Input
     public class File2AIComponent : AIStatefulAsyncComponentBase
     {
         /// <summary>
-        /// Per-file context stored during DoWorkAsync so <see cref="OnBatchCompleted"/> can
-        /// reconstruct the final Markdown once all batch image descriptions are available.
-        /// </summary>
-        private Dictionary<string, MarkdownImageBatchContext> _fileContexts;
-
-        /// <summary>
-        /// Flag to prevent clearing <see cref="_fileContexts"/> during polling re-runs.
-        /// </summary>
-        private bool _fileContextsInitialized;
-
-        /// <summary>
-        /// Set to true when the batch is active but <see cref="_fileContexts"/> could not be restored.
-        /// </summary>
-        private bool _batchContextLost;
-
-        /// <summary>
         /// Local Markdown tree produced during DoWorkAsync; used to build the AIInputPayload output.
         /// </summary>
         private GH_Structure<GH_String> _localMarkdown;
@@ -75,14 +65,21 @@ namespace SmartHopper.Components.Input
         /// </summary>
         private GH_Structure<GH_String> _localFormat;
 
+        /// <summary>
+        /// This component's work has side effects or consumes external state
+        /// (canvas mutations, chat history, file/web fetches) so per-unit results
+        /// are not reusable across runs.
+        /// </summary>
+        protected override bool SupportsResultReuse => false;
+
         public override Guid ComponentGuid => new Guid("AC2DDCD0-B4E9-4B99-80DA-CA9F9BBCD4C9");
 
-        protected override Bitmap Icon => Resources.toaifile;
+        protected override Bitmap Icon => Resources.File2AI;
 
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <inheritdoc/>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "file2md", "img2text" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "file2md" };
 
         /// <inheritdoc/>
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
@@ -96,7 +93,7 @@ namespace SmartHopper.Components.Input
             : base(
                 "File to AI",
                 "File2AI",
-                "Reads a file and converts it to Markdown using the file2md AI tool, wrapping the content into an AIInputPayload. AI is used only for image description when Image Mode is not 'skip'.",
+                "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown and visual evidence packaged as one ordered multimodal payload ready to wire into any AI output component. PDF sources include rendered pages; no provider call is made while packaging.",
                 "SmartHopper",
                 "B. Input")
         {
@@ -104,149 +101,29 @@ namespace SmartHopper.Components.Input
 
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("File Path", "F", "Path(s) to the file(s) to convert and wrap into an AIInputPayload.", GH_ParamAccess.tree);
-            pManager.AddBooleanParameter("Remove Headers", "RH", "Attempt to remove headers and footers from PDF/DOCX. Default: true.", GH_ParamAccess.tree, true);
-            pManager.AddTextParameter("Image Mode", "IM", "How extracted images appear in the Markdown. 'skip' (default): do not extract images. 'embed': embed as base64 data URI with a short AI caption. 'describe': replace with a long AI text description. 'caption': replace with a short AI-generated title. Requires an AI provider for embed/describe/caption.", GH_ParamAccess.tree, "skip");
+            pManager.AddTextParameter("File Path", "F", "Local path(s) to the file(s) to convert and send to the AI.", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Remove Headers", "RH", "When true (default), removes repeating page headers and footers from PDF and DOCX files.", GH_ParamAccess.tree, true);
+            pManager.AddTextParameter("Pages", "P", "Optional PDF page selection as a JSON array of unique 1-based page numbers (e.g. [1,3]). An empty string selects the whole document; an empty array is invalid.", GH_ParamAccess.tree, string.Empty);
+            pManager.AddTextParameter("Region", "R", "Optional PDF detail region as a JSON object {page, x, y, width, height} with normalized top-left coordinates inside a selected page.", GH_ParamAccess.tree, string.Empty);
+            pManager[pManager.ParamCount - 1].Optional = true;
+            pManager[pManager.ParamCount - 2].Optional = true;
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "AIInputPayload(s) containing the file content as Markdown.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Markdown", "M", "Converted file content as Markdown.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Format", "F", "Detected source format of the file.", GH_ParamAccess.tree);
+            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "Packaged file content (Markdown) ready to wire into any AI output component's 'Input >' parameter.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Markdown", "M", "Converted file content in Markdown format.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Format", "F", "Detected source file format (e.g., pdf, docx, xlsx, html).", GH_ParamAccess.tree);
         }
 
         protected override void OnEnteringNeedsRun()
         {
             base.OnEnteringNeedsRun();
-            this._fileContexts = null;
-            this._fileContextsInitialized = false;
-            this._batchContextLost = false;
             this._localMarkdown = null;
             this._localFormat = null;
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
-        {
-            var sentinel = this.GetSentinelTree("Markdown");
-            if (results == null || sentinel == null) return;
-
-            // Map every sentinel custom ID in the Markdown tree to its output branch path.
-            // All image slots for a single file share the representative sentinel's path.
-            var sentinelToPath = new Dictionary<string, GH_Path>();
-            foreach (var path in sentinel.Paths)
-            {
-                var branch = sentinel.get_Branch(path);
-                if (branch == null)
-                {
-                    continue;
-                }
-
-                foreach (GH_String item in branch)
-                {
-                    if (BatchSentinel.TryExtract(item?.Value ?? string.Empty, out var customId))
-                    {
-                        sentinelToPath[customId] = path;
-                    }
-                }
-            }
-
-            var slotMetricsByPath = new Dictionary<GH_Path, List<AIMetrics>>();
-
-            var reconstructedMarkdown = this.ProcessBatchResults<GH_String>(
-                "Markdown",
-                sentinel,
-                results,
-                (representativeSentinelId, _) =>
-                {
-                    if (this._fileContexts == null ||
-                        !this._fileContexts.TryGetValue(representativeSentinelId, out var fileCtx))
-                    {
-                        Logger.For<File2AIComponent>().Warning($"[File2AI] OnBatchCompleted: File context missing for sentinel {representativeSentinelId}");
-                        return new GH_String("[File context missing]");
-                    }
-
-                    if (!sentinelToPath.TryGetValue(representativeSentinelId, out var representativePath))
-                    {
-                        representativePath = new GH_Path(0);
-                    }
-
-                    var markdown = MarkdownImageBatchProcessor.Reconstruct(
-                        fileCtx,
-                        results,
-                        this.GetActualAIProviderName(),
-                        metrics: null,
-                        onImageResolved: (slotSentinelId, body, assistantText, description) =>
-                        {
-                            if (assistantText?.Metrics != null && slotSentinelId != representativeSentinelId)
-                            {
-                                var metrics = assistantText.Metrics;
-                                if (string.IsNullOrEmpty(metrics.Provider))
-                                {
-                                    metrics = metrics with { Provider = this.GetActualAIProviderName() };
-                                }
-
-                                if (string.IsNullOrEmpty(metrics.Model))
-                                {
-                                    metrics = metrics with { Model = this.GetModel() };
-                                }
-
-                                assistantText = assistantText with { Metrics = metrics };
-
-                                if (!slotMetricsByPath.TryGetValue(representativePath, out var list))
-                                {
-                                    list = new List<AIMetrics>();
-                                    slotMetricsByPath[representativePath] = list;
-                                }
-
-                                list.Add(assistantText.Metrics);
-                            }
-                        });
-
-                    return new GH_String(markdown);
-                },
-                messages);
-
-            if (slotMetricsByPath.Count > 0)
-            {
-                foreach (var kvp in slotMetricsByPath)
-                {
-                    var path = kvp.Key;
-                    foreach (var m in kvp.Value)
-                    {
-                        this.CombineIntoPersistedMetricsAtPath(m, path, "tool:img2text");
-                    }
-                }
-
-                var totalSlotMetrics = slotMetricsByPath.Values.Sum(l => l.Count);
-                Logger.For<File2AIComponent>().Trace($"[File2AI] OnBatchCompleted: merged {totalSlotMetrics} slot metrics into {slotMetricsByPath.Count} branch path(s)");
-                this.SetMetricsOutput(null);
-            }
-
-            // Build Input > tree from the reconstructed Markdown
-            var inputPayloadTree = new GH_Structure<IGH_Goo>();
-            foreach (var path in reconstructedMarkdown.Paths)
-            {
-                var branch = reconstructedMarkdown.get_Branch(path);
-                if (branch == null) continue;
-                foreach (var item in branch)
-                {
-                    if (item is GH_String gs)
-                    {
-                        var payload = string.IsNullOrWhiteSpace(gs.Value) ? null : AIInputPayload.FromText(gs.Value);
-                        inputPayloadTree.Append(new GH_AIInputPayload(payload), path);
-                    }
-                }
-            }
-
-            this.SetPersistentOutput("Input >", inputPayloadTree, null);
-
-            if (this._localFormat != null)
-            {
-                this.SetPersistentOutput("Format", this._localFormat, null);
-            }
-        }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
@@ -275,11 +152,6 @@ namespace SmartHopper.Components.Input
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                if (!this.parent.HasActiveBatchSubmission || this.parent._batchContextLost)
-                {
-                    this.parent._fileContextsInitialized = false;
-                }
-
                 this.inputTrees = new Dictionary<string, GH_Structure<GH_String>>();
 
                 var pathTree = new GH_Structure<GH_String>();
@@ -288,12 +160,16 @@ namespace SmartHopper.Components.Input
                 var removeTree = new GH_Structure<GH_Boolean>();
                 DA.GetDataTree("Remove Headers", out removeTree);
 
-                GH_Structure<GH_String> imageModeTree;
-                DA.GetDataTree("Image Mode", out imageModeTree);
+                GH_Structure<GH_String> pagesTree;
+                DA.GetDataTree("Pages", out pagesTree);
+
+                GH_Structure<GH_String> regionTree;
+                DA.GetDataTree("Region", out regionTree);
 
                 this.inputTrees["FilePath"] = pathTree;
                 this.inputTrees["RemoveHeaders"] = File2MdToolResult.ConvertBoolTreeToString(removeTree, "true");
-                this.inputTrees["ImageMode"] = imageModeTree ?? new GH_Structure<GH_String>();
+                this.inputTrees["Pages"] = pagesTree ?? new GH_Structure<GH_String>();
+                this.inputTrees["Region"] = regionTree ?? new GH_Structure<GH_String>();
 
                 dataCount = 0;
             }
@@ -306,12 +182,6 @@ namespace SmartHopper.Components.Input
                     { "Markdown", new GH_Structure<IGH_Goo>() },
                     { "Format", new GH_Structure<IGH_Goo>() },
                 };
-
-                if (!this.parent._fileContextsInitialized)
-                {
-                    this.parent._fileContexts = new Dictionary<string, MarkdownImageBatchContext>();
-                    this.parent._fileContextsInitialized = true;
-                }
 
                 this.parent._localMarkdown = null;
                 this.parent._localFormat = null;
@@ -330,23 +200,11 @@ namespace SmartHopper.Components.Input
                     this.parent._localMarkdown = markdownTree;
                     this.parent._localFormat = formatTree;
 
-                    var markdownDict = new Dictionary<string, GH_Structure<GH_String>>
-                    {
-                        { "Markdown", markdownTree },
-                    };
-                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Markdown", markdownDict, token).ConfigureAwait(false);
-                    if (batchSubmitted)
-                    {
-                        Logger.For<File2AIWorker>().Trace("[File2AI] Sentinel tree stored, batch submitted");
-                    }
-                    else
-                    {
-                        this.parent.FinishResults(
-                            "Markdown",
-                            markdownTree ?? new GH_Structure<GH_String>(),
-                            ("Input >", (object)(this.result["Input >"] ?? new GH_Structure<IGH_Goo>())),
-                            ("Format", (object)(formatTree ?? new GH_Structure<GH_String>())));
-                    }
+                    this.parent.FinishResults(
+                        "Markdown",
+                        markdownTree ?? new GH_Structure<GH_String>(),
+                        ("Input >", (object)(this.result["Input >"] ?? new GH_Structure<IGH_Goo>())),
+                        ("Format", (object)(formatTree ?? new GH_Structure<GH_String>())));
                 }
                 catch (Exception ex)
                 {
@@ -366,21 +224,74 @@ namespace SmartHopper.Components.Input
 
                 var filePaths = branches["FilePath"];
                 var removeList = branches["RemoveHeaders"];
-                var imageModeList = branches["ImageMode"];
+                var pagesList = branches["Pages"];
+                var regionList = branches["Region"];
 
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { filePaths, removeList, imageModeList });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { filePaths, removeList, pagesList, regionList });
                 filePaths = normalizedLists[0];
                 removeList = normalizedLists[1];
-                imageModeList = normalizedLists[2];
+                pagesList = normalizedLists[2];
+                regionList = normalizedLists[3];
 
                 for (int i = 0; i < filePaths.Count; i++)
                 {
                     string filePath = filePaths[i]?.Value;
                     bool removeHeaders = bool.TryParse(removeList[i]?.Value, out var rh) ? rh : true;
-                    string imageMode = imageModeList?[i]?.Value?.ToLowerInvariant() ?? "skip";
-                    if (imageMode != "skip" && imageMode != "embed" && imageMode != "describe" && imageMode != "caption")
+
+                    List<int> pages = null;
+                    DocumentRegionSelection region = null;
+                    var pagesJson = pagesList?[i]?.Value?.Trim();
+                    var regionJson = regionList?[i]?.Value?.Trim();
+                    if (!string.IsNullOrEmpty(pagesJson))
                     {
-                        imageMode = "skip";
+                        JToken pagesToken;
+                        try
+                        {
+                            pagesToken = JToken.Parse(pagesJson);
+                        }
+                        catch (Exception ex)
+                        {
+                            this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Invalid 'Pages' JSON for {filePath}: {ex.Message}");
+                            outputs["Input >"].Add(new GH_AIInputPayload(null));
+                            outputs["Markdown"].Add(new GH_String(string.Empty));
+                            outputs["Format"].Add(new GH_String("error"));
+                            continue;
+                        }
+
+                        if (!DocumentSelectionJsonParser.TryParsePages(pagesToken, out pages, out var pagesError))
+                        {
+                            this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Invalid 'Pages' for {filePath}: {pagesError}");
+                            outputs["Input >"].Add(new GH_AIInputPayload(null));
+                            outputs["Markdown"].Add(new GH_String(string.Empty));
+                            outputs["Format"].Add(new GH_String("error"));
+                            continue;
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(regionJson))
+                    {
+                        JToken regionToken;
+                        try
+                        {
+                            regionToken = JToken.Parse(regionJson);
+                        }
+                        catch (Exception ex)
+                        {
+                            this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Invalid 'Region' JSON for {filePath}: {ex.Message}");
+                            outputs["Input >"].Add(new GH_AIInputPayload(null));
+                            outputs["Markdown"].Add(new GH_String(string.Empty));
+                            outputs["Format"].Add(new GH_String("error"));
+                            continue;
+                        }
+
+                        if (!DocumentSelectionJsonParser.TryParseRegion(regionToken, out region, out var regionError))
+                        {
+                            this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Invalid 'Region' for {filePath}: {regionError}");
+                            outputs["Input >"].Add(new GH_AIInputPayload(null));
+                            outputs["Markdown"].Add(new GH_String(string.Empty));
+                            outputs["Format"].Add(new GH_String("error"));
+                            continue;
+                        }
                     }
 
                     if (string.IsNullOrWhiteSpace(filePath))
@@ -402,17 +313,18 @@ namespace SmartHopper.Components.Input
 
                     try
                     {
-                        bool extractImages = imageMode != "skip";
                         var converted = await File2MdToolResult.CallAsync(
                             filePath,
                             removeHeaders,
-                            extractImages,
+                            extractImages: true,
                             preserveFormatting: true,
                             preserveComments: true,
                             preserveFootnotes: true,
                             preserveEndnotes: true,
                             describeImages: false,
-                            imageMode: imageMode).ConfigureAwait(false);
+                            pages: pages,
+                            region: region,
+                            cancellationToken: token).ConfigureAwait(false);
 
                         if (converted == null)
                         {
@@ -424,49 +336,11 @@ namespace SmartHopper.Components.Input
                         }
 
                         string markdown = converted.Markdown;
-                        bool isBatch = this.parent.IsBatchRequest();
 
-                        var imageSlots = new List<MarkdownImageSlot>();
-                        if (extractImages)
-                        {
-                            int idx = 1;
-                            foreach (var img in converted.Images)
-                            {
-                                imageSlots.Add(new MarkdownImageSlot
-                                {
-                                    Index = idx,
-                                    ImageId = img.Id ?? "img",
-                                    ImageMode = imageMode,
-                                    ImageContext = img.Context ?? string.Empty,
-                                    MimeType = img.MimeType ?? "image/png",
-                                    Base64Data = img.RawValue ?? string.Empty,
-                                    Placeholder = $"[image {idx}]",
-                                });
-                                idx++;
-                            }
-                        }
-
-                        var processingResult = await MarkdownImageBatchProcessor.ProcessAsync(
-                            markdown,
-                            imageSlots,
-                            imageMode,
-                            async parameters =>
-                            {
-                                var result = await this.parent.CallAIToolAsync("img2text", parameters, token).ConfigureAwait(false);
-                                return result?["result"]?.ToString() ?? result?["description"]?.ToString() ?? string.Empty;
-                            },
-                            isBatch).ConfigureAwait(false);
-                        string processedMarkdown = processingResult.Markdown;
-                        MarkdownImageBatchContext batchContext = processingResult.BatchContext;
-
-                        if (batchContext != null)
-                        {
-                            this.parent._fileContexts[batchContext.Images[0].SentinelId] = batchContext;
-                        }
-
-                        var payload = string.IsNullOrWhiteSpace(processedMarkdown)
-                            ? null
-                            : AIInputPayload.FromText(processedMarkdown);
+                        // ONE ordered multimodal source payload: document identity/coverage
+                        // text first, then selected-page text + its model-visible page
+                        // images/crops in page order. No provider call happens here.
+                        var payload = BuildOrderedPayload(converted, filePath, markdown);
 
                         foreach (var w in converted.Warnings)
                         {
@@ -474,8 +348,12 @@ namespace SmartHopper.Components.Input
                         }
 
                         outputs["Input >"].Add(new GH_AIInputPayload(payload));
-                        outputs["Markdown"].Add(new GH_String(processedMarkdown));
+                        outputs["Markdown"].Add(new GH_String(markdown));
                         outputs["Format"].Add(new GH_String(string.IsNullOrEmpty(converted.Format) ? "unknown" : converted.Format));
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
                     }
                     catch (Exception ex)
                     {
@@ -492,6 +370,40 @@ namespace SmartHopper.Components.Input
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
                 message = null;
+            }
+
+            /// <summary>
+            /// Builds the ONE ordered multimodal source payload via the shared
+            /// <see cref="DocumentEvidenceInteractionBuilder"/>: identity/coverage header,
+            /// then each selected page's text followed by its model-visible renders/crops
+            /// in page order, all under one TurnId with source provenance. No provider
+            /// call happens while packaging; scanned pages with empty text still produce
+            /// image-bearing payloads.
+            /// </summary>
+            private static AIInputPayload BuildOrderedPayload(File2MdToolResult converted, string filePath, string markdown)
+            {
+                var document = converted.Document;
+                if (document != null)
+                {
+                    var interactions = DocumentEvidenceInteractionBuilder.Build(document, markdown);
+                    return interactions.Count == 0 ? null : AIInputPayload.FromInteractions(interactions);
+                }
+
+                // Non-document sources (no pages): wrap the result in a neutral
+                // page-less DocumentEvidence so the shared builder emits the same
+                // one-TurnId source/provenance contract as PDF content.
+                var neutral = new DocumentEvidence
+                {
+                    DocumentId = "sha256-" + Convert.ToHexString(
+                        SHA256.HashData(Encoding.UTF8.GetBytes(filePath + "\n" + (markdown ?? string.Empty))))
+                        .ToLowerInvariant(),
+                    SourceName = filePath,
+                    Format = converted.Format,
+                    Images = converted.TypedImages,
+                    Coverage = new DocumentCoverage { IsComplete = true },
+                };
+                var built = DocumentEvidenceInteractionBuilder.Build(neutral, markdown);
+                return built.Count == 0 ? null : AIInputPayload.FromInteractions(built);
             }
         }
     }

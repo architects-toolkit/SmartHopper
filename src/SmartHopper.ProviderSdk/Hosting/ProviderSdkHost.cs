@@ -81,6 +81,13 @@ namespace SmartHopper.ProviderSdk.Hosting
         public static IProviderHttpClientFactory HttpClientFactory { get; set; } = new DefaultProviderHttpClientFactory();
 
         /// <summary>
+        /// Optional interactive "connection required" prompt for provider calls. Only
+        /// interactive hosts register one; headless surfaces (MCP, hosted services)
+        /// leave it <see langword="null"/> so calls fail instead of blocking on UI.
+        /// </summary>
+        public static IProviderConnectionPrompt? ConnectionPrompt { get; set; }
+
+        /// <summary>
         /// Factory used by the AIProvider base class to obtain a per-provider settings
         /// store scoped to a single provider id. The default returns an in-memory store
         /// so tests can exercise SDK paths without a host attached; the SmartHopper host

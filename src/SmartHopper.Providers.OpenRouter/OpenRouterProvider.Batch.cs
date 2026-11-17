@@ -29,7 +29,6 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Batch;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
-
 using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Providers.OpenRouter
 {
@@ -178,14 +177,11 @@ namespace SmartHopper.Providers.OpenRouter
                 // Normalize :batch alias to the base model slug before encoding.
                 request.Model = StripBatchSuffix(request.Model);
 
-                var preparedRequest = await this.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
-                var encodedBody = this.Encode(preparedRequest);
+                var (preparedRequest, bodyObj) = await this.EncodeBatchItemAsync(request, cancellationToken).ConfigureAwait(false);
                 if (firstEncodedBody == null)
                 {
-                    firstEncodedBody = encodedBody;
+                    firstEncodedBody = bodyObj.ToString();
                 }
-
-                var bodyObj = JObject.Parse(encodedBody);
 
                 // OpenRouter batch is text-only and uses one endpoint/model for the whole batch.
                 ValidateBatchTextOnly(bodyObj);
@@ -334,6 +330,7 @@ namespace SmartHopper.Providers.OpenRouter
             {
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 Logger.For<OpenRouterProvider>().Warning($"[OpenRouter] Batch cancel failed ({(int)response.StatusCode}): {content}");
+                throw new InvalidOperationException($"HTTP {(int)response.StatusCode}: {content}");
             }
             else
             {

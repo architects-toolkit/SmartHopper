@@ -230,6 +230,9 @@ if ([string]::IsNullOrWhiteSpace($Provider)) {
 
 $ErrorActionPreference = 'Stop'
 
+# Entries-first (smarthopper-models/2) pricing parse/merge/format helpers.
+Import-Module (Join-Path $PSScriptRoot 'ProviderModelPricing.psm1') -Force -DisableNameChecking
+
 # ---------------------------------------------------------------------------
 # Interactive key prompting
 # ---------------------------------------------------------------------------
@@ -372,26 +375,16 @@ function ConvertFrom-ModelBlock($blockText) {
         }
     }
 
-    # Pricing = new AIModelPricing { ... }
-    $pricingRx = [regex]::Match($blockText, 'Pricing\s*=\s*new\s+AIModelPricing\s*\{\s*([^}]*)\s*\}')
-    if ($pricingRx.Success) {
-        $priceBody = $pricingRx.Groups[1].Value
-        $pricing = [ordered]@{}
-        foreach ($pm in [regex]::Matches($priceBody, '(\w+)\s*=\s*([0-9]*\.?[0-9]+(?:[eE][-+]?\d+)?)m?')) {
-            $pricing[$pm.Groups[1].Value] = $pm.Groups[2].Value
-        }
-        if ($pricing.Count -gt 0) { $result.Pricing = [pscustomobject]$pricing }
+    # Pricing / BatchPricing = new AIModelPricing { Entries = { ... } }
+    # Entries-first (smarthopper-models/2) only — flat-field or malformed
+    # pricing fails loudly via the shared module.
+    try {
+        $result.Pricing      = Read-ModelPricingBlock -BlockText $blockText -PropertyName 'Pricing'
+        $result.BatchPricing = Read-ModelPricingBlock -BlockText $blockText -PropertyName 'BatchPricing'
     }
-
-    # BatchPricing = new AIModelPricing { ... }
-    $batchPricingRx = [regex]::Match($blockText, 'BatchPricing\s*=\s*new\s+AIModelPricing\s*\{\s*([^}]*)\s*\}')
-    if ($batchPricingRx.Success) {
-        $batchPriceBody = $batchPricingRx.Groups[1].Value
-        $batchPricing = [ordered]@{}
-        foreach ($pm in [regex]::Matches($batchPriceBody, '(\w+)\s*=\s*([0-9]*\.?[0-9]+(?:[eE][-+]?\d+)?)m?')) {
-            $batchPricing[$pm.Groups[1].Value] = $pm.Groups[2].Value
-        }
-        if ($batchPricing.Count -gt 0) { $result.BatchPricing = [pscustomobject]$batchPricing }
+    catch {
+        $modelLabel = if ($result.Model) { $result.Model } else { '<unknown>' }
+        throw "Model '$modelLabel': $($_.Exception.Message)"
     }
 
     # Aliases
@@ -462,40 +455,11 @@ function Format-ModelBlock($model, $providerVar) {
     }
 
     if ($model.Pricing) {
-        $priceProps = [System.Collections.Generic.List[string]]::new()
-        foreach ($p in @('Prompt','Completion','Request','Image','ImageOutput','ImageToken','Audio','AudioOutput','InputAudioCache','InputCacheRead','InputCacheWrite','InternalReasoning','WebSearch','Discount')) {
-            $v = $model.Pricing.$p
-            if ($null -ne $v -and -not [string]::IsNullOrWhiteSpace([string]$v)) {
-                $num = [string]$v
-                # Strip trailing 'm' if present; normalize
-                $num = $num.TrimEnd('m','M')
-                [void]$priceProps.Add("                        $p = ${num}m,")
-            }
-        }
-        if ($priceProps.Count -gt 0) {
-            $lines.Add('                    Pricing = new AIModelPricing')
-            $lines.Add('                    {')
-            foreach ($pp in $priceProps) { $lines.Add($pp) }
-            $lines.Add('                    },')
-        }
+        $lines.Add((Format-ModelPricingBlock -Pricing $model.Pricing -PropertyName 'Pricing'))
     }
 
     if ($model.BatchPricing) {
-        $batchPriceProps = [System.Collections.Generic.List[string]]::new()
-        foreach ($p in @('Prompt','Completion','Request','Image','ImageOutput','ImageToken','Audio','AudioOutput','InputAudioCache','InputCacheRead','InputCacheWrite','InternalReasoning','WebSearch','Discount')) {
-            $v = $model.BatchPricing.$p
-            if ($null -ne $v -and -not [string]::IsNullOrWhiteSpace([string]$v)) {
-                $num = [string]$v
-                $num = $num.TrimEnd('m','M')
-                [void]$batchPriceProps.Add("                        $p = ${num}m,")
-            }
-        }
-        if ($batchPriceProps.Count -gt 0) {
-            $lines.Add('                    BatchPricing = new AIModelPricing')
-            $lines.Add('                    {')
-            foreach ($pp in $batchPriceProps) { $lines.Add($pp) }
-            $lines.Add('                    },')
-        }
+        $lines.Add((Format-ModelPricingBlock -Pricing $model.BatchPricing -PropertyName 'BatchPricing'))
     }
 
     if ($model.Aliases -and $model.Aliases.Count -gt 0) {
@@ -626,7 +590,8 @@ function Merge-CuratedSpeechCapabilities($refreshedExpression, $existingExpressi
         }
     }
 
-    return if ($parts.Count -gt 0) { $parts -join ' | ' } else { 'AICapability.None' }
+    if ($parts.Count -gt 0) { return ($parts -join ' | ') }
+    return 'AICapability.None'
 }
 
 function Test-RealtimeModelName($modelName) {
@@ -793,7 +758,7 @@ foreach ($bm in $blockMatches) {
 
 # Capture the original deprecated state before any merge/update logic mutates it.
 $sourceDeprecatedSet = [System.Collections.Generic.HashSet[string]]::new(
-    [string[]]($existingModels.Keys | Where-Object { $existingModels[$_].Deprecated -eq 'true' }),
+    [string[]]@($existingModels.Keys | Where-Object { $existingModels[$_].Deprecated -eq 'true' }),
     [System.StringComparer]::OrdinalIgnoreCase)
 
 # Aliases declared in the source file, mapped to the model that declares them.
@@ -941,7 +906,7 @@ foreach ($orm in $rawOpenRouterModels) {
 # base entry from the batch variant so the model is not dropped.
 if ($isOpenRouterProvider) {
     $knownBaseIds = [System.Collections.Generic.HashSet[string]]::new(
-        [string[]]($openRouterModels | ForEach-Object { $_.id }),
+        [string[]]@($openRouterModels | ForEach-Object { $_.id }),
         [System.StringComparer]::OrdinalIgnoreCase)
     foreach ($kvp in $batchVariantsByBase.GetEnumerator()) {
         $baseKey = $kvp.Key
@@ -1408,28 +1373,14 @@ if ($providerApiQueried) {
 }
 
 # ---------------------------------------------------------------------------
-# Helper: Merge API-derived pricing into an existing pricing object per-field.
-# Preserves any hand-curated fields that the API did not publish; overwrites
-# only the fields the API did publish. Returns a new pscustomobject.
+# Helper: Merge API-derived pricing into an existing pricing object per
+# (kind, unit) entry key. Delegates to the shared entries-first module:
+# incoming entries win on matching keys, curated entries survive, and a
+# different incoming currency replaces the whole pricing. Returns a new
+# pscustomobject.
 # ---------------------------------------------------------------------------
 function Merge-Pricing($existing, $incoming) {
-    if (-not $existing) { return $incoming }
-    if (-not $incoming) { return $existing }
-
-    $merged = [ordered]@{}
-    $fields = @('TextInput','TextOutput','Request','ImageInput','ImageOutput','ImageToken','AudioInput','AudioOutput','VideoInput','VideoOutput','AudioCacheRead','CacheRead','CacheWrite','InternalReasoning','WebSearch','Discount')
-    foreach ($f in $fields) {
-        $iv = $incoming.$f
-        $ev = $existing.$f
-        if ($null -ne $iv -and -not [string]::IsNullOrWhiteSpace([string]$iv)) {
-            $merged[$f] = $iv
-        }
-        elseif ($null -ne $ev -and -not [string]::IsNullOrWhiteSpace([string]$ev)) {
-            $merged[$f] = $ev
-        }
-    }
-    if ($merged.Count -eq 0) { return $null }
-    return [pscustomobject]$merged
+    return Merge-ModelPricing -Existing $existing -Incoming $incoming
 }
 
 # ---------------------------------------------------------------------------
@@ -1455,40 +1406,10 @@ function Get-OpenRouterEnrichment($orm) {
         try { $created = [DateTimeOffset]::FromUnixTimeSeconds([long]$orm.created).UtcDateTime } catch { }
     }
 
-    # Pricing: map OpenRouter snake_case fields to our PascalCase properties.
-    $pricing = $null
-    if ($orm.pricing) {
-        $map = @{
-            prompt              = 'TextInput'
-            completion          = 'TextOutput'
-            request             = 'Request'
-            image               = 'ImageInput'
-            image_output        = 'ImageOutput'
-            image_token         = 'ImageToken'
-            audio               = 'AudioInput'
-            audio_output        = 'AudioOutput'
-            video               = 'VideoInput'
-            video_input         = 'VideoInput'
-            video_output        = 'VideoOutput'
-            input_audio_cache   = 'AudioCacheRead'
-            input_cache_read    = 'CacheRead'
-            input_cache_write   = 'CacheWrite'
-            internal_reasoning  = 'InternalReasoning'
-            web_search          = 'WebSearch'
-            discount            = 'Discount'
-        }
-        $priceObj = [ordered]@{}
-        foreach ($kvp in $map.GetEnumerator()) {
-            $raw = $orm.pricing.$($kvp.Key)
-            if ($null -eq $raw) { continue }
-            $s = [string]$raw
-            if ([string]::IsNullOrWhiteSpace($s)) { continue }
-            # Skip zero to keep emitted blocks small (field is optional).
-            try { if ([decimal]$s -eq [decimal]0) { continue } } catch { continue }
-            $priceObj[$kvp.Value] = $s
-        }
-        if ($priceObj.Count -gt 0) { $pricing = [pscustomobject]$priceObj }
-    }
+    # Pricing: convert OpenRouter snake_case rates into v2 (kind, unit)
+    # entries via the shared module. Explicit zero rates are kept; absent,
+    # non-numeric and negative values are skipped.
+    $pricing = ConvertFrom-OpenRouterPricing -Pricing $orm.pricing
 
     return [pscustomobject]@{
         Capabilities = ConvertTo-CapabilityFlags -openRouterModel $orm
@@ -1841,7 +1762,7 @@ if ($providerApiQueried) {
 }
 else {
     $apiModelNames = [System.Collections.Generic.HashSet[string]]::new(
-        [string[]]($openRouterModels | ForEach-Object { Get-ModelName $_.id }),
+        [string[]]@($openRouterModels | ForEach-Object { Get-ModelName $_.id }),
         [System.StringComparer]::OrdinalIgnoreCase)
 }
 

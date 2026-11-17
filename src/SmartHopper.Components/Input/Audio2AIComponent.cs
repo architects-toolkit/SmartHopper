@@ -36,23 +36,23 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("24407233-D8B8-4812-9F5F-30C39CFC7459");
 
-        protected override Bitmap Icon => Resources.toaiaudio;
+        protected override Bitmap Icon => Resources.Audio2AI;
 
         public Audio2AIComponent()
             : base(
                   "Audio to AI",
                   "Audio2AI",
-                  "Wraps audio file input into an AIInputPayload for AI audio processing.",
-                  GH_Exposure.secondary)
+                  "Package an audio file (.mp3, .wav, .m4a, .ogg, .flac) to wire into an audio-capable AI output component.",
+                  GH_Exposure.tertiary)
         {
         }
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("File Path", "F", "Path to the audio file to wrap into an AIInputPayload.", GH_ParamAccess.item);
+            pManager.AddTextParameter("File Path", "F", "Local path to the audio file (.mp3, .wav, .m4a, .ogg, .flac).", GH_ParamAccess.item);
         }
 
-        protected override string PayloadOutputDescription => "AIInputPayload wrapping the audio file for AI processing.";
+        protected override string PayloadOutputDescription => "Packaged audio input ready to wire into any audio-capable AI output component's 'Input >' parameter.";
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {

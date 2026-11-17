@@ -162,12 +162,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var accepted = approved
                     ? CanvasChangeReviewService.GetAcceptedComponentGuids(review)
                     : new HashSet<Guid>();
-                var updated = new List<string>();
-                foreach (var guid in allowedGuids.Where(accepted.Contains))
-                {
-                    ComponentManipulation.SetComponentLock(guid, locked);
-                    updated.Add(guid.ToString());
-                }
+                var updated = ComponentManipulation
+                    .SetComponentLocks(allowedGuids.Where(accepted.Contains), locked)
+                    .Select(g => g.ToString())
+                    .ToList();
 
                 var toolResult = new JObject
                 {

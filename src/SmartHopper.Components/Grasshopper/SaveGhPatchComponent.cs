@@ -39,30 +39,32 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                   "Save GhPatch",
                   "SaveGhPatch",
-                  "Save a GhPatch string to a .ghpatch file. If the path includes an extension, it will be replaced with .ghpatch.",
+                  "Save a GhPatch document string to a .ghpatch file on disk.",
                   "SmartHopper",
-                  "Grasshopper")
+                  "D. GhJSON")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("B76708B2-C0CA-41B1-A437-885BFF5FE4E2");
 
         /// <inheritdoc/>
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.SaveGhPatch;
+
+        /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.tertiary | GH_Exposure.obscure;
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("GhPatch", "P", "GhPatch document string to save.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Path", "P", "Absolute file path. If an extension is present, it will be replaced with .ghpatch.", GH_ParamAccess.item);
+            pManager.AddTextParameter("GhPatch", "P", "GhPatch document string to write to disk.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Path", "P", "Destination file path (the extension is normalized to .ghpatch automatically).", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Saved Path", "S", "The actual path where the file was saved.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Saved Path", "S", "Full file path where the .ghpatch file was written.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>

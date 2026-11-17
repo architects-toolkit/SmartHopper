@@ -234,10 +234,12 @@ These changes also mitigate issue #261 ("ui eventually freezes on opening webcha
 Supported via `HtmlChatRenderer.RenderInteraction(...)` and CSS classes:
 
 - `AIInteractionText` -> Markdown content (with optional reasoning panel)
-- `AIInteractionToolCall` -> compact card with tool name and arguments
-- `AIInteractionToolResult` -> result payload (e.g., JSON block)
+- `AIInteractionToolCall` -> tool card: one-line call digest `name(params)` in the collapsed peek, plus a collapsible parameter table (`<details class="tool-io tool-args">`) when arguments are structured (nested values or >3 params); argument-less calls render the header sentence only
+- `AIInteractionToolResult` -> merged card upserted into the originating call's card: `name(params) → done|failed` digest, parameter table, error callout on failures, and the result as colorized pretty JSON in an open `<details class="tool-io tool-result">` with a "Copy raw" button (`data-copy` carries the compact wire JSON → `clipboard://copy` bridge)
 - `AIInteractionImage` -> `<img>` with caption/alt text
 - `AIInteractionError` -> styled error bubble
+
+Tool cards emit HTML directly (Markdig passes it through; DOMPurify's html profile allows `details`/`summary`/`table`/`button`/`data-*`). Copying a whole tool message uses a dedicated plain-text channel (`GetCopyTextForRender`) so the clipboard gets readable `args → result` content instead of markup.
 
 Each message uses role classes like `.message.user`, `.message.assistant`, `.message.system`, `.message.tool`, enabling distinct styling.
 

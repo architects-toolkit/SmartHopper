@@ -133,6 +133,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""instructions"": {
                             ""type"": ""string"",
                             ""description"": ""Natural language instructions describing how to edit the script.""
+                        },
+                        ""contextFilter"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*'). Defaults to '-*' (no context).""
                         }
                     },
                     ""required"": [""ghjson"", ""instructions""]
@@ -160,6 +164,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""instructions"": {
                             ""type"": ""string"",
                             ""description"": ""Natural language instructions describing how to edit the script.""
+                        },
+                        ""contextFilter"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*'). Defaults to '-*' (no context).""
                         }
                     },
                     ""required"": [""instanceGuid"", ""instructions""]
@@ -178,6 +186,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private async Task<AIReturn> ExecuteAsync(AIToolCall toolCall)
         {
             var output = new AIReturn { Request = toolCall };
+            var ghjsonReported = false;
 
             try
             {
@@ -209,7 +218,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Parse input to extract language and existing component info
-                var inputDoc = GhJson.FromJson(ghJsonInput);
+                GhJsonDocument inputDoc;
+                try
+                {
+                    inputDoc = GhJson.FromJson(ghJsonInput);
+                }
+                catch (Exception parseEx)
+                {
+                    ghjsonReported = true;
+                    throw;
+                }
+
                 if (inputDoc?.Components == null || inputDoc.Components.Count == 0)
                 {
                     output.CreateError("Input GhJSON contains no components.");
@@ -244,8 +263,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     provider: providerName,
                     model: modelName,
                     capability: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                    endpoint: this.toolName,
+                    origin: this.toolName,
                     body: bodyBuilder.Build());
+
+                // Forward per-request parameters (extras, sampling, timeout) to the provider call
+                if (toolCall.Parameters != null)
+                {
+                    request.Parameters = toolCall.Parameters;
+                }
 
                 var result = await request.Exec().ConfigureAwait(false);
 
@@ -291,8 +316,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         provider: providerName,
                         model: modelName,
                         capability: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
-                        endpoint: this.toolName,
+                        origin: this.toolName,
                         body: correctionBuilder.Build());
+                    if (toolCall.Parameters != null)
+                    {
+                        correctionRequest.Parameters = toolCall.Parameters;
+                    }
 
                     var correctionResult = await correctionRequest.Exec().ConfigureAwait(false);
 
@@ -362,6 +391,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             catch (Exception ex)
             {
                 Logger.For<script_edit>().Exception(ex, $"[script_edit] Error: {ex.Message}");
+                if (!ghjsonReported)
+                {
+                }
+
                 output.CreateError(ex.Message);
                 return output;
             }
@@ -487,6 +520,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var wrapperArgs = wrapperToolInfo.Arguments ?? new JObject();
                 var instanceGuidText = wrapperArgs["instanceGuid"]?.ToString();
                 var instructions = wrapperArgs["instructions"]?.ToString();
+                var contextFilter = wrapperArgs["contextFilter"]?.ToString();
 
                 if (string.IsNullOrWhiteSpace(instanceGuidText))
                 {
@@ -562,6 +596,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["ghjson"] = ghJsonInput,
                     ["instructions"] = instructions,
                 };
+                if (!string.IsNullOrWhiteSpace(contextFilter))
+                {
+                    scriptEditArgs["contextFilter"] = contextFilter;
+                }
 
                 var scriptEditInteraction = new AIInteractionToolCall
                 {

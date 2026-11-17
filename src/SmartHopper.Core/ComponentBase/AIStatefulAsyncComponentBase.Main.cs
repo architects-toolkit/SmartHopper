@@ -156,6 +156,14 @@ namespace SmartHopper.Core.ComponentBase
         private AIRequestParameters _requestParameters;
 
         /// <summary>
+        /// Request parameters frozen when a run enters Processing. While a run is
+        /// active, <see cref="GetParameters"/> returns this snapshot so a Settings
+        /// edit made mid-run cannot leak into the run's remaining units; the edit
+        /// stays pending and applies to the follow-up run.
+        /// </summary>
+        private AIRequestParameters _runParameters;
+
+        /// <summary>
         /// Bundles the nine batch / metrics fields that previously lived directly on
         /// the base class (submission, sentinel trees, queue, sentinel ids, progress,
         /// unsupported-checked flag, start/completion time, persisted metrics).
@@ -170,15 +178,24 @@ namespace SmartHopper.Core.ComponentBase
         /// trees from the component's normal processing, but does NOT submit to the provider.
         /// Instead, it feeds <see cref="_pendingFileLoadedResults"/> through the normal completion
         /// pipeline, mapping results to collected custom IDs in order.
-        /// Set by <see cref="LoadResultsFromFile"/> when sentinel trees are missing.
-        /// Cleared after fallback finalization completes.
+        /// Set by <see cref="ImportBatchResultContents"/> when sentinel trees are missing.
+        /// Bounded to a single collection cycle: cleared by <c>ClearCollectOnlyArm</c>
+        /// on every run end so a stale arm can never hijack an unrelated batch.
         /// </summary>
         private bool _batchCollectOnly;
 
         /// <summary>
+        /// The collect-only import run must re-collect live units so the queue
+        /// and sentinel trees are rebuilt: serving the committed snapshot would
+        /// leave the queue empty, the arm unconsumed, and the staged results
+        /// dropped while the outcome reports success.
+        /// </summary>
+        protected override bool BypassCommittedResultReuse => this._batchCollectOnly;
+
+        /// <summary>
         /// File-loaded batch results staged for order-based fallback mapping.
-        /// Populated by <see cref="LoadResultsFromFile"/> before triggering the collect-only run.
-        /// Consumed during the collect-only submission path.
+        /// Populated by <see cref="ImportBatchResultContents"/> before triggering the collect-only run.
+        /// Consumed during the collect-only submission path; cleared with the arm on run end.
         /// </summary>
         private IReadOnlyDictionary<string, JObject> _pendingFileLoadedResults;
 
@@ -322,9 +339,9 @@ namespace SmartHopper.Core.ComponentBase
             // Allow derived classes to add their specific inputs
             this.RegisterAdditionalInputParams(pManager);
 
-            pManager.AddGenericParameter(WellKnownInputs.Settings, "S", "AI request settings (model, temperature, tokens, extras).\nConnect an AI Settings component or enter a model name as text for quick setup.\nLeave empty to use all provider defaults.", GH_ParamAccess.item);
+            pManager.AddGenericParameter(WellKnownInputs.Settings, "S", "Optional AI request settings (model, temperature, max tokens, batch mode, timeout, and provider extras).\nConnect an AI Settings component, or pass a model name directly as text.\nLeave empty to use the selected provider's defaults.", GH_ParamAccess.item);
             pManager[pManager.ParamCount - 1].Optional = true;
-            pManager.AddBooleanParameter(WellKnownInputs.Run, "R", "Set this parameter to true to run the component.", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter(WellKnownInputs.Run, "R", "Set to true (or connect a Button) to run the component.", GH_ParamAccess.item, false);
         }
 
         /// <summary>
@@ -336,7 +353,7 @@ namespace SmartHopper.Core.ComponentBase
             // Allow derived classes to add their specific outputs
             base.RegisterOutputParams(pManager);
 
-            pManager.AddTextParameter(WellKnownInputs.Metrics, "M", "Usage metrics in JSON format including input tokens, output tokens, and completion time. Preserves branch topology — one metric item per output branch.", GH_ParamAccess.tree);
+            pManager.AddTextParameter(WellKnownInputs.Metrics, "M", "JSON usage metrics for each output branch (provider, model, token counts, finish reason, completion time, and estimated cost). Connect to Deconstruct SmartHopper Metrics to inspect individual fields.", GH_ParamAccess.tree);
         }
 
         #endregion

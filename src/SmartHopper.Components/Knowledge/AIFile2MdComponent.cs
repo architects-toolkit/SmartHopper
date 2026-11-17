@@ -20,8 +20,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -30,69 +28,39 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.AITools;
-using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Core.Types;
-using SmartHopper.Infrastructure.AICall.Utilities;
-using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.DocumentProcessing;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
-using SmartHopper.ProviderSdk.AICall.Metrics;
-using SmartHopper.ProviderSdk.AICall.Utilities;
-using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 
 using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
-    /// Grasshopper component that converts local files to Markdown with optional AI-powered image description.
-    /// File conversion and image extraction are performed locally (no AI). Only image description calls
-    /// use AI via <c>img2text</c> and are batchable.
-    /// Use <c>File2MdComponent</c> for plain conversion without AI.
+    /// Converts local files to Markdown with explicit AI visual evidence enrichment via
+    /// the shared <c>file2md</c> tool (<c>describeImages=true</c>). Enrichment runs
+    /// synchronously through the component's selected provider/model; provider-batch
+    /// submission is not supported for this component.
     /// </summary>
     public class AIFile2MdComponent : AIStatefulAsyncComponentBase
     {
-        /// <summary>
-        /// Per-file context stored during DoWorkAsync so OnBatchCompleted can reconstruct
-        /// the final markdown. Each entry maps the representative sentinel ID (first image of the file)
-        /// to a <see cref="MarkdownImageBatchContext"/> containing the base markdown and all image slots.
-        /// </summary>
-        private Dictionary<string, MarkdownImageBatchContext> _fileContexts;
-
-        /// <summary>
-        /// Flag to prevent clearing _fileContexts during polling re-runs.
-        /// Set to true when contexts are initialized for a fresh run.
-        /// </summary>
-        private bool _fileContextsInitialized;
-
-        /// <summary>
-        /// Set to true when the batch is active but <see cref="_fileContexts"/> could not be
-        /// restored (e.g. after a crash without save). Forces <see cref="GatherInput"/> to allow
-        /// a fresh context rebuild on the next poll cycle.
-        /// </summary>
-        private bool _batchContextLost;
-
-        /// <summary>
-        /// Local Format tree produced during DoWorkAsync; does not need AI so it is always available.
-        /// </summary>
-        private GH_Structure<GH_String> _localFormat;
-
-        /// <summary>
-        /// Local Images tree produced during DoWorkAsync; does not need AI so it is always available.
-        /// </summary>
-        private GH_Structure<GH_VersatileImage> _localImages;
-
         /// <inheritdoc/>
+        /// <summary>
+        /// This component's work has side effects or consumes external state
+        /// (canvas mutations, chat history, file/web fetches) so per-unit results
+        /// are not reusable across runs.
+        /// </summary>
+        protected override bool SupportsResultReuse => false;
+
         public override Guid ComponentGuid => new Guid("574FA3D1-3BA2-4B69-8D9B-5A208CD7FC7D");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.fileai;
+        protected override Bitmap Icon => Resources.AIFile2Md;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
@@ -130,7 +98,7 @@ namespace SmartHopper.Components.Knowledge
         };
 
         /// <inheritdoc/>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "file2md", "img2text" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "file2md" };
 
         /// <inheritdoc/>
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
@@ -147,258 +115,30 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "AI File To Markdown",
                   "AIFile2Md",
-                  "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown with AI-powered image description. Image Mode: 'embed' — embed as base64 with short caption; 'describe' — long AI description; 'caption' — short AI title only.",
+                  "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown with AI-generated image descriptions.\nUse File To Markdown when no AI image description is needed.",
                   "SmartHopper",
-                  "Knowledge")
+                  "F. Documents")
         {
-            // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("File Path", "F", "Absolute path(s) to the file(s) to convert.", GH_ParamAccess.tree);
-            pManager.AddBooleanParameter("Remove Headers", "RH", "Attempt to remove headers and footers from PDF/DOCX. Default: true.", GH_ParamAccess.tree, true);
-            pManager.AddTextParameter("Image Mode", "IM", "How AI describes images in the output:\n'embed' (default) — embed image as base64 data URI with a short AI-generated caption as alt text.\n'describe' — replace image with a long, detailed AI text description.\n'caption' — replace image with a short AI-generated title/caption.", GH_ParamAccess.item, "embed");
+            pManager.AddTextParameter("File Path", "F", "Local path(s) to the file(s) to convert.", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Remove Headers", "RH", "When true (default), removes repeating page headers and footers from PDF and DOCX files.", GH_ParamAccess.tree, true);
+            pManager.AddTextParameter("Pages", "P", "Optional PDF page selection as a JSON array of unique 1-based page numbers (e.g. [1,3]). An empty string selects the whole document; an empty array is invalid.", GH_ParamAccess.tree, string.Empty);
+            pManager.AddTextParameter("Region", "R", "Optional PDF detail region as a JSON object {page, x, y, width, height} with normalized top-left coordinates inside a selected page.", GH_ParamAccess.tree, string.Empty);
             pManager[pManager.ParamCount - 1].Optional = true;
+            pManager[pManager.ParamCount - 2].Optional = true;
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Markdown", "Md", "Markdown content of the file with AI-generated image descriptions or captions embedded.", GH_ParamAccess.tree);
-            pManager.AddGenericParameter("Images", "Img", "Raw images extracted from the document (PDF/DOCX/PPTX). Each item is a VersatileImage carrying base64 data, MIME type, and source context.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Format", "Fmt", "Detected original format (e.g., pdf, docx, html).", GH_ParamAccess.tree);
-        }
-
-        /// <inheritdoc/>
-        public override bool Write(GH_IO.Serialization.GH_IWriter writer)
-        {
-            if (!base.Write(writer)) return false;
-
-            try
-            {
-                if (this._fileContexts != null && this._fileContexts.Count > 0)
-                {
-                    writer.SetInt32("FileContextCount", this._fileContexts.Count);
-                    int idx = 0;
-                    foreach (var kvp in this._fileContexts)
-                    {
-                        writer.SetString($"FileContext_{idx}_Key", kvp.Key);
-                        writer.SetString($"FileContext_{idx}_BaseMarkdown", kvp.Value.BaseMarkdown ?? string.Empty);
-                        writer.SetInt32($"FileContext_{idx}_ImageCount", kvp.Value.Images?.Count ?? 0);
-
-                        for (int i = 0; i < (kvp.Value.Images?.Count ?? 0); i++)
-                        {
-                            var img = kvp.Value.Images[i];
-                            writer.SetInt32($"FileContext_{idx}_Img_{i}_Index", img.Index);
-                            writer.SetString($"FileContext_{idx}_Img_{i}_SentinelId", img.SentinelId ?? string.Empty);
-                            writer.SetString($"FileContext_{idx}_Img_{i}_ImageId", img.ImageId ?? string.Empty);
-                            writer.SetString($"FileContext_{idx}_Img_{i}_ImageMode", img.ImageMode ?? string.Empty);
-                            writer.SetString($"FileContext_{idx}_Img_{i}_ImageContext", img.ImageContext ?? string.Empty);
-                            writer.SetString($"FileContext_{idx}_Img_{i}_MimeType", img.MimeType ?? string.Empty);
-                            writer.SetString($"FileContext_{idx}_Img_{i}_Base64Data", img.Base64Data ?? string.Empty);
-                        }
-
-                        idx++;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.For<AIFile2MdComponent>().Exception(ex, $"[AIFile2Md] Write file contexts error: {ex.Message}");
-            }
-
-            return true;
-        }
-
-        /// <inheritdoc/>
-        public override bool Read(GH_IO.Serialization.GH_IReader reader)
-        {
-            if (!base.Read(reader)) return false;
-
-            try
-            {
-                if (reader.ItemExists("FileContextCount"))
-                {
-                    int count = reader.GetInt32("FileContextCount");
-                    this._fileContexts = new Dictionary<string, MarkdownImageBatchContext>();
-
-                    for (int idx = 0; idx < count; idx++)
-                    {
-                        string key = reader.GetString($"FileContext_{idx}_Key");
-                        string baseMarkdown = reader.GetString($"FileContext_{idx}_BaseMarkdown");
-                        int imageCount = reader.GetInt32($"FileContext_{idx}_ImageCount");
-
-                        var images = new List<MarkdownImageSlot>(imageCount);
-                        for (int i = 0; i < imageCount; i++)
-                        {
-                            images.Add(new MarkdownImageSlot
-                            {
-                                Index = reader.GetInt32($"FileContext_{idx}_Img_{i}_Index"),
-                                SentinelId = reader.GetString($"FileContext_{idx}_Img_{i}_SentinelId"),
-                                ImageId = reader.GetString($"FileContext_{idx}_Img_{i}_ImageId"),
-                                ImageMode = reader.GetString($"FileContext_{idx}_Img_{i}_ImageMode"),
-                                ImageContext = reader.GetString($"FileContext_{idx}_Img_{i}_ImageContext"),
-                                MimeType = reader.GetString($"FileContext_{idx}_Img_{i}_MimeType"),
-                                Base64Data = reader.GetString($"FileContext_{idx}_Img_{i}_Base64Data"),
-                            });
-                        }
-
-                        this._fileContexts[key] = new MarkdownImageBatchContext
-                        {
-                            BaseMarkdown = baseMarkdown,
-                            Images = images,
-                        };
-                    }
-
-                    this._fileContextsInitialized = true;
-                    Logger.For<AIFile2MdComponent>().Trace($"[AIFile2Md] Read: restored {count} file contexts");
-                }
-                else
-                {
-                    // No persisted contexts — if a batch is active this is a context-lost situation
-                    this._batchContextLost = true;
-                    Logger.For<AIFile2MdComponent>().Trace("[AIFile2Md] Read: no file contexts found — batch context lost");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.For<AIFile2MdComponent>().Exception(ex, $"[AIFile2Md] Read file contexts error: {ex.Message}");
-                this._batchContextLost = true;
-            }
-
-            return true;
-        }
-
-        /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
-        {
-            var sentinel = this.GetSentinelTree("Markdown");
-            if (results == null || sentinel == null) return;
-
-            // Map every sentinel custom ID in the Markdown tree to its output branch path.
-            // All image slots for a single file share the representative sentinel's path.
-            var sentinelToPath = new Dictionary<string, GH_Path>();
-            foreach (var path in sentinel.Paths)
-            {
-                var branch = sentinel.get_Branch(path);
-                if (branch == null)
-                {
-                    continue;
-                }
-
-                foreach (GH_String item in branch)
-                {
-                    if (BatchSentinel.TryExtract(item?.Value ?? string.Empty, out var customId))
-                    {
-                        sentinelToPath[customId] = path;
-                    }
-                }
-            }
-
-            // Per-slot metrics grouped by the file's output branch path. ProcessBatchResults
-            // only processes the representative sentinel per file, so the non-representative
-            // image slots must be merged manually at the same grafted path.
-            var slotMetricsByPath = new Dictionary<GH_Path, List<AIMetrics>>();
-
-            this.ProcessBatchResults<GH_String>(
-                "Markdown",
-                sentinel,
-                results,
-                (representativeSentinelId, _) =>
-                {
-                    // Look up the file context stored during batch collection.
-                    if (this._fileContexts == null ||
-                        !this._fileContexts.TryGetValue(representativeSentinelId, out var fileCtx))
-                    {
-                        Logger.For<AIFile2MdComponent>().Warning($"[AIFile2Md] OnBatchCompleted: File context missing for sentinel {representativeSentinelId}");
-                        return new GH_String("[File context missing]");
-                    }
-
-                    if (!sentinelToPath.TryGetValue(representativeSentinelId, out var representativePath))
-                    {
-                        representativePath = new GH_Path(0);
-                    }
-
-                    var finalMarkdown = MarkdownImageBatchProcessor.Reconstruct(
-                        fileCtx,
-                        results,
-                        this.GetActualAIProviderName(),
-                        metrics: null,
-                        onImageResolved: (slotSentinelId, slotBody, assistantText, description) =>
-                        {
-                            // Collect metrics from non-representative slots and group them by file path.
-                            if (assistantText?.Metrics != null && slotSentinelId != representativeSentinelId)
-                            {
-                                var metrics = assistantText.Metrics;
-                                if (string.IsNullOrEmpty(metrics.Provider))
-                                {
-                                    metrics = metrics with { Provider = this.GetActualAIProviderName() };
-                                }
-
-                                if (string.IsNullOrEmpty(metrics.Model))
-                                {
-                                    metrics = metrics with { Model = this.GetModel() };
-                                }
-
-                                assistantText = assistantText with { Metrics = metrics };
-
-                                if (!slotMetricsByPath.TryGetValue(representativePath, out var list))
-                                {
-                                    list = new List<AIMetrics>();
-                                    slotMetricsByPath[representativePath] = list;
-                                }
-
-                                list.Add(assistantText.Metrics);
-                            }
-                        });
-
-                    return new GH_String(finalMarkdown);
-                },
-                messages);
-
-            // Merge per-slot metrics at the same grafted path as their parent file.
-            if (slotMetricsByPath.Count > 0)
-            {
-                foreach (var kvp in slotMetricsByPath)
-                {
-                    var path = kvp.Key;
-                    foreach (var m in kvp.Value)
-                    {
-                        this.CombineIntoPersistedMetricsAtPath(m, path, "tool:img2text");
-                    }
-                }
-
-                var totalSlotMetrics = slotMetricsByPath.Values.Sum(l => l.Count);
-                Logger.For<AIFile2MdComponent>().Trace($"[AIFile2Md] OnBatchCompleted: merged {totalSlotMetrics} slot metrics into {slotMetricsByPath.Count} branch path(s)");
-
-                // Re-emit metrics now that per-slot tokens are included
-                this.SetMetricsOutput(null);
-            }
-
-            // Persist Format and Images (computed locally, not via batch) — after FinishResults
-            if (this._localFormat != null)
-            {
-                this.SetPersistentOutput("Format", this._localFormat, null);
-            }
-
-            if (this._localImages != null)
-            {
-                this.SetPersistentOutput("Images", this._localImages, null);
-            }
-        }
-
-        /// <inheritdoc/>
-        protected override void OnEnteringNeedsRun()
-        {
-            base.OnEnteringNeedsRun();
-            this._fileContexts = null;
-            this._fileContextsInitialized = false;
-            this._batchContextLost = false;
-            this._localFormat = null;
-            this._localImages = null;
+            pManager.AddTextParameter("Markdown", "Md", "Converted Markdown content with AI-generated visual evidence appended under labeled headings.", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Images", "Img", "Embedded image assets extracted from the document (connect to Image Viewer or AI Image To Text).", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Format", "Fmt", "Detected source file format (e.g., pdf, docx, xlsx, html).", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Rendered Pages", "Pgs", "Rendered page images of the document in document order, including any requested region crops (PDF sources).", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
@@ -413,13 +153,14 @@ namespace SmartHopper.Components.Knowledge
             private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_String> filePathTree;
             private GH_Structure<GH_String> removeHeadersTree;
+            private GH_Structure<GH_String> pagesTree;
+            private GH_Structure<GH_String> regionTree;
             private bool hasWork;
-
-            private string imageMode;
 
             private GH_Structure<GH_String> resultMarkdown;
             private GH_Structure<GH_String> resultFormat;
             private GH_Structure<GH_VersatileImage> resultImages;
+            private GH_Structure<GH_VersatileImage> resultRenderedPages;
 
             public AIFile2MdWorker(
                 AIFile2MdComponent parent,
@@ -434,26 +175,16 @@ namespace SmartHopper.Components.Knowledge
             /// <inheritdoc/>
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                // Clear file context flag for a genuinely fresh run only.
-                // A poll cycle has an active _batchSubmission; a fresh run (even in batch mode)
-                // does not. Resetting on _batchSubmission == null ensures old file contexts from
-                // a previous batch run are discarded when the user re-runs the component.
-                if (!this.parent.HasActiveBatchSubmission || this.parent._batchContextLost)
-                {
-                    this.parent._fileContextsInitialized = false;
-                }
-
                 this.filePathTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("File Path", out this.filePathTree);
 
                 GH_Structure<GH_Boolean> removeTree;
                 DA.GetDataTree("Remove Headers", out removeTree);
 
-                this.removeHeadersTree = ConvertBoolTreeToString(removeTree, "true");
+                this.removeHeadersTree = File2MdToolResult.ConvertBoolTreeToString(removeTree, "true");
 
-                var imageModeParam = new GH_String();
-                DA.GetData("Image Mode", ref imageModeParam);
-                this.imageMode = imageModeParam?.Value ?? "embed";
+                DA.GetDataTree("Pages", out this.pagesTree);
+                DA.GetDataTree("Region", out this.regionTree);
 
                 this.hasWork = this.filePathTree != null && this.filePathTree.PathCount > 0 && this.filePathTree.DataCount > 0;
                 dataCount = this.hasWork ? this.filePathTree.DataCount : 0;
@@ -461,6 +192,7 @@ namespace SmartHopper.Components.Knowledge
                 this.resultMarkdown = new GH_Structure<GH_String>();
                 this.resultFormat = new GH_Structure<GH_String>();
                 this.resultImages = new GH_Structure<GH_VersatileImage>();
+                this.resultRenderedPages = new GH_Structure<GH_VersatileImage>();
             }
 
             /// <inheritdoc/>
@@ -469,20 +201,20 @@ namespace SmartHopper.Components.Knowledge
                 this.resultMarkdown = new GH_Structure<GH_String>();
                 this.resultFormat = new GH_Structure<GH_String>();
                 this.resultImages = new GH_Structure<GH_VersatileImage>();
-
-                // Reset per-run component-level context used by OnBatchCompleted
-                // Only reset if not already initialized (prevents clearing during batch polling)
-                if (!this.parent._fileContextsInitialized)
-                {
-                    this.parent._fileContexts = new Dictionary<string, MarkdownImageBatchContext>();
-                    this.parent._fileContextsInitialized = true;
-                }
-
-                this.parent._localFormat = null;
-                this.parent._localImages = null;
+                this.resultRenderedPages = new GH_Structure<GH_VersatileImage>();
 
                 if (!this.hasWork)
                 {
+                    return;
+                }
+
+                // Explicit enrichment is synchronous — a provider batch submission would
+                // silently skip the helper calls it exists for.
+                if (this.parent.IsBatchRequest())
+                {
+                    this.CollectMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        "AI Markdown enrichment currently runs synchronously and cannot be queued as a provider batch. Disable batch processing for this component.");
                     return;
                 }
 
@@ -492,6 +224,8 @@ namespace SmartHopper.Components.Knowledge
                     {
                         { "File Path", this.filePathTree },
                         { "RemoveHeaders", this.removeHeadersTree },
+                        { "Pages", this.pagesTree ?? new GH_Structure<GH_String>() },
+                        { "Region", this.regionTree ?? new GH_Structure<GH_String>() },
                     };
 
                     var resultTrees = await this.parent.RunProcessingAsync<GH_String>(
@@ -503,6 +237,7 @@ namespace SmartHopper.Components.Knowledge
                                 { "Markdown", new List<IGH_Goo>() },
                                 { "Format", new List<IGH_Goo>() },
                                 { "Images", new List<IGH_Goo>() },
+                                { "Rendered Pages", new List<IGH_Goo>() },
                             };
 
                             if (!branchInputs.TryGetValue("File Path", out var pathBranch) || pathBranch == null)
@@ -511,10 +246,15 @@ namespace SmartHopper.Components.Knowledge
                             }
 
                             var removeBranch = branchInputs.TryGetValue("RemoveHeaders", out var rh) ? rh : new List<GH_String>();
+                            var pagesBranch = branchInputs.TryGetValue("Pages", out var pg) ? pg : new List<GH_String>();
+                            var regionBranch = branchInputs.TryGetValue("Region", out var rg) ? rg : new List<GH_String>();
 
-                            var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { pathBranch, removeBranch });
+                            var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(
+                                new List<List<GH_String>> { pathBranch, removeBranch, pagesBranch, regionBranch });
                             pathBranch = normalizedLists[0];
                             removeBranch = normalizedLists[1];
+                            pagesBranch = normalizedLists[2];
+                            regionBranch = normalizedLists[3];
 
                             for (int i = 0; i < pathBranch.Count; i++)
                             {
@@ -522,6 +262,28 @@ namespace SmartHopper.Components.Knowledge
 
                                 var ghPath = pathBranch[i];
                                 bool removeHeaders = bool.TryParse(removeBranch[i]?.Value, out var rhValue) ? rhValue : true;
+                                List<int> pages = null;
+                                DocumentRegionSelection region = null;
+                                var selectionInvalid = false;
+                                try
+                                {
+                                    selectionInvalid = !string.IsNullOrWhiteSpace(pagesBranch[i]?.Value)
+                                        && !DocumentSelectionJsonParser.TryParsePages(JToken.Parse(pagesBranch[i].Value), out pages, out var _);
+                                    selectionInvalid |= !string.IsNullOrWhiteSpace(regionBranch[i]?.Value)
+                                        && !DocumentSelectionJsonParser.TryParseRegion(JToken.Parse(regionBranch[i].Value), out region, out var _);
+                                }
+                                catch
+                                {
+                                    selectionInvalid = true;
+                                }
+
+                                if (selectionInvalid)
+                                {
+                                    this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Invalid 'Pages'/'Region' selection JSON for '{ghPath?.Value}'.", SHRuntimeMessageOrigin.Tool);
+                                    outputs["Markdown"].Add(new GH_String(string.Empty));
+                                    outputs["Format"].Add(new GH_String(string.Empty));
+                                    continue;
+                                }
 
                                 if (ghPath == null || string.IsNullOrWhiteSpace(ghPath.Value))
                                 {
@@ -532,7 +294,8 @@ namespace SmartHopper.Components.Knowledge
 
                                 string filePath = ghPath.Value;
 
-                                // Step 1: call file2md locally — no AI, no image description
+                                // Explicit AI enrichment through the shared tool contract;
+                                // provider/model travel via the component's request path.
                                 var localParams = new JObject
                                 {
                                     ["filePath"] = filePath,
@@ -541,9 +304,26 @@ namespace SmartHopper.Components.Knowledge
                                     ["preserveComments"] = true,
                                     ["preserveFootnotes"] = true,
                                     ["preserveEndnotes"] = true,
-                                    ["describeImages"] = false,
                                     ["extractImages"] = true,
+                                    ["describeImages"] = true,
                                 };
+
+                                if (pages != null)
+                                {
+                                    localParams["pages"] = new JArray(pages);
+                                }
+
+                                if (region != null)
+                                {
+                                    localParams["region"] = new JObject
+                                    {
+                                        ["page"] = region.Page,
+                                        ["x"] = region.X,
+                                        ["y"] = region.Y,
+                                        ["width"] = region.Width,
+                                        ["height"] = region.Height,
+                                    };
+                                }
 
                                 var localResult = await this.parent.CallAIToolAsync("file2md", localParams, token).ConfigureAwait(false);
 
@@ -555,69 +335,27 @@ namespace SmartHopper.Components.Knowledge
                                     continue;
                                 }
 
-                                var converted = File2MdToolResult.Parse(localResult.Result, filePath);
-                                string baseMarkdown = converted.Markdown;
+                                var converted = File2MdToolResult.Parse(localResult, filePath);
+                                outputs["Markdown"].Add(new GH_String(converted.Markdown));
                                 outputs["Format"].Add(new GH_String(converted.Format));
 
-                                // Collect raw images for the Images output
                                 foreach (var img in converted.Images)
                                 {
-                                    outputs["Images"].Add(new GH_VersatileImage(img));
+                                    var kind = img.SourceReference?.Kind;
+                                    if (kind == SourceContentKind.Page || kind == SourceContentKind.Crop)
+                                    {
+                                        outputs["Rendered Pages"].Add(new GH_VersatileImage(img));
+                                    }
+                                    else
+                                    {
+                                        outputs["Images"].Add(new GH_VersatileImage(img));
+                                    }
                                 }
 
                                 foreach (var w in converted.Warnings)
                                 {
                                     this.CollectMessage(SHRuntimeMessageSeverity.Warning, w, SHRuntimeMessageOrigin.Tool);
                                 }
-
-                                var imagesArray = localResult["images"] as JArray;
-
-                                // Step 2: build image slots for the shared processor
-                                var imageSlots = new List<MarkdownImageSlot>();
-                                if (imagesArray != null)
-                                {
-                                    int idx = 1;
-                                    foreach (var imgToken in imagesArray)
-                                    {
-                                        var imgObj = imgToken as JObject;
-                                        if (imgObj == null) continue;
-
-                                        imageSlots.Add(new MarkdownImageSlot
-                                        {
-                                            Index = idx,
-                                            ImageId = imgObj["id"]?.ToString() ?? "img",
-                                            ImageMode = this.imageMode,
-                                            ImageContext = imgObj["context"]?.ToString() ?? string.Empty,
-                                            MimeType = imgObj["mimeType"]?.ToString() ?? "image/png",
-                                            Base64Data = imgObj["base64Data"]?.ToString() ?? string.Empty,
-                                            Placeholder = $"[image {idx}]",
-                                        });
-                                        idx++;
-                                    }
-                                }
-
-                                bool isBatch = this.parent.IsBatchRequest();
-
-                                // Step 3: process images with the shared batch-aware helper
-                                var processingResult = await MarkdownImageBatchProcessor.ProcessAsync(
-                                    baseMarkdown,
-                                    imageSlots,
-                                    this.imageMode,
-                                    async parameters =>
-                                    {
-                                        var result = await this.parent.CallAIToolAsync("img2text", parameters, token).ConfigureAwait(false);
-                                        return result?["result"]?.ToString() ?? result?["description"]?.ToString() ?? string.Empty;
-                                    },
-                                    isBatch).ConfigureAwait(false);
-                                string processedMarkdown = processingResult.Markdown;
-                                MarkdownImageBatchContext batchContext = processingResult.BatchContext;
-
-                                if (batchContext != null)
-                                {
-                                    this.parent._fileContexts[batchContext.Images[0].SentinelId] = batchContext;
-                                }
-
-                                outputs["Markdown"].Add(new GH_String(processedMarkdown));
                             }
 
                             return outputs;
@@ -628,69 +366,27 @@ namespace SmartHopper.Components.Knowledge
                     this.resultMarkdown = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Markdown");
                     this.resultFormat = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Format");
                     this.resultImages = DataTreeProcessor.ExtractTypedTree<GH_VersatileImage>(resultTrees, "Images");
-
-                    // Store Format and Images on the component so OnBatchCompleted can persist them
-                    this.parent._localFormat = this.resultFormat;
-                    this.parent._localImages = this.resultImages;
-
-                    var markdownDict = new Dictionary<string, GH_Structure<GH_String>>
-                    {
-                        { "Markdown", this.resultMarkdown },
-                    };
-                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Markdown", markdownDict, token).ConfigureAwait(false);
-                    if (batchSubmitted)
-                    {
-                        this.resultMarkdown = null;
-                        Logger.For<AIFile2MdWorker>().Trace("[AIFile2Md] Sentinel tree stored, batch submitted");
-                    }
-                    else
-                    {
-                        // Non-batch: persist all outputs and emit metrics via FinishResults
-                        this.parent.FinishResults(
-                            "Markdown",
-                            this.resultMarkdown ?? new GH_Structure<GH_String>(),
-                            ("Images", (object)(this.resultImages ?? new GH_Structure<GH_VersatileImage>())),
-                            ("Format", (object)(this.resultFormat ?? new GH_Structure<GH_String>())));
-                    }
+                    this.resultRenderedPages = DataTreeProcessor.ExtractTypedTree<GH_VersatileImage>(resultTrees, "Rendered Pages");
                 }
                 catch (OperationCanceledException)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Operation was cancelled.");
+                    this.CollectMessage(SHRuntimeMessageSeverity.Warning, "Operation was cancelled.");
                 }
                 catch (Exception ex)
                 {
                     Logger.For<AIFile2MdWorker>().Exception(ex, $"[AIFile2Md] Error: {ex.Message}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 
             /// <inheritdoc/>
             public override void SetOutput(IGH_DataAccess DA, out string errorMessage)
             {
-                // Outputs and metrics are handled by FinishResults (non-batch) or
-                // ProcessBatchResults → FinishResults (batch). RestorePersistentOutputs
-                // replays them to the canvas on the next solve.
+                this.parent.SetPersistentOutput("Markdown", this.resultMarkdown ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetPersistentOutput("Images", this.resultImages ?? new GH_Structure<GH_VersatileImage>(), DA);
+                this.parent.SetPersistentOutput("Format", this.resultFormat ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetPersistentOutput("Rendered Pages", this.resultRenderedPages ?? new GH_Structure<GH_VersatileImage>(), DA);
                 errorMessage = null;
-            }
-
-            private static GH_Structure<GH_String> ConvertBoolTreeToString(GH_Structure<GH_Boolean> boolTree, string defaultValue)
-            {
-                var result = new GH_Structure<GH_String>();
-                foreach (var path in boolTree.Paths)
-                {
-                    var branch = boolTree.get_Branch(path);
-                    if (branch != null && branch.Count > 0)
-                    {
-                        var firstBool = branch[0] as GH_Boolean;
-                        result.Append(new GH_String(firstBool?.Value.ToString().ToLowerInvariant() ?? defaultValue), path);
-                    }
-                    else
-                    {
-                        result.Append(new GH_String(defaultValue), path);
-                    }
-                }
-
-                return result;
             }
         }
     }

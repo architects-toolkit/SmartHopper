@@ -19,10 +19,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.Networking;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
 namespace SmartHopper.Core.Types
@@ -51,8 +51,6 @@ namespace SmartHopper.Core.Types
     /// </summary>
     public sealed class VersatileAudio
     {
-        private static readonly HttpClient DownloadClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-
         private static readonly HashSet<string> SupportedAudioExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             ".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".wma", ".opus",
@@ -217,23 +215,25 @@ namespace SmartHopper.Core.Types
         }
 
         /// <summary>
-        /// Converts this audio source to a byte array.
+        /// Asynchronously converts this audio source to a byte array.
         /// For URLs and base64, downloads/decodes lazily.
         /// For local files, loads from disk.
         /// </summary>
+        /// <param name="cancellationToken">Cancels file reads, source approval and downloads.</param>
         /// <returns>A byte array containing the audio data.</returns>
-        public byte[] ToByteArray()
+        public async Task<byte[]> ToByteArrayAsync(CancellationToken cancellationToken = default)
         {
             if (this.Kind == VersatileAudioKind.LocalFile)
             {
-                return File.ReadAllBytes(this.RawValue);
+                return await File.ReadAllBytesAsync(this.RawValue, cancellationToken).ConfigureAwait(false);
             }
 
             if (this.Kind == VersatileAudioKind.Url)
             {
-                // Run the download on a thread-pool thread so callers holding a
-                // synchronization context (e.g. the Grasshopper UI thread) cannot deadlock.
-                return Task.Run(() => this.ToByteArrayAsync()).GetAwaiter().GetResult();
+                using var client = ExternalDataHttpClient.Create();
+                using var response = await client.GetAsync(this.RawValue, cancellationToken).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+                return await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
             }
 
             if (this.Kind == VersatileAudioKind.Base64)
@@ -248,27 +248,6 @@ namespace SmartHopper.Core.Types
             }
 
             throw new InvalidOperationException($"Cannot convert {this.Kind} to byte array.");
-        }
-
-        /// <summary>
-        /// Asynchronously converts this audio source to a byte array.
-        /// For URLs, downloads with a timeout and honors <paramref name="cancellationToken"/>.
-        /// For other kinds, behaves exactly like <see cref="ToByteArray"/>.
-        /// </summary>
-        /// <param name="cancellationToken">Token to cancel the download.</param>
-        /// <returns>A task resolving to a byte array containing the audio data.</returns>
-        public async Task<byte[]> ToByteArrayAsync(CancellationToken cancellationToken = default)
-        {
-            if (this.Kind == VersatileAudioKind.Url)
-            {
-                using (var response = await DownloadClient.GetAsync(this.RawValue, cancellationToken).ConfigureAwait(false))
-                {
-                    response.EnsureSuccessStatusCode();
-                    return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-                }
-            }
-
-            return this.ToByteArray();
         }
 
         /// <summary>

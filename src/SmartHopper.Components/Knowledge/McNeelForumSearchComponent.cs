@@ -42,9 +42,9 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("5F8F0D47-29D6-44D8-A5B1-2E7C6A9B1001");
 
-        protected override Bitmap Icon => Resources.mcneelforumsearch;
+        protected override Bitmap Icon => Resources.McNeelForumSearch;
 
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
         {
@@ -55,23 +55,22 @@ namespace SmartHopper.Components.Knowledge
 
         public McNeelForumSearchComponent()
             : base(
-                  "McNeelForum Search",
+                  "McNeel Forum Search",
                   "McNeelSearch",
-                  "Search for McNeel Discourse forum posts by query string.",
+                  "Search the McNeel Discourse forum (discourse.mcneel.com) by query and return matching posts as JSON.",
                   "SmartHopper",
-                  "Knowledge")
+                  "E. Forums")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Query", "Q", "REQUIRED search query or queries for the McNeel Discourse forum.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Query", "Q", "Search query or keywords for the McNeel Discourse forum.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("McNeelForum Posts", "McP", "Tree of JSON objects, one per matching forum post.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("McNeel Forum Posts", "McP", "Matching forum posts in JSON format (connect to Deconstruct Discourse Post or McNeel Forum Post Open).", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -227,7 +226,7 @@ namespace SmartHopper.Components.Knowledge
             {
                 var postsTree = this.resultPosts ?? new GH_Structure<GH_String>();
                 Logger.For<McNeelForumSearchWorker>().Trace($"[McNeelForumSearchWorker] SetOutput - resultPosts.DataCount={postsTree.DataCount}");
-                this.parent.SetPersistentOutput("McNeelForum Posts", postsTree, DA);
+                this.parent.SetPersistentOutput("McNeel Forum Posts", postsTree, DA);
                 message = postsTree.DataCount == 0 ? "No search executed" : "Search completed";
             }
         }

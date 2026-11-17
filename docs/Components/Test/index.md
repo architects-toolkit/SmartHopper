@@ -65,7 +65,6 @@ Test components are used internally to validate core SmartHopper behavior, inclu
 #### Notes
 
 - Uses internal data; no external inputs.
-- `RunOnlyOnInputChanges = false` so it runs when `Run?` is enabled even without input changes.
 - Helpful for quick, manual verification of data-tree branch mapping and processing.
 
 ---
@@ -106,7 +105,7 @@ All are located under `SmartHopper > Test/Providers` and share the same output s
 #### Notes (Cancellation Tests)
 
 - All tests use `CancellationTokenSource.CreateLinkedTokenSource(token)` so both the programmed timeout and a human toggling **Run?** off propagate cancellation.
-- `RunOnlyOnInputChanges = false` so the component re-runs every time **Run?** is toggled.
+- The component re-runs every time **Run?** is toggled (uniform Run-edge semantics).
 
 ---
 
@@ -194,7 +193,7 @@ public async Task<bool> TestProviderCancellationAsync(IAIProvider provider)
 
 ## Architecture & Design
 
-Test components are organized into two functional groups: data-tree validation and provider cancellation validation. The `DataTreeProcessorEqualPathsTestComponent` uses hardcoded integer trees so that branch mapping can be verified without external inputs. It disables `RunOnlyOnInputChanges` to ensure the test executes on every toggle of the `Run?` parameter.
+Test components are organized into two functional groups: data-tree validation and provider cancellation validation. The `DataTreeProcessorEqualPathsTestComponent` uses hardcoded integer trees so that branch mapping can be verified without external inputs. Uniform `Run?` edge semantics ensure the test executes on every toggle of the `Run?` parameter.
 
 The provider cancellation suite contains one component per supported AI provider. Each component exercises four cancellation paths: standard chat completion, batch submission, batch remote cancellation, and vision call cancellation. Standard and vision calls rely on a local timeout because remote cancellation confirmation is not available for individual chat-completion requests. Batch remote cancellation, however, is verified end-to-end by polling the provider's batch status until it reports `Cancelled`.
 

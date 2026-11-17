@@ -60,7 +60,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: ToolName,
                 description: "Shows a GhJSON definition to the user as a persistent artifact card in the chat (collapsed source, copy button, and a place-on-canvas action when the document is valid). ALWAYS use this to deliver a GhJSON definition — never paste GhJSON into your reply text. The document is validated against the GhJSON schema first; on failure the call returns structured validation errors — fix the document and call again. It never changes the document.",
-                category: "GhJSON.Tools",
+                category: "GhJSON.Generation",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {

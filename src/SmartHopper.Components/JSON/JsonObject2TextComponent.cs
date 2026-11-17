@@ -34,10 +34,10 @@ namespace SmartHopper.Components.JSON
         public override Guid ComponentGuid => new Guid("84922418-03DF-4740-9638-C6D7E0B5F16B");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.jsontotext;
+        protected override Bitmap Icon => Resources.JsonObject2Text;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary | GH_Exposure.obscure;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonObject2TextComponent"/> class.
@@ -46,24 +46,24 @@ namespace SmartHopper.Components.JSON
             : base(
                 "JSON To Text",
                 "Json2Text",
-                "Serialize a JSON value to a Grasshopper string.\nWhen Pretty is true, outputs human-readable indented JSON.",
+                "Format a JSON value as a compact or indented (pretty-printed) string.",
                 "SmartHopper",
-                "JSON")
+                "H. JSON")
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON", "J", "JSON string to serialize", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("Pretty", "P", "Output indented (pretty-printed) JSON (default: false)", GH_ParamAccess.item, false);
+            pManager.AddTextParameter("JSON", "J", "JSON string to format.", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Pretty", "P", "When true, formats the JSON with human-readable indentation and line breaks (defaults to false).", GH_ParamAccess.item, false);
             pManager[1].Optional = true;
         }
 
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Text", "T", "Serialized JSON string", GH_ParamAccess.item);
+            pManager.AddTextParameter("Text", "T", "Formatted JSON string.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>

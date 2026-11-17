@@ -59,7 +59,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             "gh_list_categories", "gh_list_components",
             "search_forum", "fetch_forum_topic",
             "search_rhino_forum", "search_ladybug_forum",
-            "get_available_models", "get_available_providers",
+            "providers_models", "providers_list",
         };
 
         /// <summary>

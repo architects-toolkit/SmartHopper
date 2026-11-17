@@ -113,6 +113,9 @@ namespace SmartHopper.ProviderSdk.Diagnostics
         // File/web I/O
         ConversionFailed = 80,
         ContentEmpty = 81,
+
+        // Modality fallback
+        ModalityFallbackApplied = 90,
     }
 
     /// <summary>

@@ -44,7 +44,7 @@ namespace SmartHopper.Components.Text
     {
         public override Guid ComponentGuid => new Guid("66AE34E5-E615-4631-9A1E-D87FB5B76321");
 
-        protected override Bitmap Icon => Resources.textlistgenerate;
+        protected override Bitmap Icon => Resources.AIText2TextList;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
@@ -84,25 +84,25 @@ namespace SmartHopper.Components.Text
             : base(
                 "AI Text To Text List",
                 "AIText2TextList",
-                "Generate a list of text items from a prompt and count using AI.\nIf a tree is provided, prompts and counts will match by branch path.",
+                "Generate a list of text items of a requested length from a prompt using AI.\nWhen data trees are provided, prompts and counts are matched by branch path.",
                 "SmartHopper",
-                "Text")
+                "I. Text & Lists")
         {
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Prompt", "P", "REQUIRED The user's prompt", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Count", "C", "REQUIRED Number of items to generate", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Prompt", "P", "Prompt describing the list of items to generate.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Count", "C", "Number of list items to generate.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Result", "R", "Generated list of text items", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Result", "R", "Generated list of text items.", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject>? results, IReadOnlyList<SHRuntimeMessage>? messages = null)
         {
             var sentinel = this.GetSentinelTree("Result");
             if (results == null || sentinel == null) return;

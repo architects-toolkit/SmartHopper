@@ -24,6 +24,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
 
 using SmartHopper.ProviderSdk.Logging;
@@ -77,10 +78,14 @@ namespace SmartHopper.Providers.Gemini
                     if (parts != null)
                     {
                         var textParts = new List<string>();
+                        JObject textSignature = null;
+                        JObject danglingSignature = null;
 
                         foreach (var part in parts.OfType<JObject>())
                         {
                             var isThought = part["thought"]?.Value<bool>() == true;
+                            var signature = SignatureProviderData(part);
+                            var partProducedInteraction = false;
 
                             if (part.ContainsKey("text"))
                             {
@@ -88,6 +93,8 @@ namespace SmartHopper.Providers.Gemini
                                 if (!string.IsNullOrWhiteSpace(text) && !isThought)
                                 {
                                     textParts.Add(text);
+                                    textSignature = signature ?? textSignature;
+                                    partProducedInteraction = true;
                                 }
                             }
 
@@ -100,7 +107,9 @@ namespace SmartHopper.Providers.Gemini
                                     {
                                         Agent = AIAgent.Assistant,
                                         Reasoning = reasoning,
+                                        ProviderData = signature,
                                     });
+                                    partProducedInteraction = true;
                                 }
                             }
 
@@ -115,8 +124,10 @@ namespace SmartHopper.Providers.Gemini
                                         Id = funcCall["id"]?.ToString() ?? string.Empty,
                                         Name = funcCall["name"]?.ToString() ?? string.Empty,
                                         Arguments = funcCall["args"] as JObject ?? new JObject(),
+                                        ProviderData = signature,
                                     };
                                     result.Add(toolCall);
+                                    partProducedInteraction = true;
                                 }
                             }
 
@@ -169,6 +180,7 @@ namespace SmartHopper.Providers.Gemini
                                             Data = audioBytes,
                                             MimeType = effectiveMimeType,
                                             Metrics = audioMetrics,
+                                            ProviderData = signature,
                                         });
                                         Logger.For<GeminiProvider>().Trace($"[GeminiProvider] Decoded audio response: {mimeType}");
                                     }
@@ -180,9 +192,17 @@ namespace SmartHopper.Providers.Gemini
                                             Agent = AIAgent.Assistant,
                                             ImageData = data,
                                             MimeType = mimeType,
+                                            ProviderData = signature,
                                         });
                                     }
+
+                                    partProducedInteraction = true;
                                 }
+                            }
+
+                            if (!partProducedInteraction && signature != null)
+                            {
+                                danglingSignature ??= signature;
                             }
                         }
 
@@ -192,7 +212,19 @@ namespace SmartHopper.Providers.Gemini
                             {
                                 Agent = AIAgent.Assistant,
                                 Content = string.Join(string.Empty, textParts),
+                                ProviderData = textSignature,
                             });
+                        }
+
+                        // A signature-only trailing part belongs to the turn's last produced
+                        // interaction: it must round-trip even when it carries no content.
+                        if (danglingSignature != null && result.Count > 0 && result[result.Count - 1] is AIInteractionBase last)
+                        {
+                            var merged = last.ProviderData != null
+                                ? (JObject)last.ProviderData.DeepClone()
+                                : new JObject();
+                            merged["thoughtSignature"] ??= danglingSignature["thoughtSignature"];
+                            result[result.Count - 1] = last with { ProviderData = merged };
                         }
                     }
                 }
@@ -204,6 +236,22 @@ namespace SmartHopper.Providers.Gemini
                 Logger.For<GeminiProvider>().Exception(ex, $"Error decoding Gemini response: {ex.Message}");
                 return new List<IAIInteraction>();
             }
+        }
+
+        /// <summary>
+        /// Builds <see cref="IAIInteraction.ProviderData"/> carrying the part's
+        /// <c>thoughtSignature</c> when present. Gemini requires the signature to be
+        /// echoed back verbatim on subsequent requests (multi-turn tool calling).
+        /// </summary>
+        /// <param name="part">The response content part to inspect.</param>
+        /// <returns>A <see cref="JObject"/> with the signature, or null when absent.</returns>
+        private static JObject SignatureProviderData(JObject part)
+        {
+            var sig = part?["thoughtSignature"]?.ToString()
+                      ?? part?["thought_signature"]?.ToString();
+            return string.IsNullOrWhiteSpace(sig)
+                ? null
+                : new JObject { ["thoughtSignature"] = sig };
         }
 
         /// <summary>
@@ -291,20 +339,48 @@ namespace SmartHopper.Providers.Gemini
                 var promptTokenCount = usageMetadata["promptTokenCount"]?.Value<int>() ?? 0;
                 if (promptTokenCount > 0)
                 {
-                    metrics = metrics with { InputTokensPrompt = promptTokenCount };
+                    metrics = metrics.WithQuantity(AIQuantityKey.TextInput, AIPriceUnit.Token, promptTokenCount);
                 }
 
                 var candidatesTokenCount = usageMetadata["candidatesTokenCount"]?.Value<int>() ?? 0;
                 if (candidatesTokenCount > 0)
                 {
-                    metrics = metrics with { OutputTokensGeneration = candidatesTokenCount };
+                    metrics = metrics.WithQuantity(AIQuantityKey.TextOutput, AIPriceUnit.Token, candidatesTokenCount);
                 }
 
                 // Extract thinking tokens (thoughtsTokenCount) for models that support thinking
                 var thoughtsTokenCount = usageMetadata["thoughtsTokenCount"]?.Value<int>() ?? 0;
                 if (thoughtsTokenCount > 0)
                 {
-                    metrics = metrics with { OutputTokensReasoning = thoughtsTokenCount };
+                    metrics = metrics.WithQuantity(AIQuantityKey.InternalReasoning, AIPriceUnit.Token, thoughtsTokenCount);
+                }
+
+                // Modality detail arrays: [{modality:"AUDIO"|"IMAGE"|"VIDEO"|"TEXT",
+                // tokenCount:n}] — non-text subsets move to their own kind so
+                // they bill at modality rates, not text rates.
+                metrics = SubtractModalityTokens(metrics, usageMetadata["promptTokensDetails"] as JArray, inputSide: true);
+                metrics = SubtractModalityTokens(metrics, usageMetadata["candidatesTokensDetails"] as JArray, inputSide: false);
+
+                // cachedContentTokenCount is a subset of promptTokenCount — move it out of
+                // the text bucket so cached input bills at the cache_read rate (implicit
+                // and explicit context caching both surface through this counter).
+                var cachedContentTokenCount = usageMetadata["cachedContentTokenCount"]?.Value<int>() ?? 0;
+                if (cachedContentTokenCount > 0)
+                {
+                    var textInputRemaining = Math.Max(0, metrics.Quantity(AIQuantityKey.TextInput, AIPriceUnit.Token) - cachedContentTokenCount);
+                    metrics = metrics
+                        .WithQuantity(AIQuantityKey.CacheRead, AIPriceUnit.Token, cachedContentTokenCount)
+                        .WithQuantity(AIQuantityKey.TextInput, AIPriceUnit.Token, textInputRemaining);
+                }
+
+                // Surface the first candidate's raw finishReason on the metrics interaction so
+                // aggregated call metrics carry the terminal reason, not just token counts.
+                // Keep the wire value verbatim — FinishReasonNormalizeResponsePolicy canonicalizes.
+                var finishReason = (jObject["candidates"] as JArray)?.OfType<JObject>()
+                    .FirstOrDefault()?["finishReason"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(finishReason))
+                {
+                    metrics = metrics with { FinishReason = finishReason };
                 }
 
                 if (metrics.InputTokensPrompt > 0 || metrics.OutputTokensGeneration > 0)
@@ -324,6 +400,57 @@ namespace SmartHopper.Providers.Gemini
             {
                 Logger.For<GeminiProvider>().Exception(ex, $"[GeminiProvider] Error extracting usage metadata: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Records a Gemini <c>*TokensDetails</c> modality array: non-text
+        /// modality tokens move from the text bucket to their own kind so
+        /// overlapping buckets never double-bill.
+        /// </summary>
+        private static AIMetrics SubtractModalityTokens(AIMetrics metrics, JArray details, bool inputSide)
+        {
+            if (details == null)
+            {
+                return metrics;
+            }
+
+            var textKind = inputSide ? AIQuantityKey.TextInput : AIQuantityKey.TextOutput;
+            foreach (var detail in details.OfType<JObject>())
+            {
+                var modality = detail["modality"]?.ToString();
+                var count = detail["tokenCount"]?.Value<int>() ?? 0;
+                if (count <= 0)
+                {
+                    continue;
+                }
+
+                var kind = inputSide
+                    ? modality switch
+                    {
+                        "AUDIO" => AIQuantityKey.AudioInput,
+                        "IMAGE" => AIQuantityKey.ImageInput,
+                        "VIDEO" => AIQuantityKey.VideoInput,
+                        _ => null,
+                    }
+                    : modality switch
+                    {
+                        "AUDIO" => AIQuantityKey.AudioOutput,
+                        "IMAGE" => AIQuantityKey.ImageOutput,
+                        "VIDEO" => AIQuantityKey.VideoOutput,
+                        _ => null,
+                    };
+                if (kind == null)
+                {
+                    continue;
+                }
+
+                var textRemaining = Math.Max(0, metrics.Quantity(textKind, AIPriceUnit.Token) - count);
+                metrics = metrics
+                    .WithQuantity(kind, AIPriceUnit.Token, count)
+                    .WithQuantity(textKind, AIPriceUnit.Token, textRemaining);
+            }
+
+            return metrics;
         }
     }
 }

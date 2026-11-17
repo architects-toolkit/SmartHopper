@@ -1,0 +1,51 @@
+<!--
+  SmartHopper - AI-powered Grasshopper Plugin
+  Copyright (C) 2024-2026 Marc Roca Musach
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net7.0-windows;net7.0</TargetFrameworks>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>SmartHopper.DocumentProcessing.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SmartHopper.DocumentProcessing\SmartHopper.DocumentProcessing.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="TestAssets\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.4.1" />
+    <PackageReference Include="xunit" Version="2.4.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5" />
+    <!-- Lift xunit's vulnerable NETStandard.Library 1.6.1 transitive pins, matching
+         the versions used by the other test projects. -->
+    <PackageReference Include="System.Net.Http" Version="4.3.4" />
+    <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
+  </ItemGroup>
+  <ItemGroup Condition="!$(TargetFramework.Contains('-windows'))">
+    <!-- Prevent transitive WindowsDesktop framework references from propagating to testhost -->
+    <FrameworkReference Remove="Microsoft.WindowsDesktop.App" />
+    <FrameworkReference Remove="Microsoft.WindowsDesktop.App.WindowsForms" />
+    <FrameworkReference Remove="Microsoft.WindowsDesktop.App.WPF" />
+  </ItemGroup>
+
+  <!-- Stage the isolated renderer into this test host's output (its own bin folder). -->
+  <Import Project="..\SmartHopper.DocumentRendering\DocumentRendering.Packaging.targets" />
+</Project>

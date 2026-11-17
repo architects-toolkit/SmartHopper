@@ -136,6 +136,7 @@ namespace SmartHopper.Core.Tests.ComponentBase
         [Theory(DisplayName = "ComponentStateManager: Valid transitions from Processing [Core]")]
 #endif
         [InlineData(ComponentState.Completed)]
+        [InlineData(ComponentState.NeedsRun)]
         [InlineData(ComponentState.Cancelled)]
         [InlineData(ComponentState.Error)]
         public void ValidTransitions_FromProcessing(ComponentState targetState)
@@ -216,7 +217,6 @@ namespace SmartHopper.Core.Tests.ComponentBase
         [Theory(DisplayName = "ComponentStateManager: Invalid transitions from Processing [Core]")]
 #endif
         [InlineData(ComponentState.Waiting)]
-        [InlineData(ComponentState.NeedsRun)]
         public void InvalidTransitions_FromProcessing(ComponentState targetState)
         {
             Assert.False(this.manager.IsValidTransition(ComponentState.Processing, targetState));
@@ -295,6 +295,29 @@ namespace SmartHopper.Core.Tests.ComponentBase
 
             this.manager.RequestTransition(ComponentState.Completed, TransitionReason.ProcessingComplete);
             Assert.Equal(ComponentState.Completed, this.manager.CurrentState);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ComponentStateManager: Partial batch results demote Processing to NeedsRun then re-enter Processing [Windows]")]
+#else
+        [Fact(DisplayName = "ComponentStateManager: Partial batch results demote Processing to NeedsRun then re-enter Processing [Core]")]
+#endif
+        public void RequestTransition_PartialBatch_DemotesToNeedsRun_ThenReEnters()
+        {
+            // Regression: a batch completing with unresolved sentinels must demote
+            // Processing -> NeedsRun (reason: ResultsIncomplete) so a follow-up run
+            // re-collects only the missing units, instead of falsely completing.
+            this.manager.RequestTransition(ComponentState.Processing, TransitionReason.DebounceComplete);
+            Assert.Equal(ComponentState.Processing, this.manager.CurrentState);
+
+            var demoted = this.manager.RequestTransition(ComponentState.NeedsRun, TransitionReason.ResultsIncomplete);
+            Assert.True(demoted);
+            Assert.Equal(ComponentState.NeedsRun, this.manager.CurrentState);
+
+            // With Run? still enabled the next solve re-enters Processing for the retry.
+            var reentered = this.manager.RequestTransition(ComponentState.Processing, TransitionReason.RunEnabled);
+            Assert.True(reentered);
+            Assert.Equal(ComponentState.Processing, this.manager.CurrentState);
         }
 
         #endregion
@@ -470,6 +493,141 @@ namespace SmartHopper.Core.Tests.ComponentBase
             this.manager.ClearHashes();
 
             Assert.Empty(this.manager.GetCommittedHashes());
+        }
+
+        #endregion
+
+        #region Run-Snapshot Commit Tests
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ComponentStateManager: Run snapshot keeps mid-run edits pending [Windows]")]
+#else
+        [Fact(DisplayName = "ComponentStateManager: Run snapshot keeps mid-run edits pending [Core]")]
+#endif
+        public void CommitRunSnapshot_KeepsMidRunEditsPending()
+        {
+            // Baseline + a run that captured the input revision at Processing entry
+            var initial = new Dictionary<string, int>
+            {
+                { "Prompt", 111 },
+                { "Settings", 222 },
+            };
+            this.manager.UpdatePendingHashes(initial);
+            this.manager.CommitHashes();
+            this.manager.CaptureRunSnapshot();
+
+            // User edits Settings while the run is in flight
+            var edited = new Dictionary<string, int>
+            {
+                { "Prompt", 111 },
+                { "Settings", 333 },
+            };
+            this.manager.UpdatePendingHashes(edited);
+
+            // Completion must acknowledge the run snapshot, not the live values
+            this.manager.CommitRunSnapshot();
+
+            var changed = this.manager.GetChangedInputs();
+            Assert.Single(changed);
+            Assert.Equal("Settings", changed[0]);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ComponentStateManager: Run snapshot commit leaves no diff when nothing changed [Windows]")]
+#else
+        [Fact(DisplayName = "ComponentStateManager: Run snapshot commit leaves no diff when nothing changed [Core]")]
+#endif
+        public void CommitRunSnapshot_NoMidRunEdits_LeavesNoDiff()
+        {
+            var initial = new Dictionary<string, int> { { "Prompt", 111 } };
+            this.manager.UpdatePendingHashes(initial);
+            this.manager.CommitHashes();
+            this.manager.CaptureRunSnapshot();
+            this.manager.UpdatePendingHashes(initial);
+
+            this.manager.CommitRunSnapshot();
+
+            Assert.Empty(this.manager.GetChangedInputs());
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ComponentStateManager: Run snapshot falls back to pending when none captured [Windows]")]
+#else
+        [Fact(DisplayName = "ComponentStateManager: Run snapshot falls back to pending when none captured [Core]")]
+#endif
+        public void CommitRunSnapshot_WithoutCapture_CommitsPending()
+        {
+            // Restored runs have no snapshot: completion acknowledges pending
+            // inputs exactly like the pre-snapshot behavior.
+            var hashes = new Dictionary<string, int> { { "Prompt", 111 } };
+            this.manager.UpdatePendingHashes(hashes);
+
+            this.manager.CommitRunSnapshot();
+
+            Assert.Empty(this.manager.GetChangedInputs());
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ComponentStateManager: Snapshot commit keeps mid-flight edits pending [Windows]")]
+#else
+        [Fact(DisplayName = "ComponentStateManager: Snapshot commit keeps mid-flight edits pending [Core]")]
+#endif
+        public void CommitHashes_WithSnapshot_KeepsMidFlightEditsPending()
+        {
+            // Baseline acknowledged by the previous run
+            this.manager.UpdatePendingHashes(new Dictionary<string, int> { { "Input1", 111 } });
+            this.manager.CommitHashes();
+
+            // Run gathers inputs and snapshots the pending values
+            var gathered = new Dictionary<string, int> { { "Input1", 222 } };
+            this.manager.UpdatePendingHashes(gathered);
+            var snapshot = this.manager.GetPendingHashes();
+            var snapshotCounts = this.manager.GetPendingBranchCounts();
+
+            // User edits the input while the run is still in flight
+            this.manager.UpdatePendingHashes(new Dictionary<string, int> { { "Input1", 333 } });
+
+            // Submission acknowledges the gather-time snapshot, not the live pending values
+            this.manager.CommitHashes(snapshot, snapshotCounts);
+
+            // The mid-flight edit stays pending and still reports as changed
+            var changed = this.manager.GetChangedInputs();
+            Assert.Single(changed);
+            Assert.Equal("Input1", changed[0]);
+            Assert.Equal(222, this.manager.GetCommittedHashes()["Input1"]);
+            Assert.Equal(333, this.manager.GetPendingHashes()["Input1"]);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ComponentStateManager: Snapshot commit without edits reports no change [Windows]")]
+#else
+        [Fact(DisplayName = "ComponentStateManager: Snapshot commit without edits reports no change [Core]")]
+#endif
+        public void CommitHashes_WithSnapshot_NoEdits_ReportsNoChange()
+        {
+            this.manager.UpdatePendingHashes(new Dictionary<string, int> { { "Input1", 222 } });
+            var snapshot = this.manager.GetPendingHashes();
+            var snapshotCounts = this.manager.GetPendingBranchCounts();
+
+            this.manager.CommitHashes(snapshot, snapshotCounts);
+
+            Assert.Empty(this.manager.GetChangedInputs());
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ComponentStateManager: GetPendingHashes reflects the latest observed inputs [Windows]")]
+#else
+        [Fact(DisplayName = "ComponentStateManager: GetPendingHashes reflects the latest observed inputs [Core]")]
+#endif
+        public void GetPendingHashes_ReflectsLatestObservedInputs()
+        {
+            this.manager.UpdatePendingHashes(new Dictionary<string, int> { { "Input1", 111 } });
+            this.manager.UpdatePendingHashes(new Dictionary<string, int> { { "Input1", 222 }, { "Input2", 7 } });
+
+            var pending = this.manager.GetPendingHashes();
+            Assert.Equal(2, pending.Count);
+            Assert.Equal(222, pending["Input1"]);
+            Assert.Equal(7, pending["Input2"]);
         }
 
         #endregion

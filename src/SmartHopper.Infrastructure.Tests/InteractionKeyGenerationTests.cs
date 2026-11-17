@@ -596,8 +596,7 @@ namespace SmartHopper.Infrastructure.Tests
             {
                 TurnId = "abc123",
                 ImageSize = "1024x1024",
-                ImageQuality = "hd",
-                ImageStyle = "vivid"
+                AspectRatio = "16:9"
             };
             image = image.WithResult(new System.Uri("https://example.com/image.png"));
 
@@ -606,8 +605,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             // Assert
             Assert.Contains(":1024x1024:", key);
-            Assert.Contains(":hd:", key);
-            Assert.Contains(":vivid", key);
+            Assert.Contains(":16:9", key);
         }
 
         /// <summary>
@@ -625,7 +623,7 @@ namespace SmartHopper.Infrastructure.Tests
             {
                 TurnId = "abc123",
                 ImageSize = "1024x1024",
-                ImageQuality = "standard"
+                AspectRatio = "1:1"
             };
             image1 = image1.WithResult(new System.Uri("https://example.com/same.png"));
 
@@ -633,7 +631,7 @@ namespace SmartHopper.Infrastructure.Tests
             {
                 TurnId = "abc123",
                 ImageSize = "512x512",
-                ImageQuality = "hd"
+                AspectRatio = "16:9"
             };
             image2 = image2.WithResult(new System.Uri("https://example.com/same.png"));
 

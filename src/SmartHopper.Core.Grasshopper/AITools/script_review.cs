@@ -129,6 +129,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""question"": {
                             ""type"": ""string"",
                             ""description"": ""Optional user question or focus for the review.""
+                        },
+                        ""contextFilter"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*').""
                         }
                     },
                     ""required"": [""guid""]
@@ -311,8 +315,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     provider: providerName,
                     model: modelName,
                     capability: AICapability.TextInput | AICapability.TextOutput,
-                    endpoint: endpoint,
+                    origin: endpoint,
                     body: immutableBody);
+
+                // Forward per-request parameters (extras, sampling, timeout) to the provider call
+                if (toolCall.Parameters != null)
+                {
+                    request.Parameters = toolCall.Parameters;
+                }
 
                 var result = await request.Exec().ConfigureAwait(false);
 

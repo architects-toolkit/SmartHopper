@@ -165,8 +165,9 @@ namespace SmartHopper.Components.Test.Providers
                     };
 
                     var interactions = provider.Decode(textResponse);
-                    var textInteraction = interactions.OfType<AIInteractionText>().FirstOrDefault();
-                    if (textInteraction == null || string.IsNullOrEmpty(textInteraction.Content))
+                    // Skip the empty AIInteractionText used as metrics carrier
+                    var textInteraction = interactions.OfType<AIInteractionText>().FirstOrDefault(i => !string.IsNullOrEmpty(i.Content));
+                    if (textInteraction == null)
                     {
                         this._messages.Add(new GH_String("✗ Text interaction not decoded"));
                         return false;

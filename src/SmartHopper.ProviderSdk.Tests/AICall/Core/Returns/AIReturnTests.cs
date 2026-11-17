@@ -381,6 +381,32 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Returns
         }
 
 #if NET7_WINDOWS
+        [Fact(DisplayName = "CreateSuccess_PreservesDecodedModelOverRequestModel [Windows]")]
+#else
+        [Fact(DisplayName = "CreateSuccess_PreservesDecodedModelOverRequestModel [Core]")]
+#endif
+        public void CreateSuccess_PreservesDecodedModelOverRequestModel()
+        {
+            var body = AIBodyBuilder.Create()
+                .Add(new AIInteractionText
+                {
+                    Agent = AIAgent.Assistant,
+                    Content = "hello",
+                    Metrics = new AIMetrics { Model = "resolved-server-model" },
+                })
+                .Build();
+
+            var request = CreateFakeRequest();
+            request.Provider = "test-provider";
+
+            var ret = new AIReturn();
+            ret.CreateSuccess(body, request);
+
+            Assert.Equal("test-provider", ret.Body.Interactions[0].Metrics.Provider);
+            Assert.Equal("resolved-server-model", ret.Body.Interactions[0].Metrics.Model);
+        }
+
+#if NET7_WINDOWS
         [Fact(DisplayName = "CreateError_AddsErrorAndSetsStatusFinished [Windows]")]
 #else
         [Fact(DisplayName = "CreateError_AddsErrorAndSetsStatusFinished [Core]")]

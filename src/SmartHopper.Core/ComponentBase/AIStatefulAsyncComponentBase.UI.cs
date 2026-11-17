@@ -84,14 +84,15 @@ namespace SmartHopper.Core.ComponentBase
                 }
 
                 // Build a minimal request to leverage centralized validation/model selection
-                // Use a dummy endpoint and a single system interaction to satisfy validators
+                // Use a dummy endpoint and a single user interaction to satisfy validators
+                // (generation requests require conversation content).
                 var interactions = new List<IAIInteraction>
                 {
-                    new AIInteractionText { Agent = AIAgent.System, Content = "badge-check" },
+                    new AIInteractionText { Agent = AIAgent.User, Content = "badge-check" },
                 };
 
                 var req = new SmartHopper.ProviderSdk.AICall.Core.Requests.AIRequestCall();
-                req.Initialize(providerName, configuredModel ?? string.Empty, interactions, endpoint: "badge_check", capability: this.RequiredCapability, toolFilter: null);
+                req.Initialize(providerName, configuredModel ?? string.Empty, interactions, origin: "badge_check", capability: this.RequiredCapability, toolFilter: null);
 
                 // This triggers provider-scoped selection/fallback based on capability
                 string resolvedModel = req.Model;
@@ -221,7 +222,7 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <summary>
         /// Gets the current state message with progress information.
-        /// During batch data-tree collection shows "Preparing X/X..."; while polling shows live "Processing batch (Y/X)...".
+        /// During batch data-tree collection shows "Preparing X/X..."; while polling shows live "Batch (Y/X)...".
         /// </summary>
         /// <returns>A formatted state message string.</returns>
         public override string GetStateMessage()
@@ -236,7 +237,7 @@ namespace SmartHopper.Core.ComponentBase
             if (this._batchState.Submission != null)
             {
                 var total = this._batchState.Submission.CustomIds?.Count ?? 0;
-                return $"Processing batch ({this._batchState.ProgressCompleted}/{total})...";
+                return $"Batch ({this._batchState.ProgressCompleted}/{total})...";
             }
 
             // Batch mode active but not yet submitted: data-tree is collecting items

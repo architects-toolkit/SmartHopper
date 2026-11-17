@@ -21,7 +21,7 @@ Design a robust component workflow before placing it.
 2. Call `smarthopper_readme` with `definition-design`, `data-trees`, or `geometry` when those constraints are unclear.
 3. Call `gh_list_categories`, then `gh_list_components` with a category filter and bounded results.
 4. Prefer a clear native component network and use scripts only when they materially improve the solution.
-5. Generate GhJSON with `gh_generate`; for complex networks, consult `smarthopper_ghjson_reference` first.
+5. Generate GhJSON with `gh_generate`; NEVER include `pivot` fields in newly generated definitions, so placement uses compact automatic layout. For complex networks, consult `smarthopper_ghjson_reference` first.
 6. Validate and inspect the generated structure before placing it.
 
 ## diagnose_data_tree
@@ -78,7 +78,7 @@ Tidy a scoped part of the canvas without changing behavior.
 Add components from a description or GhJSON.
 
 1. Discover installed components when availability is uncertain.
-2. Call `gh_generate` for a new network and consult `smarthopper_ghjson_reference` for complex structures.
+2. Call `gh_generate` for a new network and consult `smarthopper_ghjson_reference` for complex structures. NEVER provide `pivot` fields in newly generated GhJSON.
 3. Call `gh_put` with `editMode=false` to place validated GhJSON.
 4. Use `gh_connect` to wire new objects to existing ones.
 5. Inspect errors and relevant outputs.

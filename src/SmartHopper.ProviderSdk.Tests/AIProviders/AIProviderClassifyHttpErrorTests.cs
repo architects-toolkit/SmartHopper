@@ -30,7 +30,6 @@ namespace SmartHopper.ProviderSdk.Tests.AIProviders
         [InlineData(401, "Unauthorized", "TestProvider", "{\"error\":{\"message\":\"Incorrect API key provided\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"invalid_api_key\"}}", "HTTP 401: Authentication failed for TestProvider. Check your API key. Incorrect API key provided (invalid_api_key)", false)]
         [InlineData(401, "Unauthorized", "TestProvider", "{\"error\":{\"message\":\"Incorrect API key provided\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":null}}", "HTTP 401: Authentication failed for TestProvider. Check your API key. Incorrect API key provided (invalid_request_error)", false)]
         [InlineData(429, "Too Many Requests", "TestProvider", "{\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\",\"message\":\"Number of requests has exceeded your rate limit\"}}", "HTTP 429 Too Many Requests: Rate limit exceeded for TestProvider. Please retry after a delay. Number of requests has exceeded your rate limit (rate_limit_error)", true)]
-        [InlineData(402, "Payment Required", "TestProvider", "{\"error\":{\"code\":\"payment_required\",\"message\":\"The account balance is zero or negative.\"}}", "HTTP 402 Payment Required: The account balance is zero or negative. (payment_required)", false)]
         [InlineData(502, "Bad Gateway", "TestProvider", "Bad Gateway upstream", "HTTP 502 Bad Gateway: TestProvider gateway error. The upstream server returned an invalid response. Response: Bad Gateway upstream", true)]
         [InlineData(400, "Bad Request", "TestProvider", "{\"detail\":\"nope\"}", "HTTP 400 Bad Request: {\"detail\":\"nope\"}", false)]
         [InlineData(401, "Unauthorized", "TestProvider", "{\"error\":\"unauthorized\"}", "HTTP 401: Authentication failed for TestProvider. Check your API key. Response: {\"error\":\"unauthorized\"}", false)]
@@ -94,7 +93,7 @@ namespace SmartHopper.ProviderSdk.Tests.AIProviders
 
         [Theory]
         [InlineData("Sign in again. Then retry.")]
-        [InlineData("Your provider sign-in has expired or was revoked. Use Connect in the provider settings to sign in again.")]
+        [InlineData("Your SmartHopper Cloud sign-in has expired or was revoked. Use Connect in SmartHopper Cloud settings to sign in again.")]
         public void ClassifyHttpError_AcceptsSafeAuthenticationOverrides(string safeMessage)
         {
             var provider = new FakeAIProvider { AuthenticationErrorMessageOverride = safeMessage };
@@ -113,7 +112,7 @@ namespace SmartHopper.ProviderSdk.Tests.AIProviders
         [InlineData("see data:text/html")]
         [InlineData("mail admin@evil.example")]
         [InlineData("Sign in again at smarthopper-login.com")]
-        [InlineData("Go to account.example.org/login")]
+        [InlineData("Go to cloud.example.org/login")]
         [InlineData("SIGNIN.EXAMPLE.NET")]
         [InlineData("line1\nline2")]
         [InlineData("tab\there")]

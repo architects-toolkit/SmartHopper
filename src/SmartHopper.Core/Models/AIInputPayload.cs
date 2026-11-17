@@ -94,6 +94,8 @@ namespace SmartHopper.Core.Models
                 canonical.Append(':');
                 canonical.Append(interaction.Time.Ticks);
                 canonical.Append(':');
+                canonical.Append(DescribeSource(interaction.SourceReference));
+                canonical.Append(':');
 
                 switch (interaction)
                 {
@@ -126,6 +128,22 @@ namespace SmartHopper.Core.Models
                         canonical.Append(tr.Result?.ToString() ?? string.Empty);
                         canonical.Append(':');
                         canonical.Append(tr.Reasoning ?? string.Empty);
+                        canonical.Append(':');
+                        if (tr.Images != null)
+                        {
+                            foreach (var image in tr.Images)
+                            {
+                                canonical.Append(image?.ImageData ?? string.Empty);
+                                canonical.Append('|');
+                                canonical.Append(image?.MimeType ?? string.Empty);
+                                canonical.Append('|');
+                                canonical.Append(image?.SendToModel == true ? '1' : '0');
+                                canonical.Append('|');
+                                canonical.Append(DescribeSource(image?.SourceReference));
+                                canonical.Append('|');
+                            }
+                        }
+
                         break;
                     case AIInteractionToolCall tc:
                         canonical.Append(tc.Id ?? string.Empty);
@@ -148,6 +166,33 @@ namespace SmartHopper.Core.Models
 
             var checksum = ComputeChecksum(canonical.ToString());
             return $"{human} [{checksum}]";
+        }
+
+        private static string DescribeSource(SourceContentReference source)
+        {
+            if (source == null)
+            {
+                return string.Empty;
+            }
+
+            return string.Join(
+                ",",
+                source.DocumentId ?? string.Empty,
+                source.SourceName ?? string.Empty,
+                source.PageNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+                source.AssetId ?? string.Empty,
+                source.FigureLabel ?? string.Empty,
+                source.Caption ?? string.Empty,
+                source.ContextText ?? string.Empty,
+                ((int)source.Kind).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                source.Region == null
+                    ? string.Empty
+                    : string.Join(
+                        ",",
+                        source.Region.X.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        source.Region.Y.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        source.Region.Width.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        source.Region.Height.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         }
 
         private static string FriendlyTypeName(string typeName)
@@ -259,6 +304,42 @@ namespace SmartHopper.Core.Models
         }
 
         /// <summary>
+        /// Creates a payload from an ordered set of interactions (one document: text, images,
+        /// audio and tool results in document order). The payload type is derived from the
+        /// modalities present: a single modality maps to its type, mixed content maps to
+        /// <see cref="AIInputPayloadType.Multimodal"/>; required input capabilities are
+        /// always derived from the interactions themselves.
+        /// </summary>
+        /// <param name="interactions">The ordered interactions composing the payload.</param>
+        /// <returns>A new AIInputPayload wrapping the given interactions.</returns>
+        public static AIInputPayload FromInteractions(IEnumerable<IAIInteraction> interactions)
+        {
+            var list = interactions?.Where(i => i != null).ToList() ?? new List<IAIInteraction>();
+            var required = list.RequiredInputCapabilities();
+
+            var hasText = list.Any(i => i is AIInteractionText || i is AIInteractionToolCall || i is AIInteractionToolResult || i is IAIModelProjectedInteraction);
+            if (hasText)
+            {
+                // The modality hint deliberately excludes text: add it so the factory never
+                // claims a text-bearing payload has no source modality.
+                required |= AICapability.TextInput;
+            }
+            var hasImage = list.Any(i => i is AIInteractionImage || (i is AIInteractionToolResult tr && tr.Images != null && tr.Images.Count > 0));
+            var hasAudio = list.Any(i => i is AIInteractionAudio);
+
+            var modalities = (hasText ? 1 : 0) + (hasImage ? 1 : 0) + (hasAudio ? 1 : 0);
+            var payloadType = modalities > 1
+                ? AIInputPayloadType.Multimodal
+                : hasImage
+                    ? AIInputPayloadType.Image
+                    : hasAudio
+                        ? AIInputPayloadType.Audio
+                        : AIInputPayloadType.Text;
+
+            return new AIInputPayload(list, required, payloadType);
+        }
+
+        /// <summary>
         /// Creates a context payload with a context filter string.
         /// </summary>
         /// <param name="contextFilter">The context provider filter (e.g., "time,file", "-time", "*", "-*").</param>
@@ -294,7 +375,14 @@ namespace SmartHopper.Core.Models
         /// <summary>Context filter payload (not rendered as content).</summary>
         Context,
 
-        /// <summary>Unknown or mixed payload type.</summary>
+        /// <summary>Unknown or unclassified payload type.</summary>
         Unknown,
+
+        /// <summary>
+        /// Mixed-modality document payload (ordered text, image and/or audio interactions).
+        /// A presentation classification only — required modalities are derived from the
+        /// interactions, not this label.
+        /// </summary>
+        Multimodal,
     }
 }

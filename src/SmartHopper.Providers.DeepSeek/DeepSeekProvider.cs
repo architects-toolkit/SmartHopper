@@ -37,6 +37,7 @@ using SmartHopper.ProviderSdk.AICall.Core.Requests;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.AICall.JsonSchemas;
 using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Logging;
@@ -111,20 +112,20 @@ namespace SmartHopper.Providers.DeepSeek
         public override Image Icon => this.LoadIconFromResources(Properties.Resources.deepseek_icon);
 
         /// <inheritdoc/>
-        public override async Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        protected override async Task<AIRequestCall> PreCallCoreAsync(AIRequestCall outbound, CancellationToken cancellationToken = default)
         {
             // First do the base PreCall.
-            request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
+            await base.PreCallCoreAsync(outbound, cancellationToken).ConfigureAwait(false);
 
             // Setup proper httpmethod, content type, and authentication
-            request.HttpMethod = "POST";
-            request.ContentType = "application/json";
-            request.Authentication = "bearer";
+            outbound.HttpMethod = "POST";
+            outbound.ContentType = "application/json";
+            outbound.Authentication = "bearer";
 
             // Currently DeepSeek is only compatible with chat completions
-            request.Endpoint = "/chat/completions";
+            outbound.Endpoint = "/chat/completions";
 
-            return request;
+            return outbound;
         }
 
         /// <inheritdoc/>
@@ -948,10 +949,8 @@ namespace SmartHopper.Providers.DeepSeek
                             Provider = assistantBuilder.Metrics.Provider,
                             Model = assistantBuilder.Metrics.Model,
                             FinishReason = assistantBuilder.Metrics.FinishReason,
-                            InputTokensCached = assistantBuilder.Metrics.InputTokensCached,
-                            InputTokensPrompt = assistantBuilder.Metrics.InputTokensPrompt,
-                            OutputTokensReasoning = assistantBuilder.Metrics.OutputTokensReasoning,
-                            OutputTokensGeneration = assistantBuilder.Metrics.OutputTokensGeneration,
+                            Quantities = assistantBuilder.Metrics.Quantities,
+                            ReportedCosts = assistantBuilder.Metrics.ReportedCosts,
                             CompletionTime = assistantBuilder.Metrics.CompletionTime,
                         },
                     };
@@ -1076,7 +1075,7 @@ namespace SmartHopper.Providers.DeepSeek
                                 {
                                     Provider = assistantBuilder.Metrics.Provider,
                                     Model = assistantBuilder.Metrics.Model,
-                                    OutputTokensReasoning = assistantBuilder.Metrics.OutputTokensReasoning,
+                                    Quantities = AIMetrics.QuantitiesOf((AIQuantityKey.InternalReasoning, AIPriceUnit.Token, assistantBuilder.Metrics.OutputTokensReasoning)),
                                 },
                             };
 
@@ -1126,10 +1125,8 @@ namespace SmartHopper.Providers.DeepSeek
                                 Provider = assistantBuilder.Metrics.Provider,
                                 Model = assistantBuilder.Metrics.Model,
                                 FinishReason = assistantBuilder.Metrics.FinishReason,
-                                InputTokensCached = assistantBuilder.Metrics.InputTokensCached,
-                                InputTokensPrompt = assistantBuilder.Metrics.InputTokensPrompt,
-                                OutputTokensReasoning = assistantBuilder.Metrics.OutputTokensReasoning,
-                                OutputTokensGeneration = assistantBuilder.Metrics.OutputTokensGeneration,
+                                Quantities = assistantBuilder.Metrics.Quantities,
+                                ReportedCosts = assistantBuilder.Metrics.ReportedCosts,
                                 CompletionTime = assistantBuilder.Metrics.CompletionTime,
                             },
                         };
@@ -1238,8 +1235,9 @@ namespace SmartHopper.Providers.DeepSeek
                     Provider = this.Provider.Name,
                     Model = request.Model,
                     FinishReason = string.IsNullOrEmpty(finalFinishReason) ? "stop" : finalFinishReason,
-                    InputTokensPrompt = promptTokens,
-                    OutputTokensGeneration = completionTokens,
+                    Quantities = AIMetrics.QuantitiesOf(
+                        (AIQuantityKey.TextInput, AIPriceUnit.Token, promptTokens),
+                        (AIQuantityKey.TextOutput, AIPriceUnit.Token, completionTokens)),
                 };
 
                 // Align aggregate metrics finish reason as well
@@ -1266,10 +1264,8 @@ namespace SmartHopper.Providers.DeepSeek
                             Provider = assistantBuilder.Metrics.Provider,
                             Model = assistantBuilder.Metrics.Model,
                             FinishReason = assistantBuilder.Metrics.FinishReason,
-                            InputTokensCached = assistantBuilder.Metrics.InputTokensCached,
-                            InputTokensPrompt = assistantBuilder.Metrics.InputTokensPrompt,
-                            OutputTokensReasoning = assistantBuilder.Metrics.OutputTokensReasoning,
-                            OutputTokensGeneration = assistantBuilder.Metrics.OutputTokensGeneration,
+                            Quantities = assistantBuilder.Metrics.Quantities,
+                            ReportedCosts = assistantBuilder.Metrics.ReportedCosts,
                             CompletionTime = assistantBuilder.Metrics.CompletionTime,
                         },
                     };

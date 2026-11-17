@@ -62,9 +62,6 @@ namespace SmartHopper.Providers.Gemini
                     yield break;
                 }
 
-                // Normalize the request (endpoint selection, auth, content type) before
-                // consuming its fields; callers may pass a request that has not been
-                // through the provider pipeline yet.
                 request = await this.provider.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
 
                 string endpoint = request.Endpoint;

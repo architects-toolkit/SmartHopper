@@ -45,30 +45,32 @@ namespace SmartHopper.Components.Grasshopper
         /// Initializes a new instance of the <see cref="GhPutComponents"/> class.
         /// </summary>
         public GhPutComponents()
-            : base("Place GhJSON", "GhPut", "Convert GhJSON to a Grasshopper components on the canvas.\n\nAccepts either a GhJSON document string or an absolute path to a .ghjson file. New components will be added at the bottom of the canvas.", "SmartHopper", "Grasshopper")
+            : base("Place GhJSON", "GhPut", "Place or update Grasshopper components on the canvas from a GhJSON document string or .ghjson file path.\n\nSupplied pivot positions are preserved; components without pivots are laid out automatically relative to connected fixed components (with disconnected parts placed below existing canvas content). Components matching an existing instanceGuid update that object in place. All changes are shown in a review dialog before applying.", "SmartHopper", "D. GhJSON")
         {
             // Always run when Run is true, even if inputs haven't changed
             // This allows re-placing the same JSON multiple times if needed
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
         public override Guid ComponentGuid => new ("25E07FD9-382C-48C0-8A97-8BFFAEAD8592");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.ghput;
+        protected override Bitmap Icon => Resources.GhPut;
+
+        /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON", "J", "GhJSON document to place on canvas, or an absolute path to a .ghjson file", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("Edit Mode", "E", "When true, existing components will be replaced instead of creating new ones. User will be prompted for confirmation.", GH_ParamAccess.item, false);
+            pManager.AddTextParameter("JSON", "J", "GhJSON document string or absolute path to a .ghjson file.", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Edit Mode", "E", "Optional compatibility hint. Components with a matching instanceGuid always update in place; when true, automatic offset below existing content is disabled.", GH_ParamAccess.item, false);
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Components", "C", "List of placed component names", GH_ParamAccess.list);
+            pManager.AddTextParameter("Components", "C", "Names of the components placed or updated on the canvas.", GH_ParamAccess.list);
         }
 
         /// <inheritdoc/>

@@ -269,10 +269,17 @@ foreach ($platform in $Platforms) {
         
         # Find all provider DLLs using the configured pattern
         try {
-            $providerDlls = Get-ChildItem -Path $platformPath -Filter $ProviderDllPattern -File -ErrorAction Stop
+            $providerDlls = @(Get-ChildItem -Path $platformPath -Filter $ProviderDllPattern -File -ErrorAction Stop)
         } catch {
             Write-Host "##[error] Failed to enumerate DLLs in '$platformPath': $_"
             exit 1
+        }
+
+        # The packaged renderer wrapper hashes its own actual packaged bytes — the
+        # runtime classifier looks it up by basename-platform like any provider.
+        $rendererPath = Join-Path $platformPath 'DocumentRendering\SmartHopper.DocumentRendering.dll'
+        if (Test-Path $rendererPath) {
+            $providerDlls += Get-Item $rendererPath
         }
         
         if ($null -eq $providerDlls -or $providerDlls.Count -eq 0) {

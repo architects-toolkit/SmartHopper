@@ -38,7 +38,8 @@ Provide a convenient base that keeps a reference to the provider and centralizes
 ### Members
 
 - Ctor: `(IAIProvider provider)`
-- Abstract: `IEnumerable<SettingDescriptor> GetSettingDescriptors()`
+- Abstract: `IEnumerable<SettingDescriptor> GetSettingDescriptors()` — the persisted schema only; must not evaluate live state.
+- Virtual: `IEnumerable<ProviderSurfaceElement> GetSurface()` — the ordered dialog surface (bound settings + live chrome); the default wraps every non-hidden descriptor.
 - Abstract: `bool ValidateSettings(Dictionary<string, object> settings)`
 - Property: `bool EnableStreaming { get; }` — reads the provider's persisted `EnableStreaming` setting with fallback to the descriptor default.
 

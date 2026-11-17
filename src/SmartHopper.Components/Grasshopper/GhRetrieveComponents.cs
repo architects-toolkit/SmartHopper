@@ -42,29 +42,34 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                 "Retrieve Components",
                 "GhRetrieveComponents",
-                "Get a JSON list of all available Grasshopper components in your Grasshopper installation. Use optional category filter to focus the results.",
+                "List all component types installed in your Grasshopper environment as JSON, with optional category filtering.",
                 "SmartHopper",
-                "Grasshopper")
+                "D. GhJSON")
         {
         }
 
         public override Guid ComponentGuid => new Guid("D2F1E3B4-C5A6-7D8E-9A0B-C1D2E3F4A5B6");
 
-        protected override Bitmap Icon => Resources.components;
+        /// <summary>
+        /// Gets the exposure level of this component in the ribbon.
+        /// </summary>
+        public override GH_Exposure Exposure => GH_Exposure.quarternary | GH_Exposure.obscure;
+
+        protected override Bitmap Icon => Resources.GhRetrieve;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Category Filter", "C",
-                "Optional list of categories with include/exclude syntax. E.g. ['+Math', '-Params'].",
+                "Optional Grasshopper category filters using '+Category' to include or '-Category' to exclude (e.g., '+Maths', '-Params').",
                 GH_ParamAccess.list, string.Empty);
-            pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Run?", "R", "Set to true (or connect a Button) to retrieve the installed components.", GH_ParamAccess.item, false);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Names", "N", "List of component type names.", GH_ParamAccess.list);
-            pManager.AddTextParameter("Guids", "G", "List of component type GUIDs.", GH_ParamAccess.list);
-            pManager.AddTextParameter("JSON", "J", "Component type details in JSON format.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Names", "N", "Display names of the matching component types.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Guids", "G", "Component type GUIDs of the matching components.", GH_ParamAccess.list);
+            pManager.AddTextParameter("JSON", "J", "Detailed component type definitions (inputs, outputs, categories, and descriptions) in JSON format.", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -107,7 +112,7 @@ namespace SmartHopper.Components.Grasshopper
                 };
 
                 var toolCall = new AIToolCall();
-                toolCall.Endpoint = "gh_list_components";
+                toolCall.Origin = "gh_list_components";
                 toolCall.FromToolCallInteraction(toolCallInteraction);
                 toolCall.SkipMetricsValidation = true;
 

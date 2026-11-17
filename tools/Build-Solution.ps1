@@ -155,6 +155,22 @@ if (-not (Test-Path $buildRoot)) {
     exit 1
 }
 
+# 4b. Verify the isolated PDF renderer (DocumentRendering folder) was staged by the
+# project targets into each deployable output containing SmartHopper.DocumentProcessing.dll.
+# A missing renderer folder is a packaging failure, not a warning.
+foreach ($tfmDir in @("net7.0", "net7.0-windows")) {
+    $tfmOut = Join-Path $buildRoot $tfmDir
+    if (Test-Path (Join-Path $tfmOut "SmartHopper.DocumentProcessing.dll")) {
+        $rendererDll = Join-Path $tfmOut "DocumentRendering\SmartHopper.DocumentRendering.dll"
+        if (Test-Path $rendererDll) {
+            Write-Host "DocumentRendering renderer present in '$tfmDir'" -ForegroundColor Cyan
+        } else {
+            Write-Error "DocumentRendering packaging missing in '$tfmDir' (expected '$rendererDll')"
+            exit 1
+        }
+    }
+}
+
 # 5. Authenticode-sign assemblies in build folder
 # Password prompting is handled by Sign-Authenticode.ps1 if not provided
 Write-Host "Authenticode-signing SmartHopper assemblies under '$buildRoot' using signing.pfx at $pfxPath" -ForegroundColor Cyan

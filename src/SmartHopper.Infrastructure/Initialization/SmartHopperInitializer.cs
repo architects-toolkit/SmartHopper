@@ -78,6 +78,9 @@ namespace SmartHopper.Infrastructure.Initialization
                     var settings = SmartHopperSettings.Instance;
                     Logger.Trace(typeof(SmartHopperInitializer).FullName, "[SmartHopperInitializer] Settings loaded");
 
+                    // Wire the configured catalogue freshness limit into the catalogue service.
+                    ModelCatalogueService.DefaultMaxCatalogueAge = TimeSpan.FromDays(Math.Max(0, settings.CatalogueMaxAgeDays));
+
                     var displayVersion = VersionHelper.GetDisplayVersion();
                     var fullVersion = VersionHelper.GetFullVersion();
                     Logger.Trace(typeof(SmartHopperInitializer).FullName, $"[SmartHopperInitializer] Version (display): {displayVersion}");

@@ -138,14 +138,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 provider: toolCall.Provider,
                 model: toolCall.Model,
                 body: requestBody,
-                endpoint: this.toolName,
+                origin: this.toolName,
                 capability: this.toolCapabilityRequirements);
 
-            // Build parameters with extras using the builder pattern
+            // Forward all per-request parameters (sampling, timeout, extras) from the
+            // tool call, then layer the resolved voice/speed extras on top.
             var paramBuilder = AIRequestParameters.Create();
-            if (toolCall.Parameters != null && toolCall.Parameters.Extras != null)
+            if (toolCall.Parameters != null)
             {
-                paramBuilder.WithExtras(toolCall.Parameters.Extras);
+                paramBuilder.WithParameters(toolCall.Parameters);
             }
 
             if (!string.IsNullOrWhiteSpace(voice))
@@ -194,10 +195,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Prefer a typed audio interaction produced by TTS-capable providers.
-                var audioInteraction = result.Body?.Interactions?
-                    .OfType<AIInteractionAudio>()
-                    .LastOrDefault(i => i.Agent == AIAgent.Assistant)
-                    ?? result.Body?.Interactions?.OfType<AIInteractionAudio>().LastOrDefault();
+                var audioInteraction = result.Body?.GetLastAssistantAudio();
 
                 VersatileAudio audio;
                 string audioPayload;

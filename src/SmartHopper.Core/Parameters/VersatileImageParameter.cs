@@ -39,7 +39,7 @@ namespace SmartHopper.Core.Parameters
             : base(
                 "VersatileImage",
                 "VImg",
-                "A VersatileImage type accepting Bitmap, file paths, URLs, base64, data-URIs, and extracted document images with metadata.",
+                "Image data accepting a Bitmap, local file path, HTTP/HTTPS URL, base64 string, data URI, or extracted document image.",
                 "SmartHopper",
                 "Parameters",
                 GH_ParamAccess.item)

@@ -50,34 +50,38 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                 "Get GhJSON",
                 "GhGet",
-                "Convert Grasshopper components to GhJSON format, with optional filters",
+                "Export the current Grasshopper canvas (or selected/filtered objects) to GhJSON format.",
                 "SmartHopper",
-                "Grasshopper")
+                "D. GhJSON")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         public override Guid ComponentGuid => new Guid("E7BB7C92-9565-584C-C1DD-425E77651FD8");
 
-        protected override Bitmap Icon => Resources.ghget;
+        /// <summary>
+        /// Gets the exposure level of this component in the ribbon.
+        /// </summary>
+        public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        protected override Bitmap Icon => Resources.GhGet;
 
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Type filter", "T", "Optional list of classification tokens with include/exclude syntax: 'params', 'components', 'startnodes', 'endnodes', 'middlenodes', 'isolatednodes'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, string.Empty);
-            pManager.AddTextParameter("Category Filter", "C", "Optional list of category filters by Grasshopper category or subcategory (e.g. 'Maths', 'Params', 'Script'). Use '+name' to include and '-name' to exclude.", GH_ParamAccess.list, string.Empty);
-            pManager.AddTextParameter("Attribute Filter", "F", "Optional list of filters by tags: 'error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled', 'previewon', 'previewoff'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, string.Empty);
-            pManager.AddIntegerParameter("Connection Depth", "D", "Optional depth of connections to include: 0 = only matching components; 1 = direct connections; higher = further hops.", GH_ParamAccess.item, 0);
-            pManager.AddIntegerParameter("Count", "Ct", "Maximum number of components to retrieve. Default is 100.", GH_ParamAccess.item, 100);
-            pManager.AddBooleanParameter("Include Metadata", "M", "Include document metadata (timestamps, Rhino/Grasshopper versions, plugin dependencies)", GH_ParamAccess.item, false);
-            pManager.AddBooleanParameter("Include Runtime Data", "Dt", "Include runtime/volatile data (actual values flowing through outputs). This is token-expansive!", GH_ParamAccess.item, false);
-            pManager.AddBooleanParameter("Viewport Only", "V", "Only include components visible in the current canvas viewport", GH_ParamAccess.item, false);
+            pManager.AddTextParameter("Type filter", "T", "Optional object-type filters ('params', 'components', 'startnodes', 'endnodes', 'middlenodes', 'isolatednodes'). Prefix with '+' to include or '-' to exclude.", GH_ParamAccess.list, string.Empty);
+            pManager.AddTextParameter("Category Filter", "C", "Optional Grasshopper category or subcategory filters (e.g., '+Maths', '-Params', '+Script').", GH_ParamAccess.list, string.Empty);
+            pManager.AddTextParameter("Attribute Filter", "F", "Optional state and message filters ('error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled', 'previewon', 'previewoff'). Prefix with '+' to include or '-' to exclude.", GH_ParamAccess.list, string.Empty);
+            pManager.AddIntegerParameter("Connection Depth", "D", "How many wire hops of connected neighbors to include around matching components (0 = matching components only, 1 = direct neighbors, higher = further hops).", GH_ParamAccess.item, 0);
+            pManager.AddIntegerParameter("Count", "Ct", "Maximum number of components to include in the output (defaults to 100).", GH_ParamAccess.item, 100);
+            pManager.AddBooleanParameter("Include Metadata", "M", "When true, includes document metadata (timestamps, Rhino/Grasshopper versions, file metadata, and plugin dependencies).", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Include Runtime Data", "Dt", "When true, includes live output values flowing through parameters (can significantly increase document size and token usage).", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Viewport Only", "V", "When true, restricts the export to components currently visible in the canvas viewport.", GH_ParamAccess.item, false);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Names", "N", "List of names", GH_ParamAccess.list);
-            pManager.AddTextParameter("Guids", "G", "List of guids", GH_ParamAccess.list);
-            pManager.AddTextParameter("GhJSON", "J", "Details in GhJSON format", GH_ParamAccess.item);
+            pManager.AddTextParameter("Names", "N", "Names of the exported Grasshopper components.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Guids", "G", "Instance GUIDs of the exported Grasshopper components.", GH_ParamAccess.list);
+            pManager.AddTextParameter("GhJSON", "J", "Exported Grasshopper definition in GhJSON format.", GH_ParamAccess.item);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -151,7 +155,7 @@ namespace SmartHopper.Components.Grasshopper
                     };
 
                     var toolCall = new AIToolCall();
-                    toolCall.Endpoint = "gh_get";
+                    toolCall.Origin = "gh_get";
                     toolCall.FromToolCallInteraction(toolCallInteraction);
                     toolCall.SkipMetricsValidation = true;
 

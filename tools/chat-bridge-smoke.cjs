@@ -179,6 +179,38 @@ const check = (label, cond) => {
     check('hidden metrics icon emits no usage part',
         !cc.querySelector('.cui-msg[data-key="k7"] .cui-usage'));
 
+    // Tool card lifecycle: the call renders .cui-tool-title[data-state=pending]
+    // in the header (message-sender); the same-key result upsert must flip it to
+    // done/error via the in-place patch — the title lives outside
+    // .message-content, which is what the patch used to swap.
+    const toolCallHtml =
+        '<div class="message tool"><div><div class="message-header">' +
+        '<span class="message-sender"><span class="cui-tool-title" data-callid="call1" data-state="pending">Generate canvas status report</span></span>' +
+        '<span class="message-actions"><span class="message-timestamp">12:00</span>' +
+        '<button class="toggle-arrow" type="button"></button></span></div>' +
+        '<div class="message-content"><code>{"aim":"Generate canvas status report"}</code></div>' +
+        '<div class="message-footer"><span class="metrics-icon hidden"></span></div></div></div>';
+    const toolResultHtml =
+        '<div class="message tool"><div><div class="message-header">' +
+        '<span class="message-sender"><span class="cui-tool-title" data-callid="call1" data-state="done">Generate canvas status report</span></span>' +
+        '<span class="message-actions"><span class="message-timestamp">12:01</span>' +
+        '<button class="toggle-arrow" type="button"></button></span></div>' +
+        '<div class="message-content"><p>Total objects: 0</p></div>' +
+        '<div class="message-footer"><span class="metrics-icon hidden"></span></div></div></div>';
+    w.upsertMessage('tc1', toolCallHtml);
+    await wait(80);
+    check('pending tool card stamped + hollow state',
+        !!cc.querySelector('.cui-msg[data-key="tc1"] .cui-tool-title[data-state="pending"]'));
+    w.upsertMessage('tc1', toolResultHtml);
+    await wait(80);
+    const doneTitle = cc.querySelector('.cui-msg[data-key="tc1"] .cui-tool-title');
+    check('result upsert flips tool title to done in place',
+        !!doneTitle && doneTitle.dataset.state === 'done');
+    check('result upsert swaps result body into the same card',
+        !!cc.querySelector('.cui-msg[data-key="tc1"] .message-content')?.textContent.includes('Total objects: 0'));
+    check('tool upsert keeps a single keyed card',
+        cc.querySelectorAll('.cui-msg[data-key="tc1"]').length === 1);
+
     w.addLoadingMessage('assistant', 'Thinking...');
     await wait(60);
     const loader = cc.querySelector('.message.loading');

@@ -115,25 +115,25 @@ namespace SmartHopper.Providers.Ollama
         public override Image Icon => this.LoadIconFromResources(Properties.Resources.ollama_icon);
 
         /// <inheritdoc/>
-        public override async Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        protected override async Task<AIRequestCall> PreCallCoreAsync(AIRequestCall outbound, CancellationToken cancellationToken = default)
         {
             // First do the base PreCall.
-            request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
+            await base.PreCallCoreAsync(outbound, cancellationToken).ConfigureAwait(false);
 
             // Setup HTTP method, content type, and authentication.
-            request.HttpMethod = "POST";
-            request.ContentType = "application/json";
+            outbound.HttpMethod = "POST";
+            outbound.ContentType = "application/json";
 
             // Ollama does not require an API key by default; the OpenAI-compatible
             // endpoint accepts an arbitrary placeholder. Use bearer auth only when
             // the user has explicitly configured one (e.g., a reverse-proxy in front).
             var apiKey = this.GetApiKey();
-            request.Authentication = string.IsNullOrWhiteSpace(apiKey) ? "none" : "bearer";
+            outbound.Authentication = string.IsNullOrWhiteSpace(apiKey) ? "none" : "bearer";
 
             // Ollama exposes the OpenAI-compatible chat completions endpoint
-            request.Endpoint = "/chat/completions";
+            outbound.Endpoint = "/chat/completions";
 
-            return request;
+            return outbound;
         }
 
         /// <inheritdoc/>
@@ -191,24 +191,28 @@ namespace SmartHopper.Providers.Ollama
                 ["temperature"] = temperature,
             };
 
-            // Apply optional parameters from extras only
+            // Typed request parameters take precedence, then extras (same precedence
+            // chain as the other OpenAI-compatible providers).
+            var topP = p?.TopP
+                ?? (p?.Extras != null && p.Extras.TryGetValue("top_p", out var topPToken)
+                    ? topPToken?.Value<double?>()
+                    : null);
+            if (topP.HasValue)
+            {
+                requestBody["top_p"] = topP.Value;
+            }
+
+            var seed = p?.Seed
+                ?? (p?.Extras != null && p.Extras.TryGetValue("seed", out var seedToken)
+                    ? seedToken?.Value<int?>()
+                    : null);
+            if (seed.HasValue)
+            {
+                requestBody["seed"] = seed.Value;
+            }
+
             if (p?.Extras != null)
             {
-                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
-                {
-                    requestBody["top_p"] = topPToken.Value<double?>();
-                }
-
-                if (p.Extras.TryGetValue("top_k", out var topKToken) && topKToken != null)
-                {
-                    requestBody["top_k"] = topKToken.Value<int?>();
-                }
-
-                if (p.Extras.TryGetValue("seed", out var seedToken) && seedToken != null)
-                {
-                    requestBody["seed"] = seedToken.Value<int?>();
-                }
-
                 if (p.Extras.TryGetValue("presence_penalty", out var ppToken) && ppToken != null)
                 {
                     requestBody["presence_penalty"] = ppToken;
@@ -217,6 +221,16 @@ namespace SmartHopper.Providers.Ollama
                 if (p.Extras.TryGetValue("frequency_penalty", out var fpToken) && fpToken != null)
                 {
                     requestBody["frequency_penalty"] = fpToken;
+                }
+
+                //   keep_alive-> keep_alive (e.g., "10m", -1 keep loaded, 0 unload)
+                // top_k and num_ctx are not forwarded: the OpenAI-compatible endpoint
+                // discards options/top_k — only the native /api surface honors them.
+                if (p.Extras.TryGetValue("keep_alive", out var keepAliveToken) && keepAliveToken != null)
+                {
+                    requestBody["keep_alive"] = keepAliveToken.Type == JTokenType.Integer
+                        ? (JToken)keepAliveToken.Value<long>()
+                        : (JToken)keepAliveToken.ToString();
                 }
             }
 
@@ -491,12 +505,6 @@ namespace SmartHopper.Providers.Ollama
                     typeof(double),
                     null),
                 new AIExtraDescriptor(
-                    "top_k",
-                    "Top K",
-                    "Limits the next-token candidate pool to the K most likely tokens. Leave empty to use the model default.",
-                    typeof(int),
-                    null),
-                new AIExtraDescriptor(
                     "seed",
                     "Seed",
                     "Reproducibility seed for deterministic sampling. Use the same seed to get similar outputs. Leave empty for random.",
@@ -513,6 +521,16 @@ namespace SmartHopper.Providers.Ollama
                     "Frequency Penalty",
                     "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
                     typeof(double),
+                    null),
+
+                // Ollama server-side options. num_ctx is intentionally absent: the
+                // OpenAI-compatible endpoint discards options.num_ctx — only the
+                // native /api surface honors it.
+                new AIExtraDescriptor(
+                    "keep_alive",
+                    "Keep Alive",
+                    "How long the model stays loaded after the request (e.g. '10m', '0' to unload, '-1' to keep resident). Avoids cold reloads between runs.",
+                    typeof(string),
                     null),
             };
         }

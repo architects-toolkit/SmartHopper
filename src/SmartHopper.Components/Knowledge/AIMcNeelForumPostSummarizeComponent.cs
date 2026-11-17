@@ -40,11 +40,18 @@ namespace SmartHopper.Components.Knowledge
     /// </summary>
     public class AIMcNeelForumPostSummarizeComponent : AIStatefulAsyncComponentBase
     {
+        /// <summary>
+        /// This component's work has side effects or consumes external state
+        /// (canvas mutations, chat history, file/web fetches) so per-unit results
+        /// are not reusable across runs.
+        /// </summary>
+        protected override bool SupportsResultReuse => false;
+
         public override Guid ComponentGuid => new Guid("A6B8D7E2-2345-4F8A-9C10-3D4E5F6A7004");
 
-        protected override Bitmap Icon => Resources.mcneelpostsummarize;
+        protected override Bitmap Icon => Resources.AIMcNeelForumPostSummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.primary | GH_Exposure.obscure;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
@@ -61,24 +68,24 @@ namespace SmartHopper.Components.Knowledge
 
         public AIMcNeelForumPostSummarizeComponent()
             : base(
-                  "AI McNeelForum Post Summarize",
+                  "AI McNeel Forum Post Summarize",
                   "AIMcNeelPostSumm",
-                  "Generate a concise summary of a McNeel Discourse forum post by ID using the configured AI provider.",
+                  "Generate a concise AI summary of one or more posts from the McNeel Discourse forum (discourse.mcneel.com) by post ID.",
                   "SmartHopper",
-                  "Knowledge")
+                  "E. Forums")
         {
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddIntegerParameter("Post Id", "P", "REQUIRED ID or list of IDs of the forum post(s) to summarize.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Instructions", "I", "Optional targeted summary instructions to focus on a specific question, target, or concern.", GH_ParamAccess.item, string.Empty);
+            pManager.AddIntegerParameter("Post Id", "P", "Numeric ID(s) of the McNeel forum post(s) to summarize.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Instructions", "I", "Optional instructions to focus the summary on a specific question or aspect.", GH_ParamAccess.item, string.Empty);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Summary", "S", "AI-generated summary of the forum post.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("URL", "U", "URL of the post.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("URL", "U", "Direct URL to the forum post.", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)

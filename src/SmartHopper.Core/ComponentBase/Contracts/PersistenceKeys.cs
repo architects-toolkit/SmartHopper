@@ -75,5 +75,28 @@ namespace SmartHopper.Core.ComponentBase.Contracts
 
         /// <summary>JSON object mapping output name → serialized sentinel tree.</summary>
         public const string BatchSentinelTrees = "BatchSentinelTrees";
+
+        /// <summary>JSON object mapping batch custom ID → metrics role label ("main" or "tool:{name}").</summary>
+        public const string BatchSubmittedRoles = "BatchSubmittedRoles";
+
+        /// <summary>JSON object mapping batch custom ID → requested model name.</summary>
+        public const string BatchSubmittedModels = "BatchSubmittedModels";
+
+        /// <summary>JSON object with component-specific decode context for an in-flight batch.</summary>
+        public const string BatchDecodeContext = "BatchDecodeContext";
+
+        // ----- Incremental unit-result cache -----
+
+        /// <summary>Key for the persisted committed processing-unit result cache (JSON).</summary>
+        public const string ResultCache = "ResultCache";
+
+        /// <summary>Key for persisted in-flight (unresolved batch) unit results (JSON).</summary>
+        public const string PendingResultCache = "PendingResultCache";
+
+        /// <summary>Key for the persisted batch customId → unit-key map (JSON).</summary>
+        public const string UnitCustomIdMap = "UnitCustomIdMap";
+
+        /// <summary>Key for the per-instance opt-out of processing-unit result caching.</summary>
+        public const string DisableResultCaching = "DisableResultCaching";
     }
 }

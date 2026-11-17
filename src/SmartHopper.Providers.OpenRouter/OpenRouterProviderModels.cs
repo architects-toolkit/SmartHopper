@@ -56,96 +56,6 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "openai/gpt-6.1-terra",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9660,
-                    ContextLimit = 1050000,
-                    Created = new DateTime(2026, 10, 26),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.000000025m,
-                        CacheWrite = 0.000000625m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-6.1-terra:batch" },
-                },
-new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "openai/gpt-6.1-terra-pro",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9665,
-                    ContextLimit = 1050000,
-                    Created = new DateTime(2026, 10, 26),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.000000025m,
-                        CacheWrite = 0.000000625m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-6.1-terra-pro:batch" },
-                },
-new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "particle-ai/particle-1",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9850,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 10, 28),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.000000003m,
-                    },
-                },
-new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "prism-ml/ternary-bonsai-2-9b",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = false,
-                    Verified = false,
-                    Rank = 9940,
-                    ContextLimit = 262144,
-                    Created = new DateTime(2026, 10, 16),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000008m,
-                        TextOutput = 0.00000013m,
-                        CacheRead = 0.00000004m,
-                    },
-                },
-new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "typesafe/jev-router",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = false,
@@ -153,11 +63,7 @@ new AIModelCapabilities
                     Rank = 10000,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = -1m,
-                        TextOutput = -1m,
-                    },
+                    Pricing = new AIModelPricing(),
                 },
 
                 new AIModelCapabilities
@@ -170,11 +76,7 @@ new AIModelCapabilities
                     Rank = 9995,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = -1m,
-                        TextOutput = -1m,
-                    },
+                    Pricing = new AIModelPricing(),
                 },
 
                 new AIModelCapabilities
@@ -224,9 +126,12 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 10, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -240,9 +145,12 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 10, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -292,11 +200,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000513m,
-                        TextOutput = 0.0000000701m,
-                        CacheRead = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000513m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000000701m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -310,11 +221,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 9, 8),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000025m,
-                        TextOutput = 0.0000001m,
-                        CacheRead = 0.0000000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -328,12 +242,15 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 7, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000003m,
-                        TextOutput = 0.00000013m,
-                        CacheRead = 0.000000006m,
-                        CacheWrite = 0.000000038m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000013m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000006m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000038m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -347,11 +264,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 9, 12),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000003m,
-                        TextOutput = 0.00000015m,
-                        CacheRead = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -365,11 +285,14 @@ new AIModelCapabilities
                     ContextLimit = 260000,
                     Created = new DateTime(2026, 9, 8),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000004m,
-                        TextOutput = 0.00000015m,
-                        CacheRead = 0.000000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -383,11 +306,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 1),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000422m,
-                        TextOutput = 0.0000001694m,
-                        CacheRead = 0.000000028m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000422m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001694m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000028m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -401,17 +327,23 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 7, 31),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000422m,
-                        TextOutput = 0.0000001694m,
-                        CacheRead = 0.000000028m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000422m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001694m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000028m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000011m,
-                        TextOutput = 0.00000033m,
-                        CacheRead = 0.0000000035m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000011m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000033m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000035m),
+            },
+        },
                     Aliases = new List<string> { "deepseek/deepseek-v4-flash-0731:batch" },
                 },
 
@@ -426,10 +358,13 @@ new AIModelCapabilities
                     ContextLimit = 8192,
                     Created = new DateTime(2026, 8, 20),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000044m,
-                        TextOutput = 0.000000177m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000044m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000177m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -443,11 +378,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 9, 10),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000006m,
-                        TextOutput = 0.00000018m,
-                        CacheRead = 0.000000012m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000018m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000012m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -461,11 +399,14 @@ new AIModelCapabilities
                     ContextLimit = 524288,
                     Created = new DateTime(2026, 9, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.000000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -479,12 +420,15 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 2),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.000000002m,
-                        WebSearch = 0.0025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000002m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.0025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -498,12 +442,15 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.000000002m,
-                        WebSearch = 0.0025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000002m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.0025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -517,11 +464,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 8, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000007m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.00000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000007m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -532,14 +482,17 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Rank = 9885,
-                    ContextLimit = 262144,
+                    ContextLimit = 1000000,
                     Created = new DateTime(2026, 10, 2),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.000000225m,
-                        CacheRead = 0.000000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000225m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -553,11 +506,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 9, 12),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000023m,
-                        CacheRead = 0.00000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000023m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -571,11 +527,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 9, 8),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.00000025m,
-                        CacheRead = 0.000000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -589,11 +548,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 8, 31),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000006m,
-                        TextOutput = 0.00000025m,
-                        CacheRead = 0.000000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -607,11 +569,14 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000014m,
-                        TextOutput = 0.00000028m,
-                        CacheRead = 0.0000000028m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000014m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000028m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000028m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -625,10 +590,13 @@ new AIModelCapabilities
                     ContextLimit = 8192,
                     Created = new DateTime(2026, 8, 20),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000074m,
-                        TextOutput = 0.000000295m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000074m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000295m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -642,10 +610,13 @@ new AIModelCapabilities
                     ContextLimit = 8192,
                     Created = new DateTime(2026, 8, 19),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000074m,
-                        TextOutput = 0.000000295m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000074m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000295m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -659,11 +630,14 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 10, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.00000035m,
-                        CacheRead = 0.00000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000035m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -677,11 +651,14 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000047m,
-                        CacheRead = 0.000000016m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000047m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000016m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -695,12 +672,15 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 8, 26),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000047m,
-                        CacheRead = 0.000000016m,
-                        CacheWrite = 0.0000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000047m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000016m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -714,11 +694,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 15),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -732,21 +715,27 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 10, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000025m,
-                        CacheRead = 0.000000005m,
-                        CacheWrite = 0.0000000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "anthropic/claude-haiku-5.5:batch" },
                 },
 
@@ -761,21 +750,27 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000025m,
-                        CacheRead = 0.000000005m,
-                        CacheWrite = 0.0000000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-6-luna-pro:batch" },
                 },
 
@@ -790,21 +785,27 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000025m,
-                        CacheRead = 0.000000005m,
-                        CacheWrite = 0.0000000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-6-luna:batch" },
                 },
 
@@ -819,11 +820,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 9, 18),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.0000000375m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -837,13 +841,16 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -857,17 +864,23 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 26),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000018m,
-                        CacheRead = 0.00000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000018m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+            },
+        },
                     Aliases = new List<string> { "z-ai/glm-5.3-flash:batch" },
                 },
 
@@ -882,11 +895,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 8, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000035m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000035m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -900,11 +916,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 19),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.000000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -918,11 +937,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.000000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -936,11 +958,14 @@ new AIModelCapabilities
                     ContextLimit = 524288,
                     Created = new DateTime(2026, 8, 10),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -954,17 +979,23 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002156m,
-                        TextOutput = 0.0000006468m,
-                        CacheRead = 0.00000000686m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002156m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006468m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000000686m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000011m,
-                        TextOutput = 0.00000033m,
-                        CacheRead = 0.0000000035m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000011m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000033m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000035m),
+            },
+        },
                     Aliases = new List<string> { "deepseek/deepseek-v4-flash-vision-exp:batch" },
                 },
 
@@ -979,11 +1010,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 10, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.0000007m,
-                        CacheRead = 0.000000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000007m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -997,11 +1031,14 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000435m,
-                        TextOutput = 0.00000087m,
-                        CacheRead = 0.0000000036m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000435m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000087m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000036m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1015,11 +1052,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.00000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1033,11 +1073,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 14),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000002m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.000000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1051,17 +1094,23 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 10),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000002m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.000000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000015m,
-                        CacheRead = 0.000000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000004m),
+            },
+        },
                     Aliases = new List<string> { "deepseek/deepseek-v4.1-flash:batch" },
                 },
 
@@ -1076,17 +1125,23 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 8, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000175m,
-                        TextOutput = 0.00000075m,
-                        CacheRead = 0.00000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000175m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+            },
+        },
                     Aliases = new List<string> { "meta/muse-glimmer-30b:batch" },
                 },
 
@@ -1101,17 +1156,23 @@ new AIModelCapabilities
                     ContextLimit = 524288,
                     Created = new DateTime(2026, 7, 30),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000045m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.0000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000045m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.0000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+            },
+        },
                     Aliases = new List<string> { "thinkingmachines/inkling-small:batch" },
                 },
 
@@ -1126,11 +1187,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 18),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000037m,
-                        TextOutput = 0.00000125m,
-                        CacheRead = 0.00000009m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000037m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000009m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1144,11 +1208,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 9, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000007m,
-                        TextOutput = 0.0000014m,
-                        CacheRead = 0.00000018m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000007m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000014m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000018m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1162,17 +1229,23 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 18),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000079m,
-                        TextOutput = 0.0000014m,
-                        CacheRead = 0.000000078m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000079m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000014m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000078m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000045m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.0000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000045m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+            },
+        },
                     Aliases = new List<string> { "z-ai/glm-5.3:batch" },
                 },
 
@@ -1187,10 +1260,13 @@ new AIModelCapabilities
                     ContextLimit = 36864,
                     Created = new DateTime(2026, 9, 25),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1204,11 +1280,14 @@ new AIModelCapabilities
                     ContextLimit = 192000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000015m,
-                        CacheRead = 0.00000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1222,17 +1301,23 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 12),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000066m,
-                        TextOutput = 0.00000198m,
-                        CacheRead = 0.000000022m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000066m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000198m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000022m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000066m,
-                        TextOutput = 0.00000198m,
-                        CacheRead = 0.000000022m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000066m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000198m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000022m),
+            },
+        },
                     Aliases = new List<string> { "deepseek/deepseek-v4-pro-0813:batch" },
                 },
 
@@ -1247,10 +1332,13 @@ new AIModelCapabilities
                     ContextLimit = 32000,
                     Created = new DateTime(2026, 10, 15),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1264,10 +1352,13 @@ new AIModelCapabilities
                     ContextLimit = 32000,
                     Created = new DateTime(2026, 10, 15),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1278,15 +1369,18 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Rank = 9700,
-                    ContextLimit = 1000000,
+                    ContextLimit = 1024000,
                     Created = new DateTime(2026, 8, 14),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.00000009m,
-                        CacheWrite = 0.00000053125m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000009m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000053125m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1300,10 +1394,13 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 8, 12),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1317,11 +1414,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 28),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000834m,
-                        TextOutput = 0.000002501m,
-                        CacheRead = 0.000000042m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000834m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002501m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000042m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1335,11 +1435,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 8),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.0000027m,
-                        CacheRead = 0.0000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000027m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1353,11 +1456,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 10, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.000003m,
-                        CacheRead = 0.00000006m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000006m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1371,11 +1477,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 15),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000032m,
-                        CacheRead = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000032m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1389,11 +1498,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000032m,
-                        CacheRead = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000032m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1407,12 +1519,15 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 8, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000095m,
-                        TextOutput = 0.000004m,
-                        CacheRead = 0.00000015m,
-                        WebSearch = 0.007m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000095m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.007m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1426,11 +1541,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 6),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000136m,
-                        TextOutput = 0.00000418m,
-                        CacheRead = 0.00000014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000136m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000418m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1444,11 +1562,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 15),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00000425m,
-                        CacheRead = 0.00000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000425m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1462,12 +1583,15 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 2),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00000425m,
-                        CacheRead = 0.00000015m,
-                        WebSearch = 0.0025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000425m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.0025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1481,12 +1605,15 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00000425m,
-                        CacheRead = 0.00000015m,
-                        WebSearch = 0.0025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000425m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.0025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1500,11 +1627,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 19),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000703m,
-                        TextOutput = 0.0000043843m,
-                        CacheRead = 0.0000000703m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000703m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000043843m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000703m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1518,29 +1648,35 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.00000375m,
-                        ImageInput = 0.00000075m,
-                        AudioInput = 0.00000075m,
-                        AudioCacheRead = 0.000000075m,
-                        CacheRead = 0.000000075m,
-                        CacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.00000375m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000416666666666667m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000375m,
-                        TextOutput = 0.000001875m,
-                        ImageInput = 0.000000375m,
-                        AudioInput = 0.000000375m,
-                        AudioCacheRead = 0.0000000375m,
-                        CacheRead = 0.0000000375m,
-                        CacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.000001875m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001875m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000000375m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000416666666666667m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000001875m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     Aliases = new List<string> { "google/gemini-3.7-flash:batch" },
                 },
 
@@ -1555,30 +1691,36 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 2),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000825m,
-                        TextOutput = 0.000004125m,
-                        ImageInput = 0.000000825m,
-                        AudioInput = 0.000000825m,
-                        AudioCacheRead = 0.0000000825m,
-                        CacheRead = 0.0000000825m,
-                        CacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.000004125m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000825m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004125m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000000825m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000000825m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000000825m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000825m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000416666666666667m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000004125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000375m,
-                        TextOutput = 0.000001875m,
-                        ImageInput = 0.000000375m,
-                        AudioInput = 0.000000375m,
-                        AudioCacheRead = 0.0000000375m,
-                        CacheRead = 0.0000000375m,
-                        CacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.000001875m,
-                        WebSearch = 0.014m,
-                    },
-                    Aliases = new List<string> { "google/gemini-3.8-flash:batch" },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001875m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000000375m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000416666666666667m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000001875m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
+                    Aliases = new List<string> { "google/gemini-3.8-flash:batch", "google/gemini-3-8-flash" },
                 },
 
                 new AIModelCapabilities
@@ -1592,11 +1734,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 9, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.00000075m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000075m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1610,12 +1755,15 @@ new AIModelCapabilities
                     ContextLimit = 500000,
                     Created = new DateTime(2026, 9, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1629,12 +1777,15 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.00000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1648,12 +1799,15 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 3),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.0000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1667,17 +1821,23 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 12),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.00000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.00000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+            },
+        },
                     Aliases = new List<string> { "qwen/qwen3.8-2.4t-a95b:batch" },
                 },
 
@@ -1692,12 +1852,15 @@ new AIModelCapabilities
                     ContextLimit = 500000,
                     Created = new DateTime(2026, 8, 12),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1711,11 +1874,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 10, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000075m,
-                        CacheRead = 0.00000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1729,11 +1895,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 14),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001188m,
-                        TextOutput = 0.000008m,
-                        CacheRead = 0.00000012m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001188m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000012m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1747,11 +1916,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000435m,
-                        TextOutput = 0.0000087m,
-                        CacheRead = 0.000000036m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000435m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000087m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000036m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1765,11 +1937,14 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000028m,
-                        TextOutput = 0.0000088m,
-                        CacheRead = 0.00000056m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000028m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000088m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000056m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1783,11 +1958,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1801,22 +1979,28 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 29),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-6.1-sol-pro:batch" },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
+                    Aliases = new List<string> { "openai/gpt-6.1-sol-pro:batch", "openai/gpt-6-1-sol-pro" },
                 },
 
                 new AIModelCapabilities
@@ -1830,22 +2014,28 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 29),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "openai/gpt-6.1-sol:batch" },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
+                    Aliases = new List<string> { "openai/gpt-6.1-sol:batch", "openai/gpt-6-1-sol" },
                 },
 
                 new AIModelCapabilities
@@ -1859,21 +2049,27 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 28),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "anthropic/claude-sonnet-5.5:batch" },
                 },
 
@@ -1888,21 +2084,27 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-6-sol-pro:batch" },
                 },
 
@@ -1917,21 +2119,27 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-6-sol:batch" },
                 },
 
@@ -1946,13 +2154,16 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1966,11 +2177,14 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.000012m,
-                        CacheRead = 0.0000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1984,13 +2198,16 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000012m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2004,29 +2221,35 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        ImageInput = 0.000002m,
-                        AudioInput = 0.000002m,
-                        AudioCacheRead = 0.0000001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000001875m,
-                        InternalReasoning = 0.00001m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000001875m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        ImageInput = 0.000001m,
-                        AudioInput = 0.000001m,
-                        AudioCacheRead = 0.00000005m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.0000001875m,
-                        InternalReasoning = 0.000005m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000001875m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     Aliases = new List<string> { "google/gemini-4-argon:batch" },
                 },
 
@@ -2041,11 +2264,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 9, 24),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2059,12 +2285,15 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 10, 12),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.00002m,
-                        CacheRead = 0.0000002m,
-                        WebSearch = 0.0025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.0025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2078,21 +2307,27 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.00002m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "anthropic/claude-opus-5.5:batch" },
                 },
 
@@ -2107,12 +2342,15 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.00003m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2126,12 +2364,16 @@ new AIModelCapabilities
                     ContextLimit = 65536,
                     Created = new DateTime(2026, 10, 6),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000015m,
-                        TextOutput = 0.0000075m,
-                        ImageOutput = 0.00003m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
+                    Aliases = new List<string> { "google/gemini-nano-banana-2-1" },
                 },
 
                 new AIModelCapabilities
@@ -2145,13 +2387,16 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.000001m,
-                        CacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2165,21 +2410,27 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 4),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.000001m,
-                        CacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-6-astra:batch" },
                 },
 
@@ -2194,21 +2445,27 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 4),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.000001m,
-                        CacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-6-astra-pro:batch" },
                 },
 
@@ -2223,21 +2480,27 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 9, 1),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.000000125m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "anthropic/claude-fable-5.1:batch" },
                 },
 
@@ -2255,11 +2518,7 @@ new AIModelCapabilities
                     Rank = 9480,
                     ContextLimit = 2000000,
                     Created = new DateTime(2026, 7, 17),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = -1m,
-                        TextOutput = -1m,
-                    },
+                    Pricing = new AIModelPricing(),
                 },
 
                 new AIModelCapabilities
@@ -2272,11 +2531,7 @@ new AIModelCapabilities
                     Rank = 9475,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 13),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = -1m,
-                        TextOutput = -1m,
-                    },
+                    Pricing = new AIModelPricing(),
                 },
 
                 new AIModelCapabilities
@@ -2351,11 +2606,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 7, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000021m,
-                        TextOutput = 0.000000063m,
-                        CacheRead = 0.0000000042m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000021m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000063m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000042m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2369,10 +2627,13 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 6, 4),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2387,13 +2648,16 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2407,11 +2671,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 7, 6),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000132m,
-                        TextOutput = 0.000000528m,
-                        CacheRead = 0.000000033m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000132m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000528m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000033m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2426,11 +2693,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.00000095m,
-                        CacheRead = 0.00000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000095m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2445,11 +2715,14 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001875m,
-                        TextOutput = 0.000001125m,
-                        CacheWrite = 0.000000234375m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001875m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001125m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000234375m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2463,11 +2736,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 5, 28),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.00000115m,
-                        CacheRead = 0.00000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000115m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2481,11 +2757,14 @@ new AIModelCapabilities
                     ContextLimit = 1048756,
                     Created = new DateTime(2026, 7, 20),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.000000006m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000006m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2499,20 +2778,26 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000002m,
-                        CacheWrite = 0.00000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.00000001m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5.6-luna-pro:batch" },
                 },
 
@@ -2521,27 +2806,33 @@ new AIModelCapabilities
                     Provider = provider,
                     Model = "openai/gpt-5.6-luna",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
+                    Default = AICapability.Text2Text | AICapability.Text2Json | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
                     SupportsBatch = true,
                     Verified = false,
                     Rank = 9400,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000002m,
-                        CacheWrite = 0.00000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.00000001m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5.6-luna:batch" },
                 },
 
@@ -2556,17 +2847,23 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 5, 31),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000006m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000006m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000006m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000006m),
+            },
+        },
                     Aliases = new List<string> { "minimax/minimax-m3:batch" },
                 },
 
@@ -2581,17 +2878,23 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 3),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000032m,
-                        TextOutput = 0.00000128m,
-                        CacheRead = 0.000000064m,
-                        CacheWrite = 0.0000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000032m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000128m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000064m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000004m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000023m,
-                        TextOutput = 0.00000092m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000023m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000092m),
+            },
+        },
                     Aliases = new List<string> { "qwen/qwen3.7-plus:batch" },
                 },
 
@@ -2606,11 +2909,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 7, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000007m,
-                        TextOutput = 0.0000014m,
-                        CacheRead = 0.00000018m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000007m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000014m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000018m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2624,10 +2930,13 @@ new AIModelCapabilities
                     ContextLimit = 32768,
                     Created = new DateTime(2026, 5, 12),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2642,11 +2951,14 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000018m,
-                        CacheWrite = 0.000000375m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000018m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2660,12 +2972,15 @@ new AIModelCapabilities
                     ContextLimit = 256000,
                     Created = new DateTime(2026, 5, 20),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.0000002m,
-                        WebSearch = 0.005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2680,11 +2995,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.000000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2699,28 +3017,34 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 5, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.0000015m,
-                        ImageInput = 0.00000025m,
-                        AudioInput = 0.0000005m,
-                        AudioCacheRead = 0.00000005m,
-                        CacheRead = 0.000000025m,
-                        CacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.0000015m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000125m,
-                        TextOutput = 0.00000075m,
-                        ImageInput = 0.000000125m,
-                        AudioInput = 0.00000025m,
-                        AudioCacheRead = 0.000000025m,
-                        CacheRead = 0.0000000125m,
-                        InternalReasoning = 0.00000075m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000125m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     Aliases = new List<string> { "google/gemini-3.1-flash-lite:batch" },
                 },
 
@@ -2735,17 +3059,23 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 6, 4),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.0000024m,
-                        CacheRead = 0.00000012m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000024m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000012m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.0000036m,
-                        CacheRead = 0.0000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000036m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+            },
+        },
                     Aliases = new List<string> { "nvidia/nemotron-3-ultra-550b-a55b:batch" },
                 },
 
@@ -2761,19 +3091,25 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 30),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.0000002m,
-                        WebSearch = 0.005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.00000016m,
-                        WebSearch = 0.005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000016m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+            },
+        },
                     Aliases = new List<string> { "x-ai/grok-4.3:batch" },
                 },
 
@@ -2788,28 +3124,34 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 7, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000025m,
-                        ImageInput = 0.0000003m,
-                        AudioInput = 0.0000003m,
-                        AudioCacheRead = 0.00000003m,
-                        CacheRead = 0.00000003m,
-                        CacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.0000025m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000125m,
-                        ImageInput = 0.00000015m,
-                        AudioInput = 0.00000015m,
-                        AudioCacheRead = 0.000000015m,
-                        CacheRead = 0.000000015m,
-                        InternalReasoning = 0.00000125m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     Aliases = new List<string> { "google/gemini-3.5-flash-lite:batch" },
                 },
 
@@ -2824,17 +3166,23 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 6, 12),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006712m,
-                        TextOutput = 0.00000335m,
-                        CacheRead = 0.00000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006712m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000335m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000095m,
-                        TextOutput = 0.000004m,
-                        CacheRead = 0.00000019m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000095m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000019m),
+            },
+        },
                     Aliases = new List<string> { "moonshotai/kimi-k2.7-code:batch" },
                 },
 
@@ -2849,17 +3197,23 @@ new AIModelCapabilities
                     ContextLimit = 524288,
                     Created = new DateTime(2026, 7, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.00000405m,
-                        CacheRead = 0.00000017m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000405m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000017m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.00000405m,
-                        CacheRead = 0.00000017m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000405m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000017m),
+            },
+        },
                     Aliases = new List<string> { "thinkingmachines/inkling:batch" },
                 },
 
@@ -2874,12 +3228,15 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 7, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00000425m,
-                        CacheRead = 0.00000015m,
-                        WebSearch = 0.0025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000425m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.0025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2893,12 +3250,15 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 5, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001475m,
-                        TextOutput = 0.000004425m,
-                        CacheRead = 0.000000295m,
-                        CacheWrite = 0.00000184375m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001475m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004425m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000295m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000184375m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2913,12 +3273,15 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.0000045m,
-                        CacheRead = 0.000000075m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000045m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2932,29 +3295,35 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 7, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.00000375m,
-                        ImageInput = 0.00000075m,
-                        AudioInput = 0.00000075m,
-                        AudioCacheRead = 0.000000075m,
-                        CacheRead = 0.000000075m,
-                        CacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.00000375m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000416666666666667m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000375m,
-                        TextOutput = 0.000001875m,
-                        ImageInput = 0.000000375m,
-                        AudioInput = 0.000000375m,
-                        AudioCacheRead = 0.0000000375m,
-                        CacheRead = 0.0000000375m,
-                        CacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.000001875m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001875m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000000375m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000416666666666667m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000001875m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     Aliases = new List<string> { "google/gemini-3.6-flash:batch" },
                 },
 
@@ -2970,17 +3339,20 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.00000375m,
-                        ImageInput = 0.00000075m,
-                        AudioInput = 0.00000075m,
-                        AudioCacheRead = 0.000000075m,
-                        CacheRead = 0.000000075m,
-                        CacheWrite = 0.0000000416666666666667m,
-                        InternalReasoning = 0.00000375m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000416666666666667m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -2994,12 +3366,15 @@ new AIModelCapabilities
                     ContextLimit = 500000,
                     Created = new DateTime(2026, 7, 8),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000003m,
-                        WebSearch = 0.005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3013,12 +3388,15 @@ new AIModelCapabilities
                     ContextLimit = 500000,
                     Created = new DateTime(2026, 7, 8),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3032,11 +3410,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 7, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.00000075m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000075m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3050,17 +3431,23 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 6, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000341m,
-                        TextOutput = 0.000007m,
-                        CacheRead = 0.000000033m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000341m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000007m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000033m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000007m,
-                        TextOutput = 0.0000022m,
-                        CacheRead = 0.00000007m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000007m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000007m),
+            },
+        },
                     Aliases = new List<string> { "z-ai/glm-5.2:batch" },
                 },
 
@@ -3075,15 +3462,21 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 30),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000015m,
-                        TextOutput = 0.0000075m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.00000375m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000375m),
+            },
+        },
                     Aliases = new List<string> { "mistralai/mistral-medium-3-5:batch" },
                 },
 
@@ -3098,21 +3491,27 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 30),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "anthropic/claude-sonnet-5:batch" },
                 },
 
@@ -3128,13 +3527,16 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3148,17 +3550,23 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 7, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000239m,
-                        TextOutput = 0.0000108m,
-                        CacheRead = 0.00000021m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000239m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000108m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000021m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000228m,
-                        TextOutput = 0.0000114m,
-                        CacheRead = 0.000000228m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000228m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000114m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000228m),
+            },
+        },
                     Aliases = new List<string> { "moonshotai/kimi-k3:batch" },
                 },
 
@@ -3173,20 +3581,26 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000012m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000001m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5.6-terra-pro:batch" },
                 },
 
@@ -3201,20 +3615,26 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000012m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000001m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5.6-terra:batch" },
                 },
 
@@ -3229,28 +3649,34 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 5, 19),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000015m,
-                        TextOutput = 0.000009m,
-                        ImageInput = 0.0000015m,
-                        AudioInput = 0.000003m,
-                        AudioCacheRead = 0.0000003m,
-                        CacheRead = 0.00000015m,
-                        CacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.000009m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000009m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000009m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.0000045m,
-                        ImageInput = 0.00000075m,
-                        AudioInput = 0.0000015m,
-                        AudioCacheRead = 0.00000015m,
-                        CacheRead = 0.000000075m,
-                        InternalReasoning = 0.0000045m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000045m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000045m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     Aliases = new List<string> { "google/gemini-3.5-flash:batch" },
                 },
 
@@ -3266,17 +3692,20 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        ImageInput = 0.000002m,
-                        AudioInput = 0.000002m,
-                        AudioCacheRead = 0.0000001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000001875m,
-                        InternalReasoning = 0.00001m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000001875m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3291,11 +3720,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 4, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.000016m,
-                        CacheRead = 0.00000014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000016m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3309,21 +3741,27 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.00002m,
-                        CacheRead = 0.0000004m,
-                        CacheWrite = 0.000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5.6-sol-pro:batch" },
                 },
 
@@ -3338,21 +3776,27 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.00002m,
-                        CacheRead = 0.0000004m,
-                        CacheWrite = 0.000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5.6-sol:batch" },
                 },
 
@@ -3367,21 +3811,27 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 7, 24),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000125m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.000003125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000003125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "anthropic/claude-opus-5:batch" },
                 },
 
@@ -3396,21 +3846,27 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 5, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000125m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.000003125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000003125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "anthropic/claude-opus-4.8:batch" },
                 },
 
@@ -3425,12 +3881,15 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 24),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.00003m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3444,12 +3903,15 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 5, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.00003m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3464,12 +3926,15 @@ new AIModelCapabilities
                     ContextLimit = 65536,
                     Created = new DateTime(2026, 6, 30),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.0000015m,
-                        ImageOutput = 0.00003m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3483,13 +3948,16 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3503,21 +3971,27 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 6, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.000001m,
-                        CacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "anthropic/claude-fable-5:batch" },
                 },
 
@@ -3532,12 +4006,16 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 6, 18),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.000003m,
-                        ImageOutput = 0.00006m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00006m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
+                    Aliases = new List<string> { "google/gemini-3-1-flash-image" },
                 },
 
                 new AIModelCapabilities
@@ -3551,18 +4029,21 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 6, 18),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000012m,
-                        ImageInput = 0.000002m,
-                        ImageOutput = 0.00012m,
-                        AudioInput = 0.000002m,
-                        AudioCacheRead = 0.0000002m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.000000375m,
-                        InternalReasoning = 0.000012m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00012m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000012m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                 },
 
 
@@ -3580,11 +4061,7 @@ new AIModelCapabilities
                     Rank = 9185,
                     ContextLimit = 2000000,
                     Created = new DateTime(2026, 4, 21),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = -1m,
-                        TextOutput = -1m,
-                    },
+                    Pricing = new AIModelPricing(),
                 },
 
                 new AIModelCapabilities
@@ -3678,10 +4155,13 @@ new AIModelCapabilities
                     ContextLimit = 16384,
                     Created = new DateTime(2026, 3, 20),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3696,11 +4176,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000091m,
-                        TextOutput = 0.000000182m,
-                        CacheRead = 0.0000000182m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000091m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000182m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000182m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3715,11 +4198,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 3),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000675m,
-                        TextOutput = 0.000000225m,
-                        CacheRead = 0.0000000375m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000675m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000225m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3734,11 +4220,14 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 2, 25),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000065m,
-                        TextOutput = 0.00000026m,
-                        CacheWrite = 0.00000008125m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000065m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000026m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000008125m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3753,11 +4242,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 1, 29),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000003m,
-                        CacheRead = 0.00000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3772,16 +4264,22 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 2),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000004m,
-                        CacheRead = 0.00000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000039m,
-                        TextOutput = 0.00000097m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000039m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000097m),
+            },
+        },
                     Aliases = new List<string> { "google/gemma-4-31b-it:batch" },
                 },
 
@@ -3797,10 +4295,13 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 2, 26),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3815,11 +4316,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002088m,
-                        TextOutput = 0.0000004176m,
-                        CacheRead = 0.0000000174m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002088m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004176m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000174m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3833,11 +4337,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000018m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.00000006m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000018m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000006m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3852,17 +4359,23 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 3, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.000000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.0000003m,
-                        CacheRead = 0.0000000075m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000075m),
+            },
+        },
                     Aliases = new List<string> { "mistralai/mistral-small-2603:batch" },
                 },
 
@@ -3878,11 +4391,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 1, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.000000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3897,11 +4413,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 3, 4),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.00000075m,
-                        CacheRead = 0.000000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3916,11 +4435,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 2, 4),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000012m,
-                        TextOutput = 0.0000008m,
-                        CacheRead = 0.00000007m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000012m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000008m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000007m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3935,11 +4457,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 2, 25),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000014m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.00000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000014m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3954,11 +4479,14 @@ new AIModelCapabilities
                     ContextLimit = 204800,
                     Created = new DateTime(2026, 3, 18),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000006m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000006m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3973,11 +4501,14 @@ new AIModelCapabilities
                     ContextLimit = 204800,
                     Created = new DateTime(2026, 2, 12),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -3992,19 +4523,25 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 3, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.00000125m,
-                        CacheRead = 0.00000002m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.000000625m,
-                        CacheRead = 0.00000001m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000625m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5.4-nano:batch" },
                 },
 
@@ -4020,11 +4557,14 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 2, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000026m,
-                        TextOutput = 0.00000156m,
-                        CacheWrite = 0.000000325m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000026m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000156m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000325m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4039,11 +4579,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2026, 2, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000016m,
-                        CacheRead = 0.0000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000016m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4058,11 +4601,14 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 2),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000325m,
-                        TextOutput = 0.00000195m,
-                        CacheWrite = 0.00000040625m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000325m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000195m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000040625m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4077,10 +4623,13 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 3, 10),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4095,11 +4644,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 2, 25),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000027m,
-                        TextOutput = 0.00000216m,
-                        CacheRead = 0.00000027m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000027m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000216m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000027m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4114,17 +4666,20 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 3, 3),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.0000015m,
-                        ImageInput = 0.00000025m,
-                        AudioInput = 0.0000005m,
-                        AudioCacheRead = 0.00000005m,
-                        CacheRead = 0.000000025m,
-                        CacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.0000015m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4136,14 +4691,17 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Rank = 9035,
-                    ContextLimit = 262144,
+                    ContextLimit = 1048576,
                     Created = new DateTime(2026, 3, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000024m,
-                        CacheRead = 0.00000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000024m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4158,12 +4716,15 @@ new AIModelCapabilities
                     ContextLimit = 2000000,
                     Created = new DateTime(2026, 3, 31),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.0000002m,
-                        WebSearch = 0.005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4178,12 +4739,15 @@ new AIModelCapabilities
                     ContextLimit = 2000000,
                     Created = new DateTime(2026, 3, 31),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.0000002m,
-                        WebSearch = 0.005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4198,11 +4762,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 1, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.00000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4217,10 +4784,13 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 2, 25),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.0000032m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000032m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4235,11 +4805,14 @@ new AIModelCapabilities
                     ContextLimit = 204800,
                     Created = new DateTime(2026, 2, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.0000032m,
-                        CacheRead = 0.0000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000032m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4254,11 +4827,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 20),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000065m,
-                        TextOutput = 0.00000341m,
-                        CacheRead = 0.00000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000065m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000341m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4273,11 +4849,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 2, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000036m,
-                        CacheRead = 0.0000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000036m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4292,11 +4871,14 @@ new AIModelCapabilities
                     ContextLimit = 202752,
                     Created = new DateTime(2026, 3, 15),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000012m,
-                        TextOutput = 0.000004m,
-                        CacheRead = 0.00000024m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000024m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4311,11 +4893,14 @@ new AIModelCapabilities
                     ContextLimit = 204800,
                     Created = new DateTime(2026, 4, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000014m,
-                        TextOutput = 0.0000044m,
-                        CacheRead = 0.00000026m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000014m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000044m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000026m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4330,19 +4915,25 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 3, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.0000045m,
-                        CacheRead = 0.000000075m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000045m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000375m,
-                        TextOutput = 0.00000225m,
-                        CacheRead = 0.0000000375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000225m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5.4-mini:batch" },
                 },
 
@@ -4358,12 +4949,15 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 2, 24),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000175m,
-                        TextOutput = 0.000014m,
-                        CacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000175m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000014m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000175m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4378,19 +4972,25 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 3, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.00000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.0000075m,
-                        CacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5.4:batch" },
                 },
 
@@ -4406,21 +5006,27 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 2, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000015m,
-                        TextOutput = 0.0000075m,
-                        CacheRead = 0.00000015m,
-                        CacheWrite = 0.000001875m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000001875m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "anthropic/claude-sonnet-4.6:batch" },
                 },
 
@@ -4436,17 +5042,20 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 2, 25),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000012m,
-                        ImageInput = 0.000002m,
-                        AudioInput = 0.000002m,
-                        AudioCacheRead = 0.0000002m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.000000375m,
-                        InternalReasoning = 0.000012m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000012m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4461,26 +5070,32 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 2, 19),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000012m,
-                        ImageInput = 0.000002m,
-                        AudioInput = 0.000002m,
-                        AudioCacheRead = 0.0000002m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.000000375m,
-                        InternalReasoning = 0.000012m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000012m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000006m,
-                        ImageInput = 0.000001m,
-                        AudioInput = 0.000001m,
-                        InternalReasoning = 0.000006m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     Aliases = new List<string> { "google/gemini-3.1-pro-preview:batch" },
                 },
 
@@ -4496,13 +5111,16 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.00002m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4517,21 +5135,27 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 4, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000125m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.000003125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000003125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "anthropic/claude-opus-4.7:batch" },
                 },
 
@@ -4547,21 +5171,27 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 2, 4),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000125m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.000003125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000003125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "anthropic/claude-opus-4.6:batch" },
                 },
 
@@ -4577,19 +5207,25 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.00003m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.00000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5.5:batch" },
                 },
 
@@ -4605,13 +5241,16 @@ new AIModelCapabilities
                     ContextLimit = 272000,
                     Created = new DateTime(2026, 4, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000008m,
-                        TextOutput = 0.000015m,
-                        ImageOutput = 0.00003m,
-                        CacheRead = 0.000002m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4626,12 +5265,15 @@ new AIModelCapabilities
                     ContextLimit = 65536,
                     Created = new DateTime(2026, 2, 26),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.000003m,
-                        ImageOutput = 0.00006m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00006m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4646,17 +5288,23 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00003m,
-                        TextOutput = 0.00018m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00018m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.00009m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00009m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5.5-pro:batch" },
                 },
 
@@ -4672,17 +5320,23 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 3, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00003m,
-                        TextOutput = 0.00018m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00018m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.00009m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00009m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5.4-pro:batch" },
                 },
 
@@ -4701,11 +5355,7 @@ new AIModelCapabilities
                     Rank = 8915,
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 12, 5),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = -1m,
-                        TextOutput = -1m,
-                    },
+                    Pricing = new AIModelPricing(),
                 },
 
                 new AIModelCapabilities
@@ -4720,11 +5370,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 12, 2),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000001m,
-                        CacheRead = 0.00000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4739,17 +5392,23 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 2),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000015m,
-                        CacheRead = 0.000000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.000000075m,
-                        CacheRead = 0.0000000075m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000075m),
+            },
+        },
                     Aliases = new List<string> { "mistralai/ministral-8b-2512:batch" },
                 },
 
@@ -4765,11 +5424,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 2),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.00000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4784,11 +5446,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 14),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000006m,
-                        TextOutput = 0.00000024m,
-                        CacheRead = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000024m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4803,11 +5468,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 10, 29),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.0000003m,
-                        CacheRead = 0.0000000375m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4822,11 +5490,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 12, 8),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000009m,
-                        CacheRead = 0.00000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000009m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4841,11 +5512,14 @@ new AIModelCapabilities
                     ContextLimit = 65536,
                     Created = new DateTime(2026, 1, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4860,17 +5534,23 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 1),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000015m,
-                        CacheRead = 0.00000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.00000075m,
-                        CacheRead = 0.000000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+            },
+        },
                     Aliases = new List<string> { "mistralai/mistral-large-2512:batch" },
                 },
 
@@ -4886,12 +5566,15 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 11, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.00000003m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4906,10 +5589,13 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2025, 12, 2),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4924,11 +5610,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 11, 6),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.00000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4943,10 +5632,13 @@ new AIModelCapabilities
                     ContextLimit = 256000,
                     Created = new DateTime(2025, 12, 8),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -4961,26 +5653,32 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 12, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.000003m,
-                        ImageInput = 0.0000005m,
-                        AudioInput = 0.000001m,
-                        AudioCacheRead = 0.0000001m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.000003m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.0000015m,
-                        ImageInput = 0.00000025m,
-                        AudioInput = 0.0000005m,
-                        InternalReasoning = 0.0000015m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     Aliases = new List<string> { "google/gemini-3-flash-preview:batch" },
                 },
 
@@ -4996,12 +5694,15 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 1, 19),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.0000024m,
-                        AudioInput = 0.0000006m,
-                        AudioOutput = 0.0000024m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000024m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("audio_output", AIPriceUnit.Token, 0.0000024m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5016,10 +5717,13 @@ new AIModelCapabilities
                     ContextLimit = 1040000,
                     Created = new DateTime(2026, 1, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.000006m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5034,12 +5738,15 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 12, 4),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5054,19 +5761,25 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 11, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000625m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000625m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5.1:batch" },
                 },
 
@@ -5082,12 +5795,15 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 11, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.00000013m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000013m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5102,11 +5818,14 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2025, 10, 31),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000125m,
-                        CacheRead = 0.000000625m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000625m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5121,12 +5840,15 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 1, 14),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000175m,
-                        TextOutput = 0.000014m,
-                        CacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000175m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000014m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000175m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5141,19 +5863,25 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 12, 10),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000175m,
-                        TextOutput = 0.000014m,
-                        CacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000175m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000014m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000175m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000875m,
-                        TextOutput = 0.000007m,
-                        CacheRead = 0.0000000875m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000875m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000007m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000875m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5.2:batch" },
                 },
 
@@ -5169,11 +5897,14 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 10, 30),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        WebSearch = 0.018m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.018m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5188,21 +5919,27 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 11, 24),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000125m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.000003125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000003125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "anthropic/claude-opus-4.5:batch" },
                 },
 
@@ -5218,12 +5955,15 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 1, 19),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        AudioInput = 0.000032m,
-                        AudioOutput = 0.000064m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000032m),
+                new AIPriceEntry("audio_output", AIPriceUnit.Token, 0.000064m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5238,12 +5978,15 @@ new AIModelCapabilities
                     ContextLimit = 32768,
                     Created = new DateTime(2025, 10, 30),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000003m,
-                        AudioInput = 0.0001m,
-                        CacheRead = 0.00000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5258,18 +6001,21 @@ new AIModelCapabilities
                     ContextLimit = 65536,
                     Created = new DateTime(2025, 11, 20),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000012m,
-                        ImageInput = 0.000002m,
-                        ImageOutput = 0.00012m,
-                        AudioInput = 0.000002m,
-                        AudioCacheRead = 0.0000002m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.000000375m,
-                        InternalReasoning = 0.000012m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00012m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000012m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5284,17 +6030,23 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 12, 10),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000021m,
-                        TextOutput = 0.000168m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000021m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000168m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000105m,
-                        TextOutput = 0.000084m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000105m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000084m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5.2-pro:batch" },
                 },
 
@@ -5314,16 +6066,22 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 8, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000018m,
-                        TextOutput = 0.00000009m,
-                        CacheRead = 0.000000009m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000018m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000009m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000009m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000024m,
-                        TextOutput = 0.000000112m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000024m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000112m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-oss-20b:batch" },
                 },
 
@@ -5339,10 +6097,13 @@ new AIModelCapabilities
                     ContextLimit = 131000,
                     Created = new DateTime(2025, 10, 20),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000017m,
-                        TextOutput = 0.000000112m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000017m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000112m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5357,10 +6118,13 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 7, 31),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000007m,
-                        TextOutput = 0.00000028m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000007m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000028m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5375,10 +6139,13 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 7, 29),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000009m,
-                        TextOutput = 0.0000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000009m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5393,19 +6160,25 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 8, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.0000004m,
-                        CacheRead = 0.000000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000025m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.0000000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5-nano:batch" },
                 },
 
@@ -5421,11 +6194,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 9, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5440,10 +6216,13 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 10, 6),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5458,16 +6237,22 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 8, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.000000075m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000296m,
-                        TextOutput = 0.000000136m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000296m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000136m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-oss-120b:batch" },
                 },
 
@@ -5483,11 +6268,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 7, 25),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000013m,
-                        TextOutput = 0.00000085m,
-                        CacheRead = 0.000000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000013m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000085m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5502,17 +6290,23 @@ new AIModelCapabilities
                     ContextLimit = 256000,
                     Created = new DateTime(2025, 8, 1),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000009m,
-                        CacheRead = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000009m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000045m,
-                        CacheRead = 0.000000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000045m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+            },
+        },
                     Aliases = new List<string> { "mistralai/codestral-2508:batch" },
                 },
 
@@ -5528,11 +6322,14 @@ new AIModelCapabilities
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 8, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.00000095m,
-                        CacheRead = 0.00000013m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000095m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000013m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5547,12 +6344,15 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2025, 9, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000195m,
-                        TextOutput = 0.000000975m,
-                        CacheRead = 0.000000039m,
-                        CacheWrite = 0.00000024375m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000195m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000975m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000039m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000024375m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5567,11 +6367,14 @@ new AIModelCapabilities
                     ContextLimit = 204800,
                     Created = new DateTime(2025, 10, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000255m,
-                        TextOutput = 0.00000102m,
-                        CacheRead = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000255m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000102m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5586,11 +6389,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 9, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000009m,
-                        TextOutput = 0.0000011m,
-                        CacheRead = 0.00000007m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000009m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000011m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000007m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5605,10 +6411,13 @@ new AIModelCapabilities
                     ContextLimit = 256000,
                     Created = new DateTime(2025, 9, 26),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000085m,
-                        TextOutput = 0.00000125m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000085m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5623,11 +6432,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 9, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000021m,
-                        TextOutput = 0.0000019m,
-                        CacheRead = 0.0000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000021m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000019m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5642,18 +6454,24 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 8, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.00000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.00000002m,
-                    },
-                    Aliases = new List<string> { "mistralai/mistral-medium-3.1:batch" },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+            },
+        },
+                    Aliases = new List<string> { "mistralai/mistral-medium-3.1:batch", "mistralai/mistral-medium-3-1" },
                 },
 
                 new AIModelCapabilities
@@ -5661,27 +6479,33 @@ new AIModelCapabilities
                     Provider = provider,
                     Model = "openai/gpt-5-mini",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.Text2Json,
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 8690,
+                    Deprecated = true,
+                    Rank = 0,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 8, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.000000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000125m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.0000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5-mini:batch" },
                 },
 
@@ -5697,10 +6521,13 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 8, 26),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5715,21 +6542,27 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 10, 15),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.000000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "anthropic/claude-haiku-4.5:batch" },
                 },
 
@@ -5745,13 +6578,16 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 10, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.000002m,
-                        ImageOutput = 0.000008m,
-                        CacheRead = 0.00000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("image_output", AIPriceUnit.Token, 0.000008m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5766,19 +6602,25 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 8, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000625m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000625m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5:batch" },
                 },
 
@@ -5794,21 +6636,27 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2025, 9, 29),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000015m,
-                        TextOutput = 0.0000075m,
-                        CacheRead = 0.00000015m,
-                        CacheWrite = 0.000001875m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000001875m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "anthropic/claude-sonnet-4.5:batch" },
                 },
 
@@ -5824,13 +6672,16 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 10, 14),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00001m,
-                        ImageOutput = 0.00004m,
-                        CacheRead = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5845,21 +6696,27 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 8, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.000075m,
-                        CacheRead = 0.0000015m,
-                        CacheWrite = 0.00001875m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00001875m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000075m,
-                        TextOutput = 0.0000375m,
-                        CacheRead = 0.00000075m,
-                        CacheWrite = 0.000009375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000375m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000009375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "anthropic/claude-opus-4.1:batch" },
                 },
 
@@ -5875,17 +6732,23 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 10, 6),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.00012m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00012m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000075m,
-                        TextOutput = 0.00006m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00006m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5-pro:batch" },
                 },
 
@@ -5905,10 +6768,13 @@ new AIModelCapabilities
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 4, 30),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000018m,
-                        TextOutput = 0.00000018m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000018m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000018m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5923,11 +6789,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 7, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.0000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5942,11 +6811,15 @@ new AIModelCapabilities
                     ContextLimit = 256000,
                     Created = new DateTime(2025, 6, 20),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.00000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+            },
+        },
+                    Aliases = new List<string> { "mistralai/mistral-small-3-2-24b-instruct" },
                 },
 
                 new AIModelCapabilities
@@ -5961,10 +6834,13 @@ new AIModelCapabilities
                     ContextLimit = 40960,
                     Created = new DateTime(2025, 4, 28),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000012m,
-                        TextOutput = 0.00000024m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000012m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000024m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5979,11 +6855,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 4, 28),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000008m,
-                        TextOutput = 0.00000028m,
-                        CacheRead = 0.00000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000028m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -5998,10 +6877,13 @@ new AIModelCapabilities
                     ContextLimit = 40960,
                     Created = new DateTime(2025, 4, 28),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000012m,
-                        TextOutput = 0.0000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000012m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6016,11 +6898,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 7, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000009m,
-                        TextOutput = 0.00000055m,
-                        CacheRead = 0.0000000175m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000009m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000055m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000175m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6035,10 +6920,13 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 7, 8),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000014m,
-                        TextOutput = 0.00000057m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000014m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000057m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6052,10 +6940,13 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 7, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000009m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000009m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6070,11 +6961,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 7, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.0000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6089,10 +6983,13 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 7, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000012m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6107,10 +7004,13 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 7, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000009m,
-                        TextOutput = 0.0000019m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000009m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000019m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6125,11 +7025,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 5, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.00000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6144,11 +7047,14 @@ new AIModelCapabilities
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 5, 28),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.00000215m,
-                        CacheRead = 0.00000035m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000215m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000035m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6163,10 +7069,13 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2025, 6, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000055m,
-                        TextOutput = 0.0000022m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000055m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6181,10 +7090,13 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 7, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000057m,
-                        TextOutput = 0.0000023m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000057m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000023m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6199,17 +7111,20 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 6, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        ImageInput = 0.00000125m,
-                        AudioInput = 0.00000125m,
-                        AudioCacheRead = 0.000000125m,
-                        CacheRead = 0.000000125m,
-                        CacheWrite = 0.000000375m,
-                        InternalReasoning = 0.00001m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6224,17 +7139,23 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 6, 10),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00002m,
-                        TextOutput = 0.00008m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00008m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00004m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00004m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/o3-pro:batch" },
                 },
 
@@ -6254,11 +7175,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 3, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000004m,
-                        TextOutput = 0.00000005m,
-                        CacheRead = 0.00000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6273,10 +7197,13 @@ new AIModelCapabilities
                     ContextLimit = 32768,
                     Created = new DateTime(2025, 1, 30),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000008m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000008m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6291,10 +7218,13 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 3, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6309,10 +7239,13 @@ new AIModelCapabilities
                     ContextLimit = 65536,
                     Created = new DateTime(2025, 3, 12),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6324,13 +7257,16 @@ new AIModelCapabilities
                     SupportsBatch = false,
                     Verified = false,
                     Rank = 8535,
-                    ContextLimit = 1310720,
+                    ContextLimit = 327680,
                     Created = new DateTime(2025, 4, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6345,11 +7281,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 3, 12),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000008m,
-                        TextOutput = 0.00000035m,
-                        CacheRead = 0.00000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000035m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6364,19 +7303,25 @@ new AIModelCapabilities
                     ContextLimit = 1047576,
                     Created = new DateTime(2025, 4, 14),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000004m,
-                        CacheRead = 0.000000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.0000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-4.1-nano:batch" },
                 },
 
@@ -6392,10 +7337,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 3, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000351m,
-                        TextOutput = 0.000000555m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000351m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000555m),
+            },
+        },
+                    Aliases = new List<string> { "mistralai/mistral-small-3-1-24b-instruct" },
                 },
 
                 new AIModelCapabilities
@@ -6410,11 +7359,14 @@ new AIModelCapabilities
                     ContextLimit = 32768,
                     Created = new DateTime(2025, 2, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.00000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6429,11 +7381,14 @@ new AIModelCapabilities
                     ContextLimit = 524288,
                     Created = new DateTime(2025, 4, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001875m,
-                        TextOutput = 0.0000006525m,
-                        CacheRead = 0.00000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001875m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006525m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6448,12 +7403,15 @@ new AIModelCapabilities
                     ContextLimit = 1000000,
                     Created = new DateTime(2025, 2, 1),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000026m,
-                        TextOutput = 0.00000078m,
-                        CacheRead = 0.000000052m,
-                        CacheWrite = 0.000000325m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000026m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000078m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000052m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000325m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6468,11 +7426,14 @@ new AIModelCapabilities
                     ContextLimit = 32768,
                     Created = new DateTime(2025, 3, 10),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000055m,
-                        TextOutput = 0.0000008m,
-                        CacheRead = 0.00000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000055m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000008m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6487,11 +7448,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 2, 1),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.0000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6506,11 +7470,14 @@ new AIModelCapabilities
                     ContextLimit = 127072,
                     Created = new DateTime(2025, 1, 27),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000001m,
-                        WebSearch = 0.005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6525,11 +7492,14 @@ new AIModelCapabilities
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 3, 24),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000029m,
-                        TextOutput = 0.00000114m,
-                        CacheRead = 0.00000011m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000029m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000114m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000011m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6544,19 +7514,25 @@ new AIModelCapabilities
                     ContextLimit = 1047576,
                     Created = new DateTime(2025, 4, 14),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.0000016m,
-                        CacheRead = 0.0000001m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000016m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000008m,
-                        CacheRead = 0.00000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000008m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-4.1-mini:batch" },
                 },
 
@@ -6572,10 +7548,13 @@ new AIModelCapabilities
                     ContextLimit = 32768,
                     Created = new DateTime(2025, 2, 4),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000016m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000016m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6590,19 +7569,25 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 4, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000011m,
-                        TextOutput = 0.0000044m,
-                        CacheRead = 0.000000275m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000011m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000044m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000275m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000055m,
-                        TextOutput = 0.0000022m,
-                        CacheRead = 0.0000001375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000055m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/o4-mini-high:batch" },
                 },
 
@@ -6618,19 +7603,25 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 4, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000011m,
-                        TextOutput = 0.0000044m,
-                        CacheRead = 0.000000275m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000011m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000044m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000275m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000055m,
-                        TextOutput = 0.0000022m,
-                        CacheRead = 0.0000001375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000055m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/o4-mini:batch" },
                 },
 
@@ -6646,19 +7637,25 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 2, 12),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000011m,
-                        TextOutput = 0.0000044m,
-                        CacheRead = 0.00000055m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000011m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000044m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000055m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000055m,
-                        TextOutput = 0.0000022m,
-                        CacheRead = 0.000000275m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000055m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000275m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/o3-mini-high:batch" },
                 },
 
@@ -6674,19 +7671,25 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 1, 31),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000011m,
-                        TextOutput = 0.0000044m,
-                        CacheRead = 0.00000055m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000011m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000044m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000055m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000055m,
-                        TextOutput = 0.0000022m,
-                        CacheRead = 0.000000275m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000055m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000275m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/o3-mini:batch" },
                 },
 
@@ -6702,19 +7705,25 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 4, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000008m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000004m,
-                        CacheRead = 0.00000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/o3:batch" },
                 },
 
@@ -6730,19 +7739,25 @@ new AIModelCapabilities
                     ContextLimit = 1047576,
                     Created = new DateTime(2025, 4, 14),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000008m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000004m,
-                        CacheRead = 0.00000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-4.1:batch" },
                 },
 
@@ -6758,11 +7773,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 3, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000008m,
-                        WebSearch = 0.005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6777,12 +7795,15 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 3, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000008m,
-                        InternalReasoning = 0.000003m,
-                        WebSearch = 0.005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6797,10 +7818,13 @@ new AIModelCapabilities
                     ContextLimit = 256000,
                     Created = new DateTime(2025, 3, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6815,11 +7839,14 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 3, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        WebSearch = 0.005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6834,17 +7861,23 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 3, 19),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00015m,
-                        TextOutput = 0.0006m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0006m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000075m,
-                        TextOutput = 0.0003m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0003m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/o1-pro:batch" },
                 },
 
@@ -6864,10 +7897,13 @@ new AIModelCapabilities
                     ContextLimit = 16384,
                     Created = new DateTime(2025, 1, 10),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000007m,
-                        TextOutput = 0.00000014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000007m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6882,10 +7918,13 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 12, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000035m,
-                        TextOutput = 0.00000014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000035m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6900,10 +7939,13 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 12, 14),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000375m,
-                        TextOutput = 0.00000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000375m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6918,10 +7960,13 @@ new AIModelCapabilities
                     ContextLimit = 300000,
                     Created = new DateTime(2024, 12, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000006m,
-                        TextOutput = 0.00000024m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000024m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6936,11 +7981,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 12, 6),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.00000032m,
-                        CacheRead = 0.00000011m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000032m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000011m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6954,10 +8002,13 @@ new AIModelCapabilities
                     ContextLimit = 1024000,
                     Created = new DateTime(2024, 11, 8),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.0000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6972,10 +8023,13 @@ new AIModelCapabilities
                     ContextLimit = 32768,
                     Created = new DateTime(2024, 11, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000066m,
-                        TextOutput = 0.000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000066m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -6990,10 +8044,13 @@ new AIModelCapabilities
                     ContextLimit = 163840,
                     Created = new DateTime(2024, 12, 26),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002574m,
-                        TextOutput = 0.0000010287m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002574m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000010287m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7008,10 +8065,13 @@ new AIModelCapabilities
                     ContextLimit = 1000192,
                     Created = new DateTime(2025, 1, 15),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000011m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000011m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7026,10 +8086,13 @@ new AIModelCapabilities
                     ContextLimit = 300000,
                     Created = new DateTime(2024, 12, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000032m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000032m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7044,11 +8107,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 11, 19),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7063,11 +8129,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 11, 20),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.00000125m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000125m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7082,19 +8151,25 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2024, 12, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.00006m,
-                        CacheRead = 0.0000075m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000075m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000075m,
-                        TextOutput = 0.00003m,
-                        CacheRead = 0.00000375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/o1:batch" },
                 },
 
@@ -7113,11 +8188,7 @@ new AIModelCapabilities
                     Rank = 8350,
                     ContextLimit = 2000000,
                     Created = new DateTime(2023, 11, 8),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = -1m,
-                        TextOutput = -1m,
-                    },
+                    Pricing = new AIModelPricing(),
                 },
 
                 new AIModelCapabilities
@@ -7132,10 +8203,13 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 7, 19),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000029m,
-                        TextOutput = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000029m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7150,10 +8224,13 @@ new AIModelCapabilities
                     ContextLimit = 8192,
                     Created = new DateTime(2024, 8, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000004m,
-                        TextOutput = 0.00000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7168,11 +8245,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 7, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000008m,
-                        CacheRead = 0.000000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000008m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7187,10 +8267,13 @@ new AIModelCapabilities
                     ContextLimit = 8192,
                     Created = new DateTime(2023, 7, 2),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000008m,
-                        TextOutput = 0.00000011m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000011m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7205,10 +8288,13 @@ new AIModelCapabilities
                     ContextLimit = 32768,
                     Created = new DateTime(2024, 10, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7223,10 +8309,13 @@ new AIModelCapabilities
                     ContextLimit = 60000,
                     Created = new DateTime(2024, 9, 25),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000027m,
-                        TextOutput = 0.000000201m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000027m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000201m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7241,10 +8330,13 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 9, 25),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000033m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000033m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7259,10 +8351,13 @@ new AIModelCapabilities
                     ContextLimit = 32768,
                     Created = new DateTime(2024, 9, 19),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000036m,
-                        TextOutput = 0.0000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000036m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7277,10 +8372,13 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 7, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.0000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7295,10 +8393,13 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 8, 30),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7313,18 +8414,24 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 7, 18),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.000000075m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.0000003m,
-                        CacheRead = 0.0000000375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-4o-mini:batch" },
                 },
 
@@ -7340,11 +8447,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 7, 18),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.000000075m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7359,10 +8469,13 @@ new AIModelCapabilities
                     ContextLimit = 8192,
                     Created = new DateTime(2024, 7, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000065m,
-                        TextOutput = 0.00000065m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000065m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000065m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7377,10 +8490,13 @@ new AIModelCapabilities
                     ContextLimit = 6144,
                     Created = new DateTime(2023, 7, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000035m,
-                        TextOutput = 0.00000065m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000035m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000065m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7395,10 +8511,13 @@ new AIModelCapabilities
                     ContextLimit = 8000,
                     Created = new DateTime(2023, 8, 2),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.00000075m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000075m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7413,10 +8532,13 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 8, 28),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000085m,
-                        TextOutput = 0.00000085m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000085m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000085m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7431,10 +8553,13 @@ new AIModelCapabilities
                     ContextLimit = 4095,
                     Created = new DateTime(2024, 1, 25),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7449,10 +8574,13 @@ new AIModelCapabilities
                     ContextLimit = 16385,
                     Created = new DateTime(2023, 8, 28),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7467,10 +8595,13 @@ new AIModelCapabilities
                     ContextLimit = 32768,
                     Created = new DateTime(2024, 10, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7485,11 +8616,14 @@ new AIModelCapabilities
                     ContextLimit = 65536,
                     Created = new DateTime(2024, 4, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7504,11 +8638,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 2, 26),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7523,10 +8660,13 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 8, 30),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7541,11 +8681,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 8, 6),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.00000125m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000125m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7560,18 +8703,24 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 5, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.00000125m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000125m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.000000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-4o:batch" },
                 },
 
@@ -7587,10 +8736,13 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 5, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7605,16 +8757,22 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 4, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000015m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-4-turbo:batch" },
                 },
 
@@ -7630,10 +8788,13 @@ new AIModelCapabilities
                     ContextLimit = 8191,
                     Created = new DateTime(2023, 5, 28),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00003m,
-                        TextOutput = 0.00006m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00006m),
+            },
+        },
                 },
 
 
@@ -7665,10 +8826,13 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 8, 12),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7709,11 +8873,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 7, 2),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000006m,
-                        TextOutput = 0.00000012m,
-                        CacheRead = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7728,11 +8895,14 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 7, 21),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000009m,
-                        TextOutput = 0.00000018m,
-                        CacheRead = 0.000000009m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000009m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000018m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000009m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7748,11 +8918,14 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 4, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000119m,
-                        TextOutput = 0.000000238m,
-                        CacheRead = 0.00000000255m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000119m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000238m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000000255m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7768,15 +8941,21 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 3, 10),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000017m,
-                        TextOutput = 0.00000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000017m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000025m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000017m,
-                        TextOutput = 0.00000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000017m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000025m),
+            },
+        },
                     Aliases = new List<string> { "qwen/qwen3.5-9b:batch" },
                 },
 
@@ -7793,11 +8972,14 @@ new AIModelCapabilities
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 4, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003045m,
-                        TextOutput = 0.000000609m,
-                        CacheRead = 0.0000000028m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003045m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000609m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000028m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7813,11 +8995,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 1),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.0000008m,
-                        CacheRead = 0.00000006m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000008m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000006m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7833,11 +9018,14 @@ new AIModelCapabilities
                     ContextLimit = 202752,
                     Created = new DateTime(2026, 4, 1),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000012m,
-                        TextOutput = 0.000004m,
-                        CacheRead = 0.00000024m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000024m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7853,11 +9041,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.0000003m,
-                        CacheRead = 0.000000045m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000045m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7873,11 +9064,14 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2026, 1, 19),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000605m,
-                        TextOutput = 0.0000004m,
-                        CacheRead = 0.00000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000605m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7893,11 +9087,14 @@ new AIModelCapabilities
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 12, 1),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000028m,
-                        TextOutput = 0.00000042m,
-                        CacheRead = 0.000000028m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000028m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000042m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000028m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7913,11 +9110,14 @@ new AIModelCapabilities
                     ContextLimit = 204800,
                     Created = new DateTime(2025, 12, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7933,11 +9133,14 @@ new AIModelCapabilities
                     ContextLimit = 204800,
                     Created = new DateTime(2025, 12, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000054m,
-                        TextOutput = 0.00000198m,
-                        CacheRead = 0.000000099m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000054m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000198m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000099m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7953,10 +9156,13 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 23),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7972,11 +9178,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 12, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.00000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -7992,12 +9201,15 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 12, 10),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000175m,
-                        TextOutput = 0.000014m,
-                        CacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000175m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000014m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000175m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8013,10 +9225,13 @@ new AIModelCapabilities
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 9, 29),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000027m,
-                        TextOutput = 0.00000041m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000027m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000041m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8032,11 +9247,14 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 10, 14),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.00000075m,
-                        CacheRead = 0.00000012m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000012m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8052,10 +9270,13 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 10, 6),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000029m,
-                        TextOutput = 0.000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000029m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8071,11 +9292,14 @@ new AIModelCapabilities
                     ContextLimit = 163840,
                     Created = new DateTime(2025, 9, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000027m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.000000135m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000027m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000135m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8091,10 +9315,13 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 9, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000012m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8110,11 +9337,14 @@ new AIModelCapabilities
                     ContextLimit = 65536,
                     Created = new DateTime(2025, 8, 11),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.0000018m,
-                        CacheRead = 0.00000011m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000018m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000011m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8130,11 +9360,14 @@ new AIModelCapabilities
                     ContextLimit = 204800,
                     Created = new DateTime(2025, 9, 30),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000055m,
-                        TextOutput = 0.0000022m,
-                        CacheRead = 0.00000011m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000055m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000011m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8150,11 +9383,14 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 7, 25),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.0000022m,
-                        CacheRead = 0.00000011m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000011m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8170,10 +9406,13 @@ new AIModelCapabilities
                     ContextLimit = 262144,
                     Created = new DateTime(2025, 9, 4),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.0000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8189,11 +9428,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 7, 25),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000045m,
-                        TextOutput = 0.0000035m,
-                        CacheRead = 0.0000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000045m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000035m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8209,18 +9451,21 @@ new AIModelCapabilities
                     ContextLimit = 32768,
                     Created = new DateTime(2025, 10, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000025m,
-                        ImageInput = 0.0000003m,
-                        ImageOutput = 0.00003m,
-                        AudioInput = 0.000001m,
-                        AudioCacheRead = 0.0000001m,
-                        CacheRead = 0.00000003m,
-                        CacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.0000025m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8236,28 +9481,34 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 7, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000004m,
-                        ImageInput = 0.0000001m,
-                        AudioInput = 0.0000003m,
-                        AudioCacheRead = 0.00000003m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.0000004m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.0000002m,
-                        ImageInput = 0.00000005m,
-                        AudioInput = 0.00000015m,
-                        AudioCacheRead = 0.00000003m,
-                        CacheRead = 0.00000001m,
-                        InternalReasoning = 0.0000002m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     Aliases = new List<string> { "google/gemini-2.5-flash-lite:batch" },
                 },
 
@@ -8274,28 +9525,34 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 6, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000025m,
-                        ImageInput = 0.0000003m,
-                        AudioInput = 0.000001m,
-                        AudioCacheRead = 0.0000001m,
-                        CacheRead = 0.00000003m,
-                        CacheWrite = 0.0000000833333333333333m,
-                        InternalReasoning = 0.0000025m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000125m,
-                        ImageInput = 0.00000015m,
-                        AudioInput = 0.0000005m,
-                        AudioCacheRead = 0.0000001m,
-                        CacheRead = 0.00000003m,
-                        InternalReasoning = 0.00000125m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     Aliases = new List<string> { "google/gemini-2.5-flash:batch" },
                 },
 
@@ -8312,28 +9569,34 @@ new AIModelCapabilities
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 6, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        ImageInput = 0.00000125m,
-                        AudioInput = 0.00000125m,
-                        AudioCacheRead = 0.000000125m,
-                        CacheRead = 0.000000125m,
-                        CacheWrite = 0.000000375m,
-                        InternalReasoning = 0.00001m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000625m,
-                        TextOutput = 0.000005m,
-                        ImageInput = 0.000000625m,
-                        AudioInput = 0.000000625m,
-                        AudioCacheRead = 0.000000125m,
-                        CacheRead = 0.000000125m,
-                        InternalReasoning = 0.000005m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000625m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000000625m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000000625m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                     Aliases = new List<string> { "google/gemini-2.5-pro:batch" },
                 },
 
@@ -8350,10 +9613,13 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 8, 18),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000007m,
-                        TextOutput = 0.0000007m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000007m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000007m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8369,10 +9635,13 @@ new AIModelCapabilities
                     ContextLimit = 131072,
                     Created = new DateTime(2024, 8, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8387,13 +9656,16 @@ new AIModelCapabilities
                     Rank = -175,
                     ContextLimit = 1050000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8408,10 +9680,13 @@ new AIModelCapabilities
                     Rank = -180,
                     ContextLimit = 256000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000008m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8425,10 +9700,13 @@ new AIModelCapabilities
                     Rank = -185,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.000008m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8443,10 +9721,13 @@ new AIModelCapabilities
                     Rank = -190,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000007m,
-                        TextOutput = 0.0000014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000007m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8474,11 +9755,14 @@ new AIModelCapabilities
                     Rank = -200,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000009m,
-                        TextOutput = 0.00000045m,
-                        CacheRead = 0.00000009m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000009m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000045m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000009m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8493,10 +9777,13 @@ new AIModelCapabilities
                     Rank = -205,
                     ContextLimit = 65536,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8524,10 +9811,13 @@ new AIModelCapabilities
                     Rank = -215,
                     ContextLimit = 6144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000375m,
-                        TextOutput = 0.0000075m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8542,13 +9832,16 @@ new AIModelCapabilities
                     Rank = -220,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.00000125m,
-                        CacheRead = 0.00000003m,
-                        CacheWrite = 0.0000003m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8563,13 +9856,16 @@ new AIModelCapabilities
                     Rank = -225,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.000004m,
-                        CacheRead = 0.00000008m,
-                        CacheWrite = 0.000001m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000008m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8584,13 +9880,16 @@ new AIModelCapabilities
                     Rank = -230,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8605,13 +9904,16 @@ new AIModelCapabilities
                     Rank = -235,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8626,13 +9928,16 @@ new AIModelCapabilities
                     Rank = -240,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.000075m,
-                        CacheRead = 0.0000015m,
-                        CacheWrite = 0.00001875m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00001875m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8647,13 +9952,16 @@ new AIModelCapabilities
                     Rank = -245,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00003m,
-                        TextOutput = 0.00015m,
-                        CacheRead = 0.000003m,
-                        CacheWrite = 0.0000375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8667,13 +9975,16 @@ new AIModelCapabilities
                     Rank = -250,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00003m,
-                        TextOutput = 0.00015m,
-                        CacheRead = 0.000003m,
-                        CacheWrite = 0.0000375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8687,13 +9998,16 @@ new AIModelCapabilities
                     Rank = -255,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.000001m,
-                        CacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8707,13 +10021,16 @@ new AIModelCapabilities
                     Rank = -260,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.000001m,
-                        CacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8728,13 +10045,16 @@ new AIModelCapabilities
                     Rank = -265,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.0000003m,
-                        CacheWrite = 0.00000375m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000375m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8761,11 +10081,14 @@ new AIModelCapabilities
                     Rank = -275,
                     ContextLimit = 32768,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000008m,
-                        CacheRead = 0.00000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000008m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8793,10 +10116,13 @@ new AIModelCapabilities
                     Rank = -285,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000008m,
-                        TextOutput = 0.00000016m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000016m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8811,10 +10137,13 @@ new AIModelCapabilities
                     Rank = -290,
                     ContextLimit = 131000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000045m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000045m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8829,10 +10158,13 @@ new AIModelCapabilities
                     Rank = -295,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000045m,
-                        TextOutput = 0.00000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000045m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8847,10 +10179,13 @@ new AIModelCapabilities
                     Rank = -300,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.0000012m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8865,10 +10200,13 @@ new AIModelCapabilities
                     Rank = -305,
                     ContextLimit = 120000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000007m,
-                        TextOutput = 0.00000028m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000007m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000028m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8883,10 +10221,13 @@ new AIModelCapabilities
                     Rank = -310,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000007m,
-                        TextOutput = 0.00000028m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000007m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000028m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8901,10 +10242,13 @@ new AIModelCapabilities
                     Rank = -315,
                     ContextLimit = 123000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000028m,
-                        TextOutput = 0.0000011m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000028m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000011m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8919,10 +10263,13 @@ new AIModelCapabilities
                     Rank = -320,
                     ContextLimit = 30000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000014m,
-                        TextOutput = 0.00000056m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000014m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000056m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8937,10 +10284,13 @@ new AIModelCapabilities
                     Rank = -325,
                     ContextLimit = 123000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000042m,
-                        TextOutput = 0.00000125m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000042m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8981,10 +10331,13 @@ new AIModelCapabilities
                     Rank = -340,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00000125m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -8999,10 +10352,13 @@ new AIModelCapabilities
                     Rank = -345,
                     ContextLimit = 64000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000007m,
-                        TextOutput = 0.0000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000007m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9017,10 +10373,13 @@ new AIModelCapabilities
                     Rank = -350,
                     ContextLimit = 8192,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000008m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000008m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9035,10 +10394,13 @@ new AIModelCapabilities
                     Rank = -355,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000029m,
-                        TextOutput = 0.00000029m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000029m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000029m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9066,10 +10428,13 @@ new AIModelCapabilities
                     Rank = -365,
                     ContextLimit = 32768,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.00000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9097,14 +10462,17 @@ new AIModelCapabilities
                     Rank = -375,
                     ContextLimit = 1048576,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.0000003m,
-                        ImageInput = 0.000000075m,
-                        AudioInput = 0.000000075m,
-                        InternalReasoning = 0.0000003m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9119,16 +10487,19 @@ new AIModelCapabilities
                     Rank = -380,
                     ContextLimit = 1048576,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000004m,
-                        ImageInput = 0.0000001m,
-                        AudioInput = 0.0000003m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.00000008333333333333334m,
-                        InternalReasoning = 0.0000004m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000008333333333333334m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9143,17 +10514,20 @@ new AIModelCapabilities
                     Rank = -385,
                     ContextLimit = 1048576,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        ImageInput = 0.00000125m,
-                        AudioInput = 0.00000125m,
-                        AudioCacheRead = 0.000000125m,
-                        CacheRead = 0.000000125m,
-                        CacheWrite = 0.000000375m,
-                        InternalReasoning = 0.00001m,
-                        WebSearch = 0.014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("image_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9207,10 +10581,13 @@ new AIModelCapabilities
                     Rank = -405,
                     ContextLimit = 8192,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000003m,
-                        TextOutput = 0.00000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9225,10 +10602,13 @@ new AIModelCapabilities
                     Rank = -410,
                     ContextLimit = 32768,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000006m,
-                        TextOutput = 0.00000012m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000012m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9256,11 +10636,14 @@ new AIModelCapabilities
                     Rank = -420,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.0000001m,
-                        CacheRead = 0.00000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9274,11 +10657,14 @@ new AIModelCapabilities
                     Rank = -425,
                     ContextLimit = 260000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000004m,
-                        TextOutput = 0.00000015m,
-                        CacheRead = 0.000000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9292,11 +10678,14 @@ new AIModelCapabilities
                     Rank = -430,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.000000625m,
-                        CacheRead = 0.000000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000625m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9324,11 +10713,14 @@ new AIModelCapabilities
                     Rank = -440,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000001m,
-                        TextOutput = 0.00000003m,
-                        CacheRead = 0.000000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9342,11 +10734,14 @@ new AIModelCapabilities
                     Rank = -445,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000042m,
-                        TextOutput = 0.0000001232m,
-                        CacheRead = 0.0000000084m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000042m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001232m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000084m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9372,11 +10767,14 @@ new AIModelCapabilities
                     Rank = -455,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000042m,
-                        TextOutput = 0.0000001232m,
-                        CacheRead = 0.0000000084m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000042m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001232m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000084m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9426,11 +10824,14 @@ new AIModelCapabilities
                     Rank = -475,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000075m,
-                        TextOutput = 0.000000625m,
-                        CacheRead = 0.000000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000625m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9457,10 +10858,13 @@ new AIModelCapabilities
                     Rank = -485,
                     ContextLimit = 8000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9475,10 +10879,13 @@ new AIModelCapabilities
                     Rank = -490,
                     ContextLimit = 8000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9492,11 +10899,14 @@ new AIModelCapabilities
                     Rank = -495,
                     ContextLimit = 256000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9511,11 +10921,14 @@ new AIModelCapabilities
                     Rank = -500,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000003m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000006m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000006m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9529,11 +10942,14 @@ new AIModelCapabilities
                     Rank = -505,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000074m,
-                        TextOutput = 0.00000296m,
-                        CacheRead = 0.00000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000074m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000296m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9548,10 +10964,13 @@ new AIModelCapabilities
                     Rank = -510,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000003m,
-                        TextOutput = 0.00000012m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000012m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9592,10 +11011,13 @@ new AIModelCapabilities
                     Rank = -525,
                     ContextLimit = 8192,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000051m,
-                        TextOutput = 0.00000074m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000051m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000074m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9610,10 +11032,13 @@ new AIModelCapabilities
                     Rank = -530,
                     ContextLimit = 8192,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000014m,
-                        TextOutput = 0.00000014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000014m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9628,10 +11053,13 @@ new AIModelCapabilities
                     Rank = -535,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000345m,
-                        TextOutput = 0.000000345m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000345m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000345m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9672,10 +11100,13 @@ new AIModelCapabilities
                     Rank = -550,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000048m,
-                        TextOutput = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000048m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9689,11 +11120,14 @@ new AIModelCapabilities
                     Rank = -555,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000008m,
-                        TextOutput = 0.00000035m,
-                        CacheRead = 0.00000008m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000035m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000008m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9708,10 +11142,13 @@ new AIModelCapabilities
                     Rank = -560,
                     ContextLimit = 65535,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000062m,
-                        TextOutput = 0.00000062m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000062m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000062m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9763,11 +11200,14 @@ new AIModelCapabilities
                     Rank = -580,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.00000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9782,11 +11222,14 @@ new AIModelCapabilities
                     Rank = -585,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000003m,
-                        CacheRead = 0.00000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9800,10 +11243,13 @@ new AIModelCapabilities
                     Rank = -590,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000011m,
-                        TextOutput = 0.00000011m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000011m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000011m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9831,11 +11277,14 @@ new AIModelCapabilities
                     Rank = -600,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9863,11 +11312,14 @@ new AIModelCapabilities
                     Rank = -610,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9882,10 +11334,13 @@ new AIModelCapabilities
                     Rank = -615,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000135m,
-                        TextOutput = 0.0000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000135m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9899,11 +11354,14 @@ new AIModelCapabilities
                     Rank = -620,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000025m,
-                        TextOutput = 0.0000001m,
-                        CacheRead = 0.0000000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9917,11 +11375,14 @@ new AIModelCapabilities
                     Rank = -625,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000001m,
-                        CacheRead = 0.000000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -9972,10 +11433,13 @@ new AIModelCapabilities
                     Rank = -645,
                     ContextLimit = 8192,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000014m,
-                        TextOutput = 0.00000014m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000014m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000014m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10003,10 +11467,13 @@ new AIModelCapabilities
                     Rank = -655,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000013m,
-                        TextOutput = 0.0000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000013m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10021,10 +11488,13 @@ new AIModelCapabilities
                     Rank = -660,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.0000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10091,16 +11561,22 @@ new AIModelCapabilities
                     Rank = -685,
                     ContextLimit = 16385,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.00000075m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-3.5-turbo:batch" },
                 },
 
@@ -10116,10 +11592,13 @@ new AIModelCapabilities
                     Rank = -690,
                     ContextLimit = 4095,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000015m,
-                        TextOutput = 0.000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10134,10 +11613,13 @@ new AIModelCapabilities
                     Rank = -695,
                     ContextLimit = 8191,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00003m,
-                        TextOutput = 0.00006m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00006m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10152,10 +11634,13 @@ new AIModelCapabilities
                     Rank = -700,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10170,10 +11655,13 @@ new AIModelCapabilities
                     Rank = -705,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10188,11 +11676,14 @@ new AIModelCapabilities
                     Rank = -710,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        AudioInput = 0.00004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10207,11 +11698,14 @@ new AIModelCapabilities
                     Rank = -715,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        WebSearch = 0.0275m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.0275m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10226,11 +11720,14 @@ new AIModelCapabilities
                     Rank = -720,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        WebSearch = 0.035m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.035m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10245,12 +11742,15 @@ new AIModelCapabilities
                     Rank = -725,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10265,19 +11765,25 @@ new AIModelCapabilities
                     Rank = -730,
                     ContextLimit = 400000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000625m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000625m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000625m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000625m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "openai/gpt-5-codex:batch" },
                 },
 
@@ -10293,12 +11799,15 @@ new AIModelCapabilities
                     Rank = -735,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10313,12 +11822,15 @@ new AIModelCapabilities
                     Rank = -740,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000175m,
-                        TextOutput = 0.000014m,
-                        CacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000175m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000014m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000175m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10359,12 +11871,15 @@ new AIModelCapabilities
                     Rank = -755,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00004m,
-                        CacheRead = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10379,12 +11894,15 @@ new AIModelCapabilities
                     Rank = -760,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000008m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10411,11 +11929,14 @@ new AIModelCapabilities
                     Rank = -770,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000004m,
-                        CacheRead = 0.0000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10442,11 +11963,14 @@ new AIModelCapabilities
                     Rank = -780,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000002m,
-                        CacheRead = 0.00000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10474,10 +11998,13 @@ new AIModelCapabilities
                     Rank = -790,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000011m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000011m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10492,11 +12019,14 @@ new AIModelCapabilities
                     Rank = -795,
                     ContextLimit = 32768,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000104m,
-                        TextOutput = 0.00000416m,
-                        CacheRead = 0.000000208m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000104m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000416m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000208m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10511,11 +12041,14 @@ new AIModelCapabilities
                     Rank = -800,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000026m,
-                        TextOutput = 0.00000078m,
-                        CacheWrite = 0.000000325m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000026m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000078m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000325m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10530,11 +12063,14 @@ new AIModelCapabilities
                     Rank = -805,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000026m,
-                        TextOutput = 0.00000078m,
-                        CacheWrite = 0.0000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000026m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000078m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10549,11 +12085,14 @@ new AIModelCapabilities
                     Rank = -810,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000000325m,
-                        TextOutput = 0.00000013m,
-                        CacheRead = 0.0000000065m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000325m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000013m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000065m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10568,10 +12107,13 @@ new AIModelCapabilities
                     Rank = -815,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000052m,
-                        TextOutput = 0.00000208m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000052m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000208m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10599,10 +12141,13 @@ new AIModelCapabilities
                     Rank = -825,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000455m,
-                        TextOutput = 0.00000182m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000455m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000182m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10617,11 +12162,14 @@ new AIModelCapabilities
                     Rank = -830,
                     ContextLimit = 81920,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000024m,
-                        CacheRead = 0.00000008m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000024m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000008m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10636,11 +12184,14 @@ new AIModelCapabilities
                     Rank = -835,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000117m,
-                        TextOutput = 0.000000455m,
-                        CacheRead = 0.00000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000117m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000455m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10655,12 +12206,15 @@ new AIModelCapabilities
                     Rank = -840,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000065m,
-                        TextOutput = 0.00000325m,
-                        CacheRead = 0.00000013m,
-                        CacheWrite = 0.0000008125m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000065m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000325m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000013m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000008125m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10688,12 +12242,15 @@ new AIModelCapabilities
                     Rank = -850,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000078m,
-                        TextOutput = 0.0000039m,
-                        CacheRead = 0.000000156m,
-                        CacheWrite = 0.000000975m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000078m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000039m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000156m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000975m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10708,10 +12265,13 @@ new AIModelCapabilities
                     Rank = -855,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000078m,
-                        TextOutput = 0.0000039m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000078m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000039m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10739,10 +12299,13 @@ new AIModelCapabilities
                     Rank = -865,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10757,10 +12320,13 @@ new AIModelCapabilities
                     Rank = -870,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000104m,
-                        TextOutput = 0.000000416m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000104m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000416m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10775,10 +12341,13 @@ new AIModelCapabilities
                     Rank = -875,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000018m,
-                        TextOutput = 0.0000021m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000018m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000021m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10793,11 +12362,14 @@ new AIModelCapabilities
                     Rank = -880,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001027m,
-                        TextOutput = 0.000006162m,
-                        CacheWrite = 0.00000128375m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001027m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006162m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000128375m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10823,12 +12395,15 @@ new AIModelCapabilities
                     Rank = -890,
                     ContextLimit = 1000000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.00000025m,
-                        CacheWrite = 0.0000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10843,10 +12418,13 @@ new AIModelCapabilities
                     Rank = -895,
                     ContextLimit = 8192,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000148m,
-                        TextOutput = 0.00000148m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000148m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000148m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10861,10 +12439,13 @@ new AIModelCapabilities
                     Rank = -900,
                     ContextLimit = 16000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10879,10 +12460,13 @@ new AIModelCapabilities
                     Rank = -905,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000065m,
-                        TextOutput = 0.00000075m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000065m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000075m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10921,10 +12505,13 @@ new AIModelCapabilities
                     Rank = -920,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000085m,
-                        TextOutput = 0.0000034m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000085m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000034m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10951,10 +12538,13 @@ new AIModelCapabilities
                     Rank = -930,
                     ContextLimit = 65536,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.0000005m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10981,11 +12571,14 @@ new AIModelCapabilities
                     Rank = -940,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.0000075m,
-                        CacheRead = 0.00000025m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -10999,11 +12592,14 @@ new AIModelCapabilities
                     Rank = -945,
                     ContextLimit = 1048576,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000008m,
-                        TextOutput = 0.0000032m,
-                        CacheRead = 0.00000003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000008m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000032m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -11031,10 +12627,13 @@ new AIModelCapabilities
                     Rank = -955,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000012m,
-                        TextOutput = 0.0000012m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -11049,10 +12648,13 @@ new AIModelCapabilities
                     Rank = -960,
                     ContextLimit = 131072,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000006m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -11132,11 +12734,14 @@ new AIModelCapabilities
                     Rank = -990,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000003m,
-                        CacheRead = 0.00000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -11151,11 +12756,14 @@ new AIModelCapabilities
                     Rank = -995,
                     ContextLimit = 262144,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.00000008m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000008m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -11170,11 +12778,14 @@ new AIModelCapabilities
                     Rank = -1000,
                     ContextLimit = 1048576,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000003m,
-                        CacheRead = 0.0000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -11189,10 +12800,13 @@ new AIModelCapabilities
                     Rank = -1005,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000001m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -11223,6 +12837,9 @@ new AIModelCapabilities
 
             return Task.FromResult(models);
         }
+
+        /// <inheritdoc/>
+        public override bool SupportsApiModels => true;
 
         /// <inheritdoc/>
         public override async Task<List<string>> RetrieveApiModels()
@@ -11259,10 +12876,24 @@ new AIModelCapabilities
                 foreach (var item in data.OfType<JObject>())
                 {
                     var id = item["id"]?.ToString();
-                    if (!string.IsNullOrWhiteSpace(id))
+                    if (string.IsNullOrWhiteSpace(id))
                     {
-                        models.Add(id);
+                        continue;
                     }
+
+                    // :batch catalog variants are pricing/capability descriptors,
+                    // not request model IDs — the Batch API takes the base slug and
+                    // resolves the variant itself, so offering the suffixed id only
+                    // produces guaranteed model_not_found errors. The base entry
+                    // always exists as its own catalog row; batch capability is
+                    // already flagged on it in the seeded registry via Aliases +
+                    // SupportsBatch. (:free variants stay: they are valid request ids.)
+                    if (id.EndsWith(":batch", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    models.Add(id);
                 }
 
                 return models

@@ -330,7 +330,7 @@ namespace SmartHopper.Infrastructure.Dialogs
             }
 
             // Show the dialog
-            this.ShowModal(parent);
+            this.ShowModalInFront(parent);
 
             // Link is automatically unregistered when dialog closes via DialogCanvasLink.OnDialogClosed
         }

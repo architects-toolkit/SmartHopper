@@ -47,8 +47,10 @@ Offer a template-method style pipeline for providers: register models, load sett
   - `SetSetting(key, value)` persists to `SmartHopperSettings` within provider scope.
   - `RefreshCachedSettings(settings)` merges external updates into the cached dictionary.
   - `IEnumerable<SettingDescriptor> GetSettingDescriptors()` via `ProviderManager.GetProviderSettings(Name)`.
+  - `IEnumerable<ProviderSurfaceElement> GetSurface()` — ordered dialog surface via the provider's settings object; default wraps non-hidden descriptors.
 - Default model resolution
   - `GetDefaultModel(requiredCapability, useSettings)` validates capability with `AIModelCapabilityRegistry`.
+  - It reads the configured model straight from the injected settings cache — never through `GetSetting("Model")` — so providers whose `Model` descriptor lazily defaults to `GetDefaultModel()` (e.g. Ollama, LocalAI) do not re-enter the method and trip the recursion guard.
 - Provider-scoped model selection
   - `SelectModel(requiredCapability, requestedModel)` resolves the concrete API-ready model.
   - Default implementation delegates to centralized `AIModelCapabilityRegistry.SelectBestModel` to keep policy consistent while hiding the singleton behind the provider interface. Providers may override.

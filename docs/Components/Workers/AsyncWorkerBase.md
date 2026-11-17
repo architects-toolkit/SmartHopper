@@ -52,19 +52,20 @@ Separate UI/component concerns from the algorithm that runs off the UI thread. P
 | `CollectMessage(severity, message, origin)` | `protected` | Any | Convenience overload; creates `SHRuntimeMessage` with `SHMessageCode.Unknown`. |
 | `FlushCollectedMessages()` | `internal` | UI | Writes all queued messages to the GH component. Called by `AsyncComponentBase` after `SetOutput`. |
 | `ResetCollectedMessages()` | `internal` | UI | Clears the queue. Called automatically by `AsyncComponentBase` after `GatherInput`. |
-| `PromoteCollectedToPersistent(Action<…>)` | `internal` | UI | Iterates queued messages and calls the provided callback for each surfaceable one. Used by `StatefulComponentBase` to persist messages across Error-state transitions. |
+| `PromoteCollectedToPersistent(Action<…>)` | `internal` | UI | Iterates queued messages and calls the provided callback for each surfaceable one. Used by `StatefulComponentBase` to persist messages across Error/Completed-state transitions. |
 
 ## Usage
 
 - Derive a sealed inner worker class per component.
 - Implement `GatherInput`, `DoWorkAsync`, and `SetOutput`.
 - Use `CollectMessage` for any messages emitted from `DoWorkAsync` or its helper methods.
+- Prefer `CollectMessage` over calling `AddRuntimeMessage` directly anywhere in the worker — collected messages are emitted on the UI thread and promoted into the persistent store at completion. `StatefulComponentBase` also rescues directly-added messages at completion, but relying on that fallback forfeits thread-safety and the structured message metadata.
 - Do not access GH UI from within `DoWorkAsync`.
 
 ### Related
 
 - [AsyncComponentBase](../ComponentBase/AsyncComponentBase.md) – calls `ResetCollectedMessages` and `FlushCollectedMessages` automatically.
-- [StatefulComponentBase](../ComponentBase/StatefulComponentBase.md) – calls `PromoteCollectedToPersistent` on Error transitions.
+- [StatefulComponentBase](../ComponentBase/StatefulComponentBase.md) – calls `PromoteCollectedToPersistent` on Error/Completed transitions and additionally promotes any live runtime messages that bypassed the collected pipeline.
 - [ProgressInfo](../Helpers/ProgressInfo.md) – progress payload.
 
 ---
@@ -79,7 +80,7 @@ Separate UI/component concerns from the algorithm that runs off the UI thread. P
 | `CollectMessage(severity, message, origin)` | `protected` | Any | Convenience overload; creates `SHRuntimeMessage` with `SHMessageCode.Unknown`. |
 | `FlushCollectedMessages()` | `internal` | UI | Writes all queued messages to the GH component. Called by `AsyncComponentBase` after `SetOutput`. |
 | `ResetCollectedMessages()` | `internal` | UI | Clears the queue. Called automatically by `AsyncComponentBase` after `GatherInput`. |
-| `PromoteCollectedToPersistent(Action<…>)` | `internal` | UI | Iterates queued messages and calls the provided callback for each surfaceable one. Used by `StatefulComponentBase` to persist messages across Error-state transitions. |
+| `PromoteCollectedToPersistent(Action<…>)` | `internal` | UI | Iterates queued messages and calls the provided callback for each surfaceable one. Used by `StatefulComponentBase` to persist messages across Error/Completed-state transitions. |
 
 ### Implementing a Worker
 

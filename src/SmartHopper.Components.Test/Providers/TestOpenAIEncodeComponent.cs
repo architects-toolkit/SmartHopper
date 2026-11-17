@@ -118,16 +118,20 @@ namespace SmartHopper.Components.Test.Providers
                     {
                         var json = JObject.Parse(responsesEncoded);
                         var input = json["input"] as JArray; // Responses API uses "input" instead of "messages"
-                        var roles = input?.Select(m => m["role"]?.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>();
+                        var roles = input?.Select(m => m["role"]?.ToString()).Where(r => r != null).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>();
+                        var types = input?.Select(m => m["type"]?.ToString()).Where(t => t != null).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>();
 
-                        if (input != null && roles.Contains("system") && roles.Contains("user") && roles.Contains("assistant") && roles.Contains("tool"))
+                        // Responses API shape: messages carry roles (system/user); tool calls and
+                        // results are typed items (function_call / function_call_output), not roles.
+                        if (input != null && roles.Contains("system") && roles.Contains("user") &&
+                            types.Contains("function_call") && types.Contains("function_call_output"))
                         {
                             this._responsesSuccess = new GH_Boolean(true);
-                            this._messages.Add(new GH_String("✓ Responses API encoding successful (uses 'input' array and contains correct roles)"));
+                            this._messages.Add(new GH_String("✓ Responses API encoding successful ('input' array: system/user roles + function_call/function_call_output items)"));
                         }
                         else
                         {
-                            this._messages.Add(new GH_String($"✗ Responses API encoding invalid. Input present: {input != null}, Roles found: {string.Join(", ", roles)}"));
+                            this._messages.Add(new GH_String($"✗ Responses API encoding invalid. Roles found: {string.Join(", ", roles)}; item types found: {string.Join(", ", types)}"));
                         }
                     }
 

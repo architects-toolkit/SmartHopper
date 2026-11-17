@@ -1,120 +1,33 @@
-# Knowledge Components
+# Forums & Documents Components (`E. Forums` & `F. Documents`)
 
-Knowledge components handle content extraction, conversion, and summarization from various sources including files, web pages, and forum platforms.
+Components in `src/SmartHopper.Components/Knowledge/` for searching, reading, opening, deconstructing, and summarizing Discourse forum threads (`E. Forums`) and converting local files or web pages to Markdown (`F. Documents`).
 
----
+## `E. Forums` panel (`SmartHopper → E. Forums`)
 
-## Metadata
-
-| Property | Value |
-| --- | --- |
-| **Source Code** | `src/SmartHopper.Core.Grasshopper/Components/Knowledge/` |
-| **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
-| **Documentation Maintainer** | Devin AI |
-
-_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
-
----
-
-## Why Read This?
-
-Knowledge components bridge external data sources — such as local files, web pages, and community forums — with Grasshopper workflows. They enable both direct content extraction and AI-enhanced summarization, making it easy to bring outside information into your parametric models.
-
-**You should read this if:**
-
-- You need to extract text or markdown from files or web pages
-- You want to summarize forum discussions or web content using AI
-- You are integrating Discourse, Ladybug, or McNeel forum data into your workflow
-- You need batch processing of external knowledge sources
-
----
-
-## End-User Guide
-
-### Component Table
-
-| Component Class | Nickname | Category | Description |
+| Component | Display Name | Nickname | Purpose |
 | --- | --- | --- | --- |
-| `File2MdComponent` | File2Md | Files | Converts local files to Markdown and extracts embedded images (non-AI) |
-| `AIFile2MdComponent` | AIFile2Md | Files | AI-powered file-to-markdown conversion with image description |
-| `Web2MdComponent` | Web2Md | Web | Converts web pages to Markdown; AI is used only for image descriptions when Image Mode is not `link` |
-| `AIWeb2MdComponent` | AIWeb2Md | Web | AI-powered web-to-markdown conversion with content summarization |
-| `DiscourseSearchComponent` | Discourse Search | Forums | Searches Discourse forum posts and topics |
-| `DiscoursePostGetComponent` | Discourse Post Get | Forums | Retrieves a specific Discourse forum post |
-| `DiscoursePostOpenComponent` | Discourse Post Open | Forums | Opens a Discourse forum post in browser |
-| `DiscoursePostDeconstructComponent` | Discourse Post Deconstruct | Forums | Deconstructs Discourse post data into components |
-| `AIDiscoursePostSummarizeComponent` | AI Discourse Post Summarize | Forums | AI-powered summarization of Discourse posts |
-| `AIDiscourseTopicSummarizeComponent` | AI Discourse Topic Summarize | Forums | AI-powered summarization of Discourse topics |
-| `LadybugForumSearchComponent` | Ladybug Search | Forums | Searches Ladybug forum posts and topics |
-| `LadybugForumPostGetComponent` | Ladybug Post Get | Forums | Retrieves a specific Ladybug forum post |
-| `LadybugForumPostOpenComponent` | Ladybug Post Open | Forums | Opens a Ladybug forum post in browser |
-| `AILadybugForumPostSummarizeComponent` | AI Ladybug Post Summarize | Forums | AI-powered summarization of Ladybug posts |
-| `AILadybugForumTopicSummarizeComponent` | AI Ladybug Topic Summarize | Forums | AI-powered summarization of Ladybug topics |
-| `McNeelForumSearchComponent` | McNeel Search | Forums | Searches McNeel forum posts and topics |
-| `McNeelForumPostGetComponent` | McNeel Post Get | Forums | Retrieves a specific McNeel forum post |
-| `McNeelForumPostOpenComponent` | McNeel Post Open | Forums | Opens a McNeel forum post in browser |
-| `AIMcNeelForumPostSummarizeComponent` | AI McNeel Post Summarize | Forums | AI-powered summarization of McNeel posts |
-| `AIMcNeelForumTopicSummarizeComponent` | AI McNeel Topic Summarize | Forums | AI-powered summarization of McNeel topics |
+| `DiscourseSearchComponent` | Discourse Search | `DiscourseSearch` | Searches any Discourse forum (`Base URL`, `Query`) and outputs matching post JSON objects |
+| `DiscoursePostGetComponent` | Discourse Post Get | `DiscoursePostGet` | Fetches a full Discourse post by `Base URL` and numeric `Id` |
+| `DiscoursePostOpenComponent` | Discourse Post Open | `DiscoursePostOpen` | Opens a Discourse post JSON object in the default web browser |
+| `DiscoursePostDeconstructComponent` | Deconstruct Discourse Post | `DeconstructDiscoursePost` | Splits post JSON into `Id`, `Username`, `Topic Id`, `Topic Title`, `Post URL`, `Date`, `Content`, `Reads`, and `Likes` |
+| `AIDiscoursePostSummarizeComponent` | AI Discourse Post Summarize | `AIDiscoursePostSumm` | Generates an AI summary of one or more Discourse posts by `Post Id` |
+| `AIDiscourseTopicSummarizeComponent` | AI Discourse Topic Summarize | `AIDiscourseTopicSumm` | Generates an AI summary of a Discourse topic by `Topic Id` |
+| `McNeelForumSearchComponent` | McNeel Forum Search | `McNeelSearch` | Searches `discourse.mcneel.com` by `Query` |
+| `McNeelForumPostGetComponent` | McNeel Forum Post Get | `McNeelPostGet` | Fetches a full post from `discourse.mcneel.com` by numeric `Id` |
+| `McNeelForumPostOpenComponent` | McNeel Forum Post Open | `McNeelPostOpen` | Opens a McNeel forum post JSON object in the default web browser |
+| `AIMcNeelForumPostSummarizeComponent` | AI McNeel Forum Post Summarize | `AIMcNeelPostSumm` | Generates an AI summary of one or more McNeel forum posts by `Post Id` |
+| `AIMcNeelForumTopicSummarizeComponent` | AI McNeel Forum Topic Summarize | `AIMcNeelTopicSumm` | Generates an AI summary of a McNeel forum topic by `Topic Id` |
+| `LadybugForumSearchComponent` | Ladybug Forum Search | `LadybugSearch` | Searches `discourse.ladybug.tools` by `Query` |
+| `LadybugForumPostGetComponent` | Ladybug Forum Post Get | `LadybugPostGet` | Fetches a full post from `discourse.ladybug.tools` by numeric `Id` |
+| `LadybugForumPostOpenComponent` | Ladybug Forum Post Open | `LadybugPostOpen` | Opens a Ladybug Tools forum post JSON object in the default web browser |
+| `AILadybugForumPostSummarizeComponent` | AI Ladybug Forum Post Summarize | `AILadybugPostSumm` | Generates an AI summary of one or more Ladybug Tools forum posts by `Post Id` |
+| `AILadybugForumTopicSummarizeComponent` | AI Ladybug Forum Topic Summarize | `AILadybugTopicSumm` | Generates an AI summary of a Ladybug Tools forum topic by `Topic Id` |
 
----
+## `F. Documents` panel (`SmartHopper → F. Documents`)
 
-## Developer Reference
-
-The following examples demonstrate how to interact with knowledge components programmatically and how to process forum data in custom scripts.
-
-### Using File-to-Markdown Components in Code
-
-```csharp
-using SmartHopper.Components.Knowledge;
-
-// Instantiate the non-AI file converter
-var file2Md = new File2MdComponent();
-file2Md.Params.Input[0].AddVolatileDataListAtPath(
-    new GH_Path(0),
-    @"C:\Documents\report.pdf");
-file2Md.ExpireSolution(true);
-
-// Retrieve the markdown output
-string markdown = file2Md.Params.Output[0]
-    .VolatileData.get_FirstItem(true).Value as string;
-
-```
-
-### Processing Discourse Forum Search Results
-
-```csharp
-using SmartHopper.Components.Knowledge;
-
-// Search for topics on a Discourse instance
-var search = new DiscourseSearchComponent();
-search.Params.Input[0].AddVolatileDataListAtPath(
-    new GH_Path(0), "<https://forum.example.com">);
-search.Params.Input[1].AddVolatileDataListAtPath(
-    new GH_Path(0), "grasshopper plugin");
-search.ExpireSolution(true);
-
-// Access results as a data tree
-var results = search.Params.Output[0].VolatileData;
-foreach (var path in results.Paths)
-{
-    foreach (var item in results.get_Branch(path))
-    {
-        Console.WriteLine(item.Value);
-    }
-}
-
-```
-
----
-
-## Architecture & Design
-
-- Knowledge components bridge external data sources with AI processing
-- `File2Md` uses file converters for content extraction (non-AI)
-- `Web2Md` fetches web content with a local tool; AI is used only for image descriptions when Image Mode is not `link`
-- `AIFile2Md` uses AI providers for file content and image description
-- `AIWeb2Md` leverages AI providers for intelligent summarization and content enhancement
-- Forum components integrate with Discourse, Ladybug, and McNeel community platforms
-- All components support data tree processing for batch operations
-
+| Component | Display Name | Nickname | Purpose |
+| --- | --- | --- | --- |
+| `File2MdComponent` | File To Markdown | `File2Md` | Converts local files (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF…) to `Markdown`, embedded `Images` and separate `Rendered Pages` images locally (PDF renders + region crops; optional `Pages`/`Region` inputs; no AI required) |
+| `AIFile2MdComponent` | AI File To Markdown | `AIFile2Md` | Converts local files to `Markdown` through the shared visual-enrichment path, appending AI-generated evidence under `## Visual Evidence (AI-Generated)`; embedded `Images` and `Rendered Pages` surfaces match File To Markdown (optional `Pages`/`Region` inputs; no `Image Mode` choice) |
+| `Web2MdComponent` | Web To Markdown | `Web2Md` | Fetches a web page `URL` and converts it to `Markdown` locally (no AI required) |
+| `AIWeb2MdComponent` | AI Web To Markdown | `AIWeb2Md` | Fetches a web page `URL` and converts it to `Markdown` through the shared visual-enrichment path, appending AI-generated evidence under `## Visual Evidence (AI-Generated)` (no `Image Mode` choice) |

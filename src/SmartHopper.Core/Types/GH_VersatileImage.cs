@@ -218,8 +218,15 @@ namespace SmartHopper.Core.Types
             {
                 try
                 {
-                    target = (T)(object)this.Value.ToBitmap();
-                    return true;
+                    // Grasshopper's cast contract is synchronous: never start I/O or
+                    // a consent dialog here. Async consumers resolve the image first.
+                    if (this.Value?.Bitmap != null)
+                    {
+                        target = (T)(object)this.Value.Bitmap;
+                        return true;
+                    }
+
+                    return false;
                 }
                 catch
                 {

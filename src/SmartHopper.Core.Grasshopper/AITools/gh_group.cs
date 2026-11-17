@@ -190,13 +190,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 GH_Group group = null;
 
-                // Combine UI operations and result resolution in a single UI thread callback.
-                // RhinoApp.InvokeOnUiThread posts to the UI thread; await the TCS so the
-                // AIReturn body is populated before we return.
-                var tcs = new TaskCompletionSource<AIReturn>();
-                Rhino.RhinoApp.InvokeOnUiThread(() =>
-                {
-                    try
+                // Combine UI operations and result resolution in a single bounded UI
+                // post so a queued callback can never run after the caller's wait ends.
+                return await UiThreadMarshal.RunOnUiThreadAsync(
+                    () =>
                     {
                         toolCall.CancellationToken.ThrowIfCancellationRequested();
 
@@ -262,16 +259,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             output.CreateError("Failed to create group.");
                         }
 
-                        tcs.SetResult(output);
-                    }
-                    catch (Exception ex)
-                    {
-                        tcs.SetException(ex);
-                    }
-                });
-
-                return await tcs.Task
-                    .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
+                        return output;
+                    },
+                    toolCall.CancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

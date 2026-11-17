@@ -138,7 +138,7 @@ Shared spec: **type glyph center + "arrow into AI spark" badge bottom-right**. L
 | Component | Icon resource | Central glyph | Badges |
 | --- | --- | --- | --- |
 | AI Prompt (`AIPromptComponent`) | `toaiprompt` | Speech/prompt bubble | to-AI |
-| AIContext (`AIContextComponent`) | `toaicontext` | Stacked layers (context) | to-AI |
+| AI Context (`AIContextComponent`) | `toaicontext` | Stacked layers (context) | to-AI |
 | Text to AI (`Text2AIComponent`) | `toaitext` | "T" letterform | to-AI |
 | Text List to AI (`TextList2AIComponent`) | `toailist` | Lines list `≡` | to-AI |
 | Boolean to AI (`Boolean2AIComponent`) | `toaibool` | Toggle / check | to-AI |

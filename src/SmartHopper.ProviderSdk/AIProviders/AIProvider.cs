@@ -32,6 +32,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.ProviderSdk.AICall.Batch;
 using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
@@ -68,12 +69,12 @@ namespace SmartHopper.ProviderSdk.AIProviders
             }
             catch (TargetInvocationException tie) when (tie.InnerException != null)
             {
-                Logger.For<AIProvider>().Exception(tie.InnerException, $"[AIProvider<{typeof(T).Name}>] Constructor threw exception");
+                Logger.For<T>().Exception(tie.InnerException, "Constructor threw exception");
                 throw tie.InnerException;
             }
             catch (Exception ex)
             {
-                Logger.For<AIProvider>().Exception(ex, $"[AIProvider<{typeof(T).Name}>] Failed to create instance");
+                Logger.For<T>().Exception(ex, "Failed to create instance");
                 throw;
             }
         });
@@ -167,6 +168,11 @@ namespace SmartHopper.ProviderSdk.AIProviders
         /// Gets a typed logger using the concrete provider type as category.
         /// </summary>
         protected ILogger Log { get; }
+
+        /// <summary>
+        /// Gets the full name of the concrete provider type to use as a log category.
+        /// </summary>
+        private string LogCategory => this.GetType().FullName;
 
         /// <inheritdoc/>
         public abstract string Name { get; }
@@ -387,22 +393,59 @@ namespace SmartHopper.ProviderSdk.AIProviders
         public abstract List<IAIInteraction> Decode(JObject response);
 
         /// <summary>
-        /// Runs the provider's pre-call pipeline asynchronously.
+        /// Runs the provider's wire preparation asynchronously. This entry point owns
+        /// the immutability contract: it detaches an execution copy of the caller's
+        /// request and hands only that copy to <see cref="PreCallCoreAsync"/>, so
+        /// provider implementations can never mutate caller-owned state. The returned
+        /// request's <see cref="AIRequestCall.Source"/> points at the canonical request.
         /// </summary>
-        /// <param name="request">The request to prepare before the provider call.</param>
+        /// <param name="request">The caller's logical request. Never mutated.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>The possibly modified request to use for the provider call.</returns>
-        public virtual Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        /// <returns>The prepared outbound request to use for the provider call.</returns>
+        public async Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            // Ensure provider is attached if missing so callers can simply do provider.Call(request).
-            if (request != null && string.IsNullOrWhiteSpace(request.Provider))
+            if (request == null)
             {
-                request.Provider = this.Name;
+                return request!;
             }
 
-            return Task.FromResult(request);
+            // Detach once, centrally: providers resolve transport fields on an execution
+            // copy so the caller's request keeps its semantic state (origin label,
+            // unresolved endpoint).
+            var outbound = request.CreateExecutionCopy();
+
+            var prepared = await this.PreCallCoreAsync(outbound, cancellationToken).ConfigureAwait(false) ?? outbound;
+            if (ReferenceEquals(prepared, request))
+            {
+                // A provider handed back the caller's instance instead of the detached
+                // copy — a contract violation that would mutate caller state.
+                throw new InvalidOperationException(
+                    $"[{this.Name}] PreCallCoreAsync returned the input request instance; providers must mutate and return the detached copy they receive.");
+            }
+
+            return prepared;
+        }
+
+        /// <summary>
+        /// Resolves the provider's wire transport fields (endpoint, HTTP method,
+        /// authentication, content type, headers) on the given request. Called only by
+        /// <see cref="PreCallAsync"/>, which guarantees <paramref name="outbound"/> is
+        /// already a detached execution copy — implementations may mutate and return it
+        /// freely, or substitute a different prepared request.
+        /// </summary>
+        /// <param name="outbound">A detached execution copy owned by this call.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>The prepared outbound request.</returns>
+        protected virtual Task<AIRequestCall> PreCallCoreAsync(AIRequestCall outbound, CancellationToken cancellationToken)
+        {
+            // Ensure provider is attached if missing so callers can simply do provider.Call(request).
+            if (string.IsNullOrWhiteSpace(outbound.Provider))
+            {
+                outbound.Provider = this.Name;
+            }
+
+            return Task.FromResult(outbound);
         }
 
         /// <inheritdoc/>
@@ -412,8 +455,9 @@ namespace SmartHopper.ProviderSdk.AIProviders
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            // Execute PreCall
-            request = await this.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
+            // Execute PreCall: wire preparation resolves transport fields on a detached
+            // copy; the caller's request instance is never mutated.
+            var outbound = await this.PreCallAsync(request, cancellationToken).ConfigureAwait(false) ?? request;
 
             // Ensure the provider is configured before attempting any API call.
             // This is computed from the persisted settings, so it stays in sync with the current environment.
@@ -427,13 +471,13 @@ namespace SmartHopper.ProviderSdk.AIProviders
                     CompletionTime = stopwatch.Elapsed.TotalSeconds,
                 };
 
-                configurationError.CreateError($"{this.Name} provider is not configured. Please set the required provider settings in SmartHopper settings.", request, configurationMetrics);
+                configurationError.CreateError($"{this.Name} provider is not configured. Please set the required provider settings in SmartHopper settings.", outbound, configurationMetrics);
 
                 return configurationError;
             }
 
             // Validate request before calling the API (structured messages)
-            (bool isValid, List<SHRuntimeMessage> messages) = request.IsValid();
+            (bool isValid, List<SHRuntimeMessage> messages) = outbound.IsValid();
             if (!isValid)
             {
                 stopwatch.Stop();
@@ -445,16 +489,32 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 };
 
                 // Create error; request validation messages (errors) will appear via AIReturn.Messages (Request.Messages)
-                result.CreateError("The request is not valid", request, metrics);
+                result.CreateError("The request is not valid", outbound, metrics);
 
                 return result;
             }
 
+            // Wire preparation must resolve a destination before HTTP.
+            if (string.IsNullOrWhiteSpace(outbound.Endpoint))
+            {
+                stopwatch.Stop();
+                var endpointError = new AIReturn();
+                var endpointMetrics = new AIMetrics
+                {
+                    FinishReason = "error",
+                    CompletionTime = stopwatch.Elapsed.TotalSeconds,
+                };
+
+                endpointError.CreateError($"{this.Name} did not resolve a wire endpoint for this request.", outbound, endpointMetrics);
+
+                return endpointError;
+            }
+
             // Execute CallApi
-            var response = await this.CallApi(request, cancellationToken).ConfigureAwait(false);
+            var response = await this.CallApi(outbound, cancellationToken).ConfigureAwait(false);
 
             // For backoffice/admin-style calls, return raw without chat decoding or timestamping
-            if (request?.RequestKind == AIRequestKind.Backoffice)
+            if (outbound.RequestKind == AIRequestKind.Backoffice)
             {
                 // Stop local timing but avoid setting completion time in response as requested
                 stopwatch.Stop();
@@ -475,6 +535,47 @@ namespace SmartHopper.ProviderSdk.AIProviders
         public virtual IAIReturn PostCall(IAIReturn response)
         {
             return response;
+        }
+
+        /// <summary>
+        /// Runs the shared outbound pipeline on one request and returns its
+        /// provider-encoded body: <see cref="PreCallAsync"/>, the outbound gate
+        /// (<see cref="AIRequestPreparation.ValidateOutboundRequest"/>, the same
+        /// gate <see cref="AIRequestCall.Exec"/> enforces — required for every
+        /// submit path that bypasses Exec, such as batch queues), then
+        /// <see cref="Encode(AIRequestCall)"/>.
+        /// <see cref="IAIBatchProvider"/> implementations must encode items through
+        /// this single pipeline instead of reading
+        /// <see cref="AIRequestCall.EncodedRequestBody"/>, which is empty for
+        /// requests that never passed validation.
+        /// </summary>
+        /// <param name="request">The request to prepare, validate and encode.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>The prepared request together with its encoded JSON body.</returns>
+        /// <exception cref="InvalidOperationException">
+        /// The request failed the outbound gate or encoded to an empty body.
+        /// </exception>
+        protected async Task<(AIRequestCall PreparedRequest, JObject Body)> EncodeBatchItemAsync(AIRequestCall request, CancellationToken cancellationToken)
+        {
+            var prepared = await this.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
+
+            var problems = AIRequestPreparation.ValidateOutboundRequest(prepared);
+            var errors = problems?
+                .Where(m => m != null && m.Severity == SHRuntimeMessageSeverity.Error)
+                .ToList();
+            if (errors != null && errors.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"[{this.Name}] Batch item is not valid: {string.Join("; ", errors.Select(e => e.Message))}");
+            }
+
+            var encoded = this.Encode(prepared);
+            if (string.IsNullOrWhiteSpace(encoded))
+            {
+                throw new InvalidOperationException($"[{this.Name}] Provider encoder produced an empty request body.");
+            }
+
+            return (prepared, JObject.Parse(encoded));
         }
 
         /// <summary>
@@ -511,6 +612,20 @@ namespace SmartHopper.ProviderSdk.AIProviders
         {
             var ui = ProviderSdkHost.ProviderRegistry.GetProviderSettings(this.Name);
             return ui != null ? ui.GetSettingDescriptors() : Enumerable.Empty<SettingDescriptor>();
+        }
+
+        /// <inheritdoc/>
+        public virtual IEnumerable<ProviderSurfaceElement> GetSurface()
+        {
+            var ui = ProviderSdkHost.ProviderRegistry.GetProviderSettings(this.Name);
+            if (ui != null)
+            {
+                return ui.GetSurface();
+            }
+
+            return this.GetSettingDescriptors()
+                .Where(descriptor => descriptor != null && !descriptor.IsHidden)
+                .Select(descriptor => new BoundSettingElement(descriptor));
         }
 
         /// <summary>
@@ -685,18 +800,28 @@ namespace SmartHopper.ProviderSdk.AIProviders
         /// <inheritdoc/>
         public string GetDefaultModel(AICapability requiredCapability = AICapability.Text2Text, bool useSettings = true)
         {
-            // Use settings model if matches requiredCapabilites
-            if (useSettings && this.GetSetting<string>("Model") != null)
+            // Read the injected settings cache directly instead of GetSetting("Model"):
+            // the Model descriptor's lazy default calls this method, so routing back
+            // through GetSetting re-enters it and trips the recursion guard on every
+            // unconfigured provider read.
+            string? modelFromSettings = null;
+            if (useSettings)
             {
-                string modelFromSettings = this.GetSetting<string>("Model");
-
-                if (!string.IsNullOrWhiteSpace(modelFromSettings))
+                lock (this._settingsLock)
                 {
-                    if (AIModelCapabilityRegistry.Instance.ValidateCapabilities(this.Name, modelFromSettings, requiredCapability))
+                    if (this._injectedSettings != null
+                        && this._injectedSettings.TryGetValue("Model", out var rawModel)
+                        && rawModel != null)
                     {
-                        return modelFromSettings;
+                        modelFromSettings = rawModel.ToString();
                     }
                 }
+            }
+
+            if (!string.IsNullOrWhiteSpace(modelFromSettings)
+                && AIModelCapabilityRegistry.Instance.ValidateCapabilities(this.Name, modelFromSettings, requiredCapability))
+            {
+                return modelFromSettings;
             }
 
             // Else, try to get default model from AIModelCapabilityRegistry that matches the required capabilities
@@ -894,7 +1019,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 }
 
                 // Progressive tool loading: a large eligible set goes on demand —
-                // the core categories stay inline plus search_tools, and the
+                // the curated tool names stay inline plus search_tools, and the
                 // model discovers the rest through it. search_tools is appended
                 // even when its own category sits outside the filter scope:
                 // discovery must work regardless of the request's include set.
@@ -904,8 +1029,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
                     && (searchTool.Surfaces & surface) != 0)
                 {
                     var collapsed = eligible
-                        .Where(t => ProgressiveToolLoading.CoreCategories.Contains(t.Category)
-                            || string.Equals(t.Name, ProgressiveToolLoading.SearchToolName, StringComparison.Ordinal))
+                        .Where(t => ProgressiveToolLoading.AlwaysInlineToolNames.Contains(t.Name))
                         .ToList();
 
                     if (collapsed.All(t => !string.Equals(t.Name, searchTool.Name, StringComparison.Ordinal)))
@@ -1318,6 +1442,13 @@ namespace SmartHopper.ProviderSdk.AIProviders
                 }
                 catch (TaskCanceledException ex)
                 {
+                    // Caller-initiated cancellation must propagate so callers can tell an
+                    // aborted request apart from a genuine server/HTTP timeout.
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new OperationCanceledException("The request was cancelled by the caller.", ex, cancellationToken);
+                    }
+
                     Logger.For<AIProvider>().Exception(ex, $"[{this.Name}] Call - TaskCanceledException (Timeout): {ex.Message}");
                     var errorReturn = new AIReturn();
                     errorReturn.CreateProviderError($"HTTP Request Timeout: The request to {this.Name} took too long (exceeded {request?.TimeoutSeconds ?? 600} seconds). Try increasing the HTTP timeout in Settings.", request);

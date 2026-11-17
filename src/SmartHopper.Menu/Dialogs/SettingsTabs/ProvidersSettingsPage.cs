@@ -18,14 +18,12 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Menu.Dialogs.SettingsTabs.Models;
-using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AIProviders;
 using SmartHopper.ProviderSdk.Hosting;
 using SmartHopper.ProviderSdk.Settings;
@@ -33,29 +31,32 @@ using SmartHopper.ProviderSdk.Settings;
 namespace SmartHopper.Menu.Dialogs.SettingsTabs
 {
     /// <summary>
-    /// Settings page for managing trusted AI providers - enable/disable providers and edit trust settings
+    /// Settings model owner for the trusted AI providers list and the integrity
+    /// check mode. Both blocks are displayed inside the Security tab through
+    /// <see cref="SecurityContent"/>; provider configuration tiles live on the
+    /// General tab and are created by <see cref="GeneralSettingsPage"/>.
     /// </summary>
     public class ProvidersSettingsPage : Panel
     {
         private readonly Dictionary<string, CheckBox> _providerCheckBoxes;
         private readonly IAIProvider[] _providers;
-        private readonly Action<IAIProvider> _configureProvider;
         private readonly DropDown _integrityCheckModeDropDown;
-        private readonly NumericStepper _httpTimeoutStepper;
+
+        /// <summary>Gets the trust and integrity controls hosted exclusively by the Security tab.</summary>
+        public Control SecurityContent { get; }
 
         /// <summary>
         /// Initializes a new instance of the ProvidersSettingsPage class
         /// </summary>
         /// <param name="providers">Available AI providers</param>
-        /// <param name="configureProvider">Callback invoked when the user asks to configure a provider.</param>
-        public ProvidersSettingsPage(IAIProvider[] providers, Action<IAIProvider> configureProvider)
+        public ProvidersSettingsPage(IAIProvider[] providers)
         {
             this._providers = providers;
-            this._configureProvider = configureProvider;
             this._providerCheckBoxes = new Dictionary<string, CheckBox>();
 
-            // Create layout
-            var layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
+            // The host Security page supplies the outer padding — this block must
+            // not add a second margin or its sections misalign with the others.
+            var layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(0) };
 
             // Add header
             layout.Add(new Label
@@ -64,19 +65,13 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 Font = new Font(SystemFont.Bold, 12),
             });
 
-            layout.Add(new Label
-            {
-                Text = "Configure which AI providers are trusted and can be used by SmartHopper components.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,  // Max width for better text wrapping
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "Configure which AI providers are trusted and can be used by SmartHopper components."));
 
             // Add spacing
             layout.Add(new Panel { Height = 10 });
 
-            // Add provider rows in a single column: icon + trust checkbox + Configure button
+            // Add provider rows in a single column: icon + trust checkbox
             var providersColumn = new StackLayout { Orientation = Orientation.Vertical, Spacing = 8 };
             foreach (var provider in this._providers.OrderBy(p => p.Name))
             {
@@ -88,67 +83,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Add spacing
             layout.Add(new Panel { Height = 20 });
 
-            // Global Network Settings Section
-            layout.Add(new Label
-            {
-                Text = "Network Settings",
-                Font = new Font(SystemFont.Bold, 12),
-            });
-
-            layout.Add(new Label
-            {
-                Text = "Configure global HTTP timeout settings for all AI provider calls.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
-
-            layout.Add(new Panel { Height = 10 });
-
-            // Timeout
-            layout.Add(new Label
-            {
-                Text = "Timeout",
-                Font = new Font(SystemFont.Default, 10),
-            });
-
-            this._httpTimeoutStepper = new NumericStepper
-            {
-                Value = TimeoutDefaults.DefaultTimeoutSeconds,
-                MinValue = TimeoutDefaults.MinTimeoutSeconds,
-                MaxValue = TimeoutDefaults.MaxTimeoutSeconds,
-                Width = 100,
-            };
-
-            layout.Add(new StackLayout
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 10,
-                Items =
-                {
-                    this._httpTimeoutStepper,
-                    new Label
-                    {
-                        Text = "seconds (default: 300)",
-                        TextColor = Colors.Gray,
-                        Font = new Font(SystemFont.Default, 9),
-                        VerticalAlignment = VerticalAlignment.Center,
-                    },
-                },
-            });
-
-            layout.Add(new Label
-            {
-                Text = "HTTP timeout for AI operations including response generation, file uploads, downloads, and other API calls. Increase if you experience timeout errors on slow connections or with large file operations.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 9),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
-
-            layout.Add(new Panel { Height = 20 });
-
             // Integrity Check Section
             layout.Add(new Label
             {
@@ -156,25 +90,13 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 Font = new Font(SystemFont.Bold, 12),
             });
 
-            layout.Add(new Label
-            {
-                Text = "Configure how provider integrity verification is handled when SHA-256 hash verification encounters issues.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "Configure how provider integrity verification is handled when SHA-256 hash verification encounters issues."));
 
 #if DEBUG
             layout.Add(new Panel { Height = 5 });
-            layout.Add(new Label
-            {
-                Text = "⚠ DEBUG BUILD: Integrity check is enforced to Soft mode regardless of the setting below.",
-                TextColor = Colors.Orange,
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "⚠ DEBUG BUILD: Integrity check is enforced to Soft mode regardless of the setting below.", color: Colors.Orange));
 #endif
 
             layout.Add(new Panel { Height = 10 });
@@ -204,24 +126,19 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             layout.Add(new Panel { Height = 10 });
 
-            layout.Add(new Label
-            {
-                Text = "• Soft: Warns but allows providers with hash mismatches, unavailable hashes, or custom/third-party providers. " +
-                       "Best for development and custom providers.\n\n" +
-                       "• Hard: Blocks providers with hash mismatches or unknown providers, " +
-                       "but allows when hash repository is unavailable (when offline or network issues). Good balance of security and flexibility.\n\n" +
-                       "• Strict: Blocks on all verification failures including hash mismatches, unknown providers, and network unavailability. " +
-                       "Requires all providers to have valid published hashes from the official repository and an active internet connection.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 9),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
+            layout.Add(SettingsText.DescriptionLabel(
+                "• Soft: Warns but allows providers with hash mismatches, unavailable hashes, or custom/third-party providers. " +
+                "Best for development and custom providers.\n\n" +
+                "• Hard: Blocks providers with hash mismatches or unknown providers, " +
+                "but allows when hash repository is unavailable (when offline or network issues). Good balance of security and flexibility.\n\n" +
+                "• Strict: Blocks on all verification failures including hash mismatches, unknown providers, and network unavailability. " +
+                "Requires all providers to have valid published hashes from the official repository and an active internet connection.",
+                fontSize: 9));
 
             // Add end spacing
             layout.Add(new Panel { Height = 10 });
 
-            this.Content = new Scrollable { Content = layout };
+            this.SecurityContent = layout;
         }
 
         /// <summary>
@@ -251,13 +168,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             {
                 this._integrityCheckModeDropDown.SelectedIndex = targetIndex;
             }
-
-            // Load timeout settings
-            var httpTimeout = SmartHopperSettings.Instance.GetSetting("Global", "TimeoutSeconds");
-            if (httpTimeout is int httpTimeoutInt)
-            {
-                this._httpTimeoutStepper.Value = httpTimeoutInt;
-            }
         }
 
         /// <summary>
@@ -282,17 +192,15 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 2 => ProviderIntegrityCheckMode.Strict,
                 _ => ProviderIntegrityCheckMode.Soft
             };
-
-            // Save timeout settings
-            SmartHopperSettings.Instance.SetSetting("Global", "TimeoutSeconds", (int)this._httpTimeoutStepper.Value);
         }
 
         /// <summary>
-        /// Creates a row containing the provider icon, trust checkbox and a Configure
-        /// button that navigates to the provider's settings view.
+        /// Creates a row containing the provider icon and trust checkbox.
+        /// Configuration itself is launched from the provider tiles on the
+        /// General tab, so no per-row Configure button is needed here.
         /// </summary>
         /// <param name="provider">The AI provider</param>
-        /// <returns>StackLayout row with icon, checkbox and configure button</returns>
+        /// <returns>StackLayout row with icon and checkbox</returns>
         private Control CreateProviderCell(IAIProvider provider)
         {
             var providerLayout = new StackLayout
@@ -311,33 +219,13 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             this._providerCheckBoxes[provider.GetType().Assembly.GetName().Name] = checkbox;
 
             // Add provider icon if available
-            if (provider.Icon != null)
+            var icon = ProviderTileIcon.Load(provider, 16);
+            if (icon != null)
             {
-                try
-                {
-                    using (var ms = new MemoryStream())
-                    {
-                        provider.Icon.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-                        ms.Position = 0;
-                        var iconView = new ImageView
-                        {
-                            Image = new Bitmap(ms),
-                            Size = new Size(16, 16),
-                        };
-                        providerLayout.Items.Insert(0, iconView);
-                    }
-                }
-                catch
-                {
-                    // Ignore icon loading errors
-                }
+                providerLayout.Items.Add(new ImageView { Image = icon, Size = new Size(16, 16) });
             }
 
             providerLayout.Items.Add(new StackLayoutItem(checkbox, true));
-
-            var configureButton = new Button { Text = "Configure" };
-            configureButton.Click += (sender, e) => this._configureProvider?.Invoke(provider);
-            providerLayout.Items.Add(configureButton);
 
             return providerLayout;
         }

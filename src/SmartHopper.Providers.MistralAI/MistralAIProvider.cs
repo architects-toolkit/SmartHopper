@@ -88,43 +88,43 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <inheritdoc/>
-        public override async Task<AIRequestCall> PreCallAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        protected override async Task<AIRequestCall> PreCallCoreAsync(AIRequestCall outbound, CancellationToken cancellationToken = default)
         {
             // First do the base PreCall.
-            request = await base.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
+            await base.PreCallCoreAsync(outbound, cancellationToken).ConfigureAwait(false);
 
-            switch (request.Endpoint)
+            switch (outbound.Endpoint)
             {
                 case "/models":
-                    request.HttpMethod = "GET";
-                    request.RequestKind = AIRequestKind.Backoffice;
+                    outbound.HttpMethod = "GET";
+                    outbound.RequestKind = AIRequestKind.Backoffice;
                     break;
                 default:
                     // Determine endpoint based on request capability
-                    if (request.Capability.HasFlag(AICapability.SpeechInput))
+                    if (outbound.Capability.HasFlag(AICapability.SpeechInput))
                     {
                         // Speech-to-Text (STT) endpoint
-                        request.Endpoint = "/audio/transcriptions";
+                        outbound.Endpoint = "/audio/transcriptions";
                     }
-                    else if (request.Capability.HasFlag(AICapability.SpeechOutput))
+                    else if (outbound.Capability.HasFlag(AICapability.SpeechOutput))
                     {
                         // Text-to-Speech (TTS) endpoint
-                        request.Endpoint = "/audio/speech";
+                        outbound.Endpoint = "/audio/speech";
                     }
                     else
                     {
                         // Default to chat completions
-                        request.Endpoint = "/chat/completions";
+                        outbound.Endpoint = "/chat/completions";
                     }
 
-                    request.HttpMethod = "POST";
+                    outbound.HttpMethod = "POST";
                     break;
             }
 
-            request.ContentType = "application/json";
-            request.Authentication = "bearer";
+            outbound.ContentType = "application/json";
+            outbound.Authentication = "bearer";
 
-            return request;
+            return outbound;
         }
 
         /// <inheritdoc/>
@@ -465,6 +465,13 @@ namespace SmartHopper.Providers.MistralAI
         }
 
         /// <summary>
+        /// Preset voice sent when a TTS request supplies neither <c>voice_id</c>/<c>voice</c>
+        /// extras nor <c>ref_audio</c>. Mistral has no server-side default; this slug is a
+        /// documented Voxtral preset accepted by both TTS 2 and TTS 3 models.
+        /// </summary>
+        private const string DefaultSpeechVoiceId = "gb_jane_neutral";
+
+        /// <summary>
         /// Formats the request body for the Mistral <c>/audio/speech</c> (TTS) endpoint.
         /// Expected shape: { model, input, voice_id?, ref_audio?, response_format, stream }.
         /// </summary>
@@ -526,18 +533,14 @@ namespace SmartHopper.Providers.MistralAI
                 ["stream"] = stream,
             };
 
-            if (!string.IsNullOrWhiteSpace(voiceId))
-            {
-                requestPayload["voice_id"] = voiceId;
-            }
-
             // Voice cloning reference: accept an explicit ref_audio extra, otherwise reuse an
             // audio interaction from the body as the reference clip.
+            string? refAudioValue = null;
             if (request.Parameters?.Extras != null &&
                 request.Parameters.Extras.TryGetValue("ref_audio", out var refToken) &&
                 !string.IsNullOrWhiteSpace(refToken?.ToString()))
             {
-                requestPayload["ref_audio"] = refToken.ToString();
+                refAudioValue = refToken.ToString();
             }
             else
             {
@@ -545,11 +548,27 @@ namespace SmartHopper.Providers.MistralAI
                 if (refAudio != null &&
                     OpenAICompatibleAudioCodec.TryResolveAudioData(refAudio, out var refBase64, out _))
                 {
-                    requestPayload["ref_audio"] = refBase64;
+                    refAudioValue = refBase64;
                 }
             }
 
-            Logger.For<MistralAIProvider>().Trace($"[MistralAI] AudioSpeech Request: model={request.Model}, voice_id={voiceId ?? "(default)"}, input length={input.Length}");
+            // Mistral requires either voice_id or ref_audio — there is no server-side default.
+            if (string.IsNullOrWhiteSpace(voiceId) && refAudioValue == null)
+            {
+                voiceId = DefaultSpeechVoiceId;
+            }
+
+            if (!string.IsNullOrWhiteSpace(voiceId))
+            {
+                requestPayload["voice_id"] = voiceId;
+            }
+
+            if (refAudioValue != null)
+            {
+                requestPayload["ref_audio"] = refAudioValue;
+            }
+
+            Debug.WriteLine($"[MistralAI] AudioSpeech Request: model={request.Model}, voice_id={voiceId ?? "(none, ref_audio)"}, input length={input.Length}");
             return requestPayload.ToString();
         }
 
@@ -642,7 +661,7 @@ namespace SmartHopper.Providers.MistralAI
                 }
             }
 
-            Logger.For<MistralAIProvider>().Trace($"[MistralAI] AudioTranscription Request: model={request.Model}");
+            Debug.WriteLine($"[MistralAI] AudioTranscription Request: model={request.Model}");
             return requestPayload.ToString();
         }
 
@@ -1033,10 +1052,9 @@ namespace SmartHopper.Providers.MistralAI
                         var usageMetrics = this.provider.DecodeOpenAICompatibleMetrics(parsed);
                         streamMetrics = streamMetrics with
                         {
-                            InputTokensPrompt = usageMetrics.InputTokensPrompt,
-                            InputTokensCached = usageMetrics.InputTokensCached,
-                            OutputTokensGeneration = usageMetrics.OutputTokensGeneration,
-                            OutputTokensReasoning = usageMetrics.OutputTokensReasoning,
+                            Quantities = usageMetrics.Quantities,
+                            ReportedCosts = usageMetrics.ReportedCosts,
+                            EstimatedCosts = null,
                         };
 
                         // Update aggregate metrics as they become available
@@ -1205,7 +1223,7 @@ namespace SmartHopper.Providers.MistralAI
                                 {
                                     Provider = assistantBuilder.Metrics.Provider,
                                     Model = assistantBuilder.Metrics.Model,
-                                    OutputTokensReasoning = assistantBuilder.Metrics.OutputTokensReasoning,
+                                    Quantities = AIMetrics.QuantitiesOf((AIQuantityKey.InternalReasoning, AIPriceUnit.Token, assistantBuilder.Metrics.OutputTokensReasoning)),
                                 },
                             };
 
@@ -1232,10 +1250,8 @@ namespace SmartHopper.Providers.MistralAI
                                 Provider = assistantBuilder.Metrics.Provider,
                                 Model = assistantBuilder.Metrics.Model,
                                 FinishReason = assistantBuilder.Metrics.FinishReason,
-                                InputTokensCached = assistantBuilder.Metrics.InputTokensCached,
-                                InputTokensPrompt = assistantBuilder.Metrics.InputTokensPrompt,
-                                OutputTokensReasoning = assistantBuilder.Metrics.OutputTokensReasoning,
-                                OutputTokensGeneration = assistantBuilder.Metrics.OutputTokensGeneration,
+                                Quantities = assistantBuilder.Metrics.Quantities,
+                                ReportedCosts = assistantBuilder.Metrics.ReportedCosts,
                                 CompletionTime = assistantBuilder.Metrics.CompletionTime,
                             },
                         };
@@ -1262,10 +1278,8 @@ namespace SmartHopper.Providers.MistralAI
                                 Provider = assistantBuilder.Metrics.Provider,
                                 Model = assistantBuilder.Metrics.Model,
                                 FinishReason = assistantBuilder.Metrics.FinishReason,
-                                InputTokensCached = assistantBuilder.Metrics.InputTokensCached,
-                                InputTokensPrompt = assistantBuilder.Metrics.InputTokensPrompt,
-                                OutputTokensReasoning = assistantBuilder.Metrics.OutputTokensReasoning,
-                                OutputTokensGeneration = assistantBuilder.Metrics.OutputTokensGeneration,
+                                Quantities = assistantBuilder.Metrics.Quantities,
+                                ReportedCosts = assistantBuilder.Metrics.ReportedCosts,
                                 CompletionTime = assistantBuilder.Metrics.CompletionTime,
                             },
                         };
@@ -1368,10 +1382,8 @@ namespace SmartHopper.Providers.MistralAI
                             Provider = assistantBuilder.Metrics.Provider,
                             Model = assistantBuilder.Metrics.Model,
                             FinishReason = assistantBuilder.Metrics.FinishReason,
-                            InputTokensCached = assistantBuilder.Metrics.InputTokensCached,
-                            InputTokensPrompt = assistantBuilder.Metrics.InputTokensPrompt,
-                            OutputTokensReasoning = assistantBuilder.Metrics.OutputTokensReasoning,
-                            OutputTokensGeneration = assistantBuilder.Metrics.OutputTokensGeneration,
+                            Quantities = assistantBuilder.Metrics.Quantities,
+                            ReportedCosts = assistantBuilder.Metrics.ReportedCosts,
                             CompletionTime = assistantBuilder.Metrics.CompletionTime,
                         },
                     };
@@ -1411,13 +1423,11 @@ namespace SmartHopper.Providers.MistralAI
 
             foreach (var (customId, request) in items)
             {
-                var preparedRequest = await this.PreCallAsync(request, cancellationToken).ConfigureAwait(false);
-                var encodedBody = this.Encode(preparedRequest);
-                if (firstEncodedBody == null) firstEncodedBody = encodedBody;
-                var bodyObj = JObject.Parse(encodedBody);
+                var (preparedRequest, bodyObj) = await this.EncodeBatchItemAsync(request, cancellationToken).ConfigureAwait(false);
+                if (firstEncodedBody == null) firstEncodedBody = bodyObj.ToString();
 
                 // Extract model from first item for job-level field
-                if (jobModel == null) jobModel = bodyObj["model"]?.ToString() ?? request.Model;
+                if (jobModel == null) jobModel = bodyObj["model"]?.ToString() ?? preparedRequest.Model;
                 bodyObj.Remove("model"); // Model goes at job level, not in each request
 
                 var jsonlLine = new JObject
@@ -1580,6 +1590,7 @@ namespace SmartHopper.Providers.MistralAI
             {
                 var cancelContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 Logger.For<MistralAIStreamingAdapter>().Warning($"[MistralAI] Batch cancel failed ({(int)response.StatusCode}): {cancelContent}");
+                throw new InvalidOperationException($"HTTP {(int)response.StatusCode}: {cancelContent}");
             }
             else
             {
@@ -1704,14 +1715,17 @@ namespace SmartHopper.Providers.MistralAI
                 }
                 else
                 {
-                    var errorMsg = resultBody?["error"]?["message"]?.ToString()
-                        ?? resultLine["error"]?["message"]?.ToString()
+                    // Shared extraction: the error field may be an object, a
+                    // scalar, or null — indexing ["message"] on a scalar JValue
+                    // throws InvalidOperationException.
+                    var errorMsg = AIBatchResultParser.ExtractItemErrorMessage(resultBody?["error"])
+                        ?? AIBatchResultParser.ExtractItemErrorMessage(resultLine["error"])
                         ?? $"HTTP {statusCode}";
                     messages.Add(new SHRuntimeMessage(
                         SHRuntimeMessageSeverity.Error,
                         SHRuntimeMessageOrigin.Provider,
                         SHMessageCode.BatchItemError,
-                        $"Batch item {lineCustomId}: {errorMsg}"));
+                        $"{AIBatchResultParser.ItemMessagePrefix}{lineCustomId}: {errorMsg}"));
                 }
             }
 

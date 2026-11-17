@@ -31,6 +31,7 @@ using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Models;
 using SmartHopper.Core.Types;
+using SmartHopper.Infrastructure.AICall.Fallback;
 using SmartHopper.Infrastructure.AICall.Validation;
 using SmartHopper.ProviderSdk.AICall.Core;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -138,9 +139,10 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="name">Component name.</param>
         /// <param name="nickname">Component nickname.</param>
         /// <param name="description">Component description.</param>
-        /// <param name="exposure">Component exposure level (primary or secondary).</param>
-        protected AIOutputAdapterBase(string name, string nickname, string description, GH_Exposure exposure)
-            : base(name, nickname, description, "SmartHopper", "C. Output")
+        /// <param name="exposure">Component exposure level.</param>
+        /// <param name="subcategory">Ribbon subcategory. Defaults to "C. Output"; adapter test components pass their own testing subcategory.</param>
+        protected AIOutputAdapterBase(string name, string nickname, string description, GH_Exposure exposure, string subcategory = "C. Output")
+            : base(name, nickname, description, "SmartHopper", subcategory)
         {
             this._exposure = exposure;
         }
@@ -165,10 +167,31 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns>A read-only list of output mappings. Must not be empty.</returns>
         protected abstract IReadOnlyList<OutputMapping> GetOutputMappings();
 
+        /// <summary>
+        /// Returns the conversion to run as a strict passthrough when the merged input
+        /// consists solely of this component's direct-conversion modality — for example
+        /// only audio items for an STT component, or only user text for a TTS component.
+        /// A non-null result replaces the normal provider call entirely: the conversion is
+        /// resolved through <see cref="ModalityFallbackResolver"/> (same provider/model
+        /// rules and user settings as input fallbacks) and its raw items are emitted via
+        /// <see cref="ConvertPassthroughItem"/>, preserving per-item structure.
+        /// </summary>
+        /// <param name="mergedBody">The merged payload body for the current branch, before the internal system prompt is applied.</param>
+        /// <returns>The passthrough conversion, or null for normal assistant behavior.</returns>
+        protected virtual IModalityFallback GetPassthroughConversion(AIBody mergedBody) => null;
+
+        /// <summary>
+        /// Converts one raw passthrough item into an output value for the component's
+        /// primary output. Return null to drop the item.
+        /// </summary>
+        /// <param name="item">One converted item produced by the passthrough conversion.</param>
+        /// <returns>The output goo, or null.</returns>
+        protected virtual IGH_Goo ConvertPassthroughItem(IAIInteraction item) => null;
+
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "AIInputPayload(s) containing the input data for AI processing.", GH_ParamAccess.tree);
+            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "One or more AI inputs from Input components (Text to AI, Image to AI, File to AI, AI Prompt, etc.). Multiple inputs in the same branch are combined into a single AI request.", GH_ParamAccess.tree);
 
             base.RegisterInputParams(pManager);
         }
@@ -356,7 +379,10 @@ namespace SmartHopper.Core.ComponentBase
                     "Components with >1 UsingAiTools must override PrepareInputs (Complex Case).");
             }
 
-            // Resolve effective modality fallback mode (global setting + per-component Extras override)
+            // Resolve effective modality fallback mode (global setting + per-component Extras override).
+            // Conversion itself is performed centrally during request preparation (see
+            // RequestModalityPreparationService); this validation only decides whether the
+            // run is permitted at all.
             var effectiveFallbackMode = ResolveEffectiveFallbackMode();
 
             // Block fallback in batch mode
@@ -367,14 +393,45 @@ namespace SmartHopper.Core.ComponentBase
                     "Modality fallback is not supported in batch mode. Run without batch mode to use fallback.");
             }
 
+            // Merge AIInputPayload inputs per-branch before validation: the merged body
+            // drives both capability requirements and strict passthrough detection.
+            AIBody mergedBody = null;
+
             // Validate capabilities before AI call (RequiredCapability automatically merges UsingAiTools).
             // The merged payload's interaction modalities add input requirements of their own
             // (e.g. an image interaction requires ImageInput on the resolved model).
             var requiredCapabilities = this.RequiredCapability;
-            if (inputs.TryGetValue("Input >", out var inputPayloadObj)
-                && inputPayloadObj is GH_Structure<GH_AIInputPayload> inputPayloadTree)
+            if (inputs.TryGetValue("Input >", out var payloadTreeObj) && payloadTreeObj is GH_Structure<GH_AIInputPayload> payloadTree)
             {
-                requiredCapabilities |= AIInputPayloadMerger.GetRequiredInputCapabilities(inputPayloadTree, context.Path);
+                requiredCapabilities |= AIInputPayloadMerger.GetRequiredInputCapabilities(payloadTree, context.Path);
+
+                var mergedBodies = AIInputPayloadMerger.MergePayloadsPerBranch(payloadTree);
+                mergedBodies.TryGetValue(context.Path, out mergedBody);
+            }
+
+            // Strict passthrough: a pure-conversion payload (e.g. only audio for STT, only
+            // user text for TTS) skips the assistant call entirely — the conversion output
+            // IS the component result. Provider/model resolution reuses the same pin and
+            // fallback-mode rules as input fallbacks; capability validation is skipped
+            // because the conversion request carries its own requirement.
+            var passthrough = mergedBody != null ? this.GetPassthroughConversion(mergedBody) : null;
+            if (passthrough != null)
+            {
+                var step = new ModalityFallbackResolver().ResolveStep(
+                    passthrough,
+                    this.GetActualAIProviderName(),
+                    this.GetModel(),
+                    effectiveFallbackMode);
+                if (step == null)
+                {
+                    throw new InvalidOperationException(
+                        $"[Capability] No configured provider/model can perform '{passthrough.Description}'. " +
+                        "Check the modality fallback mode and provider pins in SmartHopper settings.");
+                }
+
+                inputs["_PassthroughStep"] = step;
+                inputs["_MergedBody"] = mergedBody;
+                return;
             }
 
             var validation = new ComponentCapabilityValidator(this.GetActualAIProviderName(), this.GetModel())
@@ -387,74 +444,62 @@ namespace SmartHopper.Core.ComponentBase
                     $"[Capability] {errorMsg?.Message ?? "Provider/model does not support required capability"}");
             }
 
-            // Store the resolved fallback chain for use in ProcessBranchAsync
-            if (validation.FallbackChain != null)
+            // Build the system prompt on top of the merged body
+            if (mergedBody != null)
             {
-                inputs["_FallbackChain"] = validation.FallbackChain;
-            }
+                // Build final system prompt
+                var builder = new SystemPromptBuilder()
+                    .WithInternalPrompt(this.GetInternalSystemPrompt());
 
-            // Merge AIInputPayload inputs per-branch and build system prompt
-            if (inputs.TryGetValue("Input >", out var payloadTreeObj) && payloadTreeObj is GH_Structure<GH_AIInputPayload> payloadTree)
-            {
-                var mergedBodies = AIInputPayloadMerger.MergePayloadsPerBranch(payloadTree);
-
-                // For this branch, get the merged body
-                if (mergedBodies.TryGetValue(context.Path, out var mergedBody))
+                // Extract context filter from merged body if present
+                if (!string.IsNullOrWhiteSpace(mergedBody.ContextFilter) && mergedBody.ContextFilter != "-*")
                 {
-                    // Build final system prompt
-                    var builder = new SystemPromptBuilder()
-                        .WithInternalPrompt(this.GetInternalSystemPrompt());
-
-                    // Extract context filter from merged body if present
-                    if (mergedBody != null && !string.IsNullOrWhiteSpace(mergedBody.ContextFilter) && mergedBody.ContextFilter != "-*")
-                    {
-                        builder.WithContext(mergedBody.ContextFilter.Split(','));
-                    }
-
-                    // Extract user instructions from System agent interactions in merged body
-                    if (mergedBody?.Interactions != null)
-                    {
-                        var systemInteractions = mergedBody.Interactions
-                            .Where(i => i.Agent == AIAgent.System)
-                            .OfType<AIInteractionText>()
-                            .ToList();
-
-                        if (systemInteractions.Count > 0)
-                        {
-                            builder.WithUserInstructions(systemInteractions);
-                        }
-                    }
-
-                    var systemPrompt = builder.Build();
-
-                    // Merge with the payload body (system prompt first, then interactions)
-                    var combinedBody = AIBodyBuilder.Create()
-                        .AddText(AIAgent.System, systemPrompt);
-
-                    if (mergedBody != null && mergedBody.Interactions != null)
-                    {
-                        foreach (var interaction in mergedBody.Interactions)
-                        {
-                            // Skip system text interactions: they were already incorporated into the composed system prompt.
-                            // Non-text system interactions (images, tool calls, etc.) are preserved since they were not extracted above.
-                            if (interaction?.Agent == AIAgent.System && interaction is AIInteractionText)
-                            {
-                                continue;
-                            }
-
-                            combinedBody.Add(interaction);
-                        }
-                    }
-
-                    // Add tool filter for forced tool call
-                    var toolFilter = mergedBody?.ToolFilter ?? string.Empty;
-                    if (!string.IsNullOrWhiteSpace(toolFilter))
-                    {
-                        combinedBody.WithToolFilter(toolFilter);
-                    }
-
-                    inputs["_MergedBody"] = combinedBody.Build();
+                    builder.WithContext(mergedBody.ContextFilter.Split(','));
                 }
+
+                // Extract user instructions from System agent interactions in merged body
+                if (mergedBody.Interactions != null)
+                {
+                    var systemInteractions = mergedBody.Interactions
+                        .Where(i => i.Agent == AIAgent.System)
+                        .OfType<AIInteractionText>()
+                        .ToList();
+
+                    if (systemInteractions.Count > 0)
+                    {
+                        builder.WithUserInstructions(systemInteractions);
+                    }
+                }
+
+                var systemPrompt = builder.Build();
+
+                // Merge with the payload body (system prompt first, then interactions)
+                var combinedBody = AIBodyBuilder.Create()
+                    .AddText(AIAgent.System, systemPrompt);
+
+                if (mergedBody.Interactions != null)
+                {
+                    foreach (var interaction in mergedBody.Interactions)
+                    {
+                        // Skip system text interactions: they were already incorporated into the composed system prompt.
+                        // Non-text system interactions (images, tool calls, etc.) are preserved since they were not extracted above.
+                        if (interaction?.Agent == AIAgent.System && interaction is AIInteractionText)
+                        {
+                            continue;
+                        }
+
+                        combinedBody.Add(interaction);
+                    }
+                }
+
+                // Add tool filter for forced tool call
+                var toolFilter = mergedBody.ToolFilter ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(toolFilter))
+                {
+                    combinedBody.WithToolFilter(toolFilter);
+                }
+
+                inputs["_MergedBody"] = combinedBody.Build();
             }
         }
 
@@ -484,8 +529,8 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <inheritdoc/>
         protected override void OnBatchCompleted(
-            IReadOnlyDictionary<string, JObject> results,
-            IReadOnlyList<SHRuntimeMessage> messages = null)
+            IReadOnlyDictionary<string, JObject>? results,
+            IReadOnlyList<SHRuntimeMessage>? messages = null)
         {
             var mappings = this.GetOutputMappings();
             if (mappings == null || mappings.Count == 0 || results == null)
@@ -514,7 +559,9 @@ namespace SmartHopper.Core.ComponentBase
         {
             var primaryName = mappings[0].ParamName;
 
-            var providerName = this.GetActualAIProviderName();
+            // Decode with the provider that executed the batch — the live selection
+            // may have changed while the batch was in flight.
+            var providerName = this.GetSubmittedProviderName();
             var provider = SmartHopper.Infrastructure.AIProviders.ProviderManager.Instance.GetProvider(providerName);
             if (provider == null)
             {
@@ -525,8 +572,11 @@ namespace SmartHopper.Core.ComponentBase
             // Per-mapping output trees, keyed by ParamName.
             var perMappingTrees = mappings.ToDictionary(m => m.ParamName, _ => new GH_Structure<IGH_Goo>());
 
-            // customId -> branch path (for clearer error messages).
+            // customId -> branch path (for clearer error messages) plus every
+            // seat a shared id occupies (a shared result is placed at each of
+            // its sentinel seats, decoded once).
             var customIdToBranchPath = new Dictionary<string, GH_Path>();
+            var customIdToSeats = new Dictionary<string, List<GH_Path>>();
             foreach (var path in primarySentinelTree.Paths)
             {
                 foreach (var item in primarySentinelTree.get_Branch(path))
@@ -535,6 +585,13 @@ namespace SmartHopper.Core.ComponentBase
                     if (BatchSentinel.TryExtract(str, out var customId))
                     {
                         customIdToBranchPath[customId] = path;
+                        if (!customIdToSeats.TryGetValue(customId, out var seats))
+                        {
+                            seats = new List<GH_Path>();
+                            customIdToSeats[customId] = seats;
+                        }
+
+                        seats.Add(path);
                     }
                 }
             }
@@ -542,51 +599,92 @@ namespace SmartHopper.Core.ComponentBase
             var allInteractions = new List<IAIInteraction>();
             var customIdToMetrics = new Dictionary<string, List<SmartHopper.ProviderSdk.AICall.Metrics.AIMetrics>>();
 
-            foreach (var path in primarySentinelTree.Paths)
+            // Decode-once / place-many: iterate unique customIds — a shared
+            // result id would otherwise re-run Decode, RecordMetrics and
+            // fragment resolution once per occurrence, double-appending decoded
+            // items inside the fragment. Placement below covers every seat.
+            foreach (var kvp in customIdToSeats)
             {
-                foreach (var item in primarySentinelTree.get_Branch(path))
+                var customId = kvp.Key;
+                var seats = kvp.Value;
+                if (!results.TryGetValue(customId, out var resultBody) || resultBody == null) continue;
+
+                List<IAIInteraction> interactions;
+                try
                 {
-                    var str = (item as GH_String)?.Value ?? string.Empty;
-                    if (!BatchSentinel.TryExtract(str, out var customId)) continue;
-                    if (!results.TryGetValue(customId, out var resultBody) || resultBody == null) continue;
+                    interactions = provider.Decode(resultBody) ?? new List<IAIInteraction>();
+                }
+                catch (Exception ex)
+                {
+                    // Record the item as locally failed so CompleteBatchAndTransition
+                    // counts it as unresolved instead of silently completing.
+                    Logger.For<AIOutputAdapterBase>().Exception(ex, $"[AIOutputAdapter] Batch decode error for {customId}: {ex.Message}");
+                    this.RecordBatchItemDecodeError(customId, ex);
+                    continue;
+                }
 
-                    List<IAIInteraction> interactions;
-                    try
-                    {
-                        interactions = provider.Decode(resultBody) ?? new List<IAIInteraction>();
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.For<AIOutputAdapterBase>().Exception(ex, $"[AIOutputAdapter] Batch decode error for {customId}: {ex.Message}");
-                        continue;
-                    }
+                allInteractions.AddRange(interactions);
 
-                    allInteractions.AddRange(interactions);
-                    var metricsList = new List<SmartHopper.ProviderSdk.AICall.Metrics.AIMetrics>();
-                    foreach (var inter in interactions)
-                    {
-                        if (inter.Metrics != null) metricsList.Add(inter.Metrics);
-                    }
+                var aiReturn = new AIReturn
+                {
+                    SkipRequestValidation = true,
+                    SkipMetricsValidation = true,
+                };
+                aiReturn.SetBody(interactions);
 
-                    if (metricsList.Count > 0)
-                    {
-                        customIdToMetrics[customId] = metricsList;
-                    }
+                // One combined metric per decoded call — AIReturn.Metrics folds
+                // all interaction metrics exactly as the synchronous path does.
+                // Collecting per-interaction metrics would emit phantom empty
+                // entries for providers that split content and usage across
+                // interactions (Gemini's metrics-only sidecar).
+                var metricsList = new List<SmartHopper.ProviderSdk.AICall.Metrics.AIMetrics>();
+                if (interactions.Count > 0)
+                {
+                    metricsList.Add(this.StampBatchMetrics(aiReturn.Metrics, customId, providerName));
+                }
 
-                    var aiReturn = new AIReturn
-                    {
-                        SkipRequestValidation = true,
-                        SkipMetricsValidation = true,
-                    };
-                    aiReturn.SetBody(interactions);
+                this.ResultStore.RecordMetricsForSentinel(customId, metricsList);
 
-                    var decoded = DecodeAllMappings(mappings, aiReturn);
-                    foreach (var m in mappings)
+                if (metricsList.Count > 0)
+                {
+                    customIdToMetrics[customId] = metricsList;
+                }
+
+                var decoded = DecodeAllMappings(mappings, aiReturn);
+
+                // Resolve the sentinel inside the owning unit's stored fragment so
+                // the cached entry is complete once every queued call is decoded.
+                this.ResultStore.ResolveSentinel(
+                    customId,
+                    decoded.ToDictionary(
+                        dm => dm.Key,
+                        dm => dm.Value?.ToList() ?? new List<IGH_Goo>()));
+
+                foreach (var m in mappings)
+                {
+                    if (decoded.TryGetValue(m.ParamName, out var items) && items.Count > 0)
                     {
-                        if (decoded.TryGetValue(m.ParamName, out var items) && items.Count > 0)
+                        foreach (var seat in seats)
                         {
-                            perMappingTrees[m.ParamName].AppendRange(items, path);
+                            perMappingTrees[m.ParamName].AppendRange(items, seat);
                         }
+                    }
+                }
+            }
+
+            // Canonical assembly: when placements exist, rebuild every mapped
+            // output channel from stored fragments — covering reused units whose
+            // values never became sentinels, and secondary channels that only
+            // exist inside the fragment. Falls back to the sentinel walk for
+            // legacy pending payloads restored without layout data.
+            var rebuiltTrees = this.ResultStore.BuildRunTrees(this.ComponentProcessingOptions.Topology);
+            if (rebuiltTrees != null)
+            {
+                foreach (var m in mappings)
+                {
+                    if (rebuiltTrees.TryGetValue(m.ParamName, out var tree))
+                    {
+                        perMappingTrees[m.ParamName] = tree;
                     }
                 }
             }
@@ -635,18 +733,20 @@ namespace SmartHopper.Core.ComponentBase
                 this.PersistedMetricsList = new SmartHopper.ProviderSdk.AICall.Metrics.AIMetricsList();
                 foreach (var m in allMetrics)
                 {
-                    this.PersistedMetricsList.Add(m, "main");
+                    // Role was already resolved per custom ID by StampBatchMetrics
+                    // ("main" or "tool:{name}") — preserve it rather than re-stamping.
+                    this.PersistedMetricsList.Add(m, m.Role);
                 }
 
-                var firstEntry = this.PersistedMetricsList.Entries[0];
+                var firstEntry = this.PersistedMetricsList.Entries.Count > 0 ? this.PersistedMetricsList.Entries[0] : null;
 
                 var batchReturn = new AIReturn();
                 var batchRequest = new SmartHopper.ProviderSdk.AICall.Core.Requests.AIRequestCall();
                 batchRequest.Initialize(
-                    firstEntry.Provider,
-                    firstEntry.Model,
+                    firstEntry?.Provider ?? providerName,
+                    firstEntry?.Model ?? this.GetModel(),
                     new List<IAIInteraction>(),
-                    endpoint: "batch_complete",
+                    origin: "batch_complete",
                     capability: AICapability.None,
                     toolFilter: null);
                 batchReturn.CreateSuccess(allInteractions, request: batchRequest);
@@ -848,39 +948,73 @@ namespace SmartHopper.Core.ComponentBase
                 this._parent.PrepareInputs(inputs, context);
 
                 AIReturn aiResult = null;
+                var passthroughHandled = false;
                 if (inputs.TryGetValue("_MergedBody", out var mergedBodyObj) && mergedBodyObj is AIBody mergedBody)
                 {
-                    // Apply fallback chain if resolved during validation
-                    if (inputs.TryGetValue("_FallbackChain", out var chainObj)
-                        && chainObj is Infrastructure.AICall.Fallback.FallbackChain chain)
+                    if (inputs.TryGetValue("_PassthroughStep", out var stepObj) && stepObj is FallbackStep passthroughStep)
                     {
-                        var fallbackResult = await chain.ApplyAsync(mergedBody, token).ConfigureAwait(false);
-                        mergedBody = fallbackResult.TransformedBody;
+                        // Strict passthrough: run the conversion per input item and emit its
+                        // raw items directly — no assistant call follows. Execution failover
+                        // across the step's resolved candidates is shared with input fallbacks.
+                        var conversion = await FallbackChain.ApplyStepAsync(
+                            passthroughStep,
+                            mergedBody,
+                            token,
+                            this.BuildRequestParameters(inputs)).ConfigureAwait(false);
 
-                        // Record fallback metrics
-                        foreach (var m in fallbackResult.ExtraMetricsList)
+                        foreach (var m in conversion.ExtraMetricsList)
                         {
-                            var stepName = chain.Steps.Count > 0
-                                ? string.Join("+", chain.Steps.Select(s => s.Fallback.Name))
-                                : "unknown";
-                            this._parent.CombineIntoPersistedMetricsInternal(m, $"fallback:{stepName}");
+                            this._parent.CombineIntoPersistedMetricsInternal(m, $"passthrough:{passthroughStep.Fallback.Name}");
                         }
-                    }
 
-                    var requestParameters = this.BuildRequestParameters(inputs);
-                    aiResult = await this._parent.CallAIAsync(
-                        mergedBody,
-                        requestParameters,
-                        cancellationToken: token).ConfigureAwait(false);
+                        var primaryName = mappings[0].ParamName;
+                        foreach (var item in conversion.ConvertedItems)
+                        {
+                            var goo = this._parent.ConvertPassthroughItem(item);
+                            if (goo != null)
+                            {
+                                outputs[primaryName].Add(goo);
+                            }
+                        }
+
+                        foreach (var msg in conversion.Messages)
+                        {
+                            if (!msg.Surfaceable) continue;
+                            this._parent.SetPersistentRuntimeMessage(
+                                $"passthrough_{passthroughStep.Fallback.Name}_{msg.Origin}",
+                                msg.Severity == SHRuntimeMessageSeverity.Error ? GH_RuntimeMessageLevel.Error
+                                    : msg.Severity == SHRuntimeMessageSeverity.Warning ? GH_RuntimeMessageLevel.Warning
+                                    : GH_RuntimeMessageLevel.Remark,
+                                msg.Message,
+                                false);
+                        }
+
+                        passthroughHandled = true;
+                    }
+                    else
+                    {
+                        // Modality adaptation runs centrally inside request preparation (Exec);
+                        // helper metrics arrive on AIReturn.ExtraMetrics and are metered in
+                        // ProcessAIResult — no component-local fallback execution remains.
+                        var requestParameters = this.BuildRequestParameters(inputs);
+                        aiResult = await this._parent.CallAIAsync(
+                            mergedBody,
+                            requestParameters,
+                            cancellationToken: token).ConfigureAwait(false);
+                    }
                 }
 
                 // Single decoding routine; identical to the batch path's per-customId decode.
-                var decoded = DecodeAllMappings(mappings, aiResult);
-                foreach (var mapping in mappings)
+                // Passthrough outputs were already populated item-by-item above.
+                if (!passthroughHandled)
                 {
-                    if (decoded.TryGetValue(mapping.ParamName, out var items))
+                    var decoded = DecodeAllMappings(mappings, aiResult);
+                    foreach (var mapping in mappings)
                     {
-                        outputs[mapping.ParamName].AddRange(items);
+                        if (decoded.TryGetValue(mapping.ParamName, out var items))
+                        {
+                            outputs[mapping.ParamName].AddRange(items);
+                        }
                     }
                 }
 

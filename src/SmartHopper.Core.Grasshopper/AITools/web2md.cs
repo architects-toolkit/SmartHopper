@@ -20,19 +20,21 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Net.Http;
-using System.Text.RegularExpressions;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
+using Markdig;
+using Markdig.Syntax;
+using Markdig.Syntax.Inlines;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Converters.Formats;
-using SmartHopper.Core.Grasshopper.Utils.Internal;
-using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Networking;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.Documents;
 
 using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -89,11 +91,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""description"": ""Keep inline image references in the Markdown output. Default: true."",
                             ""default"": true
                         },
-                        ""imageMode"": {
+                        ""extractImages"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Preserve visual evidence. For web pages this downloads referenced images as typed visual evidence. Default: true. Set false for text-only conversion without downloads."",
+                            ""default"": true
+                        },
+                        ""describeImages"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Explicitly use a configured vision helper to add contextual textual visual evidence while retaining source text and images. This may incur provider costs. Default: false."",
+                            ""default"": false
+                        },
+                        ""consumerSupportsImages"": {
+                            ""type"": [""boolean"", ""null""],
+                            ""description"": ""Whether the external consuming model accepts image input. False explicitly requests vision-helper textual evidence; true preserves native images. If omitted, return original evidence and report that the client must check its model capabilities. This does not infer capabilities from MCP image transport support.""
+                        },
+                        ""imageDescriptionPrompt"": {
                             ""type"": ""string"",
-                            ""enum"": [""link"", ""embed"", ""describe"", ""caption""],
-                            ""description"": ""Controls how images appear in the markdown. 'link' (default): keep remote image URLs as Markdown links. 'embed': download images and embed as base64 data URIs with short AI captions. 'describe': download images and replace each with a long AI text description. 'caption': download images and replace each with a short AI-generated title. Requires an AI provider for embed/describe/caption."",
-                            ""default"": ""link""
+                            ""description"": ""Custom prompt for AI image description. If omitted, a built-in detailed description prompt is used.""
                         }
                     },
                     ""required"": [""url""]
@@ -130,10 +144,26 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                string imageMode = args["imageMode"]?.ToString()?.ToLowerInvariant() ?? "link";
-                if (imageMode != "link" && imageMode != "embed" && imageMode != "describe" && imageMode != "caption")
+                bool describeImages = args["describeImages"]?.Value<bool>() ?? false;
+                bool? consumerSupportsImages = args.ContainsKey("consumerSupportsImages")
+                    ? args["consumerSupportsImages"]?.Value<bool?>()
+                    : null;
+                string imageDescriptionPrompt = args["imageDescriptionPrompt"]?.ToString();
+                bool extractImages = args["extractImages"]?.Value<bool>() ?? true;
+                bool includeImages = args["includeImages"]?.Value<bool>() ?? true;
+
+                // Actionable contradictions, validated before any conversion work.
+                var explicitAi = describeImages || consumerSupportsImages == false;
+                if (explicitAi && !extractImages)
                 {
-                    imageMode = "link";
+                    output.CreateError("extractImages=false contradicts an explicit AI visual comprehension request (describeImages or consumerSupportsImages=false).");
+                    return output;
+                }
+
+                if (explicitAi && !includeImages)
+                {
+                    output.CreateError("includeImages=false contradicts an explicit AI visual comprehension request (describeImages or consumerSupportsImages=false).");
+                    return output;
                 }
 
                 // Get conversion options
@@ -145,10 +175,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     MaxContentLength = 0,
                     HtmlReadabilityMode = ReadabilityModeExtensions.FromString(args["HTMLreadabilityMode"]?.ToString()),
                     IncludeLinks = args["includeLinks"]?.Value<bool>() ?? true,
-                    IncludeImages = args["includeImages"]?.Value<bool>() ?? true,
+                    IncludeImages = includeImages,
+                    ExtractImages = extractImages,
+                    CancellationToken = toolCall.CancellationToken,
                 };
 
-                // Convert the URL
+                // Convert the web page — article Markdown is the canonical source text.
                 var converter = GetUrlConverter();
                 var result = await converter.ConvertAsync(url, options).ConfigureAwait(false);
 
@@ -158,66 +190,231 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ? string.Join("; ", result.Warnings)
                         : "Conversion failed.";
 
-                    // Prefix with the classified failure reason so callers/agents can distinguish
-                    // failure shapes (invalid URL, login wall, bot challenge, oversized page, empty
-                    // content, etc.) without having to parse free-text messages.
                     output.CreateError($"[{result.FailureReason}] {errorMessage}");
                     return output;
                 }
 
-                string markdownContent = result.MarkdownContent;
+                // Page-less document identity is bound to article URL + source
+                // Markdown BEFORE images materialize so every asset shares one
+                // coherent DocumentId — never two differing identities.
+                var documentId = "sha256-" + Convert.ToHexString(
+                    SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(url + "\n" + (result.MarkdownContent ?? string.Empty))))
+                    .ToLowerInvariant();
 
-                // Process images according to the requested mode (link is the default / no-op).
-                if (imageMode != "link" && options.IncludeImages)
+                // Materialize referenced article images through the authorized host
+                // scope — never via a raw fetch and never as base64 in JSON/Markdown.
+                var typedImages = new List<ToolResultImage>();
+                var failed = 0;
+                var encodedTotal = 0L;
+                if (options.IncludeImages && extractImages && !string.IsNullOrEmpty(result.MarkdownContent))
                 {
-                    string providerName = toolCall.Provider?.ToString();
-                    if (string.IsNullOrWhiteSpace(providerName))
+                    var pageUri = new Uri(url);
+                    var ast = Markdig.Markdown.Parse(result.MarkdownContent);
+                    var refs = ast.Descendants()
+                        .OfType<LinkInline>()
+                        .Where(l => l.IsImage && !string.IsNullOrEmpty(l.Url))
+                        .Select(l =>
+                        {
+                            Uri.TryCreate(pageUri, l.Url, out var resolved);
+                            var alt = string.Concat(l.Descendants().OfType<LiteralInline>().Select(t => t.Content.ToString()));
+                            return (resolved, alt, span: l.UrlSpan);
+                        })
+                        .ToList();
+
+                    // Unresolvable image references are explicit coverage gaps,
+                    // never silent filters.
+                    var invalid = refs.Count(r => r.resolved == null);
+                    if (invalid > 0)
                     {
-                        result.Warnings.Add("Image processing skipped: no AI provider configured. Configure a provider or set imageMode='link'.");
+                        failed += invalid;
+                        result.Warnings.Add($"{invalid} image reference(s) could not be resolved to a valid URI and were not materialized.");
                     }
-                    else
+
+                    var deduped = refs
+                        .Where(r => r.resolved != null)
+                        .GroupBy(r => r.resolved!.AbsoluteUri)
+                        .Select(g => g.First())
+                        .ToList();
+
+                    // One stable smarthopper-asset:img-N identity per deduped source.
+                    var assetIds = new Dictionary<string, string>(StringComparer.Ordinal);
+                    for (var i = 0; i < deduped.Count; i++)
                     {
-                        markdownContent = await ProcessWebImagesAsync(markdownContent, imageMode, toolCall).ConfigureAwait(false);
+                        assetIds[deduped[i].resolved!.AbsoluteUri] = $"img-{i + 1}";
+                    }
+
+                    // Inline data: payloads must never remain in the projected
+                    // Markdown or any JSON provenance — replace their URL spans with
+                    // stable asset links (right-to-left keeps earlier spans valid).
+                    var replacements = new List<(int Start, int Length, string Url)>();
+                    foreach (var r in refs)
+                    {
+                        if (r.resolved == null || r.span.Start < 0 || r.span.End < r.span.Start)
+                        {
+                            continue;
+                        }
+
+                        if (r.resolved.Scheme.Equals("data", StringComparison.OrdinalIgnoreCase)
+                            && assetIds.TryGetValue(r.resolved.AbsoluteUri, out var inlineId))
+                        {
+                            replacements.Add((r.span.Start, r.span.End - r.span.Start + 1, $"smarthopper-asset:{inlineId}"));
+                        }
+                    }
+
+                    // Reference definitions carrying data: targets are sanitized too;
+                    // unreferenced definitions still cannot leak payload bytes.
+                    foreach (var def in ast.Descendants().OfType<LinkReferenceDefinition>())
+                    {
+                        if (string.IsNullOrEmpty(def.Url) || def.UrlSpan.Start < 0 || def.UrlSpan.End < def.UrlSpan.Start
+                            || !Uri.TryCreate(def.Url, UriKind.Absolute, out var defUri)
+                            || !defUri.Scheme.Equals("data", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        var defId = assetIds.TryGetValue(defUri.AbsoluteUri, out var existing)
+                            ? existing
+                            : $"unreferenced-{replacements.Count + 1}";
+                        replacements.Add((def.UrlSpan.Start, def.UrlSpan.End - def.UrlSpan.Start + 1, $"smarthopper-asset:{defId}"));
+                    }
+
+                    if (replacements.Count > 0)
+                    {
+                        var builder = new System.Text.StringBuilder(result.MarkdownContent);
+                        foreach (var rep in replacements.OrderByDescending(r => r.Start))
+                        {
+                            builder.Remove(rep.Start, rep.Length);
+                            builder.Insert(rep.Start, rep.Url);
+                        }
+
+                        result.MarkdownContent = builder.ToString();
+                    }
+
+                    var iterated = 0;
+                    var withinLimit = Math.Min(deduped.Count, 32);
+                    foreach (var (resolved, alt, _) in deduped.Take(32))
+                    {
+                        iterated++;
+                        var assetId = assetIds[resolved.AbsoluteUri];
+                        var isData = resolved.Scheme.Equals("data", StringComparison.OrdinalIgnoreCase);
+                        if (!isData && resolved.Scheme != Uri.UriSchemeHttp && resolved.Scheme != Uri.UriSchemeHttps)
+                        {
+                            failed++;
+                            result.Warnings.Add($"Image source '{(resolved.OriginalString.Length > 80 ? resolved.OriginalString.Substring(0, 80) + "…" : resolved.OriginalString)}' uses an unsupported scheme and was not materialized.");
+                            continue;
+                        }
+
+                        try
+                        {
+                            var image = await ExternalImageMaterializer.MaterializeAsync(
+                                new AIInteractionImage { ImageUrl = resolved },
+                                toolCall.CancellationToken).ConfigureAwait(false);
+
+                            // Reject before storing when this asset would cross the
+                            // 64 MiB aggregate encoded budget — and stop further
+                            // downloads rather than crossing on a later asset.
+                            var candidateLength = image.ImageData?.Length ?? 0;
+                            if (encodedTotal + candidateLength > 64L * 1024 * 1024)
+                            {
+                                failed++;
+                                result.Warnings.Add($"Image '{assetId}' would exceed the 64 MiB aggregate encoded budget; remaining image sources were not downloaded.");
+                                break;
+                            }
+
+                            encodedTotal += candidateLength;
+                            typedImages.Add(new ToolResultImage
+                            {
+                                ImageData = image.ImageData,
+                                MimeType = image.MimeType,
+                                SendToModel = true,
+                                SourceReference = new SourceContentReference
+                                {
+                                    DocumentId = documentId,
+                                    // data: payloads are never copied into provenance;
+                                    // HTTP(S) sources keep their canonical image URL.
+                                    SourceName = isData ? url : resolved.AbsoluteUri,
+                                    AssetId = assetId,
+                                    Caption = alt,
+                                    ContextText = result.MarkdownContent,
+                                    Kind = SourceContentKind.Image,
+                                },
+                            });
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException and not UnauthorizedAccessException)
+                        {
+                            failed++;
+                            result.Warnings.Add($"Image '{assetId}' could not be materialized: {ex.Message}");
+                        }
+                    }
+
+                    // Downloads stopped at the encoded budget never silently resume.
+                    var undownloaded = withinLimit - iterated;
+                    if (undownloaded > 0)
+                    {
+                        failed += undownloaded;
+                        result.Warnings.Add($"{undownloaded} referenced image source(s) were not downloaded because the 64 MiB aggregate encoded budget was reached.");
+                    }
+
+                    // Truncated references are explicit coverage gaps, not silent drops.
+                    var omitted = deduped.Count - withinLimit;
+                    if (omitted > 0)
+                    {
+                        failed += omitted;
+                        result.Warnings.Add($"{omitted} referenced image source(s) exceeded the 32-source limit and were not materialized.");
                     }
                 }
 
-                // Build result
-                var toolResult = new JObject
+                // Extraction disabled while the article references images is an
+                // explicit coverage gap — never a silent complete.
+                var extractionSkipped = !extractImages && !string.IsNullOrEmpty(result.MarkdownContent)
+                    && Markdig.Markdown.Parse(result.MarkdownContent).Descendants().OfType<LinkInline>().Any(l => l.IsImage);
+                if (extractionSkipped)
                 {
-                    ["content"] = markdownContent,
-                    ["source"] = url,
-                    ["retrievedAt"] = DateTime.UtcNow.ToString("O"),
+                    result.Warnings.Add("Article references images but extractImages=false; visual evidence is incomplete.");
+                }
+
+                // Page-less document evidence: web coverage is completeness of the
+                // referenced image set, never invented page numbers.
+                result.Document = new DocumentEvidence
+                {
+                    DocumentId = documentId,
+                    SourceName = url,
+                    Format = "web",
+                    Metadata = new Dictionary<string, string>
+                    {
+                        ["url"] = url,
+                        ["format"] = result.DetectedFormat ?? string.Empty,
+                        ["retrievedAt"] = DateTime.UtcNow.ToString("O"),
+                    },
+                    Images = typedImages,
+                    Warnings = result.Warnings.ToList(),
+                    Coverage = new DocumentCoverage
+                    {
+                        IsComplete = failed == 0 && !extractionSkipped,
+                    },
                 };
+                result.Metadata["retrievedAt"] = DateTime.UtcNow.ToString("O");
 
-                // Add metadata if present
-                if (result.Metadata.Count > 0)
-                {
-                    var metadata = new JObject();
-                    foreach (var kvp in result.Metadata)
-                    {
-                        metadata[kvp.Key] = kvp.Value;
-                    }
+                return await ConversionToolResultBuilder.BuildAsync(
+                    result,
+                    url,
+                    toolCall,
+                    toolInfo,
+                    describeImages,
+                    consumerSupportsImages,
+                    imageDescriptionPrompt,
+                    toolCall.CancellationToken).ConfigureAwait(false);
+            }
 
-                    toolResult["metadata"] = metadata;
-                }
-
-                // Add warnings if present
-                if (result.Warnings.Count > 0)
-                {
-                    var warnings = new JArray();
-                    foreach (var warning in result.Warnings)
-                    {
-                        warnings.Add(warning);
-                    }
-
-                    toolResult["warnings"] = warnings;
-                }
-
-                var builder = AIBodyBuilder.Create();
-                builder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name);
-                var immutable = builder.Build();
-                output.CreateSuccess(immutable, toolCall);
-                return output;
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Consent denials are a refusal, not a fetch failure — let them
+                // propagate so the tool reports an explicit runtime error.
+                throw;
             }
             catch (Exception ex)
             {
@@ -227,34 +424,5 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
         }
 
-        /// <summary>
-        /// Finds all inline Markdown image references in the content and replaces them according to
-        /// the selected <paramref name="imageMode"/> through the shared <see cref="ImageProcessingService"/>.
-        /// </summary>
-        private static async Task<string> ProcessWebImagesAsync(string markdownContent, string imageMode, AIToolCall toolCall)
-        {
-            var matches = Regex.Matches(markdownContent, @"!\[([^\]]*)\]\(([^)]+)\)");
-            if (matches.Count == 0)
-            {
-                return markdownContent;
-            }
-
-            using var httpClient = new HttpClient();
-            var items = matches.OfType<Match>().Select((match, i) => new ImageProcessingItem
-            {
-                Id = $"web-img-{i + 1}",
-                Context = match.Groups[2].Value,
-                AltText = match.Groups[1].Value,
-                Url = match.Groups[2].Value,
-                Placeholder = match.Value,
-            }).ToList();
-
-            return await ImageProcessingService.ProcessMarkdownImagesAsync(
-                markdownContent,
-                items,
-                imageMode,
-                toolCall,
-                httpClient).ConfigureAwait(false);
-        }
     }
 }

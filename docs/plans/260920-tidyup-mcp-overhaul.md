@@ -6,7 +6,7 @@
 **Date:** 2026-09-20
 **Branches:**
 
-- `architects-toolkit/SmartHopper` → `feature/mcp-canvas-usability` (branched from `feature/2.1.0-agent-features`)
+- `architects-toolkit/SmartHopper` → `feature/mcp-canvas-usability`
 - `architects-toolkit/ghjson-dotnet` → `feature/port-aware-layout` (branched from `main`)
 
 **Origin:** live assessment of `gh_tidy_up` on a two-island test definition (math + geometry islands, 19 components incl. sliders, panels, a Number param, fan-out, multi-port sources, a 3-layer skip edge). Screenshots: `tidyup-before.png`, `tidyup-after.png`, `tidyup-after-island1.png`, `tidyup-after-island2.png` (repo root — delete before merging or move under docs).

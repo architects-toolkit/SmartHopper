@@ -289,27 +289,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
-                // Recompute the solution on the UI thread after all disconnections.
+                // Schedule the recompute once all disconnections are committed —
+                // the acknowledgement is not held for arbitrary downstream solving.
                 if (successfulDisconnections.Any())
                 {
-                    var solutionTcs = new TaskCompletionSource<bool>();
-                    Rhino.RhinoApp.InvokeOnUiThread(() =>
-                    {
-                        try
+                    await UiThreadMarshal.RunOnUiThreadAsync(
+                        () =>
                         {
                             toolCall.CancellationToken.ThrowIfCancellationRequested();
-                            doc.NewSolution(false);
+                            doc.ScheduleSolution(5);
                             Instances.RedrawCanvas();
-                            solutionTcs.SetResult(true);
-                        }
-                        catch (Exception ex)
-                        {
-                            solutionTcs.SetException(ex);
-                        }
-                    });
-
-                    await solutionTcs.Task
-                        .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
+                            return true;
+                        },
+                        toolCall.CancellationToken).ConfigureAwait(false);
                 }
 
                 var toolResult = new JObject

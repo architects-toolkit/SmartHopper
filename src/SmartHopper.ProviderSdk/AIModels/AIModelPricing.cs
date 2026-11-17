@@ -16,70 +16,163 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System.Collections.Generic;
+using System.Linq;
+
 namespace SmartHopper.ProviderSdk.AIModels
 {
     /// <summary>
-    /// Pricing information for a model, in its declared currency per unit.
-    /// USD remains the default for OpenRouter. Token prices are per single token (e.g.
-    /// <c>0.0000025m</c> means $2.50 per million tokens). Names follow the
-    /// <c>&lt;modality&gt;_&lt;direction&gt;</c> convention shared with the catalogue wire
-    /// schema (<c>text_input</c>, <c>image_output</c>, <c>cache_read</c>, …): input-side
-    /// fields carry the <c>Input</c> suffix direction, output-side fields carry
-    /// <c>Output</c>, and prompt-cache fields are <c>CacheRead</c>/<c>CacheWrite</c>.
-    /// All fields are optional; when <c>null</c> the concept is not priced or not
-    /// published by the source.
+    /// Pricing information for a model: a currency plus an open-ended list of
+    /// <see cref="AIPriceEntry"/> records. Entries-first since
+    /// <c>smarthopper-models/2</c> — every entry declares its
+    /// <see cref="AIPriceEntry.Kind"/> (canonical kinds live in
+    /// <c>AIQuantityKey</c>, <c>tool:&lt;name&gt;</c> covers tool fees) and
+    /// its <see cref="AIPriceEntry.Unit"/> explicitly, so per-token,
+    /// per-minute, per-item and per-invocation billing share one shape.
+    /// Amounts are per single unit in <see cref="Currency"/>.
     /// </summary>
     public class AIModelPricing
     {
-        /// <summary>Gets or sets the currency of all prices; defaults to USD for existing providers.</summary>
+        /// <summary>Gets or sets the ISO-4217 currency of all entry amounts (e.g. <c>USD</c>, <c>EUR</c>).</summary>
         public string Currency { get; set; } = "USD";
 
-        /// <summary>Price per text input token (prompt).</summary>
-        public decimal? TextInput { get; set; }
-
-        /// <summary>Price per text output token (completion).</summary>
-        public decimal? TextOutput { get; set; }
-
-        /// <summary>Flat per-request fee, if any.</summary>
-        public decimal? Request { get; set; }
-
-        /// <summary>Price per input image (legacy OpenRouter <c>image</c> field).</summary>
-        public decimal? ImageInput { get; set; }
-
-        /// <summary>Price per generated (output) image.</summary>
-        public decimal? ImageOutput { get; set; }
-
-        /// <summary>Price per image token when images are charged per token.</summary>
-        public decimal? ImageToken { get; set; }
-
-        /// <summary>Price per input audio unit (legacy OpenRouter <c>audio</c> field).</summary>
-        public decimal? AudioInput { get; set; }
-
-        /// <summary>Price per output audio unit.</summary>
-        public decimal? AudioOutput { get; set; }
-
-        /// <summary>Price per input video unit, as declared by the feed (when the provider prices video input separately from text tokens).</summary>
-        public decimal? VideoInput { get; set; }
-
-        /// <summary>Price per generated (output) video unit, as declared by the feed.</summary>
-        public decimal? VideoOutput { get; set; }
-
-        /// <summary>Price for cached input audio.</summary>
-        public decimal? AudioCacheRead { get; set; }
-
-        /// <summary>Price per cached prompt-cache read token.</summary>
-        public decimal? CacheRead { get; set; }
-
-        /// <summary>Price per token written to the provider's prompt cache (e.g. Anthropic cache creation).</summary>
-        public decimal? CacheWrite { get; set; }
-
-        /// <summary>Price per internal reasoning token (hidden chain-of-thought).</summary>
-        public decimal? InternalReasoning { get; set; }
-
-        /// <summary>Price per web search invocation.</summary>
-        public decimal? WebSearch { get; set; }
-
-        /// <summary>Applied discount factor (0.0–1.0), if any.</summary>
+        /// <summary>Gets or sets the applied discount factor (0.0–1.0), if any.</summary>
         public decimal? Discount { get; set; }
+
+        /// <summary>Gets or sets the priced billing buckets for this model.</summary>
+        public List<AIPriceEntry> Entries { get; set; } = new List<AIPriceEntry>();
+
+        /// <summary>Returns the first entry billing <paramref name="kind"/>, or <c>null</c>.</summary>
+        public AIPriceEntry Find(string kind)
+            => this.Entries?.FirstOrDefault(e => e.Kind == kind);
+
+        /// <summary>
+        /// Gets the amount billed for <paramref name="kind"/>, or <c>null</c>
+        /// when the model does not price that kind.
+        /// </summary>
+        public decimal? AmountOf(string kind)
+            => this.Find(kind)?.Amount;
+
+        /// <summary>
+        /// Appends a token-priced entry — convenience for the unambiguous
+        /// per-token kinds so seeds and tests can stay terse. Ambiguous
+        /// modalities (audio, video, tools) must still declare their
+        /// <see cref="AIPriceEntry"/> explicitly.
+        /// </summary>
+        private void AddTokenEntry(string kind, decimal? amount)
+        {
+            if (amount.HasValue)
+            {
+                this.Entries ??= new List<AIPriceEntry>();
+                this.Entries.Add(new AIPriceEntry(kind, AIPriceUnit.Token, amount.Value));
+            }
+        }
+
+        private void AddInvocationEntry(string kind, decimal? amount)
+        {
+            if (amount.HasValue)
+            {
+                this.Entries ??= new List<AIPriceEntry>();
+                this.Entries.Add(new AIPriceEntry(kind, AIPriceUnit.Invocation, amount.Value));
+            }
+        }
+
+        /// <summary>Gets or init-appends the per-token <c>text_input</c> price.</summary>
+        public decimal? TextInput
+        {
+            get => this.AmountOf("text_input");
+            init => this.AddTokenEntry("text_input", value);
+        }
+
+        /// <summary>Gets or init-appends the per-token <c>text_output</c> price.</summary>
+        public decimal? TextOutput
+        {
+            get => this.AmountOf("text_output");
+            init => this.AddTokenEntry("text_output", value);
+        }
+
+        /// <summary>Gets or init-appends the per-token <c>cache_read</c> price.</summary>
+        public decimal? CacheRead
+        {
+            get => this.AmountOf("cache_read");
+            init => this.AddTokenEntry("cache_read", value);
+        }
+
+        /// <summary>Gets or init-appends the per-token <c>cache_write</c> price.</summary>
+        public decimal? CacheWrite
+        {
+            get => this.AmountOf("cache_write");
+            init => this.AddTokenEntry("cache_write", value);
+        }
+
+        /// <summary>Gets or init-appends the per-token <c>internal_reasoning</c> price.</summary>
+        public decimal? InternalReasoning
+        {
+            get => this.AmountOf("internal_reasoning");
+            init => this.AddTokenEntry("internal_reasoning", value);
+        }
+
+        /// <summary>Gets or init-appends the per-token <c>image_input</c> price.</summary>
+        public decimal? ImageInput
+        {
+            get => this.AmountOf("image_input");
+            init => this.AddTokenEntry("image_input", value);
+        }
+
+        /// <summary>Gets or init-appends the per-token <c>image_output</c> price.</summary>
+        public decimal? ImageOutput
+        {
+            get => this.AmountOf("image_output");
+            init => this.AddTokenEntry("image_output", value);
+        }
+
+        /// <summary>Gets or init-appends the per-token <c>audio_input</c> price.</summary>
+        public decimal? AudioInput
+        {
+            get => this.AmountOf("audio_input");
+            init => this.AddTokenEntry("audio_input", value);
+        }
+
+        /// <summary>Gets or init-appends the per-token <c>audio_output</c> price.</summary>
+        public decimal? AudioOutput
+        {
+            get => this.AmountOf("audio_output");
+            init => this.AddTokenEntry("audio_output", value);
+        }
+
+        /// <summary>Gets or init-appends the per-token <c>audio_cache_read</c> price.</summary>
+        public decimal? AudioCacheRead
+        {
+            get => this.AmountOf("audio_cache_read");
+            init => this.AddTokenEntry("audio_cache_read", value);
+        }
+
+        /// <summary>Gets or init-appends the per-token <c>video_input</c> price.</summary>
+        public decimal? VideoInput
+        {
+            get => this.AmountOf("video_input");
+            init => this.AddTokenEntry("video_input", value);
+        }
+
+        /// <summary>Gets or init-appends the per-token <c>video_output</c> price.</summary>
+        public decimal? VideoOutput
+        {
+            get => this.AmountOf("video_output");
+            init => this.AddTokenEntry("video_output", value);
+        }
+
+        /// <summary>Gets or init-appends the per-invocation <c>request</c> price.</summary>
+        public decimal? Request
+        {
+            get => this.AmountOf("request");
+            init => this.AddInvocationEntry("request", value);
+        }
+
+        /// <summary>Gets or init-appends the per-invocation <c>tool:web_search</c> price.</summary>
+        public decimal? WebSearch
+        {
+            get => this.AmountOf("tool:web_search");
+            init => this.AddInvocationEntry("tool:web_search", value);
+        }
     }
 }

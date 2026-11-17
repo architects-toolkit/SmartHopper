@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -126,9 +127,9 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    if (!encoded.Contains("\"function_calls\"") && !encoded.Contains("\"functionCalls\""))
+                    if (!encoded.Contains("\"functionCall\""))
                     {
-                        this._messages.Add(new GH_String("Missing function_calls in encoding"));
+                        this._messages.Add(new GH_String("Missing functionCall part in encoding"));
                         this._encodingSuccess = new GH_Boolean(false);
                         this._parsingSuccess = new GH_Boolean(false);
                         await Task.Yield();
@@ -149,16 +150,24 @@ namespace SmartHopper.Components.Test.Providers
                     this._messages.Add(new GH_String("- Function calls present"));
                     this._messages.Add(new GH_String("- Function name 'calculate_sum' encoded"));
 
-                    // Verify parsing would work (basic structure check)
-                    if (encoded.Contains("\"role\":\"model\"") &&
-                        encoded.Contains("\"role\":\"function\""))
+                    // Verify parsing would work (basic structure check): the tool call encodes
+                    // as a model-role functionCall and the tool result as a functionResponse
+                    // inside a user-role turn (the Gemini schema has no "function" role).
+                    // Parse the JSON rather than substring-matching — Encode serializes indented.
+                    var parsedBody = JObject.Parse(encoded);
+                    var encodedContents = parsedBody["contents"] as JArray;
+                    var encodedRoles = encodedContents?.Select(c => c["role"]?.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>();
+                    var hasFunctionResponse = encodedContents?.Any(c =>
+                        c["parts"] is JArray encodedParts && encodedParts.Any(part => part["functionResponse"] != null)) ?? false;
+
+                    if (encodedRoles.Contains("model") && hasFunctionResponse)
                     {
                         parsingSuccess = true;
                         this._messages.Add(new GH_String("Function result parsing structure valid"));
                     }
                     else
                     {
-                        this._messages.Add(new GH_String("Function result parsing structure invalid"));
+                        this._messages.Add(new GH_String($"Function result parsing structure invalid (roles: {string.Join(", ", encodedRoles)}; functionResponse: {hasFunctionResponse})"));
                     }
 
                     this._encodingSuccess = new GH_Boolean(encodingSuccess);

@@ -37,27 +37,26 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("C4D5E6F7-A8B9-4C0D-1E2F-3A4B5C6D7E8F");
 
-        protected override Bitmap Icon => Resources.ladybugpostopen;
+        protected override Bitmap Icon => Resources.LadybugForumPostOpen;
 
-        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary | GH_Exposure.obscure;
 
         public LadybugForumPostOpenComponent()
             : base(
-                  "LadybugForum Post Open",
+                  "Ladybug Forum Post Open",
                   "LadybugPostOpen",
-                  "Open a Ladybug Tools Discourse forum post in the default web browser by its numeric ID.",
+                  "Open a Ladybug Tools forum post in your default web browser from its post JSON object.",
                   "SmartHopper",
-                  "Knowledge")
+                  "E. Forums")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter(
-                "LadybugForum Post",
+                "Ladybug Forum Post",
                 "LbP",
-                "JSON object representing the full forum post (e.g. from LadybugForumPostGetComponent).",
+                "Forum post JSON object from Ladybug Forum Search or Ladybug Forum Post Get.",
                 GH_ParamAccess.item);
         }
 
@@ -95,7 +94,7 @@ namespace SmartHopper.Components.Knowledge
                 this.hasWork = !string.IsNullOrWhiteSpace(this.postJson);
                 if (!this.hasWork)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "LadybugForum Post is required.");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Ladybug Forum Post is required.");
                 }
 
                 dataCount = this.hasWork ? 1 : 0;

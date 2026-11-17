@@ -51,38 +51,40 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                 "Apply GhPatch to Canvas",
                 "GhPatchApplyCanvas",
-                "Apply a `.ghpatch` directly to the current Grasshopper canvas. Only actually changed components are replaced.",
+                "Apply a .ghpatch diff directly to the active Grasshopper canvas after reviewing the proposed changes.",
                 "SmartHopper",
-                "Grasshopper")
+                "D. GhJSON")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("5E7C18F0-284C-41B0-B50D-BAB0AF23D690");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Properties.Resources.GhPatchApplyToCanvas;
+
+        /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.primary | GH_Exposure.obscure;
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Patch", "P", "GhPatch document string.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Patch", "P", "GhPatch (.ghpatch) document string to apply to the canvas.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Success", "S", "Whether the patch applied with no fatal conflicts.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Conflicts", "C", "Summary of conflicts encountered during apply.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Components+", "C+", "Components added.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Components-", "C-", "Components removed.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Components~", "C~", "Components modified.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Connections+", "W+", "Connections added.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Connections-", "W-", "Connections removed.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Groups+", "G+", "Groups added.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Groups-", "G-", "Groups removed.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Groups~", "G~", "Groups modified.", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Success", "S", "True if the patch applied cleanly with no fatal conflicts.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Conflicts", "C", "Summary of any conflicts encountered while applying the patch.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Components+", "C+", "Number of components added to the canvas.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Components-", "C-", "Number of components removed from the canvas.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Components~", "C~", "Number of existing components modified on the canvas.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Connections+", "W+", "Number of wire connections added.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Connections-", "W-", "Number of wire connections removed.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Groups+", "G+", "Number of groups added.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Groups-", "G-", "Number of groups removed.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Groups~", "G~", "Number of groups modified.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
@@ -160,6 +162,7 @@ namespace SmartHopper.Components.Grasshopper
                         return;
                     }
 
+
                     var baseJson = GhJson.ToJson(baseDoc, new GhJSON.Core.Serialization.WriteOptions { Indented = false });
 
                     // 2. Apply patch via AI tool
@@ -180,7 +183,7 @@ namespace SmartHopper.Components.Grasshopper
                     };
 
                     var toolCall = new AIToolCall();
-                    toolCall.Endpoint = "gh_patch_apply";
+                    toolCall.Origin = "gh_patch_apply";
                     toolCall.FromToolCallInteraction(toolCallInteraction);
                     toolCall.SkipMetricsValidation = true;
 
@@ -417,7 +420,7 @@ namespace SmartHopper.Components.Grasshopper
 
                         if (document.UndoServer.UndoCount != baseline + 1)
                         {
-                            Logger.For<GhPatchApplyToCanvasWorker>().Error("[GhPatchApplyToCanvas] Rollback skipped: canvas changed after the reviewed removal.");
+                            Logger.For<GhPatchApplyToCanvasWorker>().Warning("[GhPatchApplyToCanvas] Rollback skipped: canvas changed after the reviewed removal.");
                             completion.TrySetResult(false);
                             return;
                         }
@@ -491,7 +494,15 @@ namespace SmartHopper.Components.Grasshopper
                     return removed;
                 }
 
-                var patchedDoc = GhJson.FromJson(patchedJson);
+                GhJSON.Core.SchemaModels.GhJsonDocument patchedDoc;
+                try
+                {
+                    patchedDoc = GhJson.FromJson(patchedJson);
+                }
+                catch (Exception ex)
+                {
+                    throw;
+                }
                 var patchedGuids = new HashSet<Guid>(
                     patchedDoc.Components?
                         .Where(c => c.InstanceGuid.HasValue && c.InstanceGuid != Guid.Empty)

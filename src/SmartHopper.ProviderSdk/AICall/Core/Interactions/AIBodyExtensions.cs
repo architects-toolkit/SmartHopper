@@ -22,6 +22,7 @@ using System.Diagnostics;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
@@ -62,6 +63,49 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         public static IAIInteraction GetLastInteraction(this AIBody body, string agent)
         {
             return body?.Interactions?.LastOrDefault(i => i.Agent.ToString() == agent);
+        }
+
+        /// <summary>
+        /// Whether the body carries at least one interaction that produces provider-visible
+        /// conversation content: a user, assistant, tool-call or tool-result turn, or a
+        /// projected interaction with non-empty model content. System, context, summary and
+        /// diagnostic interactions encode as instructions/metadata only — a body made solely
+        /// of them gives the model nothing to respond to.
+        /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <returns><c>true</c> when at least one conversation-producing interaction exists.</returns>
+        public static bool HasConversationContent(this AIBody body)
+        {
+            var interactions = body?.Interactions;
+            if (interactions == null || interactions.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (var interaction in interactions)
+            {
+                if (interaction == null)
+                {
+                    continue;
+                }
+
+                switch (interaction.Agent)
+                {
+                    case AIAgent.User:
+                    case AIAgent.Assistant:
+                    case AIAgent.ToolCall:
+                    case AIAgent.ToolResult:
+                        return true;
+                }
+
+                if (interaction is IAIModelProjectedInteraction projected &&
+                    !string.IsNullOrWhiteSpace(projected.GetModelContent()))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -112,13 +156,27 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Gets the last assistant image interaction in the body.
+        /// Gets the last assistant image interaction in the body that carries consumable
+        /// image content (<see cref="AIInteractionImage.HasContent"/>), skipping request or
+        /// placeholder image interactions that carry neither a URL nor inline data.
         /// </summary>
         /// <param name="body">The AI body to query.</param>
-        /// <returns>The last assistant AIInteractionImage, or null if no assistant image exists.</returns>
+        /// <returns>The last assistant AIInteractionImage with content, or null if none exists.</returns>
         public static AIInteractionImage GetLastAssistantImage(this AIBody body)
         {
-            return body?.Interactions?.LastOrDefault(i => i is AIInteractionImage && i.Agent == AIAgent.Assistant) as AIInteractionImage;
+            return body?.Interactions?.LastOrDefault(i => i is AIInteractionImage img && i.Agent == AIAgent.Assistant && img.HasContent) as AIInteractionImage;
+        }
+
+        /// <summary>
+        /// Gets the last assistant audio interaction in the body that carries consumable
+        /// audio content (<see cref="AIInteractionAudio.HasContent"/>), skipping request or
+        /// placeholder audio interactions that carry neither inline data nor a file path.
+        /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <returns>The last assistant AIInteractionAudio with content, or null if none exists.</returns>
+        public static AIInteractionAudio GetLastAssistantAudio(this AIBody body)
+        {
+            return body?.Interactions?.LastOrDefault(i => i is AIInteractionAudio aud && i.Agent == AIAgent.Assistant && aud.HasContent) as AIInteractionAudio;
         }
 
         /// <summary>
@@ -381,12 +439,12 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 // Only populate estimated fields when actual tokens are missing
                 if (!hasActualInputTokens)
                 {
-                    metrics = metrics with { EstimatedInputTokens = estimatedInput };
+                    metrics = metrics.WithQuantity(AIQuantityKey.EstimatedTextInput, AIPriceUnit.Token, estimatedInput);
                 }
 
                 if (!hasActualOutputTokens)
                 {
-                    metrics = metrics with { EstimatedOutputTokens = estimatedOutput };
+                    metrics = metrics.WithQuantity(AIQuantityKey.EstimatedTextOutput, AIPriceUnit.Token, estimatedOutput);
                 }
             }
 

@@ -59,14 +59,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AIMutatingTool(
                 name: this.toolName,
-                description: "Stage components from GhJSON, show the user an in-canvas visual diff, and apply only accepted changes. Use this to create component networks, update existing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. A component whose instanceGuid matches an existing canvas object updates that object in place (preserving identity, position unless pivot overrides it, and existing wires) instead of adding a duplicate; omit instanceGuid to place new components. Connections in the GhJSON are document-scoped: they wire components inside the same document by their id values (including ones updated in place); to connect objects already on the canvas use gh_connect instead. The result reports how many staged changes were actually applied (acceptedChanges) versus not applied (rejectedChanges: user rejections plus apply failures). Component-specific state (e.g. Number Slider values under componentState.extensions['gh.numberslider'].value using the format 'current<min~max>', Panel text under componentState.extensions['gh.panel'].text) is preserved. Example: gh_put({ ghjson: '...' }) or gh_put({ ghjson: 'C:/path/to/file.ghjson' }). Never invent or copy GUID values: omit componentGuid entirely for new components (the name selects the component type) and set instanceGuid only when intentionally updating an object that is already on the canvas. See also: gh_get, gh_connect, script_generate_and_place_on_canvas.",
+                description: "Stage components from GhJSON, show the user an in-canvas visual diff, and apply only accepted changes. Use this to create component networks, update existing components, or build parametric definitions. Supplied pivots are preserved exactly; new components without pivots receive compact automatic layout. NEVER provide pivot fields when generating new GhJSON: omit them so automatic placement computes the layout. Preserve authored pivots when loading or replaying existing documents. A component whose instanceGuid matches an existing canvas object updates that object in place (preserving identity, position unless pivot overrides it, and existing wires) instead of adding a duplicate; omit instanceGuid to place new components. Connections in the GhJSON are document-scoped: they wire components inside the same document by their id values (including ones updated in place); to connect objects already on the canvas use gh_connect instead. The result reports how many staged changes were actually applied (acceptedChanges) versus not applied (rejectedChanges: user rejections plus apply failures). Component-specific state (e.g. Number Slider values under componentState.extensions['gh.numberslider'].value using the format 'current<min~max>', Panel text under componentState.extensions['gh.panel'].text) is preserved. Example: gh_put({ ghjson: '...' }) or gh_put({ ghjson: 'C:/path/to/file.ghjson' }). Never invent or copy GUID values: omit componentGuid entirely for new components (the name selects the component type) and set instanceGuid only when intentionally updating an object that is already on the canvas. See also: gh_get, gh_connect, script_generate_and_place_on_canvas.",
                 category: "GhJSON.Tools",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON document string, or an absolute file path to a .ghjson file containing the document. Components whose instanceGuid matches an existing canvas object update that object in place. Connections only reference components inside this document by their id values; they cannot wire objects that are already on the canvas unless those objects are also in the document — use gh_connect for that."" },
+                        ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON document string, or an absolute file path to a .ghjson file containing the document. NEVER include pivot fields in AI-generated new definitions: compact automatic layout supplies missing positions. Supplied pivots from existing documents are preserved. Components whose instanceGuid matches an existing canvas object update that object in place. Connections only reference components inside this document by their id values; they cannot wire objects that are already on the canvas unless those objects are also in the document — use gh_connect for that."" },
                         ""editMode"": { ""type"": ""boolean"", ""description"": ""Optional hint kept for compatibility. Components with matching instance GUIDs are always updated in place; when true, autoOffset defaults to off so updated objects keep their position."" },
-                        ""autoOffset"": { ""type"": ""boolean"", ""default"": true, ""description"": ""When true, newly placed components are offset on the canvas so they do not overlap existing objects. Defaults to false when the document updates existing objects or editMode is set."" }
+                        ""autoOffset"": { ""type"": ""boolean"", ""default"": true, ""description"": ""When true, disconnected parts without fixed anchors are placed below existing canvas content. Connected pivotless components are laid out relative to fixed components. Never changes supplied pivots. Defaults to false when the document updates existing objects or editMode is set."" }
                     },
                     ""required"": [""ghjson""]
                 }",
@@ -75,7 +75,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""components"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Names of the placed or replaced components."" }, ""instanceGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the placed or replaced components."" }, ""acceptedChanges"": { ""type"": ""integer"", ""description"": ""Number of staged changes actually applied to the canvas."" }, ""rejectedChanges"": { ""type"": ""integer"", ""description"": ""Number of staged changes not applied: user rejections plus apply failures."" }, ""summary"": { ""type"": [""string"", ""null""], ""description"": ""Short sentence (fewer than seven words) describing the outcome, shown as the completed title of this tool's chat card."" }, ""analysis"": { ""type"": [""string"", ""null""], ""description"": ""Validation, review, error, or warning summary. Null when nothing notable happened."" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false),
                 activityLabel: "placing components on the canvas",
-                resultLabel: "placed components on the canvas");
+                resultLabel: "placed components on the canvas",
+                boundary: MutationBoundary.PreparedCommit);
         }
 
         private async Task<AIReturn> GhPutToolAsync(AIToolCall toolCall)
@@ -87,6 +88,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             };
 
             string analysisMsg = null;
+            var ghjsonReported = false;
             try
             {
                 // Local tool: do not require provider/model/finish_reason metrics
@@ -98,7 +100,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var json = ExtractGhJsonString(args["ghjson"]);
                 var editMode = args["editMode"]?.ToObject<bool>() ?? false;
 
-                var document = GhJson.FromJson(json);
+                GhJsonDocument document;
+                try
+                {
+                    document = GhJson.FromJson(json);
+                }
+                catch (Exception parseEx)
+                {
+                    ghjsonReported = true;
+                    throw;
+                }
 
                 // Apply fixes to normalize AI-generated JSON
                 var fixResult = GhJson.Fix(document);
@@ -195,9 +206,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // so the default is off; callers can still request it explicitly.
                 var autoOffset = args["autoOffset"]?.ToObject<bool>() ?? (!editMode && existingComponents.Count == 0);
 
-                // Every new component goes through the shared tidy-up layout pipeline
-                // before the document is staged, so the review previews the exact final
-                // placement and Put applies the computed pivots verbatim.
+                // Fill only missing new-component pivots before review. Authored pivots
+                // and existing objects keep their positions; Put applies the plan verbatim.
                 document = await CanvasNewComponentLayout.ApplyAsync(
                     document,
                     new HashSet<Guid>(existingComponents.Keys),
@@ -254,10 +264,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Logger.For<gh_put>().Trace("[gh_put] Putting document on canvas");
                 PutResult putResult = null;
                 var externalConnectionsCreated = 0;
-                var placeTcs = new TaskCompletionSource<bool>();
-                Rhino.RhinoApp.InvokeOnUiThread(() =>
-                {
-                    try
+                var needsSolution = false;
+                await UiThreadMarshal.RunOnUiThreadAsync(
+                    () =>
                     {
                         toolCall.CancellationToken.ThrowIfCancellationRequested();
                         var ghDoc = GhJsonGrasshopper.GetActiveDocument();
@@ -312,14 +321,31 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             // before staging and autoOffset was applied there, so Put
                             // must apply positions verbatim instead of offsetting again.
                             AutoOffset = false,
+
+                            // The commit never runs a synchronous solve: the placement
+                            // acknowledgement is owed before arbitrary downstream
+                            // computation finishes, so the solution is scheduled once
+                            // at the end of this UI turn instead.
+                            RequestSolution = false,
                         };
 
-                        putResult = GhJsonGrasshopper.Put(document, putOptions);
+                        using (var prepared = GhJsonGrasshopper.PreparePut(document, putOptions, ghDoc))
+                        {
+                            if (prepared == null)
+                            {
+                                throw new InvalidOperationException("Put failed: no Grasshopper document could be bound.");
+                            }
+
+                            putResult = GhJsonGrasshopper.ApplyPreparedPut(prepared);
+                        }
 
                         if (!putResult.Success)
                         {
+                            ghjsonReported = true;
                             throw new InvalidOperationException($"Put failed: {putResult.ErrorMessage}");
                         }
+
+                        needsSolution = putResult.ComponentsPlaced + putResult.ComponentsUpdated > 0;
 
                         if (acceptedExternalConnections.Count > 0)
                         {
@@ -389,28 +415,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                             Logger.For<gh_put>().Trace($"[gh_put] Restored {restored}/{capturedConnections.Count} external connections");
 
-                            if (restored > 0)
-                            {
-                                ghDoc?.NewSolution(false);
-                                Instances.RedrawCanvas();
-                            }
+                            needsSolution |= restored > 0;
                         }
 
-                        if (externalConnectionsCreated > 0)
+                        needsSolution |= externalConnectionsCreated > 0;
+
+                        // Exactly one deferred solve covers the whole commit — new
+                        // objects, rewired endpoints and restored external wires all
+                        // recompute together after the acknowledgement is owed.
+                        if (needsSolution)
                         {
-                            ghDoc?.NewSolution(false);
+                            ghDoc?.ScheduleSolution(5);
                             Instances.RedrawCanvas();
                         }
 
-                        placeTcs.SetResult(true);
-                    }
-                    catch (Exception ex)
-                    {
-                        placeTcs.SetException(ex);
-                    }
-                });
-                await placeTcs.Task
-                    .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
+                        return true;
+                    },
+                    toolCall.CancellationToken).ConfigureAwait(false);
 
                 Logger.For<gh_put>().Trace("[gh_put] Placement complete");
 
@@ -520,6 +541,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             catch (Exception ex)
             {
                 Logger.For<gh_put>().Exception(ex, $"[PutTools] Error in GhPutToolAsync: {ex.Message}");
+                if (!ghjsonReported)
+                {
+                }
+
                 var combined = string.IsNullOrEmpty(analysisMsg)
                     ? ex.Message
                     : analysisMsg + "\nException: " + ex.Message;

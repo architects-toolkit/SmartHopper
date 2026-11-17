@@ -40,12 +40,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: "gh_document_switch",
-                description: "Show another open Grasshopper document in the canvas, making it the active document for all canvas tools. Get documentId values from gh_document_list.",
+                description: "Show another open Grasshopper document in the canvas, making it the active document for all canvas tools. Get documentId values from gh_document_list." + GhDocumentTools.McpDisconnectNote,
                 category: "Canvas.ViewControl",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""documentId"": { ""type"": ""string"", ""description"": ""documentId of an open document (from gh_document_list)."" }
+                        ""documentId"": { ""type"": ""string"", ""description"": ""documentId of an open document (from gh_document_list)."" },
+                        " + GhDocumentTools.AllowDisconnectSchema + @"
                     },
                     ""required"": [""documentId""]
                 }",
@@ -64,6 +65,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return GhDocumentTools.Run(toolCall, args =>
             {
                 var doc = GhDocumentTools.RequireDocument(args["documentId"]?.ToString());
+                GhDocumentTools.ThrowIfDisconnectsMcp(toolCall, args, doc);
 
                 if (!GhDocumentAccess.Activate(doc))
                 {

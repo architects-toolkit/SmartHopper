@@ -96,7 +96,7 @@ Specifies the source kind of audio:
 
 ##### Conversion Methods
 
-- `ToByteArray()` — converts audio source to byte array
+- `ToByteArrayAsync(CancellationToken)` — asynchronously converts audio sources to bytes; URL retrieval requires source approval.
   - For `LocalFile`: loads from disk
   - For `Url`: downloads via HTTP(S)
   - For `Base64`: decodes base64 string
@@ -255,7 +255,7 @@ public class Audio2AIComponent : AIInputAdapterBase
 1. **Flexibility**: Accepts multiple input formats (file, URL, base64, data-URI)
 2. **Auto-Detection**: Automatically determines source kind from input
 3. **Metadata Preservation**: Maintains document extraction context
-4. **Lazy Loading**: Downloads/decodes only when `ToByteArray()` is called
+4. **Lazy Loading**: Downloads/decodes only when `ToByteArrayAsync()` is awaited.
 5. **Immutability**: Once created, cannot be modified
 6. **Serialization**: Full round-trip support via codec
 7. **Type Safety**: Grasshopper goo wrapper enables type-safe parameter passing

@@ -149,17 +149,18 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
         /// <returns>A tuple of base64 data and detected MIME type, or null values on failure.</returns>
         public static async Task<(string? Base64Data, string? MimeType)> DownloadImageAsync(string imageUrl, HttpClient? httpClient = null)
         {
+            using var sourceAccessScope = SmartHopper.Infrastructure.Networking.ExternalSourceAccess.BeginScope();
             HttpClient client = httpClient;
             bool ownsClient = false;
             try
             {
                 if (client == null)
                 {
-                    client = new HttpClient();
+                    client = SmartHopper.Infrastructure.Networking.ExternalDataHttpClient.Create();
                     ownsClient = true;
                 }
 
-                var response = await client.GetAsync(new Uri(imageUrl)).ConfigureAwait(false);
+                using var response = await client.GetAsync(new Uri(imageUrl)).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
                     Logger.Error(typeof(ImageProcessingService).FullName, $"[ImageProcessingService] Failed to download image {imageUrl}: HTTP {(int)response.StatusCode}");
@@ -169,6 +170,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                 var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
                 string mimeType = response.Content.Headers.ContentType?.MediaType ?? "image/png";
                 return (Convert.ToBase64String(bytes), mimeType);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Consent denials are a refusal, not a download failure — let them
+                // propagate so the calling tool reports an explicit runtime error.
+                throw;
             }
             catch (Exception ex)
             {

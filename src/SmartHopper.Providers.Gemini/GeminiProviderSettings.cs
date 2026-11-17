@@ -94,6 +94,14 @@ namespace SmartHopper.Providers.Gemini
                 },
                 new SettingDescriptor
                 {
+                    Name = "ThinkingLevel",
+                    Type = typeof(string),
+                    DefaultValue = string.Empty,
+                    DisplayName = "Thinking Level",
+                    Description = "Reasoning effort for thinking-capable models. Gemini 3: minimal, low, medium, high. Gemini 2.5: integer token budget as string (0=off). Empty leaves the API default. Value can be overridden per-request via the 'thinking_level' extra.",
+                },
+                new SettingDescriptor
+                {
                     Name = "ServiceTier",
                     Type = typeof(string),
                     DefaultValue = "standard",

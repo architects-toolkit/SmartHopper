@@ -41,6 +41,7 @@ This section provides an overview of all interaction types available in the AICa
   - `DateTime Time`
   - `AIAgent Agent`
   - `AIMetrics Metrics`
+  - `JObject? ProviderData` — opaque provider-owned state round-tripped verbatim through encode/decode (e.g. Gemini `thoughtSignature` continuation signatures). It is never rendered as content or reasoning and must not be populated from shared/user data.
 
 ### AIInteractionText
 

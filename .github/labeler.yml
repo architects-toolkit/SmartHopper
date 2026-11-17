@@ -34,6 +34,10 @@
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Providers.OpenRouter/**'
 
+"provider: Test":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.Test/**'
+
 # --- Scope labels ---
 "scope: UI":
   - changed-files:

@@ -50,6 +50,13 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         public string LanguageHint { get; init; }
 
         /// <summary>
+        /// Gets a value indicating whether this interaction carries consumable audio content —
+        /// either inline <see cref="Data"/> or a <see cref="FilePath"/>.
+        /// Result-selection helpers use this to skip request/placeholder audio interactions.
+        /// </summary>
+        public bool HasContent => (this.Data?.Length ?? 0) > 0 || !string.IsNullOrWhiteSpace(this.FilePath);
+
+        /// <summary>
         /// Gets the size of the audio data in bytes.
         /// </summary>
         public long GetAudioSize()

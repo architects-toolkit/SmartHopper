@@ -360,14 +360,12 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// Adds an image generation request interaction.
         /// </summary>
         /// <param name="prompt">Prompt describing the desired image.</param>
-        /// <param name="size">Optional size (provider-specific).</param>
-        /// <param name="quality">Optional quality (provider-specific).</param>
-        /// <param name="style">Optional style (provider-specific).</param>
-        /// <param name="aspectRatio">Optional aspect ratio (provider-specific, e.g., "1:1", "16:9").</param>
+        /// <param name="size">Optional target resolution (provider-agnostic: "1024x1024", "1K", "2K", "4K").</param>
+        /// <param name="aspectRatio">Optional aspect ratio as "W:H" (e.g., "1:1", "16:9").</param>
         /// <returns>The same builder instance.</returns>
-        public AIBodyBuilder AddImageRequest(string prompt, string size = null, string quality = null, string style = null, string aspectRatio = null)
+        public AIBodyBuilder AddImageRequest(string prompt, string size = null, string aspectRatio = null)
         {
-            var img = new AIInteractionImage { Agent = AIAgent.User }.WithRequest(prompt, size, quality, style, aspectRatio);
+            var img = new AIInteractionImage { Agent = AIAgent.User }.WithRequest(prompt, size, aspectRatio);
             return this.Add(img, this.defaultMarkAsNew);
         }
 
@@ -376,14 +374,12 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
         /// </summary>
         /// <param name="prompt">Prompt describing the desired image.</param>
         /// <param name="markAsNew">Whether to mark the interaction as new.</param>
-        /// <param name="size">Optional size (provider-specific).</param>
-        /// <param name="quality">Optional quality (provider-specific).</param>
-        /// <param name="style">Optional style (provider-specific).</param>
-        /// <param name="aspectRatio">Optional aspect ratio (provider-specific, e.g., "1:1", "16:9").</param>
+        /// <param name="size">Optional target resolution (provider-agnostic: "1024x1024", "1K", "2K", "4K").</param>
+        /// <param name="aspectRatio">Optional aspect ratio as "W:H" (e.g., "1:1", "16:9").</param>
         /// <returns>The same builder instance for fluent chaining.</returns>
-        public AIBodyBuilder AddImageRequest(string prompt, bool markAsNew, string size = null, string quality = null, string style = null, string aspectRatio = null)
+        public AIBodyBuilder AddImageRequest(string prompt, bool markAsNew, string size = null, string aspectRatio = null)
         {
-            var img = new AIInteractionImage { Agent = AIAgent.User }.WithRequest(prompt, size, quality, style, aspectRatio);
+            var img = new AIInteractionImage { Agent = AIAgent.User }.WithRequest(prompt, size, aspectRatio);
             return this.Add(img, markAsNew);
         }
 
@@ -855,7 +851,12 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
                 return this;
             }
 
-            var metrics = (last.Metrics ?? new AIMetrics()) with { CompletionTime = completionTime };
+            var existing = last.Metrics ?? new AIMetrics();
+            var metrics = existing with
+            {
+                CompletionTime = completionTime,
+                CompletedAt = existing.CompletedAt ?? DateTimeOffset.UtcNow,
+            };
             var updated = last.WithMetrics(metrics);
             this.interactions[this.interactions.Count - 1] = updated;
 

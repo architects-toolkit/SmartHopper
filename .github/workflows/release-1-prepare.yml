@@ -107,6 +107,7 @@ jobs:
         uses: ./.github/actions/documentation/changelog-review
         with:
           mistral-api-key: ${{ secrets.MISTRAL_API_KEY }}
+          model: ${{ vars.MISTRAL_MODEL || 'mistral-large-4-0' }}
           commit: false
 
       - name: Move unreleased changelog content to release

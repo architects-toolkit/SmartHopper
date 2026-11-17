@@ -2,6 +2,22 @@
 
 Discovers, verifies, registers, and initializes AI providers at runtime.
 
+## Pre-consent metadata
+
+Trust previews must never load provider assemblies or invoke provider code. The host
+reads the embedded `SmartHopper.ProviderManifest.json` resource using PE metadata:
+`{"schemaVersion":1,"displayName":"Example","modelCount":12}`. Embed it with that
+logical resource name; first-party projects use `provider.manifest.json` automatically.
+The optional `modelCount` is a publisher-declared non-deprecated catalogue snapshot,
+not a live network query. Dynamic catalogues use `null`. Keep the snapshot current
+when changing provider models. Missing/invalid manifests use the assembly filename
+and an unknown count, with no provider-specific icon before consent.
+
+The embedded bytes are covered by the DLL's SHA-256, verified against the existing
+official hash catalogue before execution. A manifest alone never proves trust:
+only a matching official DLL hash earns the verified indicator. Community/unavailable
+verification stays visibly unverified even when a manifest provides a friendly name.
+
 ---
 
 ## Metadata
@@ -29,7 +45,15 @@ _Note: This documentation was written by AI on its own. It may contain some mist
   - `AllowCommunityProviders` (default `false`): community providers are blocked unless this is on.
   - `BlockNonOfficialProviders` (default `false`): hard override that allows only `Official` providers.
   - `ProviderIntegrityCheckMode` continues to govern hash-mismatch behavior for Official providers.
-  - `TrustedProviders` — per-provider trust decisions persisted as a `Dictionary<string, bool>` keyed by provider name.
+  - `TrustedProviders` — per-provider enable decisions persisted as a `Dictionary<string, bool>` keyed by assembly name.
+  - `ProviderTrustRecords` — per-provider consent snapshot (`ConsentedHash` + `VerifiedTrust`) that makes stored trust verification-conditional.
+- Verification-conditional trust (`EvaluateStoredTrust`)
+  - Consent binds to the bytes consented to, not the assembly name — a trusted file is re-checked on every load, even when the catalogue check fails.
+  - `Match` → loads silently and re-mints the record, so legitimate official updates never re-prompt.
+  - `Mismatch` on a trusted file → treated as tampering: severe error, the provider is disabled, and the user is told to re-download from official sources. Never honored by records — a forged snapshot cannot bypass it.
+  - `NotFound`/`Unavailable`/check failure → unchanged bytes keep consent; changed bytes or a missing record re-prompt in `Soft` and block in `Hard`/`Strict`.
+  - DEBUG builds keep trust silently on changed bytes — local provider rebuilds never re-prompt.
+  - Disabled providers are skipped before any verification or `Assembly.LoadFrom` — their code never executes.
 - Registration & initialization
   - Duplicate provider ids: Official > Community > everything else. Tampered/Invalid never win.
   - `InitializeProviderAsync()` is wrapped in a 30-second per-provider timeout so a hanging provider can't block discovery.
@@ -65,7 +89,8 @@ ProviderManager is an internal service that runs when SmartHopper starts. It sca
 ### When to Use It
 
 - **Adding a new provider**: After installing a new provider plugin (e.g., `SmartHopper.Providers.Gemini.dll`), ProviderManager discovers it automatically on the next Rhino restart
-- **Trusting a provider**: The first time an untrusted provider is discovered, a UI prompt asks you to confirm trust
+- **Trusting providers**: The first time untrusted providers are discovered, a single dialog lists all of them with icon, hash-verification status, last update and model count — you pick which to enable
+- **Provider updates**: Official updates verify against the published hash manifest and load silently. If a custom/third-party provider's file changes, a re-confirmation dialog explains the change before it may run again. A file claiming an official provider name but failing hash verification is disabled and reported as a possible tampering attempt — re-download it from official sources before re-enabling it
 - **Updating settings**: When you change provider settings in the SmartHopper preferences, ProviderManager validates and persists them
 
 ### Visual Guide
@@ -83,7 +108,7 @@ A: Ensure the DLL is named `SmartHopper.Providers.*.dll`, is in the same directo
 A: The provider DLL failed Authenticode or strong-name verification. Only trust providers from sources you verify.
 
 **Q: Can I disable a provider without uninstalling it?**
-A: Yes. Use the provider settings UI to disable it; ProviderManager will filter it from the available list.
+A: Yes. Use the provider settings UI to disable it; the DLL is then skipped entirely — its code never runs and it does not appear in the provider list.
 
 ---
 
@@ -199,9 +224,11 @@ InitializeProviderAsync() → Register in Registry → Available to Components
 
 | Layer | Mechanism |
 | --- | --- |
-| Authenticode | Certificate thumbprint must match host assembly |
+| Authenticode | `WinVerifyTrust` must prove the signature covers the file bytes (Windows); signer certificate thumbprint must then match the host assembly |
 | Strong-name | Public key token must match host assembly |
-| User trust | First discovery prompts user; decision persisted |
+| User trust | First discovery shows a unified enable-providers dialog; decisions persisted |
+
+`AuthenticodeSignatureVerifier` (`SmartHopper.Infrastructure/Security`) wraps `WinVerifyTrust` with `WINTRUST_ACTION_GENERIC_VERIFY_V2`. Statuses proving file integrity are accepted — `Valid`, or `ValidUntrusted` for signature-valid chain failures (untrusted root, expired, unchainable) since the signer is a non-CA certificate pinned by thumbprint. `Unsigned` and `Invalid` (bad digest, malformed, distrusted) are rejected. Revocation is not checked: the pinned cert has no revocation infrastructure and offline use must keep working. Both `ProviderManager.VerifySignature` (the load gate) and `ProviderClassifier` (trust signals) share the same verification — a tampered file can no longer pass by merely carrying the certificate blob, and the classifier's "signature present" signal means "integrity proven". Strong-name remains an identity check, not a trust boundary. macOS has no Authenticode: the strong-name token and the SHA-256 hash manifest apply there.
 
 ### Related Documentation
 

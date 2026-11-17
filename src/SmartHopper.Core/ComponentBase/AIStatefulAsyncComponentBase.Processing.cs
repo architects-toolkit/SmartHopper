@@ -61,6 +61,47 @@ namespace SmartHopper.Core.ComponentBase
             IReadOnlyList<SHRuntimeMessage> messages = null)
             where T : IGH_Goo
         {
+            return this.ProcessBatchResultsCore(
+                outputParamName,
+                sentinelTree,
+                results,
+                (customId, resultBody) => new List<T> { decode(customId, resultBody) },
+                messages);
+        }
+
+        /// <summary>
+        /// Variant of <see cref="ProcessBatchResults{T}"/> for units whose single batch
+        /// call expands into zero or more output items (e.g. <c>AI List Filter</c>,
+        /// where one call returns an index list that materializes as a whole branch).
+        /// Each decoded item replaces the sentinel positionally inside the stored
+        /// fragment, so reuse/persistence see the complete unit output.
+        /// </summary>
+        /// <typeparam name="T">The output Grasshopper goo type.</typeparam>
+        /// <param name="outputParamName">Name of the primary output parameter to persist.</param>
+        /// <param name="sentinelTree">Tree containing sentinel strings from batch submission.</param>
+        /// <param name="results">Dictionary from customId to provider response body.</param>
+        /// <param name="decode">Function that converts (customId, resultBody) into the unit's output items.</param>
+        /// <param name="messages">Optional item-level diagnostic messages (errors/warnings) from the provider.</param>
+        /// <returns>The reconstructed output tree with sentinels replaced by decoded items.</returns>
+        protected GH_Structure<T> ProcessBatchResultsMany<T>(
+            string outputParamName,
+            GH_Structure<GH_String> sentinelTree,
+            IReadOnlyDictionary<string, Newtonsoft.Json.Linq.JObject> results,
+            Func<string, Newtonsoft.Json.Linq.JObject, List<T>> decode,
+            IReadOnlyList<SHRuntimeMessage> messages = null)
+            where T : IGH_Goo
+        {
+            return this.ProcessBatchResultsCore(outputParamName, sentinelTree, results, decode, messages);
+        }
+
+        private GH_Structure<T> ProcessBatchResultsCore<T>(
+            string outputParamName,
+            GH_Structure<GH_String> sentinelTree,
+            IReadOnlyDictionary<string, Newtonsoft.Json.Linq.JObject> results,
+            Func<string, Newtonsoft.Json.Linq.JObject, List<T>> decodeMany,
+            IReadOnlyList<SHRuntimeMessage> messages = null)
+            where T : IGH_Goo
+        {
             if (results == null || sentinelTree == null)
             {
                 // Still finalize with an empty tree to clear any previous sentinels and emit metrics
@@ -69,7 +110,9 @@ namespace SmartHopper.Core.ComponentBase
                 return emptyTree;
             }
 
-            var providerName = this.GetActualAIProviderName();
+            // Decode with the provider that executed the batch — the live selection
+            // may have changed while the batch was in flight.
+            var providerName = this.GetSubmittedProviderName();
             var provider = SmartHopper.Infrastructure.AIProviders.ProviderManager.Instance.GetProvider(providerName);
             if (provider == null)
             {
@@ -102,65 +145,134 @@ namespace SmartHopper.Core.ComponentBase
             // Key: output param name → merged GH_Structure<IGH_Goo> (one slot per sentinel path).
             var extraOutputAccumulator = new Dictionary<string, GH_Structure<IGH_Goo>>();
 
-            var reconstructedTree = ReconstructOutputTree<T>(
+            // Decode-once / place-many: a shared result id appears at every
+            // sentinel seat, but provider decode, metrics, transforms and
+            // fragment resolution are side effects that must run exactly once
+            // per id. Decode every expected id up front; the reconstruction
+            // walk then only looks up precomputed items per seat.
+            var decodedItemsById = new Dictionary<string, List<T>>(StringComparer.Ordinal);
+            foreach (var customId in customIdToBranchPath.Keys)
+            {
+                if (!results.TryGetValue(customId, out var resultBody) || resultBody == null)
+                {
+                    continue;
+                }
+
+                decodedItemsById[customId] = DecodeBatchItem(customId, resultBody);
+            }
+
+            var reconstructedTree = ReconstructOutputTreeMany<T>(
                 sentinelTree,
                 results,
-                (customId, resultBody) =>
+                (customId, _) => decodedItemsById.TryGetValue(customId, out var items) ? items : null);
+
+            // Local function kept after the call so captured state (provider,
+            // metrics, accumulators) stays lexically near its consumers.
+            List<T> DecodeBatchItem(string customId, Newtonsoft.Json.Linq.JObject resultBody)
+            {
+                try
                 {
-                    try
+                    var interactions = provider.Decode(resultBody);
+                    if (interactions != null)
                     {
-                        var interactions = provider.Decode(resultBody);
-                        if (interactions != null)
+                        allInteractions.AddRange(interactions);
+
+                        // One combined metric per decoded call — AIBody.Metrics
+                        // folds all interaction metrics exactly as the
+                        // synchronous path does. Collecting per-interaction
+                        // metrics would emit phantom empty entries for providers
+                        // that split content and usage across interactions
+                        // (Gemini's metrics-only sidecar).
+                        var metricsList = new List<AIMetrics>();
+                        if (interactions.Count > 0)
                         {
-                            allInteractions.AddRange(interactions);
-
-                            // Extract metrics from each interaction, keyed by customId
-                            var metricsList = new List<AIMetrics>();
-                            foreach (var interaction in interactions)
-                            {
-                                if (interaction.Metrics != null)
-                                {
-                                    metricsList.Add(interaction.Metrics);
-                                }
-                            }
-
-                            if (metricsList.Count > 0)
-                            {
-                                customIdToMetrics[customId] = metricsList;
-                            }
+                            var combinedMetrics = AIBodyBuilder.Create()
+                                .AddRange(interactions)
+                                .Build()
+                                .Metrics;
+                            metricsList.Add(this.StampBatchMetrics(combinedMetrics, customId, providerName));
                         }
 
-                        var primaryItem = decode(customId, resultBody);
+                        this.ResultStore.RecordMetricsForSentinel(customId, metricsList);
 
-                        // Call SentinelTransformOutputs so derived components can reshape/split results
-                        var context = new ProcessingUnitContext { SentinelId = customId };
-                        var decodedMap = new Dictionary<string, IGH_Goo> { [outputParamName] = primaryItem };
-                        var transformed = this.SentinelTransformOutputs(decodedMap, context);
-
-                        // Accumulate any extra keys returned by SentinelTransformOutputs
-                        if (transformed != null)
+                        if (metricsList.Count > 0)
                         {
-                            foreach (var kvp in transformed)
-                            {
-                                if (kvp.Key == outputParamName) continue;
-                                if (!extraOutputAccumulator.TryGetValue(kvp.Key, out var extraTree))
-                                {
-                                    extraTree = new GH_Structure<IGH_Goo>();
-                                    extraOutputAccumulator[kvp.Key] = extraTree;
-                                }
+                            customIdToMetrics[customId] = metricsList;
+                        }
+                    }
 
+                    var decodedItems = decodeMany(customId, resultBody) ?? new List<T>();
+                    var primaryItem = decodedItems.Count > 0 ? decodedItems[0] : default;
+
+                    // Call SentinelTransformOutputs so derived components can reshape/split results.
+                    // A transform returning the primary output name REPLACES the decoded
+                    // items — the transform owns the final unit output shape.
+                    var context = new ProcessingUnitContext { SentinelId = customId };
+                    var decodedMap = new Dictionary<string, IGH_Goo> { [outputParamName] = primaryItem };
+                    var transformed = this.SentinelTransformOutputs(decodedMap, context);
+
+                    var effectiveItems = transformed != null
+                        && transformed.TryGetValue(outputParamName, out var transformedPrimary)
+                        && transformedPrimary is T tp
+                        ? new List<T> { tp }
+                        : decodedItems;
+
+                    // Resolve the sentinel inside the stored unit fragment so the
+                    // cache entry is complete once every queued call is decoded.
+                    var resolved = new Dictionary<string, List<IGH_Goo>>
+                    {
+                        [outputParamName] = effectiveItems.Cast<IGH_Goo>().ToList(),
+                    };
+                    if (transformed != null)
+                    {
+                        foreach (var kvp in transformed)
+                        {
+                            if (kvp.Key == outputParamName) continue;
+                            resolved[kvp.Key] = new List<IGH_Goo> { kvp.Value };
+                        }
+                    }
+
+                    this.ResultStore.ResolveSentinel(customId, resolved);
+
+                    // Accumulate any extra keys returned by SentinelTransformOutputs.
+                    // Path-aware: extras land at the sentinel's own branch, not at {0}.
+                    if (transformed != null)
+                    {
+                        var sentinelPath = customIdToBranchPath.TryGetValue(customId, out var sp) ? sp : null;
+                        foreach (var kvp in transformed)
+                        {
+                            if (kvp.Key == outputParamName) continue;
+                            if (!extraOutputAccumulator.TryGetValue(kvp.Key, out var extraTree))
+                            {
+                                extraTree = new GH_Structure<IGH_Goo>();
+                                extraOutputAccumulator[kvp.Key] = extraTree;
+                            }
+
+                            if (sentinelPath != null)
+                            {
+                                extraTree.Append(kvp.Value, sentinelPath);
+                            }
+                            else
+                            {
                                 extraTree.Append(kvp.Value);
                             }
                         }
+                    }
 
-                        return primaryItem;
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.For<AIStatefulAsyncComponentBase>().Exception(ex, $"[AIStatefulAsync] Batch decode error for {customId}: {ex.Message}");
-                        return decode(customId, resultBody);
-                    }
-                });
+                    return effectiveItems;
+                }
+                catch (Exception ex)
+                {
+                    // Record the item as locally failed instead of silently
+                    // re-invoking the decoder (which would usually throw twice)
+                    // or letting the unit complete with a phantom empty output.
+                    // CompleteBatchAndTransition counts these toward the
+                    // unresolved/all-failed decision.
+                    Logger.For<AIStatefulAsyncComponentBase>().Exception(ex, $"[AIStatefulAsync] Batch decode error for {customId}: {ex.Message}");
+                    this.RecordBatchItemDecodeError(customId, ex);
+                    return new List<T>();
+                }
+            }
 
             // Surface any provider messages (errors/warnings) from individual batch items.
             // This mirrors how AIRequestCall.Exec() surfaces errors via SurfaceMessagesFromReturn.
@@ -215,20 +327,22 @@ namespace SmartHopper.Core.ComponentBase
                 this.PersistedMetricsList = new ProviderSdk.AICall.Metrics.AIMetricsList();
                 foreach (var m in allMetrics)
                 {
-                    this.PersistedMetricsList.Add(m, "main");
+                    // Role was already resolved per custom ID by StampBatchMetrics
+                    // ("main" or "tool:{name}") — preserve it rather than re-stamping.
+                    this.PersistedMetricsList.Add(m, m.Role);
                 }
 
-                var firstEntry = this.PersistedMetricsList.Entries[0];
+                var firstEntry = this.PersistedMetricsList.Entries.Count > 0 ? this.PersistedMetricsList.Entries[0] : null;
                 Logger.For<AIStatefulAsyncComponentBase>().Trace($"[AIStatefulAsync] Aggregated batch metrics: {allMetrics.Count} items");
 
                 // Build AIReturn for body/interactions (used by CurrentAIReturnSnapshot consumers)
                 var batchReturn = new AIReturn();
                 var batchRequest = new AIRequestCall();
                 batchRequest.Initialize(
-                    firstEntry.Provider,
-                    firstEntry.Model,
+                    firstEntry?.Provider ?? providerName,
+                    firstEntry?.Model ?? this.GetModel(),
                     new List<IAIInteraction>(),
-                    endpoint: "batch_complete",
+                    origin: "batch_complete",
                     capability: AICapability.None,
                     toolFilter: null);
                 batchReturn.CreateSuccess(allInteractions, request: batchRequest);
@@ -248,6 +362,28 @@ namespace SmartHopper.Core.ComponentBase
                     {
                         this.AppendMetricToTree(m, path);
                     }
+                }
+            }
+
+            // Canonical assembly: when placements exist, rebuild every output
+            // channel from stored fragments — including reused units whose values
+            // never became sentinels and secondary channels that only exist inside
+            // the fragment. Falls back to sentinel reconstruction for legacy
+            // pending payloads restored without layout data.
+            var rebuiltTrees = this.ResultStore.BuildRunTrees(this.ComponentProcessingOptions.Topology);
+            if (rebuiltTrees != null)
+            {
+                reconstructedTree = DataTree.DataTreeProcessor.ExtractTypedTree<T>(rebuiltTrees, outputParamName);
+                foreach (var kvp in rebuiltTrees)
+                {
+                    if (kvp.Key == outputParamName)
+                    {
+                        continue;
+                    }
+
+                    // Fragment-built tree wins — it carries typed items at their
+                    // true placements for every unit (executed AND reused).
+                    extraOutputAccumulator[kvp.Key] = kvp.Value;
                 }
             }
 
@@ -293,6 +429,55 @@ namespace SmartHopper.Core.ComponentBase
                         if (results != null && results.TryGetValue(customId, out var resultBody))
                         {
                             newBranch.Add(decode(customId, resultBody));
+                            continue;
+                        }
+                    }
+
+                    if (item is T t) newBranch.Add(t);
+                }
+
+                newTree.AppendRange(newBranch, path);
+            }
+
+            return newTree;
+        }
+
+        /// <summary>
+        /// Reconstructs a Grasshopper data tree by replacing each sentinel placeholder
+        /// (<c>##SH_BATCH:{customId}##</c>) with zero or more decoded items. Paths and
+        /// non-sentinel items are preserved unchanged.
+        /// </summary>
+        /// <typeparam name="T">The output Grasshopper goo type.</typeparam>
+        /// <param name="sentinelTree">Tree containing sentinel strings and normal items.</param>
+        /// <param name="results">Dictionary from customId to provider response body.</param>
+        /// <param name="decode">Function that converts (customId, resultBody) into output items.</param>
+        /// <returns>New tree with sentinels replaced by decoded items.</returns>
+        protected static GH_Structure<T> ReconstructOutputTreeMany<T>(
+            GH_Structure<GH_String> sentinelTree,
+            IReadOnlyDictionary<string, Newtonsoft.Json.Linq.JObject> results,
+            Func<string, Newtonsoft.Json.Linq.JObject, List<T>> decode)
+            where T : IGH_Goo
+        {
+            var newTree = new GH_Structure<T>();
+            if (sentinelTree == null) return newTree;
+
+            foreach (var path in sentinelTree.Paths)
+            {
+                var branch = sentinelTree.get_Branch(path);
+                var newBranch = new List<T>();
+                foreach (GH_String item in branch)
+                {
+                    var str = item?.Value ?? string.Empty;
+                    if (BatchSentinel.TryExtract(str, out var customId))
+                    {
+                        if (results != null && results.TryGetValue(customId, out var resultBody))
+                        {
+                            var decoded = decode(customId, resultBody);
+                            if (decoded != null)
+                            {
+                                newBranch.AddRange(decoded);
+                            }
+
                             continue;
                         }
                     }

@@ -59,28 +59,35 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-6-luna",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json | AICapability.Image2Text,
                     SupportsStreaming = true,
                     SupportsBatch = true,
-                    Verified = false,
+                    Verified = true,
                     Rank = 10000,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000005m,
-                        CacheRead = 0.00000001m,
-                        CacheWrite = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.00000025m,
-                        CacheRead = 0.000000005m,
-                        CacheWrite = 0.0000000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-6-luna:batch" },
                 },
 
@@ -91,27 +98,33 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     SupportsBatch = true,
-                    Verified = false,
+                    Verified = true,
                     Rank = 9995,
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 29),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "gpt-6.1-sol:batch" },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
+                    Aliases = new List<string> { "gpt-6.1-sol:batch", "gpt-6-1-sol" },
                 },
 
                 new AIModelCapabilities
@@ -126,21 +139,27 @@ namespace SmartHopper.Providers.OpenAI
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 22),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000001m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-6-sol:batch" },
                 },
 
@@ -156,21 +175,27 @@ namespace SmartHopper.Providers.OpenAI
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 9, 4),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00005m,
-                        CacheRead = 0.000001m,
-                        CacheWrite = 0.0000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000025m,
-                        CacheRead = 0.0000005m,
-                        CacheWrite = 0.00000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000025m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-6-astra:batch" },
                 },
 
@@ -190,20 +215,26 @@ namespace SmartHopper.Providers.OpenAI
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.0000012m,
-                        CacheRead = 0.00000002m,
-                        CacheWrite = 0.00000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.00000001m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-5.6-luna:batch" },
                 },
 
@@ -219,20 +250,26 @@ namespace SmartHopper.Providers.OpenAI
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000012m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000006m,
-                        CacheRead = 0.0000001m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-5.6-terra:batch" },
                 },
 
@@ -248,21 +285,27 @@ namespace SmartHopper.Providers.OpenAI
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 7, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000004m,
-                        TextOutput = 0.00002m,
-                        CacheRead = 0.0000004m,
-                        CacheWrite = 0.000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.0000002m,
-                        CacheWrite = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-5.6-sol:batch" },
                 },
 
@@ -281,13 +324,16 @@ namespace SmartHopper.Providers.OpenAI
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 3, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000002m,
-                        TextOutput = 0.00000125m,
-                        CacheRead = 0.00000002m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "gpt-5.4-nano", "gpt-5.4-nano-latest" },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
+                    Aliases = new List<string> { "gpt-5.4-nano", "gpt-5-4-nano", "gpt-5.4-nano-latest", "gpt-5-4-nano-latest" },
                 },
 
                 new AIModelCapabilities
@@ -295,20 +341,22 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-5.4-mini-2026-03-17",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json | AICapability.Image2Text,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9960,
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 3, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000075m,
-                        TextOutput = 0.0000045m,
-                        CacheRead = 0.000000075m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "gpt-5.4-mini", "gpt-5.4-mini-latest" },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000045m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
+                    Aliases = new List<string> { "gpt-5.4-mini", "gpt-5-4-mini", "gpt-5.4-mini-latest", "gpt-5-4-mini-latest" },
                 },
 
                 new AIModelCapabilities
@@ -322,12 +370,15 @@ namespace SmartHopper.Providers.OpenAI
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 2, 24),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000175m,
-                        TextOutput = 0.000014m,
-                        CacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000175m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000014m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000175m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -341,13 +392,16 @@ namespace SmartHopper.Providers.OpenAI
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 3, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.000015m,
-                        CacheRead = 0.00000025m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "gpt-5.4", "gpt-5.4-latest" },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
+                    Aliases = new List<string> { "gpt-5.4", "gpt-5-4", "gpt-5.4-latest", "gpt-5-4-latest" },
                 },
 
                 new AIModelCapabilities
@@ -361,13 +415,16 @@ namespace SmartHopper.Providers.OpenAI
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.00003m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "gpt-5.5", "gpt-5.5-latest" },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
+                    Aliases = new List<string> { "gpt-5.5", "gpt-5-5", "gpt-5.5-latest", "gpt-5-5-latest" },
                 },
 
                 new AIModelCapabilities
@@ -381,12 +438,15 @@ namespace SmartHopper.Providers.OpenAI
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00003m,
-                        TextOutput = 0.00018m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "gpt-5.5-pro", "gpt-5.5-pro-latest" },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00018m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
+                    Aliases = new List<string> { "gpt-5.5-pro", "gpt-5-5-pro", "gpt-5.5-pro-latest", "gpt-5-5-pro-latest" },
                 },
 
                 new AIModelCapabilities
@@ -400,12 +460,15 @@ namespace SmartHopper.Providers.OpenAI
                     ContextLimit = 1050000,
                     Created = new DateTime(2026, 3, 5),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00003m,
-                        TextOutput = 0.00018m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "gpt-5.4-pro", "gpt-5.4-pro-latest" },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00018m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
+                    Aliases = new List<string> { "gpt-5.4-pro", "gpt-5-4-pro", "gpt-5.4-pro-latest", "gpt-5-4-pro-latest" },
                 },
 
 
@@ -423,44 +486,18 @@ namespace SmartHopper.Providers.OpenAI
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 11, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.00000003m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-6.1-terra",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9995,
-                    ContextLimit = 1050000,
-                    Created = new DateTime(2026, 10, 26),
-                    Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000001m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.00000005m,
-                        CacheWrite = 0.00000125m,
-                        WebSearch = 0.01m,
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000025m,
-                        CacheRead = 0.000000025m,
-                        CacheWrite = 0.000000625m,
-                        WebSearch = 0.01m,
-                    },
-                    Aliases = new List<string> { "gpt-6.1-terra:batch" },
-                },
-new AIModelCapabilities
                 {
                     Provider = provider,
                     Model = "gpt-audio-mini-2025-12-15",
@@ -472,12 +509,15 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 1, 19),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000006m,
-                        TextOutput = 0.0000024m,
-                        AudioInput = 0.0000006m,
-                        AudioOutput = 0.0000024m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000024m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("audio_output", AIPriceUnit.Token, 0.0000024m),
+            },
+        },
                     Aliases = new List<string> { "gpt-audio-mini", "gpt-audio-mini-latest" },
                 },
 
@@ -492,12 +532,15 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 12, 4),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -511,12 +554,15 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 11, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-5.1", "gpt-5.1-latest" },
                 },
 
@@ -531,12 +577,15 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 11, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.00000013m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000013m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -550,12 +599,15 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2026, 1, 14),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000175m,
-                        TextOutput = 0.000014m,
-                        CacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000175m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000014m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000175m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -569,12 +621,15 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2025, 12, 10),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000175m,
-                        TextOutput = 0.000014m,
-                        CacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000175m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000014m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000175m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-5.2-chat" },
                 },
 
@@ -589,12 +644,15 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 12, 10),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000175m,
-                        TextOutput = 0.000014m,
-                        CacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000175m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000014m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000175m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-5.2", "gpt-5.2-latest" },
                 },
 
@@ -609,12 +667,15 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2026, 1, 19),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        AudioInput = 0.000032m,
-                        AudioOutput = 0.000064m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000032m),
+                new AIPriceEntry("audio_output", AIPriceUnit.Token, 0.000064m),
+            },
+        },
                     Aliases = new List<string> { "gpt-audio", "gpt-audio-latest" },
                 },
 
@@ -629,11 +690,14 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 12, 10),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000021m,
-                        TextOutput = 0.000168m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000021m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000168m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-5.2-pro", "gpt-5.2-pro-latest" },
                 },
 
@@ -646,19 +710,21 @@ new AIModelCapabilities
                     Provider = provider,
                     Model = "gpt-5-mini-2025-08-07",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json | AICapability.Image2Text,
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 9880,
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 8, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.000002m,
-                        CacheRead = 0.000000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-5-mini", "gpt-5-mini-latest" },
                 },
 
@@ -673,12 +739,15 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 8, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000005m,
-                        TextOutput = 0.0000004m,
-                        CacheRead = 0.000000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-5-nano", "gpt-5-nano-latest" },
                 },
 
@@ -693,12 +762,15 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 8, 7),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-5", "gpt-5-latest" },
                 },
 
@@ -713,11 +785,14 @@ new AIModelCapabilities
                     ContextLimit = 400000,
                     Created = new DateTime(2025, 10, 6),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.00012m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00012m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-5-pro", "gpt-5-pro-latest" },
                 },
 
@@ -736,11 +811,14 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 6, 10),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00002m,
-                        TextOutput = 0.00008m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00008m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "o3-pro", "o3-pro-latest" },
                 },
 
@@ -759,12 +837,15 @@ new AIModelCapabilities
                     ContextLimit = 1047576,
                     Created = new DateTime(2025, 4, 14),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000001m,
-                        TextOutput = 0.0000004m,
-                        CacheRead = 0.000000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-4.1-nano", "gpt-4.1-nano-latest" },
                 },
 
@@ -779,12 +860,15 @@ new AIModelCapabilities
                     ContextLimit = 1047576,
                     Created = new DateTime(2025, 4, 14),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000004m,
-                        TextOutput = 0.0000016m,
-                        CacheRead = 0.0000001m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000004m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000016m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-4.1-mini", "gpt-4.1-mini-latest" },
                 },
 
@@ -799,12 +883,15 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 4, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000011m,
-                        TextOutput = 0.0000044m,
-                        CacheRead = 0.000000275m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000011m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000044m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000275m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "o4-mini", "o4-mini-latest" },
                 },
 
@@ -819,12 +906,15 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 1, 31),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000011m,
-                        TextOutput = 0.0000044m,
-                        CacheRead = 0.00000055m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000011m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000044m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000055m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "o3-mini", "o3-mini-latest" },
                 },
 
@@ -839,12 +929,15 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 4, 16),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000008m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "o3", "o3-latest" },
                 },
 
@@ -859,12 +952,15 @@ new AIModelCapabilities
                     ContextLimit = 1047576,
                     Created = new DateTime(2025, 4, 14),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000008m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-4.1", "gpt-4.1-latest" },
                 },
 
@@ -879,11 +975,14 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2025, 3, 19),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00015m,
-                        TextOutput = 0.0006m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0006m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "o1-pro", "o1-pro-latest" },
                 },
 
@@ -902,12 +1001,15 @@ new AIModelCapabilities
                     ContextLimit = 200000,
                     Created = new DateTime(2024, 12, 17),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000015m,
-                        TextOutput = 0.00006m,
-                        CacheRead = 0.0000075m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000075m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "o1", "o1-latest" },
                 },
 
@@ -926,11 +1028,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 7, 18),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        CacheRead = 0.000000075m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+            },
+        },
                     Aliases = new List<string> { "gpt-4o-mini", "gpt-4o-mini-latest" },
                 },
 
@@ -945,10 +1050,13 @@ new AIModelCapabilities
                     ContextLimit = 16385,
                     Created = new DateTime(2023, 8, 28),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000003m,
-                        TextOutput = 0.000004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -962,11 +1070,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 8, 6),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.00000125m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000125m),
+            },
+        },
                     Aliases = new List<string> { "gpt-4o-latest", "gpt-4o" },
                 },
 
@@ -981,10 +1092,13 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 5, 13),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000005m,
-                        TextOutput = 0.000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1020,10 +1134,13 @@ new AIModelCapabilities
                     Rank = 9785,
                     ContextLimit = 4095,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000015m,
-                        TextOutput = 0.000002m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000002m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1036,11 +1153,14 @@ new AIModelCapabilities
                     Rank = 9780,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000015m,
-                        TextOutput = 0.0000006m,
-                        WebSearch = 0.0275m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000006m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.0275m),
+            },
+        },
                     Aliases = new List<string> { "gpt-4o-mini-search-preview", "gpt-4o-mini-search-preview-latest" },
                 },
 
@@ -1101,11 +1221,14 @@ new AIModelCapabilities
                     Rank = 9755,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        WebSearch = 0.035m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.035m),
+            },
+        },
                     Aliases = new List<string> { "gpt-4o-search-preview", "gpt-4o-search-preview-latest" },
                 },
 
@@ -1114,6 +1237,7 @@ new AIModelCapabilities
                     Provider = provider,
                     Model = "gpt-4o-transcribe",
                     Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
+                    Default = AICapability.Speech2Text,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9750,
@@ -1141,12 +1265,15 @@ new AIModelCapabilities
                     Rank = 9740,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-5-chat" },
                 },
 
@@ -1161,19 +1288,25 @@ new AIModelCapabilities
                     Rank = 9735,
                     ContextLimit = 400000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000625m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000625m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.000000625m,
-                        TextOutput = 0.000005m,
-                        CacheRead = 0.0000000625m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000625m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000625m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-5-codex:batch" },
                 },
 
@@ -1199,12 +1332,15 @@ new AIModelCapabilities
                     Rank = 9725,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000125m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.000000125m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000125m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000125m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-5.1-chat" },
                 },
 
@@ -1218,12 +1354,15 @@ new AIModelCapabilities
                     Rank = 9720,
                     ContextLimit = 400000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000175m,
-                        TextOutput = 0.000014m,
-                        CacheRead = 0.000000175m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000175m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000014m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000175m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-5.3-chat" },
                 },
 
@@ -1284,7 +1423,6 @@ new AIModelCapabilities
                     Provider = provider,
                     Model = "gpt-image-2-2026-04-21",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
-                    Default = AICapability.Image2Image,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9690,
@@ -1299,7 +1437,7 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9685,
-                    Aliases = new List<string> { "gpt-image-2.5-flare", "gpt-image-2.5-flare-latest" },
+                    Aliases = new List<string> { "gpt-image-2.5-flare", "gpt-image-2-5-flare", "gpt-image-2.5-flare-latest", "gpt-image-2-5-flare-latest" },
                 },
 
                 new AIModelCapabilities
@@ -1310,7 +1448,31 @@ new AIModelCapabilities
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9680,
-                    Aliases = new List<string> { "gpt-image-2.5-sunburst", "gpt-image-2.5-sunburst-latest" },
+                    Aliases = new List<string> { "gpt-image-2.5-sunburst", "gpt-image-2-5-sunburst", "gpt-image-2.5-sunburst-latest", "gpt-image-2-5-sunburst-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-image-2.6-flare",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    Default = AICapability.Text2Image | AICapability.Image2Image,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9677,
+                    Aliases = new List<string> { "gpt-image-2-6-flare", "gpt-image-2.6-flare-latest", "gpt-image-2-6-flare-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-image-2.6-sunburst",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    Default = AICapability.Text2Image | AICapability.Image2Image,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9676,
+                    Aliases = new List<string> { "gpt-image-2-6-sunburst", "gpt-image-2.6-sunburst-latest", "gpt-image-2-6-sunburst-latest" },
                 },
 
                 new AIModelCapabilities
@@ -1379,12 +1541,15 @@ new AIModelCapabilities
                     Rank = 9660,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00004m,
-                        CacheRead = 0.0000025m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00004m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "o3-deep-research", "o3-deep-research-latest" },
                 },
 
@@ -1398,12 +1563,15 @@ new AIModelCapabilities
                     Rank = 9655,
                     ContextLimit = 200000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.000002m,
-                        TextOutput = 0.000008m,
-                        CacheRead = 0.0000005m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000008m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "o4-mini-deep-research", "o4-mini-deep-research-latest" },
                 },
 
@@ -1424,6 +1592,7 @@ new AIModelCapabilities
                     Provider = provider,
                     Model = "sora-2",
                     Capabilities = AICapability.TextInput | AICapability.VideoOutput,
+                    Default = AICapability.VideoOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9645,
@@ -1434,6 +1603,7 @@ new AIModelCapabilities
                     Provider = provider,
                     Model = "sora-2-pro",
                     Capabilities = AICapability.TextInput | AICapability.VideoOutput,
+                    Default = AICapability.VideoOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9640,
@@ -1444,6 +1614,7 @@ new AIModelCapabilities
                     Provider = provider,
                     Model = "text-embedding-3-large",
                     Capabilities = AICapability.TextInput | AICapability.EmbedOutput,
+                    Default = AICapability.EmbedOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9635,
@@ -1454,6 +1625,7 @@ new AIModelCapabilities
                     Provider = provider,
                     Model = "text-embedding-3-small",
                     Capabilities = AICapability.TextInput | AICapability.EmbedOutput,
+                    Default = AICapability.EmbedOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9630,
@@ -1509,7 +1681,6 @@ new AIModelCapabilities
                     Provider = provider,
                     Model = "whisper-1",
                     Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
-                    Default = AICapability.Speech2Text,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9605,
@@ -1531,11 +1702,14 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 11, 20),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        CacheRead = 0.00000125m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000125m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1543,7 +1717,6 @@ new AIModelCapabilities
                     Provider = provider,
                     Model = "dall-e-3",
                     Capabilities = AICapability.TextInput | AICapability.ImageOutput,
-                    Default = AICapability.Text2Image,
                     SupportsStreaming = false,
                     Verified = true,
                     Deprecated = true,
@@ -1562,10 +1735,13 @@ new AIModelCapabilities
                     ContextLimit = 128000,
                     Created = new DateTime(2024, 4, 9),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00001m,
-                        TextOutput = 0.00003m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00003m),
+            },
+        },
                     Aliases = new List<string> { "gpt-4-turbo", "gpt-4-turbo-latest" },
                 },
 
@@ -1581,10 +1757,13 @@ new AIModelCapabilities
                     ContextLimit = 8192,
                     Created = new DateTime(2023, 5, 28),
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.00003m,
-                        TextOutput = 0.00006m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00003m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00006m),
+            },
+        },
                 },
 
                 new AIModelCapabilities
@@ -1658,16 +1837,22 @@ new AIModelCapabilities
                     Rank = -45,
                     ContextLimit = 16385,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000005m,
-                        TextOutput = 0.0000015m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000005m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000015m),
+            },
+        },
                     BatchPricing = new AIModelPricing
-                    {
-                        TextInput = 0.00000025m,
-                        TextOutput = 0.00000075m,
-                        WebSearch = 0.01m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000075m),
+                new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+            },
+        },
                     Aliases = new List<string> { "gpt-3.5-turbo:batch" },
                 },
 
@@ -1740,11 +1925,14 @@ new AIModelCapabilities
                     Rank = -75,
                     ContextLimit = 128000,
                     Pricing = new AIModelPricing
-                    {
-                        TextInput = 0.0000025m,
-                        TextOutput = 0.00001m,
-                        AudioInput = 0.00004m,
-                    },
+        {
+            Entries =
+            {
+                new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.00004m),
+            },
+        },
                     Aliases = new List<string> { "gpt-4o-audio-preview", "gpt-4o-audio-preview-latest" },
                 },
 
@@ -1775,6 +1963,9 @@ new AIModelCapabilities
 
             return Task.FromResult(models);
         }
+
+        /// <inheritdoc/>
+        public override bool SupportsApiModels => true;
 
         /// <inheritdoc/>
         public override async Task<List<string>> RetrieveApiModels()

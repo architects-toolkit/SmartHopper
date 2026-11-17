@@ -693,6 +693,140 @@ hr {
     color: var(--cui-error, #b3261e);
 }
 
+/* Tool card body — call digest, parameter table, result block.
+   The card's collapsed 30px peek shows the .tool-call-line digest; everything
+   below is revealed by the card-level toggle or the nested <details>. */
+.tool-call-line {
+    margin: 0 0 4px 0;
+    color: #555;
+    font-size: 0.92em;
+}
+
+.tool-call-line code {
+    background: transparent;
+    padding: 0;
+}
+
+details.tool-io {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin: 6px 0;
+    padding: 6px 8px;
+    background-color: #fafafa;
+}
+
+details.tool-io summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9em;
+    color: #444;
+    outline: none;
+}
+
+details.tool-io summary .tool-size {
+    font-weight: 400;
+    color: #888;
+    font-size: 0.85em;
+}
+
+details.tool-io[open] {
+    background-color: #f5f5f5;
+}
+
+details.tool-io.nested {
+    margin: 2px 0;
+    padding: 2px 6px;
+    border-color: #e3e3e3;
+}
+
+details.tool-io.nested summary {
+    font-weight: 500;
+    color: #666;
+    font-size: 0.88em;
+}
+
+details.tool-io pre {
+    margin: 6px 0 0 0;
+    max-height: 300px;
+    overflow: auto;
+    white-space: pre;
+    font-size: 0.85em;
+}
+
+details.tool-io pre code {
+    white-space: pre;
+}
+
+/* Structured parameter table */
+table.tool-args-table {
+    margin: 6px 0 2px 0;
+    font-size: 0.9em;
+    width: 100%;
+}
+
+table.tool-args-table td {
+    border: none;
+    border-bottom: 1px solid #eee;
+    padding: 3px 8px 3px 0;
+    vertical-align: top;
+}
+
+table.tool-args-table tr:last-child td {
+    border-bottom: none;
+}
+
+table.tool-args-table td.ta-name {
+    color: #666;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    white-space: nowrap;
+    width: 1%;
+    padding-right: 12px;
+}
+
+/* Error callout for failed tool results */
+.tool-error {
+    color: #b3261e;
+    background-color: #fdecea;
+    border: 1px solid #f5c6c0;
+    border-radius: 4px;
+    padding: 6px 8px;
+    margin: 6px 0;
+    font-size: 0.9em;
+}
+
+/* Action row inside a tool-io block (copy button) */
+.tool-io-bar {
+    margin: 4px 0 2px 0;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.cui-copy-raw {
+    cursor: pointer;
+    font-size: 0.8em;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background: #fff;
+    padding: 2px 8px;
+    color: #444;
+}
+
+.cui-copy-raw:hover {
+    background: #eee;
+}
+
+.cui-copy-raw:focus-visible {
+    outline: 2px solid #0366d6;
+    outline-offset: 1px;
+}
+
+/* JSON syntax spans inside tool-io <pre> blocks */
+.jt-key { color: #881391; }
+.jt-str { color: #1a6b34; }
+.jt-num { color: #1a6bb5; }
+.jt-bool { color: #b3561e; }
+.jt-null { color: #808080; }
+
 /* Pending tool-call spinner for chat-ui's tool_call part path — pure CSS so it
    survives the html-only sanitize profile; the HTML path uses data-state
    ::before glyphs instead. */
@@ -1067,6 +1201,7 @@ hr {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+    text-align: left;
 }
 
 .suggestion-chip:hover {
@@ -1129,6 +1264,12 @@ hr {
 /* Message spacing is owned by .message margins; avoid double gaps. */
 .chat-ui .cui-messages {
     gap: 0;
+}
+
+/* Suggestion chips: <button> centers text by default, so multi-line prompts
+   wrapped awkwardly — pin chip text to the left. */
+.chat-ui .cui-suggestion {
+    text-align: left;
 }
 
 /* Session queue: while a turn runs the composer stays editable and the send

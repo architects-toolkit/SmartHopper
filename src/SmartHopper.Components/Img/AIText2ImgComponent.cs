@@ -19,9 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -44,7 +42,10 @@ namespace SmartHopper.Components.Img
         public override Guid ComponentGuid => new Guid("B4E69EAD-2EEB-413C-8E47-19D5079882BE");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.texttoimg;
+        protected override Bitmap Icon => Resources.AIText2Img;
+
+        /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
@@ -87,27 +88,25 @@ namespace SmartHopper.Components.Img
             : base(
                 "AI Text To Image",
                 "AIText2Img",
-                "Generate images using AI based on text prompts.",
+                "Generate images from text prompts using an image-capable AI model.",
                 "SmartHopper",
-                "Img")
+                "G. Media")
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Prompt", "P", "Text prompt describing the desired image", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Size", "S", "Image size (e.g., '1024x1024', '1792x1024', '1024x1792', '1K', '2K', '4K'). Not all providers accept all sizes.", GH_ParamAccess.tree, "1024x1024");
-            pManager.AddTextParameter("Quality", "Q", "Image quality ('standard' or 'hd'). Used by OpenAI image generation.", GH_ParamAccess.tree, "standard");
-            pManager.AddTextParameter("Style", "St", "Image style ('vivid' or 'natural'). Used by OpenAI image generation.", GH_ParamAccess.tree, "vivid");
-            pManager.AddTextParameter("Aspect Ratio", "AR", "Image aspect ratio (e.g., '1:1', '16:9', '4:3'). Used by Gemini image generation.", GH_ParamAccess.tree, string.Empty);
+            pManager.AddTextParameter("Prompt", "P", "Text prompt describing the image you want to generate.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Size", "S", "Target image resolution: explicit dimensions ('1024x1024') or resolution tier ('1K', '2K', '4K'). Each provider maps it to its native size vocabulary.", GH_ParamAccess.tree, "1024x1024");
+            pManager.AddTextParameter("Aspect Ratio", "AR", "Optional aspect ratio as 'W:H' (e.g., '1:1', '16:9', '4:3', '9:16'). Each provider maps it to its native size vocabulary; providers without ratio support derive the closest size.", GH_ParamAccess.tree, string.Empty);
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Image", "I", "Generated image as VersatileImage format", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Revised Prompt", "RP", "AI-revised prompt used for generation", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Image", "I", "Generated image (connect to Image Viewer to preview or save to disk).", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Revised Prompt", "RP", "Prompt after any provider-side refinement (when returned by the model).", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
@@ -149,16 +148,12 @@ namespace SmartHopper.Components.Img
             {
                 var prompts = new GH_Structure<GH_String>();
                 var sizes = new GH_Structure<GH_String>();
-                var qualities = new GH_Structure<GH_String>();
-                var styles = new GH_Structure<GH_String>();
                 GH_Structure<GH_String> aspectRatios;
 
                 // Parameter indices:
                 // 0: Prompt (tree access)
                 // 1: Size (tree access)
-                // 2: Quality (tree access)
-                // 3: Style (tree access)
-                // 4: Aspect Ratio (tree access)
+                // 2: Aspect Ratio (tree access)
 
                 // Prompt parameter index
                 if (!DA.GetDataTree(0, out prompts))
@@ -176,24 +171,8 @@ namespace SmartHopper.Components.Img
                     sizes.Append(new GH_String("1024x1024"), new GH_Path(0));
                 }
 
-                // Quality parameter index
-                if (!DA.GetDataTree(2, out qualities) || qualities == null || qualities.DataCount == 0)
-                {
-                    // Use default if not provided
-                    qualities = new GH_Structure<GH_String>();
-                    qualities.Append(new GH_String("standard"), new GH_Path(0));
-                }
-
-                // Style parameter index
-                if (!DA.GetDataTree(3, out styles) || styles == null || styles.DataCount == 0)
-                {
-                    // Use default if not provided
-                    styles = new GH_Structure<GH_String>();
-                    styles.Append(new GH_String("vivid"), new GH_Path(0));
-                }
-
                 // Aspect Ratio parameter index
-                if (!DA.GetDataTree(4, out aspectRatios) || aspectRatios == null || aspectRatios.DataCount == 0)
+                if (!DA.GetDataTree(2, out aspectRatios) || aspectRatios == null || aspectRatios.DataCount == 0)
                 {
                     // Use default if not provided
                     aspectRatios = new GH_Structure<GH_String>();
@@ -204,8 +183,6 @@ namespace SmartHopper.Components.Img
                 {
                     { "Prompt", prompts },
                     { "Size", sizes },
-                    { "Quality", qualities },
-                    { "Style", styles },
                     { "AspectRatio", aspectRatios },
                 };
 
@@ -261,8 +238,6 @@ namespace SmartHopper.Components.Img
                             }
 
                             branchInputs.TryGetValue("Size", out var sizeBranch);
-                            branchInputs.TryGetValue("Quality", out var qualityBranch);
-                            branchInputs.TryGetValue("Style", out var styleBranch);
                             branchInputs.TryGetValue("AspectRatio", out var aspectRatioBranch);
 
                             var normalized = DataTreeProcessor.NormalizeBranchLengths(
@@ -270,16 +245,12 @@ namespace SmartHopper.Components.Img
                                 {
                                     promptBranch,
                                     sizeBranch ?? new List<GH_String>(),
-                                    qualityBranch ?? new List<GH_String>(),
-                                    styleBranch ?? new List<GH_String>(),
                                     aspectRatioBranch ?? new List<GH_String>(),
                                 });
 
                             var prompts = normalized[0];
                             var sizes = normalized[1];
-                            var qualities = normalized[2];
-                            var styles = normalized[3];
-                            var aspectRatios = normalized[4];
+                            var aspectRatios = normalized[2];
 
                             for (int i = 0; i < prompts.Count; i++)
                             {
@@ -287,8 +258,6 @@ namespace SmartHopper.Components.Img
 
                                 var prompt = prompts[i]?.Value ?? string.Empty;
                                 var size = sizes[i]?.Value ?? "1024x1024";
-                                var quality = qualities[i]?.Value ?? "standard";
-                                var style = styles[i]?.Value ?? "vivid";
                                 var aspectRatio = aspectRatios[i]?.Value ?? string.Empty;
 
                                 if (string.IsNullOrEmpty(prompt))
@@ -305,8 +274,6 @@ namespace SmartHopper.Components.Img
                                     {
                                         ["prompt"] = prompt,
                                         ["size"] = size,
-                                        ["quality"] = quality,
-                                        ["style"] = style,
                                         ["aspect_ratio"] = aspectRatio,
                                     };
 
@@ -330,25 +297,11 @@ namespace SmartHopper.Components.Img
                                         {
                                             try
                                             {
-                                                VersatileImage imageSource;
-
-                                                // Check if it's a URL or base64 data
-                                                if (imageResult.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || imageResult.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                                                {
-                                                    // Store as URL
-                                                    imageSource = VersatileImage.FromString(imageResult);
-                                                }
-                                                else
-                                                {
-                                                    // Convert from base64 to bitmap and store as Bitmap
-                                                    var base64Data = imageResult.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)
-                                                        ? imageResult.Substring(imageResult.IndexOf(",", StringComparison.Ordinal) + 1)
-                                                        : imageResult;
-                                                    var imageBytes = Convert.FromBase64String(base64Data);
-                                                    using var stream = new MemoryStream(imageBytes);
-                                                    var bitmap = new Bitmap(stream);
-                                                    imageSource = VersatileImage.FromBitmap(bitmap);
-                                                }
+                                                // text2img returns a URL or a self-describing data URI.
+                                                // Keep the canonical representation (URL/DataUri/Base64)
+                                                // instead of materializing a GDI+ bitmap: persisted output
+                                                // then round-trips the raw payload without a live Bitmap.
+                                                var imageSource = VersatileImage.FromString(imageResult);
 
                                                 // Wrap in GH_VersatileImage for output
                                                 outputs["Image"].Add(new GH_VersatileImage(imageSource));

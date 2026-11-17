@@ -190,6 +190,8 @@ namespace SmartHopper.Core.Types
 
                 if (v.BatchTier) writer.SetBoolean("BatchTier", v.BatchTier);
 
+                if (!v.ShareIdenticalResults) writer.SetBoolean("ShareIdenticalResults", v.ShareIdenticalResults);
+
                 return true;
             }
             catch
@@ -223,6 +225,7 @@ namespace SmartHopper.Core.Types
                 }
 
                 if (reader.ItemExists("BatchTier")) builder.WithBatchTier(reader.GetBoolean("BatchTier"));
+                if (reader.ItemExists("ShareIdenticalResults")) builder.WithShareIdenticalResults(reader.GetBoolean("ShareIdenticalResults"));
 
                 this.Value = builder.Build();
                 return true;

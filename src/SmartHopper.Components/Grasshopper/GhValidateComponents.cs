@@ -43,9 +43,9 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                 "Validate GhJSON",
                 "GhValidate",
-                "Validates a GhJSON document against the official schema and performs structural checks.",
+                "Validate a GhJSON document against the official schema and structural rules.",
                 "SmartHopper",
-                "Grasshopper")
+                "D. GhJSON")
         {
         }
 
@@ -53,26 +53,26 @@ namespace SmartHopper.Components.Grasshopper
         public override Guid ComponentGuid => new Guid("BBF48853-AC02-4786-B6A1-B74333DD1642");
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Properties.Resources.GhValidate;
 
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("GhJSON", "J", "GhJSON document string to validate.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Level", "L", "Validation level: 0 = Minimal, 1 = Standard, 2 = Strict. Defaults to Standard.", GH_ParamAccess.item, 1);
-            pManager.AddBooleanParameter("Prefer Online", "O", "Prefer downloading the schema from the official online repository.", GH_ParamAccess.item, false);
+            pManager.AddIntegerParameter("Level", "L", "Validation strictness: 0 = Minimal (JSON structure), 1 = Standard (schema and structural integrity, default), 2 = Strict (all semantic checks).", GH_ParamAccess.item, 1);
+            pManager.AddBooleanParameter("Prefer Online", "O", "When true, fetches the latest schema from the online repository before falling back to the embedded schema.", GH_ParamAccess.item, false);
         }
 
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Valid", "V", "Whether the GhJSON document is valid.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Errors", "E", "List of validation errors.", GH_ParamAccess.list);
-            pManager.AddTextParameter("Warnings", "W", "List of validation warnings.", GH_ParamAccess.list);
-            pManager.AddTextParameter("Info", "I", "List of informational messages.", GH_ParamAccess.list);
+            pManager.AddBooleanParameter("Valid", "V", "True if the GhJSON document passed validation with no errors.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Errors", "E", "Validation errors that make the document invalid.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Warnings", "W", "Non-fatal validation warnings.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Info", "I", "Informational validation notes.", GH_ParamAccess.list);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)

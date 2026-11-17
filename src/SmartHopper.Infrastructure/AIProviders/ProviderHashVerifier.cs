@@ -75,10 +75,19 @@ namespace SmartHopper.Infrastructure.AIProviders
         private const string HashBaseUrl = "https://architects-toolkit.github.io/SmartHopper/hashes";
         private static readonly HttpClient HttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
 
-        // Cache for hash manifests to avoid repeated network requests (thread-safe)
+        // Cache for hash manifests to avoid repeated network requests (thread-safe).
+        // A null manifest entry is a negative cache hit (fetch attempted and failed).
         private static readonly ConcurrentDictionary<string, (DateTime fetched, Dictionary<string, string> manifest)> ManifestCache = new ConcurrentDictionary<string, (DateTime, Dictionary<string, string>)>();
 
+        // Single shared in-flight fetch per version so concurrent provider loads
+        // never issue duplicate requests for the same manifest.
+        private static readonly ConcurrentDictionary<string, Task<Dictionary<string, string>>> InFlightManifestFetches = new ConcurrentDictionary<string, Task<Dictionary<string, string>>>();
+
         private static readonly TimeSpan CacheExpiration = TimeSpan.FromMinutes(15);
+
+        // Failed fetches are retried sooner than successful ones expire, but still
+        // bounded so a missing/unpublished manifest cannot spam requests per provider.
+        private static readonly TimeSpan NegativeCacheExpiration = TimeSpan.FromMinutes(5);
 
         /// <summary>
         /// Calculates SHA-256 hash of a file.
@@ -147,12 +156,23 @@ namespace SmartHopper.Infrastructure.AIProviders
                 CleanupExpiredCacheEntries();
             }
 
-            // Check cache first (fast path) - thread-safe lookup
+            // Check cache first (fast path) - thread-safe lookup. Null-manifest
+            // entries are negative hits with a shorter TTL so a missing manifest
+            // (e.g. unpublished dev build) does not trigger a fetch per provider.
             if (ManifestCache.TryGetValue(version, out var cached))
             {
-                if (DateTime.UtcNow - cached.fetched < CacheExpiration)
+                var ttl = cached.manifest != null ? CacheExpiration : NegativeCacheExpiration;
+                if (DateTime.UtcNow - cached.fetched < ttl)
                 {
-                    Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] ReadHashManifest: Using cached manifest for version {version}");
+                    if (cached.manifest != null)
+                    {
+                        Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] ReadHashManifest: Using cached manifest for version {version}");
+                    }
+                    else
+                    {
+                        Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] ReadHashManifest: Using cached miss for version {version}");
+                    }
+
                     return cached.manifest;
                 }
 
@@ -167,12 +187,33 @@ namespace SmartHopper.Infrastructure.AIProviders
                 return null;
             }
 
-            var manifest = await FetchPublicHashesFromInternetAsync(version).ConfigureAwait(false);
+            // One shared in-flight fetch per version: every concurrent caller awaits
+            // the same task instead of each issuing its own request.
+            var fetchTask = InFlightManifestFetches.GetOrAdd(version, FetchAndLogAsync);
+            Dictionary<string, string> manifest;
+            try
+            {
+                manifest = await fetchTask.ConfigureAwait(false);
+            }
+            finally
+            {
+                InFlightManifestFetches.TryRemove(version, out _);
+            }
 
+            // Cache the result (including failures) for future use (thread-safe)
+            ManifestCache[version] = (DateTime.UtcNow, manifest);
+            return manifest;
+        }
+
+        /// <summary>
+        /// Runs the manifest fetch once per version and logs the outcome. Both
+        /// success and failure results are cached by the caller.
+        /// </summary>
+        private static async Task<Dictionary<string, string>> FetchAndLogAsync(string version)
+        {
+            var manifest = await FetchPublicHashesFromInternetAsync(version).ConfigureAwait(false);
             if (manifest != null)
             {
-                // Cache the result for future use (thread-safe)
-                ManifestCache[version] = (DateTime.UtcNow, manifest);
                 Logger.For<ProviderHashVerifier>().Trace($"[ProviderHashVerifier] ReadHashManifest: Fetched and cached manifest for version {version}");
             }
             else

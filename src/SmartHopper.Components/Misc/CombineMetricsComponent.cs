@@ -17,6 +17,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
@@ -37,27 +38,32 @@ namespace SmartHopper.Components.Misc
             : base(
                 "Combine SmartHopper Metrics",
                 "CMetrics",
-                "Combines multiple metrics entries within each branch into a single aggregated metric. Preserves branch topology.",
+                "Aggregate multiple SmartHopper usage metrics within each data-tree branch into a single combined metrics JSON object.",
                 "SmartHopper",
-                "Utils")
+                "A. AI")
         {
         }
 
         public override Guid ComponentGuid => new ("0B5A6E06-895D-45C7-866F-30A4A0D5D8F5");
 
         /// <summary>
+        /// Gets the exposure level of this component in the ribbon.
+        /// </summary>
+        public override GH_Exposure Exposure => GH_Exposure.quarternary | GH_Exposure.obscure;
+
+        /// <summary>
         /// Gets the component's icon.
         /// </summary>
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Properties.Resources.CombineMetrics;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Metrics", "M", "SmartHopper usage metrics in JSON. Accepts a tree — all items in each branch are combined into one.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Metrics", "M", "SmartHopper usage metrics JSON strings. All items within each branch are summed into one combined metric.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Metrics", "M", "Combined metrics in JSON, one item per branch.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Metrics", "M", "Combined usage metrics in JSON format (one item per branch).", GH_ParamAccess.tree);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -79,6 +85,7 @@ namespace SmartHopper.Components.Misc
                 }
 
                 AIMetrics combined = null;
+                var seenExecutionIds = new HashSet<string>(StringComparer.Ordinal);
 
                 foreach (GH_String item in branch)
                 {
@@ -86,6 +93,24 @@ namespace SmartHopper.Components.Misc
                     if (metric == null)
                     {
                         continue;
+                    }
+
+                    // The same execution replayed at several placements carries the
+                    // same execution_id — count its usage/cost AND its execution
+                    // counters only once. Zeroing just the money/usage fields left
+                    // data_count/iterations_count summed per seat, inflating the
+                    // combined view for shared results.
+                    if (!string.IsNullOrEmpty(metric.ExecutionId) && !seenExecutionIds.Add(metric.ExecutionId))
+                    {
+                        metric = metric with
+                        {
+                            Quantities = new Dictionary<string, double>(),
+                            EstimatedCosts = new Dictionary<string, decimal>(),
+                            ReportedCosts = new Dictionary<string, decimal>(),
+                            CompletionTime = 0.0,
+                            DataCount = 0,
+                            IterationsCount = 0,
+                        };
                     }
 
                     if (combined == null)
@@ -121,43 +146,7 @@ namespace SmartHopper.Components.Misc
 
             try
             {
-                var obj = JObject.Parse(json);
-                var metric = new AIMetrics
-                {
-                    Provider = obj["ai_provider"]?.Value<string>(),
-                    Model = obj["ai_model"]?.Value<string>(),
-                    InputTokensPrompt = obj["tokens_input_prompt"]?.Value<int>() ?? 0,
-                    InputTokensCached = obj["tokens_input_cached"]?.Value<int>() ?? 0,
-                    InputTokensCacheWrite = obj["tokens_input_cache_write"]?.Value<int>() ?? 0,
-                    OutputTokensReasoning = obj["tokens_output_reasoning"]?.Value<int>() ?? 0,
-                    OutputTokensGeneration = obj["tokens_output_generation"]?.Value<int>() ?? 0,
-                    FinishReason = obj["finish_reason"]?.Value<string>(),
-                    CompletionTime = obj["completion_time"]?.Value<double>() ?? 0.0,
-                    Role = obj["role"]?.Value<string>(),
-                };
-
-                var dataCount = obj["data_count"]?.Value<int?>();
-                var iterationsCount = obj["iterations_count"]?.Value<int?>();
-
-                if (dataCount.HasValue || iterationsCount.HasValue)
-                {
-                    metric = metric with
-                    {
-                        DataCount = dataCount,
-                        IterationsCount = iterationsCount,
-                    };
-                }
-
-                // ContextUsagePercent is computed, but we can seed LastEffectiveTotalTokens
-                // so the next read recomputes correctly.
-                var contextUsage = obj["context_usage_percent"]?.Value<double?>();
-                if (contextUsage.HasValue && metric.Provider != null && metric.Model != null)
-                {
-                    // Force a recompute by touching the property
-                    _ = metric.ContextUsagePercent;
-                }
-
-                return metric;
+                return AIMetricsJson.FromJson(JObject.Parse(json));
             }
             catch
             {
@@ -166,42 +155,10 @@ namespace SmartHopper.Components.Misc
         }
 
         /// <summary>
-        /// Serializes an <see cref="AIMetrics"/> instance to JSON using the same
-        /// schema as <see cref="AIStatefulAsyncComponentBase.SerializeMetricsEntry"/>.
+        /// Serializes an <see cref="AIMetrics"/> instance to JSON using the shared
+        /// metrics schema (<see cref="AIMetricsJson"/>).
         /// </summary>
         private static string SerializeMetric(AIMetrics metrics)
-        {
-            var obj = new JObject(
-                new JProperty("ai_provider", metrics.Provider),
-                new JProperty("ai_model", metrics.Model),
-                new JProperty("tokens_input", metrics.InputTokens),
-                new JProperty("tokens_input_prompt", metrics.InputTokensPrompt),
-                new JProperty("tokens_input_cached", metrics.InputTokensCached),
-                new JProperty("tokens_input_cache_write", metrics.InputTokensCacheWrite),
-                new JProperty("tokens_output", metrics.OutputTokens),
-                new JProperty("tokens_output_reasoning", metrics.OutputTokensReasoning),
-                new JProperty("tokens_output_generation", metrics.OutputTokensGeneration),
-                new JProperty("finish_reason", metrics.FinishReason),
-                new JProperty("completion_time", metrics.CompletionTime),
-                new JProperty("context_usage_percent", metrics.ContextUsagePercent),
-                new JProperty("estimated_cost", metrics.EstimatedCost));
-
-            if (metrics.Role != null)
-            {
-                obj.Add("role", metrics.Role);
-            }
-
-            if (metrics.DataCount.HasValue)
-            {
-                obj.Add("data_count", metrics.DataCount.Value);
-            }
-
-            if (metrics.IterationsCount.HasValue)
-            {
-                obj.Add("iterations_count", metrics.IterationsCount.Value);
-            }
-
-            return obj.ToString(Newtonsoft.Json.Formatting.None);
-        }
+            => AIMetricsJson.ToJson(metrics)?.ToString(Newtonsoft.Json.Formatting.None) ?? string.Empty;
     }
 }

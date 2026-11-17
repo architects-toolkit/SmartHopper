@@ -45,9 +45,9 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("B3C4D5E6-F7A8-4B9C-0D1E-2F3A4B5C6D7E");
 
-        protected override Bitmap Icon => Resources.ladybugforumsearch;
+        protected override Bitmap Icon => Resources.LadybugForumSearch;
 
-        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
         {
@@ -58,23 +58,22 @@ namespace SmartHopper.Components.Knowledge
 
         public LadybugForumSearchComponent()
             : base(
-                  "LadybugForum Search",
+                  "Ladybug Forum Search",
                   "LadybugSearch",
-                  "Search for Ladybug Tools Discourse forum posts by query string.",
+                  "Search the Ladybug Tools Discourse forum (discourse.ladybug.tools) by query and return matching posts as JSON.",
                   "SmartHopper",
-                  "Knowledge")
+                  "E. Forums")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Query", "Q", "REQUIRED search query or queries for the Ladybug Tools Discourse forum.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Query", "Q", "Search query or keywords for the Ladybug Tools forum.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("LadybugForum Posts", "LbP", "Tree of JSON objects, one per matching forum post.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Ladybug Forum Posts", "LbP", "Matching forum posts in JSON format (connect to Deconstruct Discourse Post or Ladybug Forum Post Open).", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -230,7 +229,7 @@ namespace SmartHopper.Components.Knowledge
             {
                 var postsTree = this.resultPosts ?? new GH_Structure<GH_String>();
                 Logger.For<LadybugForumSearchWorker>().Trace($"[LadybugForumSearchWorker] SetOutput - resultPosts.DataCount={postsTree.DataCount}");
-                this.parent.SetPersistentOutput("LadybugForum Posts", postsTree, DA);
+                this.parent.SetPersistentOutput("Ladybug Forum Posts", postsTree, DA);
                 message = postsTree.DataCount == 0 ? "No search executed" : "Search completed";
             }
         }

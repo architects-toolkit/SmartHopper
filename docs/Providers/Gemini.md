@@ -107,18 +107,21 @@ Gemini supports a subset of JSON Schema for structured outputs:
 
 ### Thinking/Reasoning
 
-Configure thinking levels for extended reasoning:
+Configure thinking levels for extended reasoning. The **Thinking Level** provider setting applies globally; a per-request `thinking_level` extra overrides it (same precedence pattern as **Service Tier**). Either source emits `generationConfig.thinkingConfig` with `includeThoughts: true`, so billed thinking tokens come back as visible reasoning text on `AIInteractionText.Reasoning` (rendered in chat).
 
-- **Gemini 3**: Use `thinking_level` extra parameter with values: `minimal`, `low`, `medium`, `high`
-- **Gemini 2.5**: Use `thinking_level` as integer string (e.g., `"8192"` for 8K token budget, `"0"` to disable)
+- **Gemini 3**: `minimal`, `low`, `medium`, `high` → `thinkingConfig.thinkingLevel`
+- **Gemini 2.5**: integer token budget as string (e.g., `"8192"` for an 8K token budget, `"0"` to disable) → `thinkingConfig.thinkingBudget`
+- **Empty** (default): no `thinkingConfig` emitted — the API default applies
+
+Cached prompt tokens surface separately in metrics: `usageMetadata.cachedContentTokenCount` (implicit and explicit context caching) decodes into the `cache_read` quantity and is subtracted from `text_input`, so cached input bills at the cache rate instead of the full text rate.
 
 ### Image Generation
 
 For image generation models:
 
-1. Select an image model (e.g., `gemini-2.5-flash-image`)
+1. Select an image model (e.g., `gemini-3.1-flash-image`)
 2. Set request capability to `ImageOutput`
-3. Optionally configure `image_aspect_ratio` and `image_size` in extras
+3. Size and aspect ratio map to `imageConfig.imageSize`/`aspectRatio` automatically from the shared inputs; `negative_prompt` and `media_resolution` (Gemini 3+ only) are available as extras
 4. Images are returned as base64-encoded data in the response
 
 ### Authentication
@@ -165,7 +168,8 @@ Gemini supports function calling via native `tools` and `tool_choice` parameters
 
 The Gemini provider implements the `IAIProvider` interface and translates SmartHopper's generic request/response model into Google's Gemini API format. Key architectural decisions include:
 
-- **JSON Schema Subset Mapping**: The provider filters and maps JSON schemas to Gemini's supported subset, automatically injecting `propertyOrdering` for Gemini 2.0 models to preserve object field order.
+- **JSON Schema Subset Mapping**: Tool declarations emit canonical JSON Schema under Gemini's `parametersJsonSchema` field (mutually exclusive with the restricted `parameters` proto), so shared tool schemas — including shapes like `type: ["integer","string"]` — pass through unmodified. Structured-output schemas keep the subset-mapped representation with `propertyOrdering` injected for Gemini 2.0 models.
+- **Thought-Signature Round-Trip**: Part-level `thoughtSignature` values returned on model parts are captured into `IAIInteraction.ProviderData` at decode (non-streaming and SSE streaming paths share the decoder) and re-emitted verbatim on the same part when history is re-encoded, as Gemini 3+ tool continuations require. The signature is opaque provider state — never surfaced as reasoning text, tool arguments, or component output.
 - **Thinking Level Translation**: Thinking levels are translated into Gemini-specific parameters. For Gemini 2.5 Flash, string values (`minimal`, `low`, `medium`, `high`) are used. For Gemini 2.5 Pro, integer token budgets are passed directly.
 - **Image Output Handling**: Image generation responses are decoded from base64-encoded data and surfaced as `AIInteractionImage` instances with appropriate MIME types.
 - **Audio Output Handling**: `SpeechOutput`/`AudioOutput` requests are routed to `:generateContent` with `responseModalities: ["AUDIO"]` and `speechConfig`. `inlineData`/`inline_data` response parts with `audio/*` MIME types decode to `AIInteractionAudio`; raw `audio/L16` PCM payloads are wrapped in a WAV container (sample rate from the MIME parameters, defaulting to 24 kHz) so results are directly playable. Logical endpoints such as `fallback:stt` or `speech_generate` fall through to capability-based routing; only endpoints beginning with `/` are treated as literal API paths. Streaming requests use `:streamGenerateContent?alt=sse` and parse `data:`-prefixed SSE lines.

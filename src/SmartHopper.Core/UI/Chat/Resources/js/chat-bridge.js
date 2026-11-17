@@ -259,6 +259,15 @@ function patchExistingMessage(existing, incoming) {
         // Swap the expensive part: the rendered Markdown body.
         oldContent.innerHTML = newContent.innerHTML;
 
+        // Keep the header in sync: tool cards carry their status in the
+        // .cui-tool-title span inside .message-sender (pending -> done/error),
+        // which lives outside .message-content and would otherwise stay stale.
+        const oldHeader = existing.querySelector('.message-header');
+        const newHeader = incoming.querySelector('.message-header');
+        if (oldHeader && newHeader) {
+            oldHeader.innerHTML = newHeader.innerHTML;
+        }
+
         // Keep the copy-to-clipboard source text in sync (cheap attribute copy).
         const copyContent = newContent.getAttribute('data-copy-content');
         if (copyContent !== null) {
@@ -1236,6 +1245,19 @@ function processCodeBlocks() {
     });
 }
 
+// "Copy raw" buttons inside tool cards carry the compact result JSON in
+// data-copy; delegation survives the keyed upsert that swaps the pending
+// card for the completed one.
+document.addEventListener('click', (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest('.cui-copy-raw') : null;
+    if (!btn) return;
+    const text = btn.getAttribute('data-copy');
+    if (!text) return;
+    e.preventDefault();
+    emitShEvent(`clipboard://copy?text=${encodeURIComponent(text)}`);
+    if (typeof showToast === 'function') showToast('Result copied to clipboard');
+});
+
 /**
  * Processes links to make them open in a new window
  */
@@ -1572,10 +1594,14 @@ function showToast(message) {
 
 // Disable the browser context menu (e.g. WebView2's "Refresh"). Reloading the
 // page would wipe the chat UI, since messages are rendered into the DOM by the
-// host and are not part of the document itself.
-document.addEventListener('contextmenu', function (e) {
-    e.preventDefault();
-});
+// host and are not part of the document itself. In debug builds the host
+// defines window.__SH_DEBUG__ before this script so the WebView2 context menu
+// (Inspect / DevTools) stays reachable for troubleshooting.
+if (!window.__SH_DEBUG__) {
+    document.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+    });
+}
 
 // ---------------------------------------------------------------------------
 // Host-controlled helpers (C# -> JS compat globals)
@@ -1601,7 +1627,31 @@ function setStatus(text) {
     }
 }
 
+let _attachmentPreparationActive = false;
+let _chatProcessingActive = false;
+
+function setAttachmentPreparation(active) {
+    _attachmentPreparationActive = !!active;
+    const input = document.getElementById('user-input');
+    const send = document.getElementById('send-button');
+    const cancel = document.getElementById('cancel-button');
+    const spinner = document.getElementById('spinner');
+    if (_view) {
+        _view.setComposerEnabled(!_attachmentPreparationActive);
+        if (_els.root) _els.root.dataset.processing = (_chatProcessingActive || active) ? 'true' : 'false';
+    } else {
+        if (input) input.disabled = _attachmentPreparationActive;
+        if (send) send.disabled = _attachmentPreparationActive;
+    }
+    if (cancel) cancel.disabled = !(_chatProcessingActive || _attachmentPreparationActive);
+    if (spinner) spinner.classList.toggle('hidden', !(_chatProcessingActive || _attachmentPreparationActive));
+    [input, send, cancel].forEach(element => {
+        if (element) element.setAttribute('aria-disabled', element.disabled ? 'true' : 'false');
+    });
+}
+
 function setProcessing(on) {
+    _chatProcessingActive = !!on;
     console.log('[JS] setProcessing called with value:', on);
     if (_view) {
         try {
@@ -1674,9 +1724,12 @@ function setProcessing(on) {
             _view.setComposerEnabled(true);
             if (_els.send) _els.send.textContent = on ? 'Queue' : 'Send';
         } else {
-            // Fallback shell: legacy raw DOM toggles.
-            if (input) input.disabled = !!on;
-            if (sendBtn) sendBtn.disabled = !!on;
+            // Fallback shell: legacy raw DOM toggles. A running turn never locks
+            // the composer — mid-turn sends enqueue host-side and the send button
+            // relabels "Queue"; only attachment staging disables input/send.
+            if (input) input.disabled = _attachmentPreparationActive;
+            if (sendBtn) sendBtn.disabled = _attachmentPreparationActive;
+            if (sendBtn) sendBtn.textContent = on ? 'Queue' : 'Send';
             if (input) {
                 try {
                     input.setAttribute('aria-disabled', input.disabled ? 'true' : 'false');
@@ -1700,6 +1753,7 @@ function setProcessing(on) {
     } catch (err) {
         console.warn('[JS] setProcessing: control toggle failed', err);
     }
+    setAttachmentPreparation(_attachmentPreparationActive);
 }
 
 /**
@@ -2722,6 +2776,14 @@ function resolveUserQuestion(id) {
 
 /** Navigates to an sh:// event (the WebView intercepts and cancels navigation). */
 function emitShEvent(url) {
+    // Echo the per-document token minted by the host so foreign documents
+    // cannot drive the privileged bridge. Omit when none was minted — the
+    // host fails closed on a token mismatch either way.
+    const meta = document.querySelector('meta[name="sh-doc-token"]');
+    const token = meta ? meta.getAttribute('content') : '';
+    if (token) {
+        url += (url.indexOf('?') === -1 ? '?' : '&') + 'doc=' + encodeURIComponent(token);
+    }
     window.location.href = url;
 }
 
@@ -2996,7 +3058,7 @@ function initChatUiShell() {
             attachments: true,
             messageActions: true,
             modelPicker: true,       // .cui-model stays hidden until setModels feeds it
-            attachmentAccept: 'image/*',
+            attachmentAccept: 'image/*,application/pdf',
         },
         partRenderers: {
             html: renderHtmlPart,

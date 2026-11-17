@@ -35,10 +35,10 @@ namespace SmartHopper.Components.JSON
         public override Guid ComponentGuid => new Guid("68048C57-E60E-4A6C-A59A-B2C78EB4B1D9");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.jsonarray;
+        protected override Bitmap Icon => Resources.JsonArray;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonArrayComponent"/> class.
@@ -47,22 +47,22 @@ namespace SmartHopper.Components.JSON
             : base(
                 "JSON Array",
                 "JsonArray",
-                "Create a JSON array from a list of items.\nNumbers, booleans and valid JSON arrays/objects are auto-coerced from their string representation.",
+                "Create a JSON array from a list of items.\nNumbers, booleans, and valid JSON objects or arrays are preserved as native JSON values.",
                 "SmartHopper",
-                "JSON")
+                "H. JSON")
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Items", "I", "List of items to include in the array (number, boolean, string, or nested JSON auto-coerced)", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Items", "I", "Items to include in the JSON array (strings, numbers, booleans, or nested JSON).", GH_ParamAccess.list);
         }
 
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON", "J", "JSON array string", GH_ParamAccess.item);
+            pManager.AddTextParameter("JSON", "J", "Formatted JSON array string.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>

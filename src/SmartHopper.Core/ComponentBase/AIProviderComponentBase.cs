@@ -46,6 +46,14 @@ namespace SmartHopper.Core.ComponentBase
         private readonly ProviderSelectionCore providerCore;
 
         /// <summary>
+        /// Provider selection captured when a run enters Processing. Completion,
+        /// cancellation, and error paths acknowledge this snapshot — not the live
+        /// selection — so a provider switch made mid-run stays pending and is
+        /// reported as a change afterwards, mirroring the input-hash snapshot.
+        /// </summary>
+        private string runProviderSelection;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="AIProviderComponentBase"/> class.
         /// </summary>
         /// <param name="name">The name of the component.</param>
@@ -141,35 +149,78 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Commits the pending provider change after a successful run so subsequent
-        /// solves do not keep reporting the same change.
+        /// Captures the provider selection this run starts with, alongside the
+        /// input-hash snapshot in the base implementation.
+        /// </summary>
+        protected override void OnEnteringProcessing()
+        {
+            base.OnEnteringProcessing();
+            this.runProviderSelection = this.providerCore.CurrentProvider;
+        }
+
+        /// <summary>
+        /// Commits the run-time provider selection after a successful run so a
+        /// switch made while work was in flight stays pending for the next solve.
         /// </summary>
         protected override void OnWorkerCompleted()
         {
             base.OnWorkerCompleted();
-            this.providerCore.CommitChange();
+            this.CommitRunProviderChange();
         }
 
         /// <summary>
-        /// Commits the pending provider change when processing is cancelled. Without this,
-        /// <see cref="InputsChanged"/> would keep reporting <see cref="WellKnownInputs.AIProvider"/>
-        /// for every subsequent solve, permanently marking the component as dirty.
+        /// Commits the run-time provider selection when processing is cancelled —
+        /// a switch made mid-run was never consumed by the cancelled work and must
+        /// stay pending so <see cref="InputsChanged"/> keeps reporting it.
         /// </summary>
         protected override void OnTasksCancelDetected()
         {
             base.OnTasksCancelDetected();
-            this.providerCore.CommitChange();
+            this.CommitRunProviderChange();
         }
 
         /// <summary>
-        /// Commits the pending provider change on error for the same reason as
-        /// <see cref="OnTasksCancelDetected"/>: the user's selection has taken effect on
-        /// the attempted run and should not resurface as "changed" on the next solve.
+        /// Commits the run-time provider selection on error for the same reason as
+        /// <see cref="OnTasksCancelDetected"/>.
         /// </summary>
         protected override void OnEnteringError()
         {
             base.OnEnteringError();
+            this.CommitRunProviderChange();
+        }
+
+        /// <summary>
+        /// Acknowledges the provider selection captured at Processing entry. Falls
+        /// back to the current selection when no run snapshot exists (e.g. a run
+        /// resumed from file).
+        /// </summary>
+        private void CommitRunProviderChange()
+        {
+            this.providerCore.CommitChange(this.runProviderSelection ?? this.SelectedProviderName);
+        }
+
+        /// <summary>
+        /// Commits the pending provider change outside the worker-completion path.
+        /// Batch runs never reach <see cref="OnWorkerCompleted"/>, so callers that
+        /// consume the current provider selection without completing a worker (e.g.
+        /// batch submission) must commit here to stop <see cref="InputsChanged"/>
+        /// from reporting <see cref="WellKnownInputs.AIProvider"/> forever.
+        /// </summary>
+        protected void CommitProviderChange()
+        {
             this.providerCore.CommitChange();
+        }
+
+        /// <summary>
+        /// Commits an explicit provider selection snapshot rather than the current
+        /// selection. Batch submission uses this to acknowledge the selection the
+        /// batch was built with, so a provider switch made while submission was in
+        /// flight remains pending.
+        /// </summary>
+        /// <param name="providerSelection">The selection to record as committed.</param>
+        protected void CommitProviderChange(string providerSelection)
+        {
+            this.providerCore.CommitChange(providerSelection);
         }
     }
 }

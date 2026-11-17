@@ -251,15 +251,13 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Core.Interactions
         public void AddImageRequest_AddsImageGenerationInteraction()
         {
             var body = AIBodyBuilder.Create()
-                .AddImageRequest("a red cube", "1024x1024", "hd", "vivid", "1:1")
+                .AddImageRequest("a red cube", "1024x1024", "1:1")
                 .Build();
 
             var img = Assert.IsType<AIInteractionImage>(body.Interactions[0]);
             Assert.Equal(AIAgent.User, img.Agent);
             Assert.Equal("a red cube", img.OriginalPrompt);
             Assert.Equal("1024x1024", img.ImageSize);
-            Assert.Equal("hd", img.ImageQuality);
-            Assert.Equal("vivid", img.ImageStyle);
             Assert.Equal("1:1", img.AspectRatio);
         }
 

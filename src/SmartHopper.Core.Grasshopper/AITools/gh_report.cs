@@ -134,8 +134,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         provider: providerName,
                         model: modelName,
                         body: requestBody,
-                        endpoint: this.toolName,
+                        origin: this.toolName,
                         capability: AICapability.TextInput | AICapability.TextOutput);
+
+                    // Forward per-request parameters (extras, sampling, timeout) to the provider call
+                    if (toolCall.Parameters != null)
+                    {
+                        request.Parameters = toolCall.Parameters;
+                    }
 
                     aiResult = await request.Exec().ConfigureAwait(false);
 

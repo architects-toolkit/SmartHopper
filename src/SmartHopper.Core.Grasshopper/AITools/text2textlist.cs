@@ -118,7 +118,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""properties"": {
                         ""prompt"": { ""type"": ""string"", ""description"": ""The prompt to generate items from"" },
                         ""count"": { ""type"": ""integer"", ""description"": ""Number of items to generate"" },
-                        ""type"": { ""type"": ""string"", ""description"": ""Type of items (e.g. 'text', 'number', 'integer', 'boolean')"", ""enum"": [""text"", ""number"", ""integer"", ""boolean""] }
+                        ""type"": { ""type"": ""string"", ""description"": ""Type of items (e.g. 'text', 'number', 'integer', 'boolean')"", ""enum"": [""text"", ""number"", ""integer"", ""boolean""] },
+                        ""contextFilter"": { ""type"": ""string"", ""description"": ""Optional context-provider filter controlling which context providers feed the request (e.g., 'time,file', '-time', '*', '-*')."" }
                     },
                     ""required"": [""prompt"", ""count"", ""type""]
                 }",
@@ -287,8 +288,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     provider: providerName,
                     model: modelName,
                     capability: this.toolCapabilityRequirements,
-                    endpoint: endpoint,
+                    origin: endpoint,
                     body: requestBody);
+
+                // Forward per-request parameters (extras, sampling, timeout) to the provider call
+                if (toolCall.Parameters != null)
+                {
+                    request.Parameters = toolCall.Parameters;
+                }
 
                 while (allItems.Count < count && iteration < maxIterations)
                 {

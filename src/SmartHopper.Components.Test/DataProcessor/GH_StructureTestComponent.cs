@@ -48,7 +48,6 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "SmartHopper Tests",
                 "Testing Data")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager) { }

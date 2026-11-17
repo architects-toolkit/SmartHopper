@@ -95,36 +95,14 @@ namespace SmartHopper.Core.Types
 
             Logger.Trace(typeof(AIInputPayloadMerger).FullName, $"[AIInputPayloadMerger] Merged {payloadList.Count} payloads into {mergedInteractions.Count} interactions, context filter: {contextFilter}");
 
-            // Create the merged AIBody
+            // Create the merged AIBody. Original interactions are added verbatim so TurnId,
+            // Time, metrics and source references survive the merge — recreating them would
+            // silently lose that metadata (notably for text, which used to be rebuilt).
             var builder = new AIBodyBuilder();
 
             foreach (var interaction in mergedInteractions)
             {
-                if (interaction is AIInteractionText textInteraction)
-                {
-                    builder.AddText(textInteraction.Agent, textInteraction.Content);
-                }
-                else if (interaction is AIInteractionImage imageInteraction)
-                {
-                    builder.Add(imageInteraction);
-                }
-                else if (interaction is AIInteractionAudio audioInteraction)
-                {
-                    builder.Add(audioInteraction);
-                }
-                else if (interaction is AIInteractionToolCall toolCall)
-                {
-                    builder.Add(toolCall);
-                }
-                else if (interaction is AIInteractionToolResult toolResult)
-                {
-                    builder.Add(toolResult);
-                }
-                else
-                {
-                    // Generic fallback
-                    builder.Add(interaction);
-                }
+                builder.Add(interaction);
             }
 
             // Set context filter

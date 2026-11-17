@@ -25,10 +25,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.ProviderSdk.AICall.Batch;
-using SmartHopper.ProviderSdk.AICall.Core.Base;
-using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
-using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
 
 using SmartHopper.ProviderSdk.Logging;
@@ -46,19 +43,25 @@ namespace SmartHopper.Providers.Gemini
 
             var customIds = new List<string>();
             var inlinedRequests = new JArray();
+            AIRequestCall firstPreparedRequest = null;
 
             foreach (var (customId, request) in items)
             {
                 customIds.Add(customId);
 
-                // Parse the encoded request body to extract the actual GenerateContentRequest
-                var requestBody = JObject.Parse(request.EncodedRequestBody ?? "{}");
+                // Shared outbound pipeline: PreCall + outbound gate + Encode.
+                // Items that bypassed Initialize()/preparation (e.g. direct
+                // SubmitBatchAsync callers) fail with a clear validation error
+                // instead of crashing on an empty EncodedRequestBody (D19).
+                var (preparedRequest, requestBody) = await this.EncodeBatchItemAsync(request, cancellationToken).ConfigureAwait(false);
+                firstPreparedRequest ??= preparedRequest;
 
-                // Create InlinedRequest with request and metadata
+                // InlinedRequest metadata echoes back as metadata.key on each result —
+                // the API has no custom_id field on this surface.
                 var inlinedRequest = new JObject
                 {
                     { "request", requestBody },
-                    { "metadata", new JObject { { "custom_id", customId } } },
+                    { "metadata", new JObject { { "key", customId } } },
                 };
 
                 inlinedRequests.Add(inlinedRequest);
@@ -71,34 +74,43 @@ namespace SmartHopper.Providers.Gemini
                 batchPriority = priorityValue;
             }
 
-            // Build the batch request according to Gemini API spec
+            // Build the batch request according to the Gemini Batch API contract:
+            // POST {model}:batchGenerateContent takes {"batch": {displayName, inputConfig,
+            // priority}} — the Batch resource wrapped in a top-level "batch" field.
             var batchBody = new JObject
             {
-                { "displayName", $"batch-{DateTime.UtcNow:yyyyMMddHHmmss}" },
                 {
-                    "inputConfig", new JObject
+                    "batch", new JObject
                     {
+                        { "displayName", $"batch-{DateTime.UtcNow:yyyyMMddHHmmss}" },
                         {
-                            "requests", new JObject
+                            "inputConfig", new JObject
                             {
-                                { "requests", inlinedRequests },
+                                {
+                                    "requests", new JObject
+                                    {
+                                        { "requests", inlinedRequests },
+                                    }
+                                },
                             }
                         },
                     }
                 },
             };
 
+            var batchResource = batchBody["batch"] as JObject;
+
             if (batchPriority != 0)
             {
-                batchBody["priority"] = batchPriority.ToString();
+                batchResource["priority"] = batchPriority.ToString();
             }
 
             var serializedRequest = batchBody.ToString();
 
             try
             {
-                var firstRequest = items[0].Request;
-                var responseObj = await this.PostBatchRequestAsync($"/models/{firstRequest.Model}:batchGenerateContent", serializedRequest, cancellationToken).ConfigureAwait(false);
+                var jobModel = firstPreparedRequest?.Model ?? items[0].Request.Model;
+                var responseObj = await this.PostBatchRequestAsync($"/models/{jobModel}:batchGenerateContent", serializedRequest, cancellationToken).ConfigureAwait(false);
                 var operationName = responseObj["name"]?.ToString();
 
                 if (string.IsNullOrWhiteSpace(operationName))
@@ -179,18 +191,38 @@ namespace SmartHopper.Providers.Gemini
                 // generateContent responses with a candidates array.
                 var operationObj = await this.SendBatchRequestAsync(HttpMethod.Get, $"/{submission.BatchId}", cancellationToken).ConfigureAwait(false);
 
-                // Check if operation is done
+                // Operation wire shape (generativelanguage v1beta): top-level name/done/
+                // error/response; lifecycle state under metadata.state as BATCH_STATE_*.
                 var done = operationObj["done"]?.Value<bool>() ?? false;
                 if (!done)
                 {
                     return new AIBatchStatus(submission.BatchId, AIBatchState.InProgress);
                 }
 
-                // Terminal: check for top-level operation error
-                var resultRoot = operationObj["result"] as JObject;
-                if (resultRoot != null && resultRoot.ContainsKey("error"))
+                if (operationObj["error"] is JObject operationError)
                 {
-                    return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, resultRoot["error"]?.ToString());
+                    var state = operationObj["metadata"]?["state"]?.ToString();
+                    var cancelled = string.Equals(state, "BATCH_STATE_CANCELLED", StringComparison.OrdinalIgnoreCase);
+                    return new AIBatchStatus(
+                        submission.BatchId,
+                        cancelled ? AIBatchState.Cancelled : AIBatchState.Failed,
+                        operationError["message"]?.ToString() ?? operationError.ToString());
+                }
+
+                var batchState = operationObj["metadata"]?["state"]?.ToString();
+                if (string.Equals(batchState, "BATCH_STATE_FAILED", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, "Batch job failed");
+                }
+
+                if (string.Equals(batchState, "BATCH_STATE_CANCELLED", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Cancelled);
+                }
+
+                if (string.Equals(batchState, "BATCH_STATE_EXPIRED", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Expired);
                 }
 
                 // Delegate download + parse to the interface methods.
@@ -224,11 +256,12 @@ namespace SmartHopper.Providers.Gemini
             try
             {
                 await this.SendBatchRequestAsync(HttpMethod.Post, $"/{submission.BatchId}:cancel", cancellationToken).ConfigureAwait(false);
-                Logger.For<GeminiProvider>().Error($"[{this.Name}] Batch cancel response: success");
+                Logger.For<GeminiProvider>().Trace($"[{this.Name}] Batch cancel response: success");
             }
             catch (Exception ex)
             {
                 Logger.For<GeminiProvider>().Exception(ex, $"[{this.Name}] Batch cancel error: {ex.Message}");
+                throw;
             }
         }
 
@@ -240,22 +273,12 @@ namespace SmartHopper.Providers.Gemini
                 throw new ArgumentException("Submission with BatchId cannot be null or empty", nameof(submission));
             }
 
-            // Gemini's batch-mode "file" is the GenerateContentBatchOutput embedded in the Operation JSON.
-            var request = new AIRequestCall
-            {
-                Endpoint = $"/{submission.BatchId}",
-                HttpMethod = "GET",
-                Authentication = "x-goog-api-key",
-            };
-
-            var response = await this.Call(request);
-            if (response is not AIReturn air || !air.Success)
-            {
-                var msg = response is AIReturn r ? string.Join(" | ", r.Messages.Select(m => m.Message)) : "unknown error";
-                throw new InvalidOperationException($"Failed to fetch batch operation: {msg}");
-            }
-
-            var body = (air.Body?.Interactions?.FirstOrDefault(i => i is AIInteractionText) as AIInteractionText)?.Content ?? string.Empty;
+            // Gemini's batch-mode "file" is the GenerateContentBatchOutput embedded in the
+            // Operation JSON — fetch it directly instead of routing through Call(): the
+            // operation status endpoint is a backoffice GET, not a generation request, so
+            // it must not run the generation outbound gate (no body/model).
+            var operationObj = await this.SendBatchRequestAsync(HttpMethod.Get, $"/{submission.BatchId}", cancellationToken).ConfigureAwait(false);
+            var body = operationObj?.ToString();
             return string.IsNullOrWhiteSpace(body)
                 ? Array.Empty<string>()
                 : new[] { body };
@@ -284,9 +307,10 @@ namespace SmartHopper.Providers.Gemini
         }
 
         /// <summary>
-        /// Parses a single Gemini batch operation JSON. Shape:
-        /// <c>{"done":true, "result":{"output":{"responses":[{"metadata":{"custom_id":"..."}, "result":{...}}]}}}</c>.
-        /// Inline errors surface as <c>response.error</c> per item.
+        /// Parses a single Gemini batch operation JSON. REST shape:
+        /// <c>{"done":true, "response":{"inlinedResponses":{"inlinedResponses":[{"metadata":{"key":"..."}, "response":{...}}]}}}</c>;
+        /// the same array is mirrored at <c>metadata.output.inlinedResponses.inlinedResponses</c>.
+        /// Item errors surface as <c>error</c> siblings of <c>response</c>.
         /// Finish reasons (e.g., "MAX_TOKENS") are extracted from successful responses and surfaced as warnings.
         /// </summary>
         private AIBatchStatus ParseSingleBatchResultFile(string content, string batchId)
@@ -314,8 +338,9 @@ namespace SmartHopper.Providers.Gemini
                 return new AIBatchStatus(batchId, results, messages);
             }
 
-            var output = (operationObj["result"] as JObject)?["output"] as JObject;
-            var responses = output?["responses"] as JArray;
+            var responses =
+                ((operationObj["response"] as JObject)?["inlinedResponses"] as JObject)?["inlinedResponses"] as JArray
+                ?? (((operationObj["metadata"] as JObject)?["output"] as JObject)?["inlinedResponses"] as JObject)?["inlinedResponses"] as JArray;
             if (responses == null)
             {
                 return new AIBatchStatus(batchId, results, messages);
@@ -324,25 +349,27 @@ namespace SmartHopper.Providers.Gemini
             foreach (var resp in responses.OfType<JObject>())
             {
                 var metadata = resp["metadata"] as JObject;
-                var customId = metadata?["custom_id"]?.ToString();
+                var customId = metadata?["key"]?.ToString();
                 if (string.IsNullOrWhiteSpace(customId))
                 {
                     continue;
                 }
 
-                // Inline error surface: per-item response.error
-                if (resp["error"] is JObject inlineError)
+                // Inline error surface: per-item response.error — shared
+                // extraction also catches scalar error payloads the previous
+                // is-JObject guard silently dropped.
+                var inlineErrorMsg = AIBatchResultParser.ExtractItemErrorMessage(resp["error"]);
+                if (inlineErrorMsg != null)
                 {
-                    var errorMsg = inlineError["message"]?.ToString() ?? inlineError.ToString();
                     messages.Add(new SHRuntimeMessage(
                         SHRuntimeMessageSeverity.Error,
                         SHRuntimeMessageOrigin.Provider,
                         SHMessageCode.BatchItemError,
-                        $"Batch item {customId}: {errorMsg}"));
+                        $"{AIBatchResultParser.ItemMessagePrefix}{customId}: {inlineErrorMsg}"));
                     continue;
                 }
 
-                var resultContent = resp["result"];
+                var resultContent = resp["response"];
                 if (resultContent == null)
                 {
                     continue;

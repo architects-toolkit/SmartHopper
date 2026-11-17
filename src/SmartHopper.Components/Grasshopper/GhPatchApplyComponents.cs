@@ -45,36 +45,35 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                 "Apply GhPatch",
                 "GhPatchApply",
-                "Apply a `.ghpatch` patch document to a base GhJSON document. By default, refuses to apply on base checksum mismatch.",
+                "Apply a .ghpatch diff to a base GhJSON document and return the patched GhJSON without modifying the active canvas.",
                 "SmartHopper",
-                "Grasshopper")
+                "D. GhJSON")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("3964AC63-A845-4B7C-86F3-18E505634721");
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary | GH_Exposure.obscure;
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.ghjsonpatch;
+        protected override Bitmap Icon => Resources.GhPatchApply;
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Base", "B", "Base GhJSON document to apply the patch to.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Patch", "P", "GhPatch document.", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("Verify Base", "V", "Refuse to apply on base checksum mismatch. Defaults to true.", GH_ParamAccess.item, true);
+            pManager.AddTextParameter("Base", "B", "Base GhJSON document to patch.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Patch", "P", "GhPatch (.ghpatch) document to apply.", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Verify Base", "V", "When true (default), refuses to apply the patch if the base document's checksum does not match the patch.", GH_ParamAccess.item, true);
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Result", "R", "Resulting GhJSON document with the patch applied", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("Success", "S", "Whether the apply succeeded with no fatal conflicts", GH_ParamAccess.item);
-            pManager.AddTextParameter("Conflicts", "C", "Summary of conflicts encountered during apply", GH_ParamAccess.item);
+            pManager.AddTextParameter("Result", "R", "Patched GhJSON document.", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Success", "S", "True if the patch applied cleanly with no fatal conflicts.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Conflicts", "C", "Summary of any conflicts encountered while applying the patch.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
@@ -160,7 +159,7 @@ namespace SmartHopper.Components.Grasshopper
                     };
 
                     var toolCall = new AIToolCall();
-                    toolCall.Endpoint = "gh_patch_apply";
+                    toolCall.Origin = "gh_patch_apply";
                     toolCall.FromToolCallInteraction(toolCallInteraction);
                     toolCall.SkipMetricsValidation = true;
 

@@ -44,9 +44,9 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                 "Diff GhJSON",
                 "GhDiff",
-                "Diff two GhJSON documents and produce a `.ghpatch` document describing the differences. Components are matched by instanceGuid > id > structural fingerprint.",
+                "Compare two GhJSON documents and output a .ghpatch document describing added, removed, and modified components, connections, and groups.",
                 "SmartHopper",
-                "Grasshopper")
+                "D. GhJSON")
         {
         }
 
@@ -54,17 +54,17 @@ namespace SmartHopper.Components.Grasshopper
         public override Guid ComponentGuid => new Guid("B4D9C3A2-5E1F-4A6B-8D7C-9E2F1A5B6D8E");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.ghdiff;
+        protected override Bitmap Icon => Resources.GhDiff;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary | GH_Exposure.obscure;
 
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Left", "L", "Left (base) GhJSON document.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Right", "R", "Right (target) GhJSON document.", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("Run?", "X", "Run this component?", GH_ParamAccess.item, false);
+            pManager.AddTextParameter("Left", "L", "Base (before) GhJSON document.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Right", "R", "Target (after) GhJSON document.", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Run?", "X", "Set to true (or connect a Button) to compute the diff.", GH_ParamAccess.item, false);
         }
 
         /// <summary>
@@ -73,10 +73,10 @@ namespace SmartHopper.Components.Grasshopper
         /// <param name="pManager">The parameter manager to register outputs with.</param>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Patch", "P", "GhPatch document describing left → right differences", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Comp Ops", "C", "Number of component operations", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Conn Ops", "W", "Number of connection operations", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Group Ops", "G", "Number of group operations", GH_ParamAccess.item);
+            pManager.AddTextParameter("Patch", "P", "GhPatch (.ghpatch) document describing the differences from Left to Right.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Comp Ops", "C", "Number of component changes (added, removed, or modified).", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Conn Ops", "W", "Number of connection changes (added or removed).", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Group Ops", "G", "Number of group changes (added, removed, or modified).", GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -148,7 +148,7 @@ namespace SmartHopper.Components.Grasshopper
                 };
 
                 var toolCall = new AIToolCall();
-                toolCall.Endpoint = "gh_diff";
+                toolCall.Origin = "gh_diff";
                 toolCall.FromToolCallInteraction(toolCallInteraction);
                 toolCall.SkipMetricsValidation = true;
 

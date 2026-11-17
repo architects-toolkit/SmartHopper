@@ -1,71 +1,35 @@
-# Grasshopper Components
+# Canvas & GhJSON Components (`D. GhJSON`)
 
-Grasshopper-specific components for manipulating, validating, and managing Grasshopper definitions and patches.
+Components in `src/SmartHopper.Components/Grasshopper/` for reading, placing, tidying, validating, diffing, merging, patching, and saving Grasshopper definitions in GhJSON (`.ghjson`) and GhPatch (`.ghpatch`) formats. All live under the single **`SmartHopper → D. GhJSON`** ribbon panel.
 
----
+## `D. GhJSON` panel (`SmartHopper → D. GhJSON`)
 
-## Metadata
+### Live canvas tools (primary / secondary blocks)
 
-| Property | Value |
-| --- | --- |
-| **Source Code** | `src/SmartHopper.Core.Grasshopper/` |
-| **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
-| **Documentation Maintainer** | Devin AI |
+| Component | Display Name | Nickname | Exposure | Purpose |
+| --- | --- | --- | --- | --- |
+| `GhGetComponents` | Get GhJSON | `GhGet` | primary | Exports the active canvas (or selected/filtered components) to GhJSON (`Names`, `Guids`, `GhJSON`) |
+| `GhPutComponents` | Place GhJSON | `GhPut` | primary | Places or updates components on the canvas from a GhJSON string or `.ghjson` file path; preserves supplied pivots, auto-layouts pivotless new components relative to connected fixed neighbors, and updates matching `instanceGuid` objects in place |
+| `GhPatchApplyToCanvasComponents` | Apply GhPatch to Canvas | `GhPatchApplyCanvas` | primary + obscure | Applies a `.ghpatch` diff directly to the active canvas after review |
+| `AIGhReportComponent` | AI Canvas Report | `AIGhReport` | secondary | Generates a structured Markdown status report of the canvas (`Report`) plus an optional AI `Summary` (`gh_report`) |
+| `AIGhConnectComponent` | AI Smart Connect | `AIGhConnect` | secondary | Uses AI (`gh_smart_connect`) to connect selected components on the canvas according to a described `Purpose` |
+| `GhTidyUpComponents` | Tidy Up | `GhTidyUp` | secondary | Rearranges selected components into a clean left-to-right grid following their wire connections |
 
-_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
+### GhJSON document & file operations (tertiary block)
 
----
+| Component | Display Name | Nickname | Exposure | Purpose |
+| --- | --- | --- | --- | --- |
+| `GhPatchApplyComponents` | Apply GhPatch | `GhPatchApply` | tertiary + obscure | Applies a `.ghpatch` diff to a base GhJSON document in memory (`Result`, `Success`, `Conflicts`) |
+| `GhDiffComponents` | Diff GhJSON | `GhDiff` | tertiary + obscure | Computes a `.ghpatch` diff between `Left` and `Right` GhJSON documents (`Patch`, `Comp Ops`, `Conn Ops`, `Group Ops`) |
+| `GhMergeComponents` | Merge GhJSON | `GhMerge` | tertiary + obscure | Merges `Source` into `Target` GhJSON (`Target` wins on GUID conflicts) |
+| `GhValidateComponents` | Validate GhJSON | `GhValidate` | tertiary | Validates a GhJSON string at Minimal (`0`), Standard (`1`), or Strict (`2`) level (`Valid`, `Errors`, `Warnings`, `Info`) |
+| `OpenGhJSON` | Open GhJSON | `OpenGhJSON` | tertiary | Reads and validates a `.ghjson` file from disk (`GhJSON`, `Valid`, `Errors`) |
+| `SaveGhJSON` | Save GhJSON | `SaveGhJSON` | tertiary | Writes a GhJSON string to a `.ghjson` file on disk (`Saved Path`) |
+| `OpenGhPatch` | Open GhPatch | `OpenGhPatch` | tertiary + obscure | Reads and validates a `.ghpatch` file from disk (`GhPatch`, `Valid`, `Errors`) |
+| `SaveGhPatch` | Save GhPatch | `SaveGhPatch` | tertiary + obscure | Writes a GhPatch string to a `.ghpatch` file on disk (`Saved Path`) |
 
-## Why Read This?
+### Introspection (quarternary block)
 
-These components provide programmatic access to definition manipulation, patches, and validation within Grasshopper. They enable batch operations, version control workflows, and collaborative editing of Grasshopper definitions.
-
-**You should read this if you:**
-
-- Need to manipulate Grasshopper definitions programmatically
-- Want to work with patches and version control
-- Need to validate definition integrity
-
----
-
-## End-User Guide
-
-### Component Table
-
-| Component Class | Nickname | Category | Description |
-| --- | --- | --- | --- |
-| `GhGetComponents` | Gh Get | Definition | Retrieves components and data from Grasshopper definitions |
-| `GhPutComponents` | Gh Put | Definition | Writes components and data to Grasshopper definitions |
-| `GhDiffComponents` | Gh Diff | Definition | Computes differences between Grasshopper definitions |
-| `GhMergeComponents` | Gh Merge | Definition | Merges multiple Grasshopper definitions |
-| `GhPatchApplyComponents` | Gh Patch Apply | Patches | Applies patches to Grasshopper definitions |
-| `GhPatchApplyToCanvasComponents` | Gh Patch Apply Canvas | Patches | Applies patches directly to the Grasshopper canvas |
-| `GhValidateComponents` | Gh Validate | Validation | Validates Grasshopper definitions and patches |
-| `GhRetrieveComponents` | Gh Retrieve | Definition | Retrieves and extracts Grasshopper definition data |
-| `GhTidyUpComponents` | Gh Tidy Up | Maintenance | Cleans up and optimizes Grasshopper definitions |
-| `OpenGhJSONComponent` | Open Gh JSON | Files | Opens and loads Grasshopper JSON files |
-| `SaveGhJSONComponent` | Save Gh JSON | Files | Saves Grasshopper definitions as JSON files |
-| `OpenGhPatchComponent` | Open Gh Patch | Files | Opens and loads Grasshopper patch files |
-| `SaveGhPatchComponent` | Save Gh Patch | Files | Saves patches as Grasshopper patch files |
-
----
-
-## Developer Reference
-
-Components in this namespace derive from `AIStatefulAsyncComponentBase` and operate on Grasshopper document objects. For concrete implementations, see:
-
-- `src/SmartHopper.Components/Grasshopper/OpenGhJSONComponent.cs`
-- `src/SmartHopper.Components/Grasshopper/SaveGhJSONComponent.cs`
-- `src/SmartHopper.Components/Grasshopper/OpenGhPatchComponent.cs`
-- `src/SmartHopper.Components/Grasshopper/SaveGhPatchComponent.cs`
-
----
-
-## Architecture & Design
-
-- Grasshopper components provide programmatic access to definition manipulation
-- Patch system enables version control and collaborative editing of definitions
-- Components support data tree processing for batch operations on multiple definitions
-- JSON and patch formats enable serialization and interchange with external tools
-- Validation components ensure definition integrity before and after modifications
+| Component | Display Name | Nickname | Exposure | Purpose |
+| --- | --- | --- | --- | --- |
+| `GhRetrieveComponents` | Retrieve Components | `GhRetrieveComponents` | quarternary + obscure | Lists installed Grasshopper component types as JSON (`Names`, `Guids`, `JSON`), with optional category filtering |

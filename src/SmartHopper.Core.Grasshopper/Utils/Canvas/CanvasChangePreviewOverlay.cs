@@ -161,7 +161,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             {
                 Instances.ActiveCanvas?.Refresh();
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex)
             {
                 Logger.Exception(typeof(CanvasChangePreviewOverlay).FullName, ex, $"[CanvasChangePreviewOverlay] Canvas refresh skipped: {ex.Message}");
             }

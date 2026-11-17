@@ -94,11 +94,12 @@ namespace SmartHopper.Components.Test.Providers
                     var builder = AIBodyBuilder.FromImmutable(call.Body);
                     builder.Add(new AIInteractionText
                     {
-                        Agent = AIAgent.Context,
+                        Agent = AIAgent.User,
                         Content = "Analyze this image"
                     });
                     builder.Add(new AIInteractionImage
                     {
+                        Agent = AIAgent.User,
                         ImageData = base64Image
                     });
                     call.Body = builder.Build();

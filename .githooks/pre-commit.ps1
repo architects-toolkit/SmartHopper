@@ -26,12 +26,12 @@ if (Test-Path $labelScript) {
     $labelerAfter = if (Test-Path $labelerPath) { Get-Content $labelerPath -Raw -Encoding utf8 } else { $null }
     $anyStaged = $false
     if ($labelsBefore -ne $labelsAfter) {
-        git add $labelsPath 2>$null
+        git -C $repoRoot add -- $labelsPath 2>$null
         Write-Host "Staged updated labels.yml." -ForegroundColor Green
         $anyStaged = $true
     }
     if ($labelerBefore -ne $labelerAfter) {
-        git add $labelerPath 2>$null
+        git -C $repoRoot add -- $labelerPath 2>$null
         Write-Host "Staged updated labeler.yml." -ForegroundColor Green
         $anyStaged = $true
     }
@@ -54,10 +54,15 @@ if (Test-Path $licenseScript) {
     }
 
     # Stage any modified .cs or .csproj files under src/ that were already staged
-    $modifiedSrcFiles = git diff --cached --name-only | Where-Object { $_ -match '^src\/.*\.(cs|csproj)$' }
+    # Helper scripts may change the process working directory.
+    $modifiedSrcFiles = git -C $repoRoot diff --cached --name-only --diff-filter=d | Where-Object { $_ -match '^src\/.*\.(cs|csproj)$' }
     if ($modifiedSrcFiles) {
         foreach ($file in $modifiedSrcFiles) {
-            git add $file 2>$null
+            git -C $repoRoot add -- $file 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "Failed to stage updated source file: $file"
+                exit $LASTEXITCODE
+            }
             Write-Host "Staged updated license header: $file" -ForegroundColor Green
         }
     }
@@ -73,7 +78,7 @@ else {
 Write-Host "`nStep 3: Updating version date..." -ForegroundColor Cyan
 
 # Determine whether to skip version update based on staged files
-$stagedFiles = git diff --cached --name-only
+$stagedFiles = git -C $repoRoot diff --cached --name-only
 $hasSrcChanges = $false
 foreach ($file in $stagedFiles) {
     if ($file -match '^src\/') {
@@ -103,7 +108,7 @@ elseif (Test-Path $versionScript) {
     # Check and stage Solution.props if changed
     $solutionPropsAfter = if (Test-Path $solutionPropsPath) { Get-Content $solutionPropsPath -Raw -Encoding utf8 } else { $null }
     if ($solutionPropsBefore -ne $solutionPropsAfter) {
-        git add $solutionPropsPath 2>$null
+        git -C $repoRoot add -- $solutionPropsPath 2>$null
         Write-Host "Staged changes to Solution.props." -ForegroundColor Green
         $anyStaged = $true
     }
@@ -111,7 +116,7 @@ elseif (Test-Path $versionScript) {
     # Check and stage README.md if changed
     $readmeAfter = if (Test-Path $readmePath) { Get-Content $readmePath -Raw -Encoding utf8 } else { $null }
     if ($readmeBefore -ne $readmeAfter) {
-        git add $readmePath 2>$null
+        git -C $repoRoot add -- $readmePath 2>$null
         Write-Host "Staged changes to README.md." -ForegroundColor Green
         $anyStaged = $true
     }
@@ -122,18 +127,18 @@ elseif (Test-Path $versionScript) {
         Write-Host "Staging only changed lines in CHANGELOG.md..." -ForegroundColor Cyan
 
         # Get the diff and apply only the actual changes (not the entire file)
-        $diffOutput = git diff $changelogPath
+        $diffOutput = git -C $repoRoot diff -- $changelogPath
         if ($diffOutput) {
             # Apply the diff to staging area using git apply --cached
             # This stages only the specific lines that changed
-            $diffOutput | git apply --cached - 2>$null
+            $diffOutput | git -C $repoRoot apply --cached - 2>$null
             if ($LASTEXITCODE -eq 0) {
                 Write-Host "Staged only changed lines in CHANGELOG.md." -ForegroundColor Green
                 $anyStaged = $true
             }
             else {
                 Write-Warning "Failed to stage selective changes, falling back to full file staging."
-                git add $changelogPath 2>$null
+                git -C $repoRoot add -- $changelogPath 2>$null
                 $anyStaged = $true
             }
         }
@@ -151,7 +156,7 @@ else {
 Write-Host "`nStep 4: Anonymizing SmartHopperPublicKey..." -ForegroundColor Cyan
 
 # Check if Directory.Build.props is staged for commit
-$stagedFiles = git diff --cached --name-only
+$stagedFiles = git -C $repoRoot diff --cached --name-only
 $csprojRelativePath = "Directory.Build.props"
 $csprojIsStaged = $stagedFiles -contains $csprojRelativePath
 
@@ -187,17 +192,17 @@ if ($csprojBefore -ne $csprojAfter) {
     Write-Host "Staging only changed lines in Directory.Build.props..." -ForegroundColor Cyan
 
     # Get the diff and apply only the actual changes (not the entire file)
-    $diffOutput = git diff $csprojPath
+    $diffOutput = git -C $repoRoot diff -- $csprojPath
     if ($diffOutput) {
         # Apply the diff to staging area using git apply --cached
         # This stages only the specific lines that changed
-        $diffOutput | git apply --cached - 2>$null
+        $diffOutput | git -C $repoRoot apply --cached - 2>$null
         if ($LASTEXITCODE -eq 0) {
             Write-Host "Staged only changed lines in Directory.Build.props." -ForegroundColor Green
         }
         else {
             Write-Warning "Failed to stage selective changes, falling back to full file staging."
-            git add $csprojPath 2>$null
+            git -C $repoRoot add -- $csprojPath 2>$null
         }
     }
 }

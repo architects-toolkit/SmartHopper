@@ -186,6 +186,15 @@ The provider uses Bearer token authentication. SmartHopper also sends required a
 - `X-Title`: `SmartHopper`
 - `Referer`: `https://smarthopper.xyz`
 
+### Per-Request Extras
+
+OpenRouter-specific request knobs live in `AIRequestParameters.Extras` (rendered on the Extra Settings component):
+
+- `reasoning_effort` (`low`/`medium`/`high`), `reasoning_max_tokens`, `reasoning_exclude` assemble the unified `reasoning` object across heterogeneous backends — `effort` takes precedence over `max_tokens` (the API rejects both together)
+- `provider_order`, `provider_only`, `provider_ignore` set `provider` routing preferences per request (comma-separated slugs or JSON arrays), overriding the matching provider settings
+- `negative_prompt`, `guidance_scale` forward to image backends that honor them
+- `enable_caching`, `sort`, `data_collection`, `allow_fallback`, plus the shared sampling extras (`seed`, `top_p`, `top_k`, `top_a`, `min_p`, `frequency_penalty`, `presence_penalty`, `repetition_penalty`, `logprobs`, `top_logprobs`)
+
 ### Prompt Caching Integration
 
 When `enable_caching` is set in extras:

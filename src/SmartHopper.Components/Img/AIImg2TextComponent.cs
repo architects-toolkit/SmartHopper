@@ -52,7 +52,10 @@ namespace SmartHopper.Components.Img
         public override Guid ComponentGuid => new Guid("6498B5BA-D781-42B6-8D74-25DA73E32004");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.imgtotext;
+        protected override Bitmap Icon => Resources.AIImg2Text;
+
+        /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
@@ -94,28 +97,28 @@ namespace SmartHopper.Components.Img
             : base(
                   "AI Image To Text",
                   "AIImg2Text",
-                  "Describe or analyze images using a vision AI model. Accepts image file paths or URLs and returns AI-generated text descriptions.",
+                  "Describe or analyze images using a vision-capable AI model.",
                   "SmartHopper",
-                  "Img")
+                  "G. Media")
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Image", "I", "Image to describe. Accepts: (1) VersatileImage format from file extraction components, (2) absolute file path to an image file (.png, .jpg, .gif, .bmp, .webp, .tiff), (3) public HTTP/HTTPS URL, or (4) raw base64-encoded image data.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Prompt", "P", "Custom description prompt for the AI. Leave empty to use the built-in prompt: 'Describe this image in detail.'", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Image", "I", "Image to analyze. Accepts a VersatileImage, Bitmap, local file path (.png, .jpg, .gif, .bmp, .webp, .tiff), HTTP/HTTPS URL, data URI, or base64 image string.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Prompt", "P", "Optional question or instruction telling the AI what to look for in the image. Leave empty for a general detailed description.", GH_ParamAccess.item);
             pManager[pManager.ParamCount - 1].Optional = true;
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Description", "D", "AI-generated text description of the image.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Description", "D", "AI-generated description or analysis of the image.", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject>? results, IReadOnlyList<SHRuntimeMessage>? messages = null)
         {
             var sentinel = this.GetSentinelTree("Description");
             if (results == null || sentinel == null) return;
@@ -127,7 +130,9 @@ namespace SmartHopper.Components.Img
                 results,
                 (customId, resultBody) =>
                 {
-                    var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
+                    // Decode with the provider that ran the batch — the live
+                    // selection may have changed while it was in flight.
+                    var provider = ProviderManager.Instance.GetProvider(this.GetSubmittedProviderName());
                     if (provider == null) return new GH_String(string.Empty);
 
                     var interactions = provider.Decode(resultBody);

@@ -63,6 +63,13 @@ namespace SmartHopper.ProviderSdk.AICall.Core
         /// </summary>
         public bool BatchTier { get; init; }
 
+        /// <summary>
+        /// Gets a value indicating whether identical processing units inside a run may
+        /// share a single produced result. When <c>false</c>, each occurrence executes
+        /// independently — local execution policy, never sent to the provider.
+        /// </summary>
+        public bool ShareIdenticalResults { get; init; } = true;
+
         /// <summary>Gets an empty (default) instance with no overrides.</summary>
         public static AIRequestParameters Empty { get; } = new AIRequestParameters();
 
@@ -89,6 +96,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core
         private double? _topP;
         private int? _seed;
         private bool _batchTier;
+        private bool _shareIdenticalResults = true;
         private readonly Dictionary<string, JToken> _extras = new Dictionary<string, JToken>();
 
         /// <inheritdoc cref="AIRequestParameters.Model"/>
@@ -138,6 +146,36 @@ namespace SmartHopper.ProviderSdk.AICall.Core
         {
             this._batchTier = batchTier;
             return this;
+        }
+
+        /// <inheritdoc cref="AIRequestParameters.ShareIdenticalResults"/>
+        public AIRequestParametersBuilder WithShareIdenticalResults(bool shareIdenticalResults)
+        {
+            this._shareIdenticalResults = shareIdenticalResults;
+            return this;
+        }
+
+        /// <summary>
+        /// Seeds every field from an existing <see cref="AIRequestParameters"/> instance —
+        /// typed fields are copied and extras are merged (existing builder extras win on
+        /// key collisions). Callers can then override individual values fluently.
+        /// </summary>
+        public AIRequestParametersBuilder WithParameters(AIRequestParameters template)
+        {
+            if (template == null)
+            {
+                return this;
+            }
+
+            this._model = template.Model;
+            this._temperature = template.Temperature;
+            this._maxTokens = template.MaxTokens;
+            this._timeoutSeconds = template.TimeoutSeconds;
+            this._topP = template.TopP;
+            this._seed = template.Seed;
+            this._batchTier = template.BatchTier;
+            this._shareIdenticalResults = template.ShareIdenticalResults;
+            return this.WithExtras(template.Extras);
         }
 
         /// <summary>Adds or overwrites a single extra parameter.</summary>
@@ -248,6 +286,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core
             TopP = this._topP,
             Seed = this._seed,
             BatchTier = this._batchTier,
+            ShareIdenticalResults = this._shareIdenticalResults,
             Extras = new ReadOnlyDictionary<string, JToken>(this._extras),
         };
     }

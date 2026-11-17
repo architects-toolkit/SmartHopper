@@ -20,7 +20,6 @@ using System;
 using System.Collections.Generic;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
-using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.UI.Chat
 {
     /// <summary>
@@ -74,7 +73,7 @@ namespace SmartHopper.Core.UI.Chat
             }
             catch (Exception ex)
             {
-                Logger.Exception(typeof(ChatDocumentTracking).FullName, ex, $"[ChatDocumentTracking] Failed to create tracker: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[ChatDocumentTracking] Failed to create tracker: {ex.Message}");
                 return null;
             }
         }

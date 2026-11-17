@@ -42,7 +42,6 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
                 BypassMutationsApproval = true,
                 AllowViewControl = true,
                 AllowExternalTools = true,
-                AllowExternalConnections = true,
                 ServerName = "custom",
                 ServerVersion = "1.2.3",
             };
@@ -57,7 +56,6 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             Assert.Equal(original.BypassMutationsApproval, copy.BypassMutationsApproval);
             Assert.Equal(original.AllowViewControl, copy.AllowViewControl);
             Assert.Equal(original.AllowExternalTools, copy.AllowExternalTools);
-            Assert.Equal(original.AllowExternalConnections, copy.AllowExternalConnections);
             Assert.Equal(original.ServerName, copy.ServerName);
             Assert.Equal(original.ServerVersion, copy.ServerVersion);
         }

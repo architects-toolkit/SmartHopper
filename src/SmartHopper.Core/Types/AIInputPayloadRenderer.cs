@@ -50,6 +50,7 @@ namespace SmartHopper.Core.Types
                 AIInputPayloadType.Image => RenderImagePayload(payload),
                 AIInputPayloadType.Audio => RenderAudioPayload(payload),
                 AIInputPayloadType.Context => RenderContextPayload(payload),
+                AIInputPayloadType.Multimodal => RenderMultimodalPayload(payload),
                 _ => RenderUnknownPayload(payload),
             };
         }
@@ -178,6 +179,44 @@ namespace SmartHopper.Core.Types
         }
 
         /// <summary>
+        /// Renders a multimodal document payload to user-readable format.
+        /// Shows the ordered modality mix (text/image/audio/tool) without embedding media.
+        /// </summary>
+        private static string RenderMultimodalPayload(AIInputPayload payload)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("[Multimodal Payload]");
+
+            if (payload.Interactions == null || payload.Interactions.Count == 0)
+            {
+                sb.AppendLine("(No interactions)");
+                return sb.ToString().TrimEnd();
+            }
+
+            var interactionTypes = new Dictionary<string, int>();
+            foreach (var interaction in payload.Interactions)
+            {
+                var typeName = interaction switch
+                {
+                    AIInteractionText => "text",
+                    AIInteractionImage => "image",
+                    AIInteractionAudio => "audio",
+                    AIInteractionToolResult => "tool result",
+                    AIInteractionToolCall => "tool call",
+                    _ => interaction?.GetType().Name ?? "unknown",
+                };
+                interactionTypes[typeName] = interactionTypes.TryGetValue(typeName, out var count) ? count + 1 : 1;
+            }
+
+            foreach (var kvp in interactionTypes)
+            {
+                sb.AppendLine($"{kvp.Key}: {kvp.Value}");
+            }
+
+            return sb.ToString().TrimEnd();
+        }
+
+        /// <summary>
         /// Renders an unknown payload type to user-readable format.
         /// Shows interaction count and types.
         /// </summary>
@@ -231,6 +270,7 @@ namespace SmartHopper.Core.Types
                 AIInputPayloadType.Image => $"Image ({interactionCount})",
                 AIInputPayloadType.Audio => $"Audio ({interactionCount})",
                 AIInputPayloadType.Context => "Context",
+                AIInputPayloadType.Multimodal => $"Multimodal ({interactionCount})",
                 _ => $"Payload ({interactionCount})",
             };
         }

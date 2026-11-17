@@ -23,7 +23,6 @@ using System.Threading.Tasks;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
-using Rhino;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Components;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -334,11 +333,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var tcs = new TaskCompletionSource<AIReturn>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-                RhinoApp.InvokeOnUiThread(() =>
-                {
-                    try
+                return await UiThreadMarshal.RunOnUiThreadAsync(
+                    () =>
                     {
                         toolCall.CancellationToken.ThrowIfCancellationRequested();
                         string message = operation(args);
@@ -351,16 +347,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             })
                             .Build();
                         output.CreateSuccess(body, toolCall);
-                        tcs.SetResult(output);
-                    }
-                    catch (Exception ex)
-                    {
-                        tcs.SetException(ex);
-                    }
-                });
-
-                return await tcs.Task
-                    .WaitAsync(toolCall.CancellationToken).ConfigureAwait(false);
+                        return output;
+                    },
+                    toolCall.CancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

@@ -18,5 +18,5 @@ globs: **/SmartHopper.Components/*.cs
 - Register inputs/outputs through the relevant base-class methods (`RegisterInputParams`, `RegisterOutputParams`, or `RegisterAdditional*Params`).
 - Provide stable `ComponentGuid`, `Icon`, `Exposure`, name, nickname, description, category, and subcategory. Never change a released component GUID.
 - When first scaffolding a new unreleased component, use the zeroed GUID placeholder (`00000000-0000-0000-0000-000000000000`) so the maintainer can assign the final stable GUID before release.
-- Choose `RunOnlyOnInputChanges` intentionally and document unusual run semantics in the component description.
+- `Run?` semantics are uniform: a false→true edge always triggers `Processing` (result reuse replays unchanged units), and `Run=false` disarms future runs — explicit Cancel aborts in-flight work. Document unusual run semantics in the component description instead of adding opt-out flags.
 - Use `DataTreeProcessor`/processing topologies for data-tree mechanics instead of manual path fan-out in component code.

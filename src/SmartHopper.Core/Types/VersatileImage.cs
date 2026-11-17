@@ -22,8 +22,10 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using SmartHopper.Infrastructure.Networking;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
@@ -109,6 +111,12 @@ namespace SmartHopper.Core.Types
         public string MimeType { get; private set; }
 
         /// <summary>
+        /// Gets the structured provenance of this image (document/page/asset) when it was
+        /// extracted from a document source; null for ad-hoc images.
+        /// </summary>
+        public SourceContentReference SourceReference { get; private set; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="VersatileImage"/> class from a Bitmap.
         /// </summary>
         /// <param name="bitmap">The bitmap to wrap.</param>
@@ -153,7 +161,6 @@ namespace SmartHopper.Core.Types
             return new VersatileImage
             {
                 Kind = VersatileImageKind.Base64,
-                Bitmap = null!,
                 RawValue = base64Data,
                 Id = string.Empty,
                 Context = string.Empty,
@@ -182,13 +189,46 @@ namespace SmartHopper.Core.Types
             return new VersatileImage
             {
                 Kind = kind,
-                Bitmap = null,
                 RawValue = trimmedInput,
                 Id = null,
                 Context = null,
                 PageOrSlide = 0,
                 SourceDocument = null,
             };
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="VersatileImage"/> class from an
+        /// <see cref="AIInteractionImage"/> result. Prefers the resolved <see cref="AIInteractionImage.ImageUrl"/>;
+        /// falls back to inline <see cref="AIInteractionImage.ImageData"/> wrapped in a data URI
+        /// (mirrors <c>GetRawContentForRender</c>'s resolution order).
+        /// </summary>
+        /// <param name="interaction">The assistant image interaction carrying the generated result.</param>
+        /// <returns>A new VersatileImage.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="interaction"/> is null.</exception>
+        /// <exception cref="ArgumentException">Thrown when the interaction carries no image URL or data.</exception>
+        public static VersatileImage FromInteraction(AIInteractionImage interaction)
+        {
+            if (interaction == null)
+            {
+                throw new ArgumentNullException(nameof(interaction));
+            }
+
+            if (interaction.ImageUrl != null)
+            {
+                return FromString(interaction.ImageUrl.ToString());
+            }
+
+            if (!string.IsNullOrWhiteSpace(interaction.ImageData))
+            {
+                var mimeType = !string.IsNullOrWhiteSpace(interaction.MimeType)
+                    && interaction.MimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                    ? interaction.MimeType
+                    : "image/png";
+                return FromString($"data:{mimeType};base64,{interaction.ImageData}");
+            }
+
+            throw new ArgumentException("The image interaction carries no image URL or data.", nameof(interaction));
         }
 
         /// <summary>
@@ -201,6 +241,7 @@ namespace SmartHopper.Core.Types
         /// <param name="context">Contextual description of where the image was found (e.g., "Page 3").</param>
         /// <param name="pageOrSlide">Page or slide number (1-based), or 0 if unknown.</param>
         /// <param name="sourceDocument">Source document path or identifier.</param>
+        /// <param name="source">Optional structured source provenance (document/page/asset).</param>
         /// <returns>A new VersatileImage with document metadata.</returns>
         public static VersatileImage FromExtractedDocument(
             string base64Data,
@@ -208,7 +249,8 @@ namespace SmartHopper.Core.Types
             string id,
             string context,
             int pageOrSlide,
-            string sourceDocument)
+            string sourceDocument,
+            SourceContentReference source = null)
         {
             if (string.IsNullOrWhiteSpace(base64Data))
             {
@@ -218,13 +260,13 @@ namespace SmartHopper.Core.Types
             return new VersatileImage
             {
                 Kind = VersatileImageKind.Base64,
-                Bitmap = null,
                 RawValue = base64Data,
                 Id = id ?? "img",
                 Context = context ?? string.Empty,
                 PageOrSlide = pageOrSlide,
                 SourceDocument = sourceDocument ?? string.Empty,
                 MimeType = mimeType ?? "image/png",
+                SourceReference = source,
             };
         }
 
@@ -256,56 +298,59 @@ namespace SmartHopper.Core.Types
         }
 
         /// <summary>
-        /// Converts this image source to a Bitmap.
+        /// Asynchronously converts this image source to a Bitmap.
         /// For URLs and base64, downloads/decodes lazily.
         /// For local files, loads from disk.
         /// </summary>
-        /// <returns>A Bitmap object.</returns>
-        public Bitmap ToBitmap()
+        /// <param name="cancellationToken">Cancels file reads, source approval and downloads.</param>
+        /// <returns>The resolved bitmap.</returns>
+        public async Task<Bitmap> ToBitmapAsync(CancellationToken cancellationToken = default)
         {
-            if (this.Kind == VersatileImageKind.Bitmap && this.Bitmap != null)
+            if (this.Bitmap != null)
             {
                 return this.Bitmap;
             }
 
             if (this.Kind == VersatileImageKind.LocalFile)
             {
-                return new Bitmap(this.RawValue);
+                var localBytes = await File.ReadAllBytesAsync(this.RawValue, cancellationToken).ConfigureAwait(false);
+                return DecodeBitmap(localBytes);
             }
 
             if (this.Kind == VersatileImageKind.Url)
             {
-                using (var client = new HttpClient())
+                using (var client = ExternalDataHttpClient.Create())
                 {
-                    var response = client.GetAsync(this.RawValue).Result;
+                    using var response = await client.GetAsync(this.RawValue, cancellationToken).ConfigureAwait(false);
                     response.EnsureSuccessStatusCode();
-                    using (var stream = response.Content.ReadAsStreamAsync().Result)
-                    {
-                        return new Bitmap(stream);
-                    }
+                    var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+                    this.Bitmap = DecodeBitmap(bytes);
+                    return this.Bitmap;
                 }
             }
 
             if (this.Kind == VersatileImageKind.Base64)
             {
                 var bytes = Convert.FromBase64String(this.RawValue);
-                using (var stream = new MemoryStream(bytes))
-                {
-                    return new Bitmap(stream);
-                }
+                return DecodeBitmap(bytes);
             }
 
             if (this.Kind == VersatileImageKind.DataUri)
             {
                 var base64Data = ExtractBase64FromDataUri(this.RawValue);
                 var bytes = Convert.FromBase64String(base64Data);
-                using (var stream = new MemoryStream(bytes))
-                {
-                    return new Bitmap(stream);
-                }
+                return DecodeBitmap(bytes);
             }
 
             throw new InvalidOperationException($"Cannot convert {this.Kind} to Bitmap.");
+        }
+
+        /// <summary>Clones decoded pixels so the returned bitmap does not depend on a disposed stream.</summary>
+        internal static Bitmap DecodeBitmap(byte[] bytes)
+        {
+            using var stream = new MemoryStream(bytes);
+            using var decoded = new Bitmap(stream);
+            return new Bitmap(decoded);
         }
 
         /// <summary>
@@ -359,7 +404,7 @@ namespace SmartHopper.Core.Types
                     throw new InvalidOperationException($"Unknown image source kind: {this.Kind}");
             }
 
-            return interaction;
+            return interaction with { SourceReference = this.SourceReference };
         }
 
         /// <summary>

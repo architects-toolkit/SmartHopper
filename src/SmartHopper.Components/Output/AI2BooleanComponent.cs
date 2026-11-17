@@ -42,14 +42,14 @@ namespace SmartHopper.Components.Output
         private bool? _fallback;
 
         public AI2BooleanComponent()
-            : base("AI to Boolean", "AI→Bool", "Classify input as true or false", GH_Exposure.primary)
+            : base("AI to Boolean", "AI2Bool", "Call the AI provider on the connected input(s) and return a True/False boolean.", GH_Exposure.primary)
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Fallback", "F", "OPTIONAL fallback value to use when the AI response cannot be parsed as true/false. If not provided, the output will be null for unparsable responses.", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Fallback", "F", "Optional fallback boolean returned when the AI response cannot be parsed as True or False (leave disconnected to output null on parse failure).", GH_ParamAccess.item);
             pManager[pManager.ParamCount - 1].Optional = true;
         }
 
@@ -72,7 +72,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the component icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.aitobool;
+        protected override Bitmap Icon => Resources.AI2Boolean;
 
         /// <summary>
         /// Gets the AI tools used by this component.
@@ -98,7 +98,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Boolean",
                     NickName = "B",
-                    Description = "Boolean classification result. Falls back to the Fallback input when the AI response cannot be parsed.",
+                    Description = "Extracted boolean value (or the Fallback value when unparsable).",
                     ParamType = typeof(Param_Boolean),
                     Access = GH_ParamAccess.tree,
                     Extractor = OutputMapping.Single(aiReturn =>
@@ -112,7 +112,7 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Used Fallback",
                     NickName = "UF",
-                    Description = "True when the AI response could not be parsed and the Fallback value was used (or null was emitted because no fallback was provided).",
+                    Description = "True when the AI response could not be parsed as True/False and the fallback behavior was used.",
                     ParamType = typeof(Param_Boolean),
                     Access = GH_ParamAccess.tree,
                     Extractor = OutputMapping.Single(aiReturn =>

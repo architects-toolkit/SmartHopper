@@ -25,6 +25,7 @@ using Eto.Drawing;
 using Eto.Forms;
 using Grasshopper;
 using Rhino.UI;
+using SmartHopper.Infrastructure.Dialogs;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
@@ -184,24 +185,51 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         {
             var dialog = new CanvasChangeReviewDialog(session);
             var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            cancellationToken.Register(() =>
-                Application.Instance?.AsyncInvoke(() =>
+            void CloseDialog()
+            {
+                try
                 {
-                    try
+                    dialog.Close();
+                }
+                catch
+                {
+                    // The window may already be closed or belong to another dispatcher;
+                    // release the awaiting review either way so the approval never hangs.
+                    completion.TrySetResult(false);
+                }
+            }
+
+            var closeRegistration = cancellationToken.Register(() =>
+            {
+                try
+                {
+                    if (Application.Instance != null)
                     {
-                        dialog.Close();
+                        Application.Instance.AsyncInvoke(CloseDialog);
                     }
-                    catch (ObjectDisposedException)
+                    else
                     {
-                        // The dialog was already closed and disposed.
+                        global::Rhino.RhinoApp.InvokeOnUiThread(CloseDialog);
                     }
-                }));
+                }
+                catch
+                {
+                    completion.TrySetResult(false);
+                }
+            });
             dialog.Closed += (_, _) =>
             {
-                CanvasChangePreviewOverlay.End(session);
                 var result = dialog.ApplyRequested;
-                dialog.Dispose();
-                completion.TrySetResult(result);
+                closeRegistration.Dispose();
+                try
+                {
+                    CanvasChangePreviewOverlay.End(session);
+                    dialog.Dispose();
+                }
+                finally
+                {
+                    completion.TrySetResult(result);
+                }
             };
 
             CanvasChangePreviewOverlay.Begin(session);
@@ -216,6 +244,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 }
 
                 dialog.Show();
+                dialog.BringToFrontAndFocus();
             }
             catch
             {
@@ -337,7 +366,25 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
         private void OnSelectionChanged(object? sender, EventArgs e)
         {
-            this.UpdateSummary();
+            // SelectionChanged can fire on tool/background threads when the consent
+            // pipeline applies its decision while the window is still open; label
+            // updates must happen on the Eto UI thread.
+            if (Application.Instance == null)
+            {
+                return;
+            }
+
+            Application.Instance.AsyncInvoke(() =>
+            {
+                try
+                {
+                    this.UpdateSummary();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // The dialog was already disposed.
+                }
+            });
         }
 
         private string BuildDetailText(CanvasChangeReviewItem item)

@@ -46,7 +46,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: ProgressiveToolLoading.SearchToolName,
-                description: "Discover additional tools not already in your toolset: component control, script parameters, data tools, document management, vision, provider info and more. Describe what you want to do (e.g. \"lock selected components\", \"list data\", \"save document\") — matching tool definitions are returned, then call them by name.",
+                description: "Discover additional tools not already in your toolset: canvas editing (connect, move, remove, set values, tidy), component control, document management, screenshots, subagents and task planning, scripting, data conversion, provider info, knowledge and library search and more. Describe what you want to do (e.g. \"connect two components\", \"lock selected components\", \"save document\", \"run a background agent\") — matching tool definitions are returned, then call them by name.",
                 category: ProgressiveToolLoading.SearchToolCategory,
                 parametersSchema: @"{
                     ""type"": ""object"",

@@ -52,7 +52,7 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
             }
 
             return toolResult.Images
-                .Where(i => i != null && i.SendToModel && !string.IsNullOrEmpty(i.ImageData))
+                .Where(i => i != null && i.IsModelVisible)
                 .ToList();
         }
     }

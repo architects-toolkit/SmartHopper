@@ -52,7 +52,7 @@ namespace SmartHopper.Components.Audio
         /// <summary>
         /// Gets the icon for this component.
         /// </summary>
-        protected override Bitmap Icon => Resources.audio;
+        protected override Bitmap Icon => Resources.AudioViewer;
 
         /// <summary>
         /// Gets the exposure level of this component in the ribbon.
@@ -66,9 +66,9 @@ namespace SmartHopper.Components.Audio
             : base(
                 "Audio Viewer",
                 "AudioView",
-                "Display audio files on the canvas, play them, and save them to disk.",
+                "Play and preview audio on the Grasshopper canvas, and optionally save it to disk.",
                 "SmartHopper",
-                "Data Visualization")
+                "G. Media")
         {
         }
 
@@ -86,15 +86,13 @@ namespace SmartHopper.Components.Audio
         /// <param name="pManager">The parameter manager to register inputs with.</param>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Audio", "A", "Audio file to display and play", GH_ParamAccess.item);
-            pManager.AddTextParameter("File Path", "F", "File path to save the audio.\nAdd one of the compatible extensions to the file name: .mp3, .wav, .m4a, .aac, .flac, .ogg, .wma, .opus", GH_ParamAccess.item, string.Empty);
-            pManager.AddBooleanParameter("Play?", "P", "Trigger to play the audio", GH_ParamAccess.item, false);
-            pManager.AddBooleanParameter("Save?", "S", "Trigger to save the audio to the specified file path", GH_ParamAccess.item, false);
+            pManager.AddGenericParameter("Audio", "A", "Audio data or file path to load and play.", GH_ParamAccess.item);
+            pManager.AddTextParameter("File Path", "F", "Destination file path when saving the audio to disk.\nSupported extensions: .mp3, .wav, .m4a, .aac, .flac, .ogg, .wma, .opus.", GH_ParamAccess.item, string.Empty);
+            pManager.AddBooleanParameter("Save?", "S", "Save the audio to File Path. Held true: saves again whenever the audio input changes. A momentary true (e.g. a Button) saves once.", GH_ParamAccess.item, false);
 
             // Make parameters optional
             pManager[1].Optional = true;
             pManager[2].Optional = true;
-            pManager[3].Optional = true;
         }
 
         /// <summary>
@@ -114,13 +112,11 @@ namespace SmartHopper.Components.Audio
             // Get inputs
             IGH_Goo audioGoo = null;
             string filePath = string.Empty;
-            bool play = false;
             bool save = false;
 
             DA.GetData(0, ref audioGoo);
             DA.GetData(1, ref filePath);
-            DA.GetData(2, ref play);
-            DA.GetData(3, ref save);
+            DA.GetData(2, ref save);
 
             VersatileAudio audio = null;
 
@@ -152,20 +148,16 @@ namespace SmartHopper.Components.Audio
                 // Store audio data
                 this.SetAudioData(audio);
 
-                // Handle playback if requested
-                if (play)
-                {
-                    this.PlayAudio(audio);
-                }
-
-                // Handle saving if requested and path is provided
+                // Handle saving if requested and path is provided. A held-true
+                // Save? input re-saves on every solve (i.e. on each new audio
+                // input); a momentary true saves once.
                 if (save && !string.IsNullOrWhiteSpace(filePath))
                 {
                     this.SaveAudio(audio, filePath);
                 }
                 else if (save && string.IsNullOrWhiteSpace(filePath))
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Play/Save triggered but no file path provided");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Save triggered but no file path provided");
                 }
             }
             else if (audioGoo != null)
@@ -180,10 +172,26 @@ namespace SmartHopper.Components.Audio
         }
 
         /// <summary>
+        /// Plays the currently loaded audio, if any. Called by the on-canvas
+        /// Play button rendered by <see cref="AudioViewerAttributes"/>.
+        /// </summary>
+        internal void PlayCurrentAudio()
+        {
+            var audio = this.GetAudio();
+            if (audio == null)
+            {
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No audio to play");
+                return;
+            }
+
+            this.PlayAudio(audio);
+        }
+
+        /// <summary>
         /// Plays the audio file using the system default audio player.
         /// </summary>
         /// <param name="audio">The audio to play.</param>
-        private void PlayAudio(VersatileAudio audio)
+        private async void PlayAudio(VersatileAudio audio)
         {
             if (audio == null)
             {
@@ -209,18 +217,14 @@ namespace SmartHopper.Components.Audio
                         break;
 
                     case VersatileAudioKind.Url:
-                        // For URLs, we'll open them directly with the system default player
-                        audioPath = audio.RawValue;
-                        break;
-
                     case VersatileAudioKind.Base64:
                     case VersatileAudioKind.DataUri:
                         // For base64/data-uri, save to temp file and play
                         var tempFile = Path.Combine(Path.GetTempPath(), $"smarthopper_audio_{Guid.NewGuid():N}.mp3");
                         try
                         {
-                            var audioBytes = audio.ToByteArray();
-                            File.WriteAllBytes(tempFile, audioBytes);
+                            var audioBytes = await audio.ToByteArrayAsync();
+                            await File.WriteAllBytesAsync(tempFile, audioBytes);
                             audioPath = tempFile;
                         }
                         catch (Exception ex)
@@ -466,36 +470,7 @@ namespace SmartHopper.Components.Audio
                 return;
             }
 
-            if (audio.Kind == VersatileAudioKind.Url)
-            {
-                this.LoadAudioBytesAsync(audio, generation);
-                return;
-            }
-
-            try
-            {
-                var audioData = audio.ToByteArray();
-                lock (this._audioLock)
-                {
-                    if (generation == this._audioLoadGeneration)
-                    {
-                        this._audioData = audioData;
-                    }
-                }
-            }
-            catch
-            {
-                lock (this._audioLock)
-                {
-                    if (generation == this._audioLoadGeneration)
-                    {
-                        this._currentAudioPath = string.Empty;
-                    }
-                }
-            }
-
-            // Update the display
-            this.OnDisplayExpired(false);
+            this.LoadAudioBytesAsync(audio, generation);
         }
 
         /// <summary>

@@ -75,10 +75,7 @@ namespace SmartHopper.Core.IO.Codecs
                 if (kind == VersatileImageKind.Bitmap && json["b"] != null)
                 {
                     var bytes = Convert.FromBase64String(json.Value<string>("b"));
-                    using (var ms = new MemoryStream(bytes))
-                    {
-                        bitmap = new Bitmap(ms);
-                    }
+                    bitmap = VersatileImage.DecodeBitmap(bytes);
                 }
 
                 var img = VersatileImage.FromDeserialized(

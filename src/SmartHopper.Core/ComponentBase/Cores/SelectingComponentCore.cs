@@ -97,7 +97,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
                 if (reader.ItemExists(PersistenceKeys.SelectedObjectsCount))
                 {
                     int count = reader.GetInt32(PersistenceKeys.SelectedObjectsCount);
-                    Logger.For<SelectingComponentCore>().Error($"[SelectingComponentCore] Read: Loading {count} selected object GUIDs");
+                    Logger.For<SelectingComponentCore>().Trace($"[SelectingComponentCore] Read: Loading {count} selected object GUIDs");
 
                     for (int i = 0; i < count; i++)
                     {
@@ -106,7 +106,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
                         {
                             Guid objectGuid = reader.GetGuid(key);
                             this.pendingSelectionGuids.Add(objectGuid);
-                            Logger.For<SelectingComponentCore>().Error($"[SelectingComponentCore] Read: Stored GUID {objectGuid}");
+                            Logger.For<SelectingComponentCore>().Trace($"[SelectingComponentCore] Read: Stored GUID {objectGuid}");
                         }
                     }
 
@@ -138,7 +138,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
             var canvas = Instances.ActiveCanvas;
             if (canvas?.Document == null)
             {
-                Logger.For<SelectingComponentCore>().Error("[SelectingComponentCore] TryRestoreSelection: No active canvas/document");
+                Logger.For<SelectingComponentCore>().Trace("[SelectingComponentCore] TryRestoreSelection: No active canvas/document");
                 return;
             }
 
@@ -155,7 +155,7 @@ namespace SmartHopper.Core.ComponentBase.Cores
                     {
                         this.selectingComponent.SelectedObjects.Add(foundObject);
                         foundCount++;
-                        Logger.For<SelectingComponentCore>().Error($"[SelectingComponentCore] TryRestoreSelection: Found object {objectGuid}");
+                        Logger.For<SelectingComponentCore>().Trace($"[SelectingComponentCore] TryRestoreSelection: Found object {objectGuid}");
                     }
                 }
                 else

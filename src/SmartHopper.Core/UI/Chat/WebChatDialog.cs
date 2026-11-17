@@ -27,6 +27,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Eto.Drawing;
@@ -36,6 +37,7 @@ using Rhino;
 using Rhino.UI;
 using SmartHopper.Infrastructure.AICall.Sessions;
 using SmartHopper.Infrastructure.AICall.Subagents;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
@@ -46,6 +48,7 @@ using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.AICall.Utilities;
 using SmartHopper.ProviderSdk.AIModels;
 using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Documents;
 using SmartHopper.ProviderSdk.Logging;
 using SmartHopper.ProviderSdk.Streaming;
 
@@ -66,6 +69,11 @@ namespace SmartHopper.Core.UI.Chat
         private readonly HtmlChatRenderer _htmlRenderer = new HtmlChatRenderer();
         private bool _webViewInitialized;
         private TaskCompletionSource<bool> _webViewInitializedTcs = new TaskCompletionSource<bool>();
+
+        // Per-document bridge session token: minted on every HTML load and echoed back
+        // by the page on each sh:///clipboard:// event, so a foreign document cannot
+        // drive the privileged host bridge.
+        private string _documentSession = string.Empty;
         private ConversationSession _currentSession = null!;
 
         // Tracks the active Grasshopper document and canvas changes between AI responses (null when unavailable).
@@ -90,10 +98,11 @@ namespace SmartHopper.Core.UI.Chat
         // never run the session's turn loop concurrently.
         private readonly SemaphoreSlim _turnGate = new SemaphoreSlim(1, 1);
 
-        // Image attachments selected via the attach button. Held C#-side (the sh:// URL
-        // scheme cannot carry base64 payloads); the WebView only renders thumbnail chips.
-        private readonly List<PendingImage> _pendingAttachments = new List<PendingImage>();
-        private volatile List<PendingImage>? _attachmentsForNextSend;
+        // Source evidence stays C#-side; the WebView receives only display names and thumbnails.
+        private readonly List<PendingAttachment> _pendingAttachments = new List<PendingAttachment>();
+        private volatile List<PendingAttachment>? _attachmentsForNextSend;
+        private CancellationTokenSource? _attachmentStagingCts;
+        private int _attachmentsPreparing;
         private bool _supportsImageInput = true;
 
         // Outgoing session queue: sends that arrive while a turn owns the session
@@ -108,9 +117,9 @@ namespace SmartHopper.Core.UI.Chat
         private const int MaxAttachments = 4;
 
         /// <summary>
-        /// A user-selected image waiting to be sent with the next message.
+        /// A user-selected document or image waiting to be sent with the next message.
         /// </summary>
-        private sealed class PendingImage
+        private sealed class PendingAttachment
         {
             /// <summary>Gets a stable identifier shared with the WebView chip element.</summary>
             public string Id { get; } = Guid.NewGuid().ToString("N");
@@ -118,11 +127,14 @@ namespace SmartHopper.Core.UI.Chat
             /// <summary>Gets or sets the original file name.</summary>
             public string FileName { get; set; } = string.Empty;
 
-            /// <summary>Gets or sets the sniffed MIME type (e.g. "image/png").</summary>
-            public string MimeType { get; set; } = "image/png";
+            /// <summary>Gets or sets the ordered source evidence for this attachment.</summary>
+            public IReadOnlyList<IAIInteraction> Interactions { get; set; } = Array.Empty<IAIInteraction>();
 
-            /// <summary>Gets or sets the base64-encoded image data.</summary>
-            public string ImageData { get; set; } = string.Empty;
+            /// <summary>Gets or sets an optional bounded image preview, never PDF bytes or a local path.</summary>
+            public string ThumbnailDataUri { get; set; } = string.Empty;
+
+            /// <summary>Gets or sets whether the reader reported incomplete visual coverage.</summary>
+            public bool HasIncompleteVisualCoverage { get; set; }
         }
 
         /// <summary>
@@ -137,8 +149,8 @@ namespace SmartHopper.Core.UI.Chat
             /// <summary>Gets or sets the message text.</summary>
             public string Text { get; set; } = string.Empty;
 
-            /// <summary>Gets or sets the images staged when the message was queued.</summary>
-            public List<PendingImage>? Attachments { get; set; }
+            /// <summary>Gets or sets the source attachments staged when the message was queued.</summary>
+            public List<PendingAttachment>? Attachments { get; set; }
 
             /// <summary>Gets or sets the attribution rendered as the panel byline (null for user-typed sends).</summary>
             public string? Author { get; set; }
@@ -247,7 +259,7 @@ namespace SmartHopper.Core.UI.Chat
         [Conditional("DEBUG")]
         private static void DebugLog(string message)
         {
-            Logger.For<PendingImage>().Trace(message);
+            Logger.For<PendingAttachment>().Trace(message);
         }
 
         /// <summary>
@@ -262,16 +274,16 @@ namespace SmartHopper.Core.UI.Chat
             {
                 this._generateGreeting = generateGreeting;
 
-                // Vision capability: unknown models stay enabled (provider validates);
-                // models known to lack image input get the attach button disabled.
+                // Attachment acceptance is independent of vision: central preparation
+                // checks confirmed capabilities and applies the configured helper policy.
                 try
                 {
                     var caps = AIModelCapabilityRegistry.Instance.GetCapabilities(request?.Provider, request?.Model);
-                    this._supportsImageInput = caps == null || caps.HasCapability(AICapability.ImageInput);
+                    this._supportsImageInput = caps?.HasCapability(AICapability.ImageInput) == true;
                 }
                 catch
                 {
-                    this._supportsImageInput = true;
+                    this._supportsImageInput = false;
                 }
 
                 var mainWindow = RhinoEtoApp.MainWindow;
@@ -290,6 +302,7 @@ namespace SmartHopper.Core.UI.Chat
                 this._webView = new WebView();
                 this._webView.DocumentLoaded += this.WebView_DocumentLoaded;
                 this._webView.DocumentLoading += this.WebView_DocumentLoading;
+                this._webView.OpenNewWindow += this.WebView_OpenNewWindow;
                 this.Content = this._webView;
 
                 // Subagent host before the session so conductor tools resolve it
@@ -959,6 +972,28 @@ namespace SmartHopper.Core.UI.Chat
             {
                 RhinoApp.InvokeOnUiThread(() =>
                 {
+                    // Only the embedded chat document may activate the privileged bridge.
+                    // A foreign URI means navigation slipped past DocumentLoading — keep the
+                    // bridge uninitialized (pending work stays queued forever, fail closed)
+                    // and drop any DOM work queued for the previous document.
+                    if (!WebChatNavigationPolicy.IsTrustedDocumentUri(e?.Uri))
+                    {
+                        DebugLog($"[WebChatDialog] Refusing bridge activation for untrusted document: {e?.Uri}");
+                        this._webViewInitialized = false;
+                        this._domUpdateQueue.Clear();
+                        this._keyedDomUpdateQueue.Clear();
+                        this._keyedDomUpdateLatest.Clear();
+                        try
+                        {
+                            this._lastDomHtmlByKey.Clear();
+                        }
+                        catch
+                        {
+                        }
+
+                        return;
+                    }
+
                     this._webViewInitialized = true;
                     try
                     {
@@ -986,13 +1021,13 @@ namespace SmartHopper.Core.UI.Chat
                     {
                     }
 
-                    // Reflect image-input capability on the attach button
+                    // Text-only models may consume document evidence through configured fallback.
                     try
                     {
                         var tooltip = this._supportsImageInput
-                            ? "Attach image"
-                            : "The selected model does not support image input";
-                        this.ExecuteScript($"setAttachEnabled({(this._supportsImageInput ? "true" : "false")}, {JsonConvert.SerializeObject(tooltip)});");
+                            ? "Attach an image or PDF"
+                            : "Attach an image or PDF; visual evidence requires a configured vision helper";
+                        this.ExecuteScript($"setAttachEnabled(true, {JsonConvert.SerializeObject(tooltip)});");
                     }
                     catch
                     {
@@ -1175,7 +1210,9 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="statusAfter">Status text to set after loading completes.</param>
         private void LoadInitialHtmlIntoWebView(bool showProgress, bool setWebViewInitialized, string statusBefore = "Loading chat UI...", string statusAfter = "Ready")
         {
-            var html = this._htmlRenderer.GetInitialHtml();
+            // Mint a fresh bridge token for this document instance before rendering.
+            this._documentSession = Guid.NewGuid().ToString("N");
+            var html = this._htmlRenderer.GetInitialHtml(this._documentSession);
 
             // Each time we (re)load HTML, reset readiness and TCS; readiness will be set on DocumentLoaded
             this._webViewInitialized = false;
@@ -1190,6 +1227,9 @@ namespace SmartHopper.Core.UI.Chat
                     // On macOS, Eto.Forms WKWebViewHandler.LoadHtml() calls WKWebView.LoadFileUrl()
                     // which only accepts file:// URIs. Pass null on non-Windows to use about:blank origin;
                     // the JS-to-C# bridge uses WKUserContentController message handlers, not origin.
+                    // On Windows the base URI is never navigated to: the handler serves the HTML
+                    // through an embedded HttpListener on an ephemeral loopback port, so the loaded
+                    // document URI is http://localhost:<port>/ (see WebChatNavigationPolicy).
                     Uri baseUri = IsWindows
                         ? new Uri("https://smarthopper.local/")
                         : null;
@@ -1311,20 +1351,15 @@ namespace SmartHopper.Core.UI.Chat
                     this._pendingUserMessage = null; // Clear after adding
                 }
 
-                // Append staged image attachments as user-role image interactions so
-                // vision-capable models receive them as real image input
+                // Preserve page order and provenance; adaptation happens only at submission.
                 if (this._attachmentsForNextSend != null)
                 {
-                    foreach (var image in this._attachmentsForNextSend)
+                    foreach (var attachment in this._attachmentsForNextSend)
                     {
-                        this._currentSession.AddInteraction(new AIInteractionImage
+                        foreach (var interaction in attachment.Interactions)
                         {
-                            Agent = AIAgent.User,
-                            ImageData = image.ImageData,
-                            MimeType = image.MimeType,
-                            OriginalPrompt = image.FileName,
-                            TurnId = userTurnId,
-                        });
+                            this._currentSession.AddInteraction(interaction.WithTurnId(userTurnId));
+                        }
                     }
 
                     this._attachmentsForNextSend = null;
@@ -1743,18 +1778,32 @@ namespace SmartHopper.Core.UI.Chat
                     return;
                 }
 
-                DebugLog($"[WebChatDialog] Navigation URI: {uri} (scheme: {uri.Scheme})");
+                DebugLog($"[WebChatDialog] Navigation scheme: {uri.Scheme}");
 
                 if (uri.Scheme.Equals("sh", StringComparison.OrdinalIgnoreCase))
                 {
                     DebugLog($"[WebChatDialog] Intercepting sh:// scheme, cancelling navigation");
                     e.Cancel = true;
                     var query = ParseQueryString(uri.Query);
+                    var docToken = query.TryGetValue("doc", out var dt) ? dt : string.Empty;
+                    if (!WebChatNavigationPolicy.BridgeTokenMatches(this._documentSession, docToken))
+                    {
+                        DebugLog($"[WebChatDialog] Rejected sh:// event: document token mismatch");
+                        return;
+                    }
+
                     var type = (query.TryGetValue("type", out var t) ? t : string.Empty).ToLowerInvariant();
                     DebugLog($"[WebChatDialog] sh:// event type: '{type}', query params: {string.Join(", ", query.Keys)}");
 
                     switch (type)
                     {
+                        case "external_image":
+                            if (query.TryGetValue("id", out var imageId) && query.TryGetValue("url", out var imageUrl))
+                            {
+                                Application.Instance?.AsyncInvoke(() => _ = this.ResolveExternalImageAsync(imageId, imageUrl));
+                            }
+
+                            break;
                         case "send":
                             {
                                 var text = query.TryGetValue("text", out var txt) ? txt : string.Empty;
@@ -1992,6 +2041,13 @@ namespace SmartHopper.Core.UI.Chat
                     // Handle copy-to-clipboard from JS
                     e.Cancel = true;
                     var query = ParseQueryString(uri.Query);
+                    var docToken = query.TryGetValue("doc", out var dt) ? dt : string.Empty;
+                    if (!WebChatNavigationPolicy.BridgeTokenMatches(this._documentSession, docToken))
+                    {
+                        DebugLog($"[WebChatDialog] Rejected clipboard:// event: document token mismatch");
+                        return;
+                    }
+
                     var text = query.TryGetValue("text", out var t) ? t : string.Empty;
                     DebugLog($"[WebChatDialog] Clipboard text length: {text.Length}");
                     try
@@ -2016,9 +2072,32 @@ namespace SmartHopper.Core.UI.Chat
                         DebugLog($"[WebChatDialog] Clipboard handling error: {ex.Message}");
                     }
                 }
+                else if (!this._webViewInitialized && WebChatNavigationPolicy.IsTrustedDocumentUri(uri))
+                {
+                    // The embedded document itself is loading. Eto's Windows handler serves
+                    // LoadHtml content over a loopback HttpListener (http://localhost:<port>/);
+                    // other handlers report about:blank, file: or the https base URI. Allow it
+                    // only while a document load is pending — after initialization every
+                    // non-bridge navigation still routes to the system browser or is blocked.
+                    DebugLog($"[WebChatDialog] Allowing embedded document navigation: {uri.Host}");
+                }
                 else
                 {
-                    DebugLog($"[WebChatDialog] Allowing normal navigation to: {uri}");
+                    // Nothing but the embedded document may load inside the privileged WebView.
+                    // External web links open in the system browser instead.
+                    e.Cancel = true;
+                    if (WebChatNavigationPolicy.IsExternalLink(uri))
+                    {
+                        DebugLog($"[WebChatDialog] Routing external navigation to system browser: {uri.Host}");
+                        if (e.IsMainFrame)
+                        {
+                            this.OpenExternalLink(uri);
+                        }
+                    }
+                    else
+                    {
+                        DebugLog($"[WebChatDialog] Blocked navigation to non-web URI: {uri.Scheme}");
+                    }
                 }
             }
             catch (Exception ex)
@@ -2027,10 +2106,55 @@ namespace SmartHopper.Core.UI.Chat
             }
         }
 
+        /// <summary>
+        /// Routes window.open / target=_blank requests to the system browser so no
+        /// secondary privileged WebView window is ever created for foreign content.
+        /// </summary>
+        private void WebView_OpenNewWindow(object? sender, WebViewNewWindowEventArgs e)
+        {
+            try
+            {
+                e.Cancel = true;
+                if (e?.Uri != null && WebChatNavigationPolicy.IsExternalLink(e.Uri))
+                {
+                    DebugLog($"[WebChatDialog] New window request routed to system browser: {e.Uri.Host}");
+                    this.OpenExternalLink(e.Uri);
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] WebView_OpenNewWindow error: {ex.Message}");
+            }
+        }
+
+        /// <summary>Opens an http(s) link in the system default browser.</summary>
+        private void OpenExternalLink(Uri uri)
+        {
+            try
+            {
+                Application.Instance?.AsyncInvoke(() =>
+                {
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLog($"[WebChatDialog] OpenExternalLink failed: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] OpenExternalLink marshal error: {ex.Message}");
+            }
+        }
+
         private void CancelChat()
         {
             try
             {
+                this._attachmentStagingCts?.Cancel();
                 this._currentCts?.Cancel();
                 DebugLog("[WebChatDialog] Cancellation requested");
             }
@@ -2267,70 +2391,262 @@ namespace SmartHopper.Core.UI.Chat
 #endif
 
         /// <summary>
-        /// Opens a native file picker and stages selected images as pending attachments.
-        /// Image bytes stay C#-side; the WebView only receives thumbnail chips via script.
+        /// Opens the native attachment picker and stages source evidence asynchronously.
         /// </summary>
-        private void ShowAttachDialog()
+        private async void ShowAttachDialog()
         {
-            if (!this._supportsImageInput)
-            {
-                this.AddSystemMessage("The selected model does not support image input.", "warning");
-                return;
-            }
+            await this.StageSelectedAttachmentsAsync().ConfigureAwait(true);
+        }
 
-            using var dialog = new System.Windows.Forms.OpenFileDialog
-            {
-                Filter = "Image files (*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp)|*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp",
-                Title = "Attach image",
-                Multiselect = true,
-                CheckFileExists = true,
-            };
-
-            if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+        /// <summary>Stages a bounded batch without blocking the UI or submitting incomplete attachments.</summary>
+        private async Task StageSelectedAttachmentsAsync()
+        {
+            if (this._dialogClosed || Interlocked.CompareExchange(ref this._attachmentsPreparing, 1, 0) != 0)
             {
                 return;
             }
 
-            foreach (var path in dialog.FileNames ?? Enumerable.Empty<string>())
+            using var cancellation = new CancellationTokenSource();
+            this._attachmentStagingCts = cancellation;
+            try
             {
-                if (this._pendingAttachments.Count >= MaxAttachments)
+                using var dialog = new Eto.Forms.OpenFileDialog
                 {
-                    this.AddSystemMessage($"At most {MaxAttachments} images can be attached per message.", "warning");
+                    Title = "Attach images or PDF documents",
+                    MultiSelect = true,
+                };
+                dialog.Filters.Add(new FileDialogFilter("Images and PDF documents", ".pdf", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"));
+                if (dialog.ShowDialog(this) != DialogResult.Ok)
+                {
+                    return;
+                }
+
+                cancellation.CancelAfter(TimeSpan.FromMinutes(2));
+                var paths = dialog.Filenames.ToArray();
+                this.ExecuteScript("setAttachmentPreparation(true); setAttachEnabled(false, 'Preparing attachments');");
+                foreach (var path in paths)
+                {
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    var available = false;
+                    Application.Instance.Invoke(() => available = !this._dialogClosed && this._pendingAttachments.Count < MaxAttachments);
+                    if (!available)
+                    {
+                        this.AddSystemMessage($"At most {MaxAttachments} files can be attached per message.", "warning");
+                        break;
+                    }
+
+                    try
+                    {
+                        var pending = await Task.Run(
+                            () => PrepareAttachmentAsync(path, cancellation.Token),
+                            cancellation.Token).ConfigureAwait(false);
+                        cancellation.Token.ThrowIfCancellationRequested();
+                        Application.Instance.Invoke(() =>
+                        {
+                            if (this._dialogClosed || cancellation.IsCancellationRequested)
+                            {
+                                return;
+                            }
+
+                            var visualBytes = System.Linq.Enumerable.Concat(this._pendingAttachments, new[] { pending })
+                                .SelectMany(attachment => attachment.Interactions)
+                                .OfType<AIInteractionImage>()
+                                .Sum(image => (long)(image.ImageData?.Length ?? 0));
+                            if (visualBytes > 64L * 1024 * 1024)
+                            {
+                                this.AddSystemMessage("The selected attachments exceed the 64 MB visual-evidence budget. Attach fewer documents or select fewer pages using File to AI.", "warning");
+                                return;
+                            }
+
+                            this._pendingAttachments.Add(pending);
+                            if (pending.HasIncompleteVisualCoverage)
+                            {
+                                this.AddSystemMessage("An attached document has incomplete visual coverage. Its available text and coverage warnings are retained.", "warning");
+                            }
+
+                            this.ExecuteScript(
+                                $"addAttachmentChip({JsonConvert.SerializeObject(pending.Id)}, {JsonConvert.SerializeObject(pending.FileName)}, {JsonConvert.SerializeObject(pending.ThumbnailDataUri)});");
+                        });
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        var reason = ex is InvalidDataException
+                            ? ex.Message
+                            : "The selected file could not be read or converted.";
+                        this.AddSystemMessage($"Could not prepare '{Path.GetFileName(path)}'. {reason}", "warning");
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                if (!this._dialogClosed)
+                {
+                    this.AddSystemMessage("Attachment preparation was cancelled. Files already prepared remain attached.", "warning");
+                }
+            }
+            catch (Exception)
+            {
+                if (!this._dialogClosed)
+                {
+                    this.AddSystemMessage("The attachment picker could not be opened.", "warning");
+                }
+            }
+            finally
+            {
+                this._attachmentStagingCts = null;
+                Interlocked.Exchange(ref this._attachmentsPreparing, 0);
+                if (!this._dialogClosed)
+                {
+                    Application.Instance.AsyncInvoke(() =>
+                    {
+                        if (!this._dialogClosed && Volatile.Read(ref this._attachmentsPreparing) == 0)
+                        {
+                            this.ExecuteScript("setAttachmentPreparation(false); setAttachEnabled(true, 'Attach an image or PDF');");
+                        }
+                    });
+                }
+            }
+        }
+
+        /// <summary>Reads a bounded snapshot and prepares canonical evidence without making an AI call.</summary>
+        private static async Task<PendingAttachment> PrepareAttachmentAsync(string path, CancellationToken ct)
+        {
+            using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
+            using var snapshot = new MemoryStream();
+            var buffer = new byte[81920];
+            while (true)
+            {
+                var count = await input.ReadAsync(buffer.AsMemory(0, Math.Min(buffer.Length, MaxAttachmentBytes + 1 - (int)snapshot.Length)), ct).ConfigureAwait(false);
+                if (count == 0)
+                {
                     break;
                 }
 
+                snapshot.Write(buffer, 0, count);
+                if (snapshot.Length > MaxAttachmentBytes)
+                {
+                    throw new InvalidDataException($"The attachment exceeds the {MaxAttachmentBytes / (1024 * 1024)} MB limit.");
+                }
+            }
+
+            ct.ThrowIfCancellationRequested();
+            var bytes = snapshot.ToArray();
+            var name = Path.GetFileName(path);
+            var isPdf = bytes.Length >= 5 && bytes[0] == '%' && bytes[1] == 'P'
+                && bytes[2] == 'D' && bytes[3] == 'F' && bytes[4] == '-';
+            if (isPdf)
+            {
+                return await PreparePdfAttachmentAsync(bytes, name, ct).ConfigureAwait(false);
+            }
+
+            if (!TrySniffImageMime(bytes, out var mime))
+            {
+                throw new InvalidDataException("Only supported images and PDF documents can be attached.");
+            }
+
+            var encoded = Convert.ToBase64String(bytes);
+            var image = new AIInteractionImage
+            {
+                Agent = AIAgent.User,
+                ImageData = encoded,
+                MimeType = mime,
+                OriginalPrompt = name,
+                SourceReference = new SourceContentReference
+                {
+                    DocumentId = "sha256-" + Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),
+                    SourceName = name,
+                    AssetId = "image",
+                    Kind = SourceContentKind.Image,
+                },
+            };
+            return new PendingAttachment
+            {
+                FileName = name,
+                Interactions = new IAIInteraction[] { image },
+                // Bounded preview: full base64 can reach 15 MiB — cap like the PDF
+                // preview path (original bytes live only in Interactions).
+                ThumbnailDataUri = encoded.Length <= 500000
+                    ? $"data:{mime};base64,{encoded}"
+                    : "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=",
+            };
+        }
+
+        /// <summary>Uses the shared file tool on a private snapshot; PDF bytes and paths never enter the WebView.</summary>
+        private static async Task<PendingAttachment> PreparePdfAttachmentAsync(byte[] bytes, string name, CancellationToken ct)
+        {
+            var temporaryPath = Path.Combine(Path.GetTempPath(), $"smarthopper-attachment-{Guid.NewGuid():N}.pdf");
+            try
+            {
+                await File.WriteAllBytesAsync(temporaryPath, bytes, ct).ConfigureAwait(false);
+                var call = new AIToolCall { Endpoint = "file2md" };
+                call.FromToolCallInteraction(new AIInteractionToolCall
+                {
+                    Id = Guid.NewGuid().ToString("N"),
+                    Name = "file2md",
+                    Arguments = new Newtonsoft.Json.Linq.JObject
+                    {
+                        ["filePath"] = temporaryPath,
+                        ["extractImages"] = true,
+                        ["describeImages"] = false,
+                    },
+                });
+                var returned = await call.Exec(ct).ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+                var result = ToolCallResult.FromAIReturn(returned);
+                if (!result.Success || result.Result == null)
+                {
+                    throw new InvalidDataException("PDF preparation failed. Use File to AI for page selection or conversion diagnostics.");
+                }
+
+                var document = DocumentEvidenceJsonCodec.Decode(result.Result, result.Images);
+                if (document == null)
+                {
+                    throw new InvalidDataException("The document reader returned no page evidence.");
+                }
+
+                if (!document.Pages.Any(page => !string.IsNullOrWhiteSpace(page.ExtractedText) || !string.IsNullOrWhiteSpace(page.Markdown))
+                    && !document.Images.Any(image => image.SendToModel && !string.IsNullOrEmpty(image.ImageData)))
+                {
+                    throw new InvalidDataException("The document contains no usable text or rendered pages. Check the PDF renderer and conversion diagnostics.");
+                }
+
+                document = document with
+                {
+                    SourceName = name,
+                    Images = document.Images.Select(image => image with
+                    {
+                        SourceReference = image.SourceReference == null
+                            ? new SourceContentReference { DocumentId = document.DocumentId, SourceName = name, Kind = SourceContentKind.Image }
+                            : image.SourceReference with { SourceName = name },
+                    }).ToArray(),
+                };
+                var interactions = DocumentEvidenceInteractionBuilder.Build(document, result.Result["content"]?.ToString() ?? string.Empty);
+                var preview = document.Images.FirstOrDefault(image => image.SendToModel && image.ImageData?.Length <= 500000);
+                return new PendingAttachment
+                {
+                    FileName = name,
+                    Interactions = interactions,
+                    HasIncompleteVisualCoverage = !document.Coverage.IsComplete,
+                    ThumbnailDataUri = preview == null
+                        ? "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII="
+                        : $"data:{preview.MimeType};base64,{preview.ImageData}",
+                };
+            }
+            finally
+            {
                 try
                 {
-                    var fileInfo = new FileInfo(path);
-                    if (fileInfo.Length > MaxAttachmentBytes)
-                    {
-                        this.AddSystemMessage($"Skipped '{Path.GetFileName(path)}': larger than {MaxAttachmentBytes / (1024 * 1024)} MB.", "warning");
-                        continue;
-                    }
-
-                    var bytes = File.ReadAllBytes(path);
-                    if (!TrySniffImageMime(bytes, out var mimeType))
-                    {
-                        this.AddSystemMessage($"Skipped '{Path.GetFileName(path)}': not a supported image format.", "warning");
-                        continue;
-                    }
-
-                    var pending = new PendingImage
-                    {
-                        FileName = Path.GetFileName(path),
-                        MimeType = mimeType,
-                        ImageData = Convert.ToBase64String(bytes),
-                    };
-                    this._pendingAttachments.Add(pending);
-
-                    var dataUri = $"data:{pending.MimeType};base64,{pending.ImageData}";
-                    this.ExecuteScript(
-                        $"addAttachmentChip({JsonConvert.SerializeObject(pending.Id)}, {JsonConvert.SerializeObject(pending.FileName)}, {JsonConvert.SerializeObject(dataUri)});");
+                    File.Delete(temporaryPath);
                 }
-                catch (Exception ex)
+                catch (IOException)
                 {
-                    DebugLog($"[WebChatDialog] Attach '{path}' failed: {ex.Message}");
-                    this.AddSystemMessage($"Could not attach '{Path.GetFileName(path)}'.", "warning");
+                }
+                catch (UnauthorizedAccessException)
+                {
                 }
             }
         }
@@ -2415,6 +2731,12 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 DebugLog($"[WebChatDialog] SendMessage called with text length: {text?.Length ?? 0}");
+                if (Volatile.Read(ref this._attachmentsPreparing) != 0)
+                {
+                    this.AddSystemMessage("Please wait for attachment preparation to finish, or cancel it before sending.", "warning");
+                    return;
+                }
+
                 var trimmed = text?.Trim() ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(trimmed) && this._pendingAttachments.Count == 0)
                 {
@@ -2435,7 +2757,7 @@ namespace SmartHopper.Core.UI.Chat
                         {
                             Text = trimmed,
                             Attachments = this._pendingAttachments.Count > 0
-                                ? new List<PendingImage>(this._pendingAttachments)
+                                ? new List<PendingAttachment>(this._pendingAttachments)
                                 : null,
                         });
                         this._pendingAttachments.Clear();
@@ -2447,7 +2769,7 @@ namespace SmartHopper.Core.UI.Chat
                         // The observer will render it when AddInteraction() is called on the session
                         this._pendingUserMessage = trimmed;
                         this._attachmentsForNextSend = this._pendingAttachments.Count > 0
-                            ? new List<PendingImage>(this._pendingAttachments)
+                            ? new List<PendingAttachment>(this._pendingAttachments)
                             : null;
                         this._pendingAttachments.Clear();
                     }

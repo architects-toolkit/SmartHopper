@@ -34,23 +34,23 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("D309A738-7B77-401A-8BAA-D1D6EF2EBBA2");
 
-        protected override Bitmap Icon => Resources.toaiinteger;
+        protected override Bitmap Icon => Resources.IntegerList2AI;
 
         public IntegerList2AIComponent()
             : base(
                 "Integer List to AI",
                 "IntList2AI",
-                "Wraps a list of integers into a single AIInputPayload as a JSON array (one array per branch).",
-                GH_Exposure.secondary)
+                "Package a list of integers as a single AI input (one list per branch) to wire into any AI output component.",
+                GH_Exposure.secondary | GH_Exposure.obscure)
         {
         }
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddIntegerParameter("Integer List", "I", "List of integers to collapse into a single JSON array payload.", GH_ParamAccess.list);
+            pManager.AddIntegerParameter("Integer List", "I", "List of integers to send together in a single AI request.", GH_ParamAccess.list);
         }
 
-        protected override string PayloadOutputDescription => "AIInputPayload wrapping the JSON-serialized list.";
+        protected override string PayloadOutputDescription => "Packaged integer list ready to wire into any AI output component's 'Input >' parameter.";
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {

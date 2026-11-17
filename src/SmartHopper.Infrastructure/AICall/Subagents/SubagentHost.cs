@@ -38,7 +38,7 @@ namespace SmartHopper.Infrastructure.AICall.Subagents
     /// <see cref="RunFinished"/> so the chat host can wake the conductor.
     /// </summary>
     /// <remarks>
-    /// Child sessions inherit the parent's provider/model/endpoint and tool filter
+    /// Child sessions inherit the parent's provider/model/origin and tool filter
     /// minus the conductor tools, receive no presenters and no
     /// <see cref="ISubagentHost"/> — so they cannot spawn recursively (depth cap 1)
     /// and consent-gated tools fail closed. Runs are in-memory; they do not
@@ -86,7 +86,7 @@ namespace SmartHopper.Infrastructure.AICall.Subagents
         /// Initializes a new instance of the <see cref="SubagentHost"/> class.
         /// </summary>
         /// <param name="parentRequest">
-        /// The parent session's request; child runs clone provider, model, endpoint,
+        /// The parent session's request; child runs clone provider, model, origin,
         /// capability, surface, and tool filter (minus conductor tools) from it.
         /// </param>
         /// <param name="executor">Optional executor override; defaults to the session executor.</param>
@@ -622,7 +622,7 @@ namespace SmartHopper.Infrastructure.AICall.Subagents
                 this.parentRequest.Provider ?? string.Empty,
                 this.parentRequest.Model,
                 $"{SubagentPreamble}\nYou are '{label}'.",
-                this.parentRequest.Endpoint,
+                this.parentRequest.Origin,
                 this.parentRequest.Capability,
                 childFilter);
             return request;

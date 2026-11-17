@@ -404,22 +404,27 @@ namespace SmartHopper.Infrastructure.Tests.AICall.Providers
             return $@"{{""custom_id"":""{customId}"",""result"":{{""type"":""{resultType}""}}}}";
         }
 
-        /// <summary>Builds a Gemini Operation JSON with one or more successful items, each with a finishReason.</summary>
+        /// <summary>
+        /// Builds a Gemini Operation JSON in the AI Studio batch contract: results live at
+        /// <c>response.inlinedResponses.inlinedResponses[]</c>, the item key is
+        /// <c>metadata.key</c>, and each successful item wraps its GenerateContentResponse
+        /// in <c>response</c>.
+        /// </summary>
         private static string MakeGeminiOperation((string customId, string finishReason)[] items)
         {
             var responses = items.Select(item =>
             {
                 var resultJson = $@"{{""candidates"":[{{""content"":{{""role"":""model"",""parts"":[{{""text"":""hello""}}]}},""finishReason"":""{item.finishReason}""}}]}}";
-                return $@"{{""metadata"":{{""custom_id"":""{item.customId}""}},""result"":{resultJson}}}";
+                return $@"{{""metadata"":{{""key"":""{item.customId}""}},""response"":{resultJson}}}";
             });
             var responsesArray = string.Join(",", responses);
-            return $@"{{""name"":""operations/batch-abc"",""done"":true,""result"":{{""output"":{{""responses"":[{responsesArray}]}}}}}}";
+            return $@"{{""name"":""batches/batch-abc"",""done"":true,""response"":{{""inlinedResponses"":{{""inlinedResponses"":[{responsesArray}]}}}}}}";
         }
 
         /// <summary>Builds a Gemini Operation JSON with a single item-level error.</summary>
         private static string MakeGeminiOperationWithError(string customId, string errorMessage)
         {
-            return $@"{{""name"":""operations/batch-abc"",""done"":true,""result"":{{""output"":{{""responses"":[{{""metadata"":{{""custom_id"":""{customId}""}},""error"":{{""message"":""{errorMessage}"",""code"":403}}}}]}}}}}}";
+            return $@"{{""name"":""batches/batch-abc"",""done"":true,""response"":{{""inlinedResponses"":{{""inlinedResponses"":[{{""metadata"":{{""key"":""{customId}""}},""error"":{{""message"":""{errorMessage}"",""code"":403}}}}]}}}}}}";
         }
     }
 }

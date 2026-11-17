@@ -66,14 +66,15 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Gets the initial HTML structure for the chat interface.
         /// </summary>
+        /// <param name="documentToken">Per-document bridge session token embedded in the page.</param>
         /// <returns>The initial HTML content.</returns>
-        public string GetInitialHtml()
+        public string GetInitialHtml(string? documentToken = null)
         {
             Logger.For<HtmlChatRenderer>().Trace("[HtmlChatRenderer] Getting initial HTML");
 
             try
             {
-                string html = this._resourceManager.GetCompleteHtml();
+                string html = this._resourceManager.GetCompleteHtml(documentToken);
                 Logger.For<HtmlChatRenderer>().Trace($"[HtmlChatRenderer] Complete HTML retrieved, length: {html?.Length ?? 0}");
 
                 // For debugging, output the first 200 characters of the HTML

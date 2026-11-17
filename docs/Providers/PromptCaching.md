@@ -44,7 +44,7 @@ Prompt caching is a provider-side feature that stores the computed representatio
 
 ### Enabling
 
-Set the extra parameter `enable_caching = true` (exposed in the provider's extras descriptors). Supported by the **Anthropic** and **OpenRouter** providers. Other providers (OpenAI, DeepSeek, Gemini 2.5, Grok, Groq via OpenRouter) cache automatically with no request changes needed.
+Set the extra parameter `enable_caching = true` (exposed in the provider's extras descriptors). Supported by the **Anthropic** and **OpenRouter** providers. On Anthropic, the `cache_ttl` extra (`"5m"` default or `"1h"`, ~90% discount on cache writes) is applied to every emitted `cache_control` breakpoint. Other providers (OpenAI, DeepSeek, Gemini 2.5, Grok, Groq via OpenRouter) cache automatically with no request changes needed.
 
 ### Verifying Cache Effectiveness
 
@@ -84,7 +84,7 @@ var parameters = new AIRequestParameters
 | **System breakpoint** | Explicit `cache_control` placed on the merged system block for Anthropic requests |
 | **Top-level caching** | `cache_control` at the request root for automatic breakpoint advancement |
 | **Sticky routing** | OpenRouter uses a stable `session_id` to route requests to the same provider endpoint |
-| **Cache TTL** | 5 minutes for Anthropic; refreshed on each read |
+| **Cache TTL** | 5 minutes for Anthropic; refreshed on each read. The `cache_ttl` extra selects `"1h"` on every emitted breakpoint |
 
 ### Code Examples
 

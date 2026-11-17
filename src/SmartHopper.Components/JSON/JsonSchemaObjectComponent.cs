@@ -45,10 +45,10 @@ namespace SmartHopper.Components.JSON
         public override Guid ComponentGuid => new Guid("E338184C-F82F-41D3-A465-85F20CB0B663");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.jsonschemaobj;
+        protected override Bitmap Icon => Resources.JsonSchemaObject;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.quinary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary | GH_Exposure.obscure;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonSchemaObjectComponent"/> class.
@@ -57,20 +57,20 @@ namespace SmartHopper.Components.JSON
             : base(
                 "JSON Schema Object",
                 "JsonSchemaObj",
-                "Build a JSON Schema object property definition composed of Properties.\n\nEach property is prefixed with the object name using dot-notation.\nConnect property outputs from JsonSchemaProp to Properties.\nThe output list can be merged with other properties and fed directly into Json Schema component.",
+                "Define a nested object property (or array of objects) for a JSON Schema by grouping child properties from JSON Schema Property components.",
                 "SmartHopper",
-                "JSON")
+                "H. JSON")
         {
         }
 
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Name", "N", "Object property name (e.g. \"address\")", GH_ParamAccess.item);
-            pManager.AddTextParameter("Description", "D", "Optional description for this object property", GH_ParamAccess.item, string.Empty);
-            pManager.AddTextParameter("Properties", "P", "List of property definition strings from JsonSchemaProp components", GH_ParamAccess.list);
-            pManager.AddBooleanParameter("Array?", "A", "If true, creates an array of objects property (e.g., 'addresses:array[object]')", GH_ParamAccess.item, false);
-            pManager.AddBooleanParameter("Required?", "R", "If true, marks this object property as required in the parent schema", GH_ParamAccess.item, false);
+            pManager.AddTextParameter("Name", "N", "Name of the nested object property (e.g., 'address').", GH_ParamAccess.item);
+            pManager.AddTextParameter("Description", "D", "Optional description of this nested object.", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("Properties", "P", "Child property definitions from JSON Schema Property (or nested JSON Schema Object) components.", GH_ParamAccess.list);
+            pManager.AddBooleanParameter("Array?", "A", "When true, defines an array of objects instead of a single object.", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Required?", "R", "When true, marks this object property as required in the parent schema.", GH_ParamAccess.item, false);
 
             pManager[1].Optional = true;
             pManager[2].Optional = true;
@@ -81,7 +81,7 @@ namespace SmartHopper.Components.JSON
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Properties", "P", "List of property definition strings with dot-notation prefixes. Connect to Json Schema component Properties input. Properties marked with :required suffix are preserved and will be auto-extracted by Json Schema component.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Properties", "P", "Dot-prefixed property definition strings ready to merge and connect to the JSON Schema component's 'Properties' input.", GH_ParamAccess.list);
         }
 
         /// <inheritdoc/>

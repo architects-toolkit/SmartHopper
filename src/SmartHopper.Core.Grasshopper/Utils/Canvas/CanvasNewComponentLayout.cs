@@ -26,6 +26,7 @@ using GhJSON.Core;
 using GhJSON.Core.SchemaModels;
 using GhJSON.Grasshopper;
 using GhJSON.Grasshopper.Deserialization;
+using GhJSON.Grasshopper.LayoutRefinements;
 using GhJSON.Grasshopper.PutOperations;
 using GhJSON.Grasshopper.Shared;
 using Grasshopper.Kernel;
@@ -34,13 +35,13 @@ using SmartHopper.ProviderSdk.Logging;
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
     /// <summary>
-    /// Bakes final canvas pivots into the new components of a proposed GhJSON document
+    /// Fills missing canvas pivots on new components of a proposed GhJSON document
     /// by running the shared GhJSON layout pipeline — the core dependency-graph pass
     /// plus the Grasshopper refinements (bounds-aware spacing, port alignment, wire
     /// corridors, collision resolution) that <see cref="GhJsonGrasshopper.ComputeLayout"/>
     /// exposes and gh_tidy_up uses. Writing the computed pivots back into the document
     /// before it is staged means the canvas review previews the exact final placement
-    /// (never <c>(0,0)</c> or raw AI-supplied coordinates) and the later
+    /// while preserving all supplied pivots, and the later
     /// <see cref="GhJsonGrasshopper.Put(GhJsonDocument, PutOptions)"/> applies the
     /// positions verbatim.
     /// </summary>
@@ -49,8 +50,14 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         private const float AutoOffsetSpacing = 100f;
         private const float FallbackCascadeSpacing = 40f;
 
+        /// <summary>Maximum time the layout post may sit unclaimed in the UI queue.</summary>
+        private static readonly TimeSpan QueuedStartBudget = TimeSpan.FromSeconds(30);
+
         /// <summary>
-        /// Marshals <see cref="ApplyOnUiThread"/> onto the Rhino UI thread.
+        /// Marshals <see cref="ApplyOnUiThread"/> onto the Rhino UI thread through the
+        /// shared bounded-post contract: the queued-start budget bounds admission
+        /// only, an expired callback never runs, a started callback owns its outcome,
+        /// and cancellation reaches the post while still queued.
         /// </summary>
         /// <param name="document">Proposed document whose new components get laid out.</param>
         /// <param name="preservedInstanceGuids">
@@ -59,35 +66,42 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// <c>null</c> or empty when every component places as a new object.
         /// </param>
         /// <param name="offsetBelowExisting">
-        /// When <c>true</c>, the laid-out block shifts below existing canvas content
-        /// (same convention as <see cref="PutOptions.AutoOffset"/>).
+        /// When <c>true</c>, disconnected parts without fixed anchors are placed below
+        /// existing canvas content (same convention as <see cref="PutOptions.AutoOffset"/>).
         /// </param>
         /// <param name="cancellationToken">Cancellation for the marshalled call.</param>
         /// <returns>The same document with final pivots baked into new components.</returns>
-        public static Task<GhJsonDocument> ApplyAsync(
+        public static async Task<GhJsonDocument> ApplyAsync(
             GhJsonDocument document,
             IReadOnlySet<Guid>? preservedInstanceGuids,
             bool offsetBelowExisting,
             CancellationToken cancellationToken)
         {
-            var completion = new TaskCompletionSource<GhJsonDocument>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var registration = cancellationToken.Register(() => completion.TrySetCanceled(cancellationToken));
-            global::Rhino.RhinoApp.InvokeOnUiThread(() =>
+            var post = await GhJsonGrasshopper.PostToUiThreadAsync(
+                () => ApplyOnUiThread(document, preservedInstanceGuids, offsetBelowExisting),
+                QueuedStartBudget,
+                cancellationToken).ConfigureAwait(false);
+
+            switch (post.State)
             {
-                try
-                {
-                    completion.TrySetResult(ApplyOnUiThread(document, preservedInstanceGuids, offsetBelowExisting));
-                }
-                catch (Exception ex)
-                {
-                    completion.TrySetException(ex);
-                }
-            });
-            return completion.Task;
+                case GhJSON.Core.Hosting.UiPostState.Completed:
+                    return post.Value!;
+                case GhJSON.Core.Hosting.UiPostState.CancelledNotStarted:
+                    throw new OperationCanceledException(cancellationToken);
+                case GhJSON.Core.Hosting.UiPostState.BusyNotStarted:
+                    throw new TimeoutException(
+                        $"Grasshopper UI thread did not admit the layout call within {QueuedStartBudget.TotalSeconds:n0} s.");
+                case GhJSON.Core.Hosting.UiPostState.NotPosted:
+                    throw new InvalidOperationException(
+                        "The Grasshopper UI thread is unavailable; the layout call was not queued.", post.Error);
+                default:
+                    throw new InvalidOperationException(
+                        "Layout computation on the Grasshopper UI thread failed.", post.Error);
+            }
         }
 
         /// <summary>
-        /// Computes tidy-up positions for every component not in
+        /// Computes compact positions only for pivotless components not in
         /// <paramref name="preservedInstanceGuids"/> and writes them back as pivots.
         /// MUST run on the Rhino UI thread — it measures freshly instantiated objects.
         /// </summary>
@@ -96,7 +110,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// Instance GUIDs of document components that update live objects in place.
         /// </param>
         /// <param name="offsetBelowExisting">
-        /// When <c>true</c>, shifts the laid-out block below existing canvas content.
+        /// When <c>true</c>, places only unanchored parts below existing canvas content.
         /// </param>
         /// <returns>The same document with final pivots baked into new components.</returns>
         internal static GhJsonDocument ApplyOnUiThread(
@@ -111,7 +125,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             }
 
             var newComponents = document.Components
-                .Where(component => !(component.InstanceGuid.HasValue &&
+                .Where(component => component.Pivot == null &&
+                                     !(component.InstanceGuid.HasValue &&
                                       (preservedInstanceGuids?.Contains(component.InstanceGuid.Value) ?? false)))
                 .ToList();
             if (newComponents.Count == 0)
@@ -134,9 +149,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         }
 
         /// <summary>
-        /// Runs the shared layout over the new components of <paramref name="document"/>,
-        /// converts the returned bounds-center positions to real pivots, and shifts the
-        /// whole block below existing canvas content when requested.
+        /// Fits the shared compact layout to the document's fixed component centers,
+        /// then converts only missing new-component centers to pivots. Disconnected
+        /// unanchored parts may be offset below existing canvas content.
         /// </summary>
         private static void AssignLayoutPivots(
             GhJsonDocument document,
@@ -146,16 +161,21 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         {
             // Measure real object bounds off-canvas so refinements and the
             // center-to-pivot conversion use true geometry. GUIDs are regenerated so a
-            // measure-only instance can never collide with a live object.
-            var measureDoc = new GhJsonDocument(document.Schema, document.Metadata, newComponents, null, null);
+            // measure-only instance can never collide with a live object. The declared
+            // wiring is mirrored and attributes laid out: components keep stock
+            // bounds without a layout pass, and wired floating parameters render
+            // taller than unwired ones.
+            var measureDoc = new GhJsonDocument(document.Schema, document.Metadata, document.Components, document.Connections, null);
             var measured = GhJsonGrasshopper.Deserialize(measureDoc, new DeserializationOptions
             {
                 RegenerateInstanceGuids = true,
                 SkipInvalidComponents = true,
+                WireConnections = true,
+                PerformLayout = true,
             });
 
-            var objectsByKey = new Dictionary<Guid, IGH_DocumentObject>(newComponents.Count);
-            foreach (var component in newComponents)
+            var objectsByKey = new Dictionary<Guid, IGH_DocumentObject>(document.Components.Count);
+            foreach (var component in document.Components)
             {
                 var key = GhJson.GetLayoutKey(component);
                 if (key != Guid.Empty &&
@@ -167,23 +187,36 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 }
             }
 
-            // The layout graph contains only the new components and their internal
-            // wiring; preserved (update-in-place) objects keep their live positions.
-            var newIds = new HashSet<int>(newComponents
-                .Where(component => component.Id.HasValue)
-                .Select(component => component.Id!.Value));
-            var internalConnections = document.Connections?
-                .Where(conn => newIds.Contains(conn.From.Id) && newIds.Contains(conn.To.Id))
-                .ToList();
-            var layoutDoc = new GhJsonDocument(
-                document.Schema,
-                document.Metadata,
-                newComponents,
-                internalConnections,
-                null);
-
-            var centers = GhJsonGrasshopper.ComputeLayout(layoutDoc, new CanvasLayoutOptions
+            var fixedPositions = new Dictionary<Guid, PointF>();
+            foreach (var component in document.Components.Where(c => !newComponents.Contains(c)))
             {
+                var key = GhJson.GetLayoutKey(component);
+                var proposed = objectsByKey.GetValueOrDefault(key);
+                var existing = component.Pivot == null && component.InstanceGuid.HasValue
+                    ? ghDoc.FindObject(component.InstanceGuid.Value, false)
+                    : null;
+                if (existing?.Attributes != null && proposed != null)
+                {
+                    fixedPositions[key] = PivotSemantics.PivotToCenter(proposed, existing.Attributes.Pivot);
+                }
+                else if (proposed != null || existing != null)
+                {
+                    var obj = proposed ?? existing!;
+                    objectsByKey[key] = obj;
+                    fixedPositions[key] = PivotSemantics.BoundsCenter(obj);
+                }
+            }
+
+            var unanchoredTarget = offsetBelowExisting
+                ? CanvasBoundsCalculator.UnanchoredTargetTopLeft(ghDoc.ActiveObjects(), AutoOffsetSpacing)
+                : (PointF?)null;
+            var centers = GhJsonGrasshopper.ComputeLayout(document, new CanvasLayoutOptions
+            {
+                Refinements = new LayoutRefinementOptions
+                {
+                    FixedPositions = fixedPositions,
+                    UnanchoredTargetTopLeft = unanchoredTarget,
+                },
                 NodeSizeProvider = key =>
                     objectsByKey.TryGetValue(key, out var obj) &&
                     obj.Attributes?.Bounds is RectangleF bounds &&
@@ -212,21 +245,16 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 }
             }
 
-            // Same convention as CanvasPlacer.OffsetPositionsBelowExistingContent: the
-            // laid-out block shifts down so its content starts below existing objects.
-            var startY = offsetBelowExisting
-                ? CanvasBoundsCalculator.CalculateBottomStartY(ghDoc.ActiveObjects(), AutoOffsetSpacing)
-                : 0f;
-
             // Components with no layout key and no pivot still get a deterministic
             // cascading position below the block rather than defaulting to (0,0).
+            var fallbackStartY = unanchoredTarget?.Y ?? 0f;
             var fallbackX = pivots.Count > 0 ? pivots.Values.Min(p => p.X) : 0f;
             var fallbackCount = 0;
             foreach (var component in newComponents)
             {
                 var pivot = pivots.TryGetValue(component, out var position)
-                    ? new PointF(position.X, position.Y + startY)
-                    : new PointF(fallbackX, startY + (fallbackCount++ * FallbackCascadeSpacing));
+                    ? position
+                    : new PointF(fallbackX, fallbackStartY + (fallbackCount++ * FallbackCascadeSpacing));
                 component.Pivot = new GhJsonPivot((int)Math.Round(pivot.X), (int)Math.Round(pivot.Y));
             }
         }

@@ -45,16 +45,33 @@ namespace SmartHopper.ProviderSdk.Utils
         public const int ResultLimit = 6;
 
         /// <summary>
-        /// Leaf categories kept inline when the set collapses — the agent's
-        /// read/write/build loop on the canvas. Everything else (script
-        /// parameters, data tools, knowledge, vision, providers…) is
-        /// discovered through search_tools.
+        /// Curated default tools for inspection, creation, user interaction,
+        /// local guidance and a complete forum search/read loop. Names, not
+        /// categories, keep duplicate wrappers and future category additions
+        /// from silently increasing the per-request schema cost.
+        /// Only enabled tools inside the request's scope and surface qualify;
+        /// search_tools is the existing scope-independent discovery exception.
+        /// Other eligible tools remain callable after discovery (or by name):
+        /// this presentation policy is not an execution authorization boundary.
         /// </summary>
-        public static readonly IReadOnlySet<string> CoreCategories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        public static readonly IReadOnlySet<string> AlwaysInlineToolNames = new HashSet<string>(StringComparer.Ordinal)
         {
-            "Canvas.Query",
-            "Canvas.Modifications",
-            "GhJSON.Generation",
+            SearchToolName,
+            "ask_user",
+            "canvas_point",
+            "canvas_view",
+            "gh_generate",
+            "gh_generate_and_place_on_canvas",
+            "gh_get",
+            "gh_group_selected",
+            "gh_list_categories",
+            "gh_list_components",
+            "gh_report",
+            "mcneel_forum_post_get",
+            "mcneel_forum_search",
+            "show_ghjson",
+            "smarthopper_readme",
+            "smarthopper_workflows",
         };
     }
 }

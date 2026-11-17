@@ -9,7 +9,7 @@ inputs:
   model:
     description: 'Mistral model name'
     required: false
-    default: 'mistral-medium-latest'
+    default: 'mistral-large-4-0'
   changelog-path:
     description: 'Path to the changelog file'
     required: false
