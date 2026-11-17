@@ -79,6 +79,23 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             this._refreshTimer.Start();
         }
 
+        /// <inheritdoc/>
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            this._refreshTimer?.Start();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnUnLoad(EventArgs e)
+        {
+            // Stop the periodic refresh once the page leaves the visual tree so the
+            // timer does not keep firing (and keep the page alive) after the dialog
+            // closes; OnLoad restarts it if the page is re-attached.
+            this._refreshTimer?.Stop();
+            base.OnUnLoad(e);
+        }
+
         /// <summary>
         /// Creates the layout and controls for this provider's settings
         /// </summary>
@@ -559,11 +576,40 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         {
             try
             {
-                this.ReloadProviderSettings();
+                this.RefreshDynamicControls();
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[SettingsPage] Periodic settings reload failed for {this._provider?.Name}: {ex.Message}");
+                Debug.WriteLine($"[SettingsPage] Periodic settings refresh failed for {this._provider?.Name}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Periodic refresh limited to controls whose rendered state can change outside
+        /// this page (action-button captions, status labels, enabled flags). Value-entry
+        /// controls are deliberately left alone so in-progress edits are never reverted.
+        /// </summary>
+        private void RefreshDynamicControls()
+        {
+            var providerSettings = SmartHopper.Infrastructure.Settings.SmartHopperSettings.Instance.GetProviderSettings(this._provider.Name);
+            var descriptors = ProviderSettingDescriptors.Visible(this._provider.GetSettingDescriptors());
+
+            foreach (var descriptor in descriptors)
+            {
+                if (this._controls.TryGetValue(descriptor.Name, out var control))
+                {
+                    control.Enabled = descriptor.Enabled;
+
+                    switch (control)
+                    {
+                        case Button button:
+                            button.Text = ButtonText(descriptor);
+                            break;
+                        case Label statusLabel when descriptor.ControlParams is StatusSettingDescriptorControl:
+                            this.LoadSettingValue(descriptor, statusLabel, providerSettings);
+                            break;
+                    }
+                }
             }
         }
 
