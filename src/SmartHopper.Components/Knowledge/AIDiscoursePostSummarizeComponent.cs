@@ -55,14 +55,14 @@ namespace SmartHopper.Components.Knowledge
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
             "AIDiscoursePostSumm",
-            "discourse_post_summarize",
+            "discourse_forum_post_summarize",
             "Discourse Post",
             "Discourse Post Summary",
             "Forum Post Summary",
         };
 
         /// <inheritdoc/>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "discourse_post_summarize" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "discourse_forum_post_summarize" };
 
         public AIDiscoursePostSummarizeComponent()
             : base(
@@ -188,11 +188,11 @@ namespace SmartHopper.Components.Knowledge
                                     parameters["instructions"] = this.instructions;
                                 }
 
-                                var toolResult = await this.parent.CallAIToolAsync("discourse_post_summarize", parameters, token).ConfigureAwait(false);
+                                var toolResult = await this.parent.CallAIToolAsync("discourse_forum_post_summarize", parameters, token).ConfigureAwait(false);
 
                                 if (toolResult == null)
                                 {
-                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'discourse_post_summarize' returned no result.");
+                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'discourse_forum_post_summarize' returned no result.");
                                     continue;
                                 }
 
