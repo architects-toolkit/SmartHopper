@@ -233,7 +233,6 @@ The following table summarizes the models explicitly registered as defaults or v
 - `src/SmartHopper.Providers.Ollama/OllamaProviderModels.cs`
 - `src/SmartHopper.Providers.OpenAI/OpenAIProviderModels.cs`
 - `src/SmartHopper.Providers.OpenRouter/OpenRouterProviderModels.cs`
-- `src/SmartHopper.Providers.Test/TestProviderModels.cs`
 
 Notes:
 - "Default For" lists the feature areas the model is set as default for (e.g., `Text2Text`, `ToolChat`).
