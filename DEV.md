@@ -238,6 +238,7 @@ The following table summarizes the models explicitly registered as defaults or v
 - `src/SmartHopper.Providers.Ollama/OllamaProviderModels.cs`
 - `src/SmartHopper.Providers.OpenAI/OpenAIProviderModels.cs`
 - `src/SmartHopper.Providers.OpenRouter/OpenRouterProviderModels.cs`
+- `src/SmartHopper.Providers.Test/TestProviderModels.cs`
 
 Notes:
 - "Default For" lists the feature areas the model is set as default for (e.g., `Text2Text`, `ToolChat`).
@@ -250,13 +251,13 @@ Notes:
 | Anthropic | `claude-sonnet-5-5` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat, ToolChat, Image2Text | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Anthropic | `claude-opus-5-5` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | DeepSeek | `deepseek-flash` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json | TextInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| Gemini | `gemini-3.8-flash` | - | - | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Gemini | `gemini-3.8-flash` | - | - | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, AudioInput, SpeechInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-3.1-flash-lite-image` | - | - | - | Text2Image, Image2Image, Image2Text | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-flash-image` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput |
-| Gemini | `gemini-2.5-flash` | ⭐ | ✅ | - | - | TextInput, ImageInput, SpeechInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| MistralAI | `mistral-large-4` | - | ✅ | - | Text2Text, ToolChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Gemini | `gemini-2.5-flash` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, SpeechInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| MistralAI | `mistral-large-4-0` | - | ✅ | - | Text2Text, ToolChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| MistralAI | `codestral-embed` | - | - | - | EmbedOutput | TextInput, EmbedOutput |
+| MistralAI | `codestral-embed-2505` | - | - | - | EmbedOutput | TextInput, EmbedOutput |
 | MistralAI | `mistral-embed-2312` | - | - | - | EmbedOutput | TextInput, EmbedOutput |
 | OpenAI | `gpt-6-luna` | ⭐ | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | OpenAI | `gpt-6.1-sol` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
@@ -265,17 +266,13 @@ Notes:
 | OpenAI | `gpt-4o-mini-tts-2025-12-15` | - | - | - | Text2Speech | TextInput, SpeechOutput |
 | OpenAI | `gpt-4o-transcribe` | - | - | - | Speech2Text | SpeechInput, TextOutput |
 | OpenAI | `gpt-image-2.6-flare` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, ImageOutput |
-| OpenAI | `gpt-image-2.6-flare` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, ImageOutput |
 | OpenAI | `gpt-image-2.6-sunburst` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, ImageOutput |
-| OpenAI | `gpt-image-2.6-sunburst` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, ImageOutput |
-| OpenAI | `sora-2` | - | - | - | VideoOutput | TextInput, VideoOutput |
-| OpenAI | `sora-2-pro` | - | - | - | VideoOutput | TextInput, VideoOutput |
 | OpenAI | `text-embedding-3-large` | - | - | - | EmbedOutput | TextInput, EmbedOutput |
 | OpenAI | `text-embedding-3-small` | - | - | - | EmbedOutput | TextInput, EmbedOutput |
 | OpenRouter | `openai/gpt-5.6-luna` | - | - | - | Text2Text, Text2Json, ToolChat, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| OpenRouter | `google/gemini-3.1-flash-lite` | - | - | - | Audio2Text | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | OpenRouter | `google/gemini-3.1-flash-lite-image` | - | - | - | Text2Image, Image2Image, Image2Text | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | OpenRouter | `google/lyria-3-pro-preview` | - | ✅ | - | Text2Audio | TextInput, ImageInput, TextOutput, AudioOutput, JsonOutput |
+| OpenRouter | `google/gemini-3.1-flash-lite` | - | - | - | Audio2Text | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 
 ### Discouraged models for script tools
 
@@ -287,8 +284,8 @@ Some models are still supported but **not recommended** for script-oriented tool
   - `claude-3-haiku-20240307`/`claude-3-haiku`/`claude-3-haiku-latest` -> discouraged for: `script_generate`, `script_edit`
 - **MistralAI**
   - `mistral-small-2603`/`mistral-small`/`mistral-small-latest`/`magistral-small-latest`/`mistral-vibe-cli-fast`/`mistral-small-2603:batch` -> discouraged for: `script_generate`, `script_edit`
-  - `mistral-ocr-2512`/`mistral-ocr-3-0`/`mistral-ocr-3`/`Mistral OCR 3.0` -> discouraged for: any tool
   - `mistral-ocr-2505` -> discouraged for: any tool
+  - `mistral-ocr-2512`/`mistral-ocr-3-0`/`mistral-ocr-3`/`Mistral OCR 3.0` -> discouraged for: any tool
 - **OpenAI**
   - `gpt-live-1` -> discouraged for: any tool
   - `gpt-live-transcribe` -> discouraged for: any tool
