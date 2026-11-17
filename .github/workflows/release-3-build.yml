@@ -169,6 +169,7 @@ jobs:
         path: |
           src/**/*.csproj
           signing.snk
+          Directory.Build.props
         retention-days: 1
 
   # Build on Windows for net7.0-windows platform
