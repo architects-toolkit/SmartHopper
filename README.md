@@ -18,7 +18,7 @@
 Embed AI directly inside your definitions with **native parametric components**, work alongside a **customizable agentic canvas assistant**, or connect **Claude, Codex, Cursor, and VS Code** through the **built-in MCP server** — with staged diff reviews, `Ctrl+Z` undo, and your choice of cloud or offline local models.
 
 <!-- markdownlint-disable-next-line MD036 -->
-**100+ AI tools · 100+ Grasshopper components · 8 AI providers · MCP Server**
+**80+ AI tools · 90+ Grasshopper components · 8 AI providers · MCP Server**
 
 </div>
 
@@ -49,7 +49,7 @@ Any input component connects to any output component, and you can merge multiple
 
 ### 2. Customizable agentic canvas assistant (`AI Chat`)
 
-Click the **SmartHopper** button on the Grasshopper canvas (or drop an **AI Chat** component into your file) to open an interactive agentic assistant with customizable system instructions and access to over 100 Grasshopper tools. It can read your selected components, diagnose runtime errors, look up solutions on the McNeel and Ladybug forums, write or review script components, and stage edits to your definition that you review item by item before applying.
+Click the **SmartHopper** button on the Grasshopper canvas (or drop an **AI Chat** component into your file) to open an interactive agentic assistant with customizable system instructions and access to 80+ AI tools. It can read your selected components, diagnose runtime errors, look up solutions on the McNeel and Ladybug forums, write or review script components, and stage edits to your definition that you review item by item before applying.
 
 ![The canvas assistant diagnosing why a selected component is not returning a value](img/v2-chat-dialog.png)
 
@@ -69,17 +69,17 @@ Start the **SmartHopper MCP Server** component to expose your canvas over a loca
 
 ## Component gallery
 
-| Generate and review scripts | Prompt → GhJSON, validated and placed |
+| Generate and place scripts | Prompt → GhJSON, validated and placed |
 | --- | --- |
-| ![AIScriptGen generating a Python script component reviewed by AIScriptReview](img/v2-script-components.png) | ![AI to GhJSON feeding GhValidate, GhPut and GhGet](img/v2-ghjson-pipeline.png) |
+| ![AIScriptGen generating a GhJSON script definition placed by Place GhJSON](img/v2-script-components.png) | ![AI to GhJSON feeding GhValidate, GhPut and GhGet](img/v2-ghjson-pipeline.png) |
 
 | Forum threads summarized as context | Files and web pages to Markdown |
 | --- | --- |
-| ![McNeel forum search feeding a Discourse summarizer](img/v2-knowledge-flow.png) | ![File2Md and Web2Md converting documents to Markdown](img/v2-file-web-markdown.png) |
+| ![McNeel forum search feeding a Discourse summarizer](img/v2-knowledge-flow.png) | ![File2Md converting a local document to Markdown](img/v2-file-web-markdown.png) |
 
-| Image generation and canvas vision | Merge prompt, image and file into one call |
+| Canvas and image understanding | Merge prompt, image and file into one call |
 | --- | --- |
-| ![AIText2Img, Canvas2Img and ImgView components](img/v2-media-components.png) | ![AIPrompt, Img2AI and Text2AI merging into AI to Text](img/v2-components-combined.png) |
+| ![Canvas2Img feeding AIImg2Text describing a Grasshopper definition](img/v2-media-components.png) | ![Text2AI, Img2AI and File2AI merging into AI to Text](img/v2-components-combined.png) |
 
 | Natural-language list filtering | Read and validate the active document |
 | --- | --- |
