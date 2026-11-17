@@ -188,8 +188,25 @@ runs:
         try:
             match = re.search(r"```(?:json)?\s*([\s\S]*?)```", response)
             review = json.loads((match.group(1) if match else response).strip())
+            # Reasoning models may return typed content blocks
+            # ([{"type": "thinking", ...}, {"type": "text", "text": ...}]).
+            # Unwrap them and re-parse the text payload.
+            if isinstance(review, list):
+                text = "".join(
+                    block.get("text", "")
+                    for block in review
+                    if isinstance(block, dict) and block.get("type") == "text"
+                )
+                match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+                review = json.loads((match.group(1) if match else text).strip())
         except Exception as error:
             print(f"::warning::Failed to parse AI response: {error}", file=sys.stderr)
+            with open(output_path, "a", encoding="utf-8") as output:
+                output.write("skipped-reason=invalid AI response\n")
+            raise SystemExit(0)
+
+        if not isinstance(review, dict):
+            print("::warning::AI response is not a JSON object", file=sys.stderr)
             with open(output_path, "a", encoding="utf-8") as output:
                 output.write("skipped-reason=invalid AI response\n")
             raise SystemExit(0)
