@@ -188,6 +188,11 @@ in the AI Chat component.
 | `ask_user` | AgentPlanning | Ask the user a structured set of questions through the SmartHopper dialog (text, textarea, yes/no, choice, multi-choice). Blocks until the user answers, skips, or cancels. Requires an active SmartHopper session — do not use in autonomous/background runs. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `plan_propose` | AgentPlanning | Propose a plan of action for the conversation. Returns the plan as a JSON object with a markdown summary. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `plan_tasks` | AgentPlanning | Manage task tracking via `add`, `update`, `remove`, `complete`, `list`, or `status` operations. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_document_list` | Canvas.Documents | List the Grasshopper documents open in Rhino with their documentId, name, filePath, isActive, isModified, objectCount and hostsMcpServer (true when the document contains the enabled SmartHopper MCP Server component — unloading it disconnects the MCP session). Use the documentId with gh_get, gh_document_switch or gh_document_save to work with a document that is not active. | - | - | - | - |
+| `gh_document_new` | Canvas.Documents | Create a new blank Grasshopper document and make it the active document. Use gh_document_save with a filePath to save it to disk. | - | - | - | - |
+| `gh_document_open` | Canvas.Documents | Open a Grasshopper document (.gh or .ghx) from an absolute file path and make it the active document. If the file is already open, it is activated instead of opened twice. | - | - | - | - |
+| `gh_document_switch` | Canvas.ViewControl | Show another open Grasshopper document in the canvas, making it the active document for all canvas tools. Get documentId values from gh_document_list. | - | - | - | - |
+| `show_ghjson` | GhJSON.Generation | Shows a GhJSON definition to the user as a persistent artifact card in the chat (collapsed source, copy button, and a place-on-canvas action when the document is valid). ALWAYS use this to deliver a GhJSON definition — never paste GhJSON into your reply text. The document is validated against the GhJSON schema first; on failure the call returns structured validation errors — fix the document and call again. It never changes the document. | - | - | - | - |
 
 Notes:
 
