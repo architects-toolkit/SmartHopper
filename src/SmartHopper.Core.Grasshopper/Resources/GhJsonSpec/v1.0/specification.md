@@ -273,13 +273,36 @@ Connections represent the wires between component parameters.
 
 | Property | Type | Required | Description |
 | ---------- | ------ | ---------- | ------------- |
-| `id` | integer or string | **Yes** | Component reference — the integer `id` is the preferred shape (compact and unambiguous). A component's `instanceGuid` string is also accepted for canvas-bound references (see §4.4); an integer encoded as a string is coerced during parsing. |
+| `id` | integer or string | **Yes** | Component reference — the integer `id` is the preferred shape (compact and unambiguous). A component's `instanceGuid` string is also accepted for canvas-bound references (see §4.5); an integer encoded as a string is coerced during parsing. |
 | `paramName` | string | Conditional | Parameter name (required if `paramIndex` is not provided) |
 | `paramIndex` | integer | Conditional | Zero-based parameter index (required if `paramName` is not provided) |
 
 The `paramIndex` provides reliable parameter matching when parameter names may vary due to localization or custom nicknames.
 
-### 4.4 Document Scope
+### 4.4 Parameter Name Resolution
+
+Implementations resolve a `paramName` against a component's parameters with the
+following precedence (first match wins):
+
+1. **Nickname** — exact match, case-insensitive.
+2. **Name** — exact match, case-insensitive.
+3. **Numeric name** — a `paramName` that parses as an integer is treated as a
+   zero-based index (equivalent to `paramIndex`).
+4. **`paramIndex`** — when a supplied `paramName` matches nothing, a co-present
+   `paramIndex` is used as fallback.
+5. **Alias** — common shorthand is normalized through an alias table (for
+   example `pt` → `Point`, `out` → `Output`, `number` → `Number`, `crv` →
+   `Curve`).
+6. **Fuzzy** — approximate matching against the component's real parameter
+   names (small edit-distance tolerance) as a last resort.
+
+Resolution is a convenience for producers, not a contract: emitters SHOULD
+prefer exact parameter names or `paramIndex`, and validators treat only steps
+1–3 as reliable identification. A `paramName` that resolves through alias or
+fuzzy matching SHOULD be reported as a warning so producers can correct it —
+a silently fuzzy-matched wire looks identical to an explicitly intended one.
+
+### 4.5 Document Scope
 
 Connection endpoints are document-scoped: endpoint `id` values only reference components declared in the same document's `components` array. A connection cannot wire an endpoint to an object that exists only on the canvas unless that object is also described in the document (typically as an unchanged component carrying its `instanceGuid`). Implementations that need to wire pre-existing canvas objects MUST use a separate mechanism (for example, a dedicated connect operation keyed by `instanceGuid`).
 
