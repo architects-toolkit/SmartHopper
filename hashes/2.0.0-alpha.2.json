@@ -1,0 +1,32 @@
+{
+  "algorithm": "SHA-256",
+  "providers": {
+    "SmartHopper.Providers.DeepSeek.dll-net7.0": "08c9ccbc7d97e1a92f013e87d2732ff5e73e68277ac9c84ed68718c6394da2aa",
+    "SmartHopper.Providers.Ollama.dll-net7.0": "177bdb87d31493af7f18e440bc25450f0f207a82f9e24d96ebcc6c79aed38c09",
+    "SmartHopper.Providers.OpenRouter.dll-net7.0-windows": "4d0481f1732839ae91b568d9a46606f0d0a4ddfea7ea2d58fcc3955bf9c39500",
+    "SmartHopper.Providers.MistralAI.dll-net7.0": "7e11e781677233217e0b8f71fe5186b3863ac6e52ffe3871258a42a85d1dc88f",
+    "SmartHopper.Providers.LocalAI.dll-net7.0-windows": "17022151441d59048bd3e844c9ddf2611a532fbea422273d5bb61bf57f8a81c4",
+    "SmartHopper.Providers.MistralAI.dll-net7.0-windows": "544f3adc24b480b611b88c977d2047848dfff20039388fc555e6da599f20335c",
+    "SmartHopper.Providers.Ollama.dll-net7.0-windows": "2dbcae25cc469769bf5c5479cb58f296f10f93f40390517f54902775a01b1c13",
+    "SmartHopper.Providers.Anthropic.dll-net7.0-windows": "915579a4de5cdcc2205427de40dce9c1be2c25ea8ecf91ebeb0b67851664b290",
+    "SmartHopper.Providers.LocalAI.dll-net7.0": "4e078eccd51f59e10eaa1db7e437d92530ab602ad860c0c34bb0055baa23c906",
+    "SmartHopper.Providers.OpenAI.dll-net7.0": "ee98c19e1fdcb8b87157565b78f3d4a831c15f0701c97dfdf343ff5c1abe0770",
+    "SmartHopper.Providers.Gemini.dll-net7.0": "3ae64944aab664ac7df38c6919361bce38d1c77d48b91d0635a47350f8a052f3",
+    "SmartHopper.Providers.Gemini.dll-net7.0-windows": "00672bc379eb9ebd624ff0a07dd463b3feb4b3bfc74dd246770f0de3b05c9147",
+    "SmartHopper.Providers.OpenAI.dll-net7.0-windows": "524ea968f94c71ca61f01ecee184def906e8a1974be1931aa90a9b03a7acadd0",
+    "SmartHopper.Providers.OpenRouter.dll-net7.0": "b887ab8b62d47ff9daf9fdb3625b226e3a23c625c3f3bed900e7c28c9c755a3f",
+    "SmartHopper.Providers.Anthropic.dll-net7.0": "d134aa2495203136a979e734163f0b0e208a18761f89c94a9b2ad80bf455873c",
+    "SmartHopper.Providers.DeepSeek.dll-net7.0-windows": "283338cc6c77d884f1b71ed3733c3d3aaab5f68df3d474883c3251b1709c1ddb"
+  },
+  "generated": "2026-11-17T22:23:44Z",
+  "metadata": {
+    "platforms": [
+      "net7.0-windows",
+      "net7.0"
+    ],
+    "buildNumber": "2",
+    "commitSha": "e0dce049ddea6f0cc92b135e717deb5434db3c68",
+    "repository": "architects-toolkit/SmartHopper"
+  },
+  "version": "2.0.0-alpha.2"
+}
