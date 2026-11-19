@@ -64,12 +64,17 @@ namespace SmartHopper.ProviderSdk.AICall.Batch
             {
                 // Standard shape: {"message": "…"} — some providers nest
                 // {"error": {"message": "…"}}; take the deepest message found.
-                if (errorObj["error"] is JObject nested)
+                var message = (errorObj["error"] as JObject)?["message"]?.ToString()
+                    ?? errorObj["message"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(message))
                 {
-                    return nested["message"]?.ToString() ?? nested.ToString(Formatting.None);
+                    return message;
                 }
 
-                return errorObj["message"]?.ToString() ?? errorObj.ToString(Formatting.None);
+                // No message member: keep the serialized object only when it
+                // carries detail (codes, types); an empty object has no usable
+                // error text and must fall through to the HTTP status fallback.
+                return errorObj.HasValues ? errorObj.ToString(Formatting.None) : null;
             }
 
             // Scalar error (string code, numeric status, boolean flag).
