@@ -76,7 +76,7 @@ namespace SmartHopper.Providers.MistralAI
                             new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000007m),
                         },
                     },
-                    Aliases = new List<string> { "mistral-large-4.0", "mistral-large-4", "mistral-large-latest" },
+                    Aliases = new List<string> { "mistral-large", "mistral-large-latest", "mistral-large-4", "mistral-large-4.0" },
                 },
 
 
@@ -247,7 +247,7 @@ namespace SmartHopper.Providers.MistralAI
                             new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
                         },
                     },
-                    Aliases = new List<string> { "mistral-large", "mistral-large-veteran-2512", "mistral-large-2512:batch" },
+                    Aliases = new List<string> { "mistral-large-veteran-2512", "mistral-large-2512:batch" },
                 },
 
 

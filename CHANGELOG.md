@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- The MistralAI seed table now resolves `mistral-large-latest` to `mistral-large-4-0` instead of `mistral-large-2512`, matching the rolling alias's current upstream target (Mistral Large 4); the 2512 snapshot keeps `mistral-large`, `mistral-large-veteran-2512` and `mistral-large-2512:batch`.
+- The MistralAI seed table now resolves `mistral-large` and `mistral-large-latest` to `mistral-large-4-0` instead of `mistral-large-2512`, matching the rolling aliases' current upstream target (Mistral Large 4); the 2512 snapshot keeps `mistral-large-veteran-2512` and `mistral-large-2512:batch`.
 
 ## [2.0.0-alpha.1] - 2026-11-17
 
