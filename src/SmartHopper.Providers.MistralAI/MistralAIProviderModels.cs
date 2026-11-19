@@ -247,7 +247,7 @@ namespace SmartHopper.Providers.MistralAI
                             new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000025m),
                         },
                     },
-                    Aliases = new List<string> { "mistral-large", "mistral-large-latest", "mistral-large-veteran-2512", "mistral-large-2512:batch" },
+                    Aliases = new List<string> { "mistral-large", "mistral-large-veteran-2512", "mistral-large-2512:batch" },
                 },
 
 

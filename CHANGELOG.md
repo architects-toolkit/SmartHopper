@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Provider integrity check now defaults to **Hard** mode (was Soft) — blocks altered and unknown providers while remaining permissive when hash servers are offline.
 - Mistral provider `reasoning_effort` is now normalized per model instead of globally to `none`/`high`: Mistral Large 4 accepts `low`, `medium` and `high` (a legacy `none` is mapped to `low`, which Mistral documents as the migration path since `none` is rejected with HTTP 400); Z.ai GLM 5.3 accepts `low`, `high` and `max`; other reasoning-capable Mistral models keep `none`/`high`. The parameter is also omitted on registered models that do not support reasoning.
 
+### Fixed
+
+- The MistralAI seed table now resolves `mistral-large-latest` to `mistral-large-4-0` instead of `mistral-large-2512`, matching the rolling alias's current upstream target (Mistral Large 4); the 2512 snapshot keeps `mistral-large`, `mistral-large-veteran-2512` and `mistral-large-2512:batch`.
+
 ## [2.0.0-alpha.1] - 2026-11-17
 
 Many thanks to the following contributors to this release:
