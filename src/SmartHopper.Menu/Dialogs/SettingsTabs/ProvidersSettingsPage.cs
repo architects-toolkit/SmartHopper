@@ -111,11 +111,11 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Index 0 = Soft, Index 1 = Hard, Index 2 = Strict
             this._integrityCheckModeDropDown.Items.Add(new ListItem
             {
-                Text = "Soft - No blocking, just warn about issues (default)",
+                Text = "Soft - No blocking, just warn about issues",
             });
             this._integrityCheckModeDropDown.Items.Add(new ListItem
             {
-                Text = "Hard - Block altered and unknown providers, be permissive when offline",
+                Text = "Hard - Block altered and unknown providers, be permissive when servers are offline (default)",
             });
             this._integrityCheckModeDropDown.Items.Add(new ListItem
             {
@@ -130,7 +130,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 "• Soft: Warns but allows providers with hash mismatches, unavailable hashes, or custom/third-party providers. " +
                 "Best for development and custom providers.\n\n" +
                 "• Hard: Blocks providers with hash mismatches or unknown providers, " +
-                "but allows when hash repository is unavailable (when offline or network issues). Good balance of security and flexibility.\n\n" +
+                "but allows when hash repository is unavailable (when hash servers are offline or unreachable). Good balance of security and flexibility.\n\n" +
                 "• Strict: Blocks on all verification failures including hash mismatches, unknown providers, and network unavailability. " +
                 "Requires all providers to have valid published hashes from the official repository and an active internet connection.",
                 fontSize: 9));

@@ -126,7 +126,8 @@ namespace SmartHopper.Infrastructure.Settings
         /// <summary>
         /// Gets or sets the provider integrity check mode for verification.
         /// Controls how provider DLL hash verification failures are handled.
-        /// Default is Soft (warn but allow).
+        /// Default is Hard (block altered and unknown providers, permissive
+        /// when hash servers are offline).
         /// </summary>
         [JsonProperty]
         public ProviderIntegrityCheckMode ProviderIntegrityCheckMode
@@ -208,7 +209,7 @@ namespace SmartHopper.Infrastructure.Settings
         /// Gets or sets the minimum level echoed to the live output.
         /// </summary>
         [JsonProperty]
-        public SmartHopper.ProviderSdk.Logging.ProviderLogLevel LiveOutputLevel { get; set; } = SmartHopper.ProviderSdk.Logging.ProviderLogLevel.Info;
+        public SmartHopper.ProviderSdk.Logging.ProviderLogLevel LiveOutputLevel { get; set; } = SmartHopper.ProviderSdk.Logging.ProviderLogLevel.Error;
 
         /// <summary>
         /// Gets or sets whether log entries are written to the rolling log file.
@@ -250,7 +251,7 @@ namespace SmartHopper.Infrastructure.Settings
             this.DebounceTime = 1000;
             this.DefaultAIProvider = string.Empty;
             this.TrustedProviders = new Dictionary<string, bool>();
-            this.ProviderIntegrityCheckMode = ProviderIntegrityCheckMode.Soft; // Default to soft verification
+            this.ProviderIntegrityCheckMode = ProviderIntegrityCheckMode.Hard; // Default to hard verification
             this.SmartHopperAssistant = new SmartHopperAssistantSettings();
         }
 

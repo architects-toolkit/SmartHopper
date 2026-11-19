@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Live log echo to Rhino's command line now defaults to the **Error** level (was Info).
+- Provider integrity check now defaults to **Hard** mode (was Soft) — blocks altered and unknown providers while remaining permissive when hash servers are offline.
+
 ## [2.0.0-alpha.1] - 2026-11-17
 
 Many thanks to the following contributors to this release:
