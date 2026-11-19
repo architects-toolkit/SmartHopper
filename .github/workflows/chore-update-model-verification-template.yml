@@ -23,6 +23,7 @@ on:
       - 'release/**'
     paths:
       - 'src/SmartHopper.Providers.*/[A-Z]*ProviderModels.cs'
+      - '!src/SmartHopper.Providers.Test/**'
   workflow_dispatch:
 
 permissions:

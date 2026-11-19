@@ -85,9 +85,12 @@ function Get-ProviderModelsFromFile($filePath, $providerName) {
 # 1. Discover all *ProviderModels.cs files
 # ---------------------------------------------------------------------------
 $srcDir = Join-Path $repoRoot 'src'
+# SmartHopper.Providers.Test is a test harness, not a shipped provider —
+# its catalogue file must never surface in user-facing options.
 $providerFiles = Get-ChildItem -Path $srcDir -Filter '*ProviderModels.cs' -Recurse |
     Where-Object {
-        $_.FullName -match 'SmartHopper\.Providers\.(\w+)[/\\]\1ProviderModels\.cs$'
+        $_.FullName -match 'SmartHopper\.Providers\.(\w+)[/\\]\1ProviderModels\.cs$' -and
+        $_.Directory.Name -ne 'SmartHopper.Providers.Test'
     }
 
 if ($providerFiles.Count -eq 0) {

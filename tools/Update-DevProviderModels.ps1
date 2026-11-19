@@ -162,9 +162,12 @@ function ConvertTo-CodeCsv($values) {
 
 try {
     $srcDir = Join-Path $repoRoot 'src'
+    # SmartHopper.Providers.Test is a test harness, not a shipped provider —
+    # its catalogue file must never surface in developer-facing docs.
     $providerFiles = Get-ChildItem -Path $srcDir -Filter '*ProviderModels.cs' -Recurse |
         Where-Object {
-            $_.FullName -match 'SmartHopper\.Providers\.([A-Za-z0-9]+)[/\\]\1ProviderModels\.cs$'
+            $_.FullName -match 'SmartHopper\.Providers\.([A-Za-z0-9]+)[/\\]\1ProviderModels\.cs$' -and
+            $_.Directory.Name -ne 'SmartHopper.Providers.Test'
         }
 
     if ($providerFiles.Count -eq 0) {

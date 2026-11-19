@@ -25,10 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **File To Markdown** and **File To AI Input** no longer collapse every `file2md` tool failure into a generic "returned no result" warning — the tool's diagnostic messages (e.g. a file locked by another process) are surfaced on the component with their own severity, matching the AI File To Markdown behavior.
 - Batch progress label on AI components now reads `Batch N/M...` (parentheses removed).
 - Batch item errors whose `response.body` arrives as a JSON-encoded string (Mistral's error output, e.g. `{"object":"error","message":…}`) now surface the provider's actual error message instead of a bare `HTTP NNN`; non-JSON string bodies are surfaced as their raw text. Fixed in the shared `AIBatchResultParser` and in the MistralAI and OpenAI batch parsers.
-
-### Fixed
-
 - The MistralAI seed table now resolves `mistral-large` and `mistral-large-latest` to `mistral-large-4-0` instead of `mistral-large-2512`, matching the rolling aliases' current upstream target (Mistral Large 4); the 2512 snapshot keeps `mistral-large-veteran-2512` and `mistral-large-2512:batch`.
+- `SmartHopper.Providers.Test` no longer leaks into generated docs: the DEV.md provider-table and model-verification-template generators now skip the test-harness project explicitly, and both CI trigger path filters exclude `src/SmartHopper.Providers.Test/**` so test-only pushes no longer run the doc-regeneration workflows.
 
 ## [2.0.0-alpha.1] - 2026-11-17
 
