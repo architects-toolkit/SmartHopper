@@ -30,6 +30,7 @@ using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.Diagnostics;
 using SmartHopper.ProviderSdk.Documents;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -105,9 +106,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="consumerSupportsImages">Whether the consuming model accepts image input. False requests explicit vision-helper evidence; null reports unknown capability without a paid call.</param>
         /// <param name="imageDescriptionPrompt">Optional user guidance appended to the shared enrichment instruction.</param>
         /// <returns>
-        /// A <see cref="File2MdToolResult"/> on success, or <c>null</c> if the tool returned no result.
+        /// The parsed <see cref="File2MdToolResult"/> (<c>null</c> when the tool returned no result)
+        /// plus the tool's diagnostic messages — including the real failure reason — so callers
+        /// can surface them instead of collapsing every failure into a generic warning.
         /// </returns>
-        public static async Task<File2MdToolResult> CallAsync(
+        public static async Task<(File2MdToolResult Result, IReadOnlyList<SHRuntimeMessage> Messages)> CallAsync(
             string filePath,
             bool removeHeadersFooters = true,
             bool extractImages = true,
@@ -180,12 +183,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             AIReturn aiResult = await toolCall.Exec(cancellationToken).ConfigureAwait(false);
             var toolResult = ToolCallResult.FromAIReturn(aiResult);
 
-            if (toolResult.Result == null)
-            {
-                return null;
-            }
-
-            return Parse(toolResult, sourceDocument ?? filePath);
+            return (Parse(toolResult, sourceDocument ?? filePath), toolResult.Messages);
         }
 
         // -----------------------------------------------------------------------------------------

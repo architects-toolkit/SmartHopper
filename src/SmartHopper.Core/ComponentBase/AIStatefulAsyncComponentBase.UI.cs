@@ -222,7 +222,7 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <summary>
         /// Gets the current state message with progress information.
-        /// During batch data-tree collection shows "Preparing X/X..."; while polling shows live "Batch (Y/X)...".
+        /// During batch data-tree collection shows "Preparing X/X..."; while polling shows live "Batch Y/X...".
         /// </summary>
         /// <returns>A formatted state message string.</returns>
         public override string GetStateMessage()
@@ -237,7 +237,7 @@ namespace SmartHopper.Core.ComponentBase
             if (this._batchState.Submission != null)
             {
                 var total = this._batchState.Submission.CustomIds?.Count ?? 0;
-                return $"Batch ({this._batchState.ProgressCompleted}/{total})...";
+                return $"Batch {this._batchState.ProgressCompleted}/{total}...";
             }
 
             // Batch mode active but not yet submitted: data-tree is collecting items

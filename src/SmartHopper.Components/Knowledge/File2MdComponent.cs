@@ -246,7 +246,7 @@ namespace SmartHopper.Components.Knowledge
                                 }
 
                                 const bool PreserveFormatting = true;
-                                var converted = await File2MdToolResult.CallAsync(
+                                var (converted, toolMessages) = await File2MdToolResult.CallAsync(
                                     ghPath.Value,
                                     removeHeaders,
                                     extractImages: true,
@@ -260,7 +260,25 @@ namespace SmartHopper.Components.Knowledge
 
                                 if (converted == null)
                                 {
-                                    this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Tool 'file2md' returned no result for '{ghPath.Value}'.", SHRuntimeMessageOrigin.Tool);
+                                    // Surface the tool's own diagnostics (e.g. a locked/unreadable
+                                    // file) instead of hiding the reason behind a generic warning.
+                                    var surfaced = false;
+                                    foreach (var msg in toolMessages ?? Array.Empty<SHRuntimeMessage>())
+                                    {
+                                        if (msg == null)
+                                        {
+                                            continue;
+                                        }
+
+                                        this.CollectMessage(msg.Severity, msg.Message, msg.Origin);
+                                        surfaced = true;
+                                    }
+
+                                    if (!surfaced)
+                                    {
+                                        this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Tool 'file2md' returned no result for '{ghPath.Value}'.", SHRuntimeMessageOrigin.Tool);
+                                    }
+
                                     outputs["Markdown"].Add(new GH_String(string.Empty));
                                     outputs["Format"].Add(new GH_String(string.Empty));
                                     continue;

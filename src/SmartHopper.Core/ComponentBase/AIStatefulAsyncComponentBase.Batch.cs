@@ -699,7 +699,7 @@ namespace SmartHopper.Core.ComponentBase
                 
                 this._batchState.ProgressCompleted = 0;
                 this._batchState.StartTime = DateTime.UtcNow;
-                this.Message = $"Batch (0/{submission.CustomIds?.Count ?? 0})...";
+                this.Message = $"Batch 0/{submission.CustomIds?.Count ?? 0}...";
 
                 // Polling is NOT started here: callers complete the submission
                 // boundary via CompleteSubmissionSetup only after the sentinel
@@ -995,7 +995,7 @@ namespace SmartHopper.Core.ComponentBase
                                     return;
                                 }
 
-                                this.Message = $"Batch ({completed}/{total})...";
+                                this.Message = $"Batch {completed}/{total}...";
                                 this.OnDisplayExpired(false);
                             });
                         }
