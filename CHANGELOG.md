@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **File To Markdown** and **File To AI Input** no longer collapse every `file2md` tool failure into a generic "returned no result" warning — the tool's diagnostic messages (e.g. a file locked by another process) are surfaced on the component with their own severity, matching the AI File To Markdown behavior.
 - Batch progress label on AI components now reads `Batch N/M...` (parentheses removed).
+- Batch item errors whose `response.body` arrives as a JSON-encoded string (Mistral's error output, e.g. `{"object":"error","message":…}`) now surface the provider's actual error message instead of a bare `HTTP NNN`; non-JSON string bodies are surfaced as their raw text. Fixed in the shared `AIBatchResultParser` and in the MistralAI and OpenAI batch parsers.
 
 ### Fixed
 

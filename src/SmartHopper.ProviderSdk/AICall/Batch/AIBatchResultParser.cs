@@ -78,6 +78,50 @@ namespace SmartHopper.ProviderSdk.AICall.Batch
         }
 
         /// <summary>
+        /// Normalizes a batch item's <c>response.body</c>: providers emit it either
+        /// as a nested JSON object or as a JSON-encoded string (e.g. Mistral's error
+        /// output). Returns the parsed object when possible; a non-JSON string body
+        /// comes back through <paramref name="rawText"/> so callers can surface the
+        /// plain-text error instead of a bare HTTP status code.
+        /// </summary>
+        /// <param name="body">The <c>body</c> token from a result item's response.</param>
+        /// <param name="rawText">Receives the non-JSON string body, when present.</param>
+        /// <returns>The body as a <see cref="JObject"/>, or <c>null</c> when absent/unusable.</returns>
+        public static JObject? ExtractResponseBody(JToken? body, out string? rawText)
+        {
+            rawText = null;
+            if (body == null || body.Type == JTokenType.Null || body.Type == JTokenType.Undefined)
+            {
+                return null;
+            }
+
+            if (body is JObject obj)
+            {
+                return obj;
+            }
+
+            if (body.Type == JTokenType.String)
+            {
+                var text = body.ToString();
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    return null;
+                }
+
+                try
+                {
+                    return JObject.Parse(text);
+                }
+                catch (JsonException)
+                {
+                    rawText = text;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// Locates the <c>customId</c> a provider-side per-item error message
         /// refers to. Matches messages of shape <c>"Batch item {id}: …"</c>
         /// with <see cref="SHRuntimeMessageSeverity.Error"/> severity and
@@ -262,7 +306,7 @@ namespace SmartHopper.ProviderSdk.AICall.Batch
 
             var responseObj = item["response"] as JObject;
             var statusCode = responseObj?["status_code"]?.Value<int>() ?? 0;
-            var responseBody = responseObj?["body"] as JObject;
+            var responseBody = ExtractResponseBody(responseObj?["body"], out var rawBody);
 
             if (statusCode >= 200 && statusCode < 300 && responseBody != null)
             {
@@ -283,7 +327,12 @@ namespace SmartHopper.ProviderSdk.AICall.Batch
             }
             else
             {
+                // Error detail may live under body.error (OpenAI shape), at the body
+                // root (Mistral {"object":"error","message":…}), or as a plain-text
+                // body that is not JSON at all.
                 var errorText = ExtractItemErrorMessage(responseBody?["error"])
+                    ?? ExtractItemErrorMessage(responseBody)
+                    ?? rawBody
                     ?? (statusCode > 0 ? $"HTTP {statusCode}" : "Unknown batch item error");
                 messages.Add(new SHRuntimeMessage(
                     SHRuntimeMessageSeverity.Error,

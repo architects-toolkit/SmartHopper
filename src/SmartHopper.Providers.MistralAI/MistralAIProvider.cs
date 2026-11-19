@@ -1742,9 +1742,10 @@ namespace SmartHopper.Providers.MistralAI
                 var responseObj = resultLine["response"] as JObject;
                 var statusCode = responseObj?["status_code"]?.Value<int>() ?? 0;
 
-                // Mistral output may wrap response inside "response"."body" or directly
-                var resultBody = responseObj?["body"] as JObject
-                    ?? resultLine["body"] as JObject;
+                // Mistral output may wrap response inside "response"."body" or directly;
+                // the body itself may be a JSON-encoded string rather than an object.
+                var resultBody = AIBatchResultParser.ExtractResponseBody(responseObj?["body"], out var rawBody)
+                    ?? AIBatchResultParser.ExtractResponseBody(resultLine["body"], out rawBody);
 
                 if (statusCode >= 200 && statusCode < 300 && resultBody != null)
                 {
@@ -1768,9 +1769,12 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     // Shared extraction: the error field may be an object, a
                     // scalar, or null — indexing ["message"] on a scalar JValue
-                    // throws InvalidOperationException.
+                    // throws InvalidOperationException. Mistral also returns
+                    // {"object":"error","message":…} directly as the body.
                     var errorMsg = AIBatchResultParser.ExtractItemErrorMessage(resultBody?["error"])
+                        ?? AIBatchResultParser.ExtractItemErrorMessage(resultBody)
                         ?? AIBatchResultParser.ExtractItemErrorMessage(resultLine["error"])
+                        ?? rawBody
                         ?? $"HTTP {statusCode}";
                     messages.Add(new SHRuntimeMessage(
                         SHRuntimeMessageSeverity.Error,

@@ -2791,7 +2791,7 @@ namespace SmartHopper.Providers.OpenAI
 
                 var responseObj = resultLine["response"] as JObject;
                 var statusCode = responseObj?["status_code"]?.Value<int>() ?? 0;
-                var resultBody = responseObj?["body"] as JObject;
+                var resultBody = AIBatchResultParser.ExtractResponseBody(responseObj?["body"], out var rawBody);
 
                 if (statusCode >= 200 && statusCode < 300 && resultBody != null)
                 {
@@ -2814,9 +2814,12 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     // Shared extraction: the error field may be an object, a
                     // scalar, or null — indexing ["message"] on a scalar JValue
-                    // throws InvalidOperationException.
+                    // throws InvalidOperationException. Some providers also return
+                    // {"object":"error","message":…} directly as the body.
                     var errorMsg = AIBatchResultParser.ExtractItemErrorMessage(resultBody?["error"])
+                        ?? AIBatchResultParser.ExtractItemErrorMessage(resultBody)
                         ?? AIBatchResultParser.ExtractItemErrorMessage(resultLine["error"])
+                        ?? rawBody
                         ?? $"HTTP {statusCode}";
                     messages.Add(new SHRuntimeMessage(
                         SHRuntimeMessageSeverity.Error,
