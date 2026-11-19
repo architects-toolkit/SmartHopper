@@ -103,8 +103,8 @@ namespace SmartHopper.Providers.MistralAI
                     Type = typeof(string),
                     DefaultValue = "none",
                     DisplayName = "Reasoning Effort",
-                    Description = "Controls the depth of reasoning for supported models. Only 'none' and 'high' are supported by Mistral. Value can be overridden per-request via Extra Settings.",
-                    AllowedValues = new[] { "none", "high" },
+                    Description = "Controls the depth of reasoning for supported models. Mistral Large 4 accepts 'low', 'medium' and 'high' (omitting the parameter means 'high'); other reasoning-capable Mistral models accept 'none' and 'high'. Values are normalized per model so an invalid value is never sent. Value can be overridden per-request via Extra Settings.",
+                    AllowedValues = new[] { "none", "low", "medium", "high" },
                 },
             };
         }
@@ -158,11 +158,11 @@ namespace SmartHopper.Providers.MistralAI
             {
                 var reasoningEffort = reasoningEffortObj.ToString();
 
-                if (string.IsNullOrWhiteSpace(reasoningEffort) || !new[] { "none", "high" }.Contains(reasoningEffort))
+                if (string.IsNullOrWhiteSpace(reasoningEffort) || !new[] { "none", "low", "medium", "high" }.Contains(reasoningEffort, StringComparer.OrdinalIgnoreCase))
                 {
                     if (showErrorDialogs)
                     {
-                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Reasoning effort for MistralAI must be 'none' or 'high'."));
+                        ProviderSdkHost.Diagnostics.Report(this.GetType().Name, new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Validation, SHMessageCode.InputInvalid, "Reasoning effort for MistralAI must be 'none', 'low', 'medium' or 'high'."));
                     }
 
                     return false;

@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Live log echo to Rhino's command line now defaults to the **Error** level (was Info).
 - Provider integrity check now defaults to **Hard** mode (was Soft) — blocks altered and unknown providers while remaining permissive when hash servers are offline.
+- Mistral provider `reasoning_effort` is now normalized per model instead of globally to `none`/`high`: Mistral Large 4 accepts `low`, `medium` and `high` (a legacy `none` is mapped to `low`, which Mistral documents as the migration path since `none` is rejected with HTTP 400); Z.ai GLM 5.3 accepts `low`, `high` and `max`; other reasoning-capable Mistral models keep `none`/`high`. The parameter is also omitted on registered models that do not support reasoning.
 
 ## [2.0.0-alpha.1] - 2026-11-17
 

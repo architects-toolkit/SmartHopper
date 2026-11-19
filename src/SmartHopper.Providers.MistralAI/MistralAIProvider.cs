@@ -408,18 +408,23 @@ namespace SmartHopper.Providers.MistralAI
 
             if (!string.IsNullOrWhiteSpace(reasoningEffort))
             {
-                // Mistral only supports 'none' and 'high'. Normalize legacy values to 'high' to preserve the intent of enabling reasoning.
-                if (!string.Equals(reasoningEffort, "none", StringComparison.OrdinalIgnoreCase) &&
-                    !string.Equals(reasoningEffort, "high", StringComparison.OrdinalIgnoreCase))
+                // Forward only when the model can accept the parameter: a registered reasoning
+                // model, or an explicit per-request override on an unregistered model (escape
+                // hatch for reasoning models the registry does not know yet). Registered models
+                // known to lack reasoning never receive it — it would be rejected or ignored.
+                var modelCaps = AIModelCapabilityRegistry.Instance?.GetCapabilities(this.Name, request.Model);
+                var supportsReasoning = modelCaps?.HasCapability(AICapability.Reasoning) == true;
+                if (supportsReasoning || (hasExplicitReasoningEffort && modelCaps == null))
                 {
-                    Logger.For<MistralAIProvider>().Trace($"[MistralAIProvider] Reasoning effort '{reasoningEffort}' is not supported by Mistral; normalizing to 'high'.");
-                    reasoningEffort = "high";
-                }
+                    // Accepted values differ per model (e.g. Mistral Large 4 rejects 'none' with
+                    // HTTP 400) — normalize to the closest valid effort before sending.
+                    var normalizedEffort = NormalizeReasoningEffort(modelCaps?.Model ?? request.Model, reasoningEffort);
+                    if (!string.Equals(normalizedEffort, reasoningEffort, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Logger.For<MistralAIProvider>().Trace($"[MistralAIProvider] Reasoning effort '{reasoningEffort}' is not supported by model '{request.Model}'; normalized to '{normalizedEffort}'.");
+                        reasoningEffort = normalizedEffort;
+                    }
 
-                // Only send for models that support reasoning, or when the user explicitly requests it per-request.
-                var supportsReasoning = AIModelCapabilityRegistry.Instance?.GetCapabilities(this.Name, request.Model)?.HasCapability(AICapability.Reasoning) == true;
-                if (hasExplicitReasoningEffort || supportsReasoning)
-                {
                     requestBody["reasoning_effort"] = reasoningEffort;
                     Logger.For<MistralAIProvider>().Trace($"[MistralAIProvider] Using reasoning effort: {reasoningEffort}");
                 }
@@ -462,6 +467,52 @@ namespace SmartHopper.Providers.MistralAI
 
             // Logger.For<MistralAIProvider>().Trace($"[MistralAI] Request: {requestBody}");
             return requestBody.ToString();
+        }
+
+        /// <summary>
+        /// Normalizes a requested reasoning effort to a value the target model actually
+        /// accepts, so an invalid value is never sent on the wire. Per Mistral docs:
+        /// <c>mistral-large-4*</c> accepts only <c>low|medium|high</c> (<c>none</c> returns
+        /// HTTP 400 — the documented migration maps it to <c>low</c>, and omitting the
+        /// parameter means <c>high</c>); <c>zai-glm-5-3*</c> accepts <c>low|high|max</c>
+        /// (no <c>none</c>); all other reasoning-capable Mistral models (magistral,
+        /// mistral-small-2603, mistral-medium-2604, …) accept <c>none|high</c>.
+        /// </summary>
+        /// <param name="model">Canonical model name (aliases already resolved).</param>
+        /// <param name="effort">Requested reasoning effort.</param>
+        /// <returns>A wire-safe reasoning effort for the model.</returns>
+        private static string NormalizeReasoningEffort(string model, string effort)
+        {
+            var value = (effort ?? string.Empty).Trim().ToLowerInvariant();
+            var canonical = (model ?? string.Empty).Trim().ToLowerInvariant();
+
+            if (canonical.StartsWith("mistral-large-4", StringComparison.Ordinal))
+            {
+                return value switch
+                {
+                    "low" or "medium" or "high" => value,
+                    "none" or "minimal" => "low",
+                    _ => "high",
+                };
+            }
+
+            if (canonical.StartsWith("zai-glm-5-3", StringComparison.Ordinal))
+            {
+                return value switch
+                {
+                    "low" or "high" or "max" => value,
+                    "none" or "minimal" => "low",
+                    "medium" => "high",
+                    _ => "high",
+                };
+            }
+
+            return value switch
+            {
+                "none" or "high" => value,
+                "low" or "minimal" => "none",
+                _ => "high",
+            };
         }
 
         /// <summary>
