@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- `gh_document_open` now requires explicit user approval before opening a `.gh`/`.ghx` file that is not already open: activating a document starts its solution, so script components inside the file could run code without consent. The prompt shows the full path and warns that scripts may run; declining, cancelling or letting it time out refuses the open. The tool is also marked as canvas-mutating, so MCP servers only expose it when mutating tools are enabled (and auto-approve only with `BypassMutationsApproval`).
+- fix(tools): `gh_document_open` now requires explicit user approval before opening a `.gh`/`.ghx` file that is not already open: activating a document starts its solution, so script components inside the file could run code without consent. The prompt shows the full path and warns that scripts may run; declining, cancelling or letting it time out refuses the open. The tool is also marked as canvas-mutating, so MCP servers only expose it when mutating tools are enabled (and auto-approve only with `BypassMutationsApproval`).
 
 ### Changed
 

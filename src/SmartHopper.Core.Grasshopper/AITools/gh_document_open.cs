@@ -53,7 +53,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: OpenAsync,
                 mutatesCanvas: true,
                 tags: new[] { "document", "open", "file" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""opened"": { ""type"": ""boolean"" }, ""alreadyOpen"": { ""type"": ""boolean"" }, ""document"": { ""type"": ""object"" } } }",
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""opened"": { ""type"": ""boolean"" }, ""alreadyOpen"": { ""type"": ""boolean"" }, ""status"": { ""type"": ""string"" }, ""reason"": { ""type"": ""string"" }, ""error"": { ""type"": ""string"" }, ""summary"": { ""type"": ""string"" }, ""document"": { ""type"": [""object"", ""null""] } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: false, destructiveHint: true, openWorldHint: true),
                 surfaces: GhDocumentTools.InteractiveSurfaces,
                 activityLabel: "opening a document",
@@ -69,32 +69,57 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     throw new InvalidOperationException(error);
                 }
 
+                var lifecycle = toolCall.InvocationContext?.Lifecycle;
                 var existing = GhDocumentAccess.FindByPath(fullPath);
                 GhDocumentTools.ThrowIfDisconnectsMcp(toolCall, args, existing);
 
+                var allowLoadFromDisk = existing == null;
                 if (existing == null)
                 {
                     // Opening a file that is not already open runs its solution —
                     // including any script components — so it needs explicit consent.
+                    lifecycle?.TryTransition(ToolExecutionState.Preparing, ToolExecutionState.Reviewing);
                     var decision = await OpenDocumentConsent.RequestAsync(
                         fullPath,
                         toolCall.InvocationContext,
                         toolCall.CancellationToken).ConfigureAwait(false);
                     if (!decision.IsApproved)
                     {
+                        lifecycle?.TryReject(ToolExecutionState.Rejected);
                         return new JObject
                         {
                             ["opened"] = false,
                             ["alreadyOpen"] = false,
                             ["status"] = decision.Status.ToString(),
                             ["reason"] = decision.Reason,
+                            ["error"] = decision.Reason,
+                            ["summary"] = "open declined",
                             ["document"] = null,
                         };
                     }
                 }
 
-                var doc = GhDocumentAccess.Open(fullPath, out var alreadyOpen)
-                    ?? throw new InvalidOperationException($"Could not open '{fullPath}'. The file may be invalid or no Grasshopper canvas is available.");
+                // Record the commit so a disconnecting MCP caller sees the open as
+                // in flight instead of reporting it as never applied.
+                if (lifecycle != null)
+                {
+                    lifecycle.TryClaimCommit();
+                    lifecycle.TryTransition(ToolExecutionState.Reviewing, ToolExecutionState.Applying);
+                    lifecycle.TryTransition(ToolExecutionState.Preparing, ToolExecutionState.Applying);
+                }
+
+                // Pass consent into the open itself: when the file was already open
+                // we forbid loading from disk, so a document that closes between the
+                // check above and this call cannot be silently re-opened (and its
+                // scripts re-run) without approval.
+                var doc = GhDocumentAccess.Open(fullPath, allowLoadFromDisk, out var alreadyOpen);
+                if (doc == null)
+                {
+                    lifecycle?.TryComplete(ToolExecutionState.FailedPartial);
+                    throw new InvalidOperationException($"Could not open '{fullPath}'. The file may be invalid or no Grasshopper canvas is available.");
+                }
+
+                lifecycle?.TryComplete(ToolExecutionState.Applied);
 
                 return new JObject
                 {

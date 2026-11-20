@@ -224,15 +224,26 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// Opens a document from disk and activates it. A document already open at that path is activated instead.
         /// </summary>
         /// <param name="fullPath">Normalized absolute path to an existing .gh/.ghx file.</param>
+        /// <param name="allowLoadFromDisk">
+        /// When false, the file is never read from disk: only a document still open at
+        /// <paramref name="fullPath"/> is activated. Callers gate this on consent so a
+        /// document that closes between the consent check and this call is not silently
+        /// re-loaded (and its scripts re-run) without approval.
+        /// </param>
         /// <param name="alreadyOpen">True when the file was already open.</param>
         /// <returns>The opened document, or null when it could not be read.</returns>
-        public static GH_Document? Open(string fullPath, out bool alreadyOpen)
+        public static GH_Document? Open(string fullPath, bool allowLoadFromDisk, out bool alreadyOpen)
         {
             var existing = FindByPath(fullPath);
             alreadyOpen = existing != null;
             if (existing != null)
             {
                 return Activate(existing) ? existing : null;
+            }
+
+            if (!allowLoadFromDisk)
+            {
+                return null;
             }
 
             return CanvasAccess.RunOnUiThread(() =>
