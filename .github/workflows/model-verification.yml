@@ -41,10 +41,7 @@ on:
         required: true
 
 permissions:
-  actions: write
-  contents: write
-  pull-requests: write
-  issues: write
+  contents: read
 
 concurrency:
   group: model-verify-${{ github.event.issue.number || inputs.issue_number }}
@@ -61,10 +58,14 @@ jobs:
          startsWith(github.event.comment.body, '/verify-force')))
     runs-on: windows-latest
     timeout-minutes: 45
+    permissions:
+      contents: read   # actions/checkout
+      issues: write    # read issue/comments, update issue title
     outputs:
       should_promote: ${{ steps.tally.outputs.should_promote }}
       provider: ${{ steps.tally.outputs.provider }}
       model: ${{ steps.tally.outputs.model }}
+      model_slug: ${{ steps.tally.outputs.model_slug }}
       issue_number: ${{ steps.tally.outputs.issue_number }}
       verifiers: ${{ steps.tally.outputs.verifiers }}
       bypass_user: ${{ steps.tally.outputs.bypass_user }}
@@ -104,8 +105,10 @@ jobs:
 
             const body = issue.body || '';
 
-            // Parse Provider / Model (dropdown rendered as plain text under "### Provider / Model")
-            const providerModelMatch = body.match(/###\s*Provider \/ Model\s*\r?\n\s*([A-Za-z0-9_\-]+)\s*\/\s*([^\r\n]+?)\s*$/m);
+            // Parse Provider / Model (dropdown rendered as plain text under "### Provider / Model").
+            // Both values must stay in a strict allowlist charset: they are passed to a
+            // PowerShell script and used to build the PR branch name downstream.
+            const providerModelMatch = body.match(/###\s*Provider \/ Model\s*\r?\n\s*([A-Za-z0-9_\-]+)\s*\/\s*([A-Za-z0-9._:\/-]+)\s*$/m);
             const versionMatch = body.match(/###\s*SmartHopper Version\s*\r?\n\s*([^\r\n]+?)\s*$/m);
             if (!providerModelMatch) {
               core.warning('Could not parse provider and model from issue body.');
@@ -114,6 +117,12 @@ jobs:
             }
             const provider = providerModelMatch[1].trim();
             const model = providerModelMatch[2].trim();
+            const SAFE_VALUE = /^[A-Za-z0-9._:\/-]+$/;
+            if (!SAFE_VALUE.test(provider) || !SAFE_VALUE.test(model)) {
+              core.warning('Parsed provider/model contains unsupported characters; refusing to promote.');
+              core.setOutput('should_promote', 'false');
+              return;
+            }
             const version = versionMatch ? versionMatch[1].trim() : 'unknown';
             core.info(`Parsed provider='${provider}', model='${model}', version='${version}'`);
 
@@ -180,8 +189,12 @@ jobs:
             const list = Array.from(verifiers).sort();
             const shouldPromote = !!bypassUser || list.length >= 2;
 
+            // Git refs forbid ':', '..', '~' etc.; derive a safe slug for the PR branch name.
+            const modelSlug = model.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/-{2,}/g, '-').replace(/^-+|-+$/g, '');
+
             core.setOutput('provider', provider);
             core.setOutput('model', model);
+            core.setOutput('model_slug', modelSlug);
             core.setOutput('issue_number', String(issueNumber));
             core.setOutput('verifiers', list.join(','));
             core.setOutput('bypass_user', bypassUser);
@@ -198,14 +211,33 @@ jobs:
             ].join('\n');
             await core.summary.addRaw(summary).write();
 
+  promote:
+    needs: evaluate
+    if: needs.evaluate.outputs.should_promote == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      actions: write        # dispatch-required-pr-checks
+      contents: write       # push the chore/verify-* branch
+      pull-requests: write  # open the PR
+      issues: write         # comment + label on the issue
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
       - name: Promote model in source
         id: promote
-        if: steps.tally.outputs.should_promote == 'true'
         shell: pwsh
+        env:
+          PROVIDER: ${{ needs.evaluate.outputs.provider }}
+          MODEL: ${{ needs.evaluate.outputs.model }}
         run: |
           & .\tools\Update-ModelVerified.ps1 `
-            -Provider '${{ steps.tally.outputs.provider }}' `
-            -Model '${{ steps.tally.outputs.model }}'
+            -Provider $env:PROVIDER `
+            -Model $env:MODEL
           $code = $LASTEXITCODE
           if ($code -eq 0) {
             "changed=true"  | Out-File -Append -FilePath $env:GITHUB_OUTPUT
@@ -216,56 +248,61 @@ jobs:
           }
 
       - name: Create Pull Request
-        if: steps.tally.outputs.should_promote == 'true' && steps.promote.outputs.changed == 'true'
+        if: steps.promote.outputs.changed == 'true'
         id: create-pr
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore(models): verify ${{ steps.tally.outputs.provider }}/${{ steps.tally.outputs.model }}"
-          title: "chore(models): verify ${{ steps.tally.outputs.provider }}/${{ steps.tally.outputs.model }}"
+          commit-message: "chore(models): verify ${{ needs.evaluate.outputs.provider }}/${{ needs.evaluate.outputs.model }}"
+          title: "chore(models): verify ${{ needs.evaluate.outputs.provider }}/${{ needs.evaluate.outputs.model }}"
           body: |
-            Promotes `${{ steps.tally.outputs.provider }}/${{ steps.tally.outputs.model }}` to `Verified = true`.
+            Promotes `${{ needs.evaluate.outputs.provider }}/${{ needs.evaluate.outputs.model }}` to `Verified = true`.
 
-            Closes #${{ steps.tally.outputs.issue_number }}
+            Closes #${{ needs.evaluate.outputs.issue_number }}
 
             ### Verification trail
-            - Distinct verifiers: `${{ steps.tally.outputs.verifiers }}`
-            - Bypass: `${{ steps.tally.outputs.bypass_user }}`
+            - Distinct verifiers: `${{ needs.evaluate.outputs.verifiers }}`
+            - Bypass: `${{ needs.evaluate.outputs.bypass_user }}`
 
             Generated automatically by `.github/workflows/model-verification.yml`.
-          branch: "chore/verify-${{ steps.tally.outputs.provider }}-${{ steps.tally.outputs.model }}"
+          branch: "chore/verify-${{ needs.evaluate.outputs.provider }}-${{ needs.evaluate.outputs.model_slug }}"
           base: main
           delete-branch: true
           labels: |
             automated
 
       - name: Assign PR to Milestone
-        if: steps.tally.outputs.should_promote == 'true' && steps.promote.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        if: steps.promote.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
         uses: ./.github/actions/milestone/assign-pr
         with:
           pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Dispatch required PR checks
-        if: steps.tally.outputs.should_promote == 'true' && steps.promote.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        if: steps.promote.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
         uses: ./.github/actions/dispatch-required-pr-checks
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: chore/verify-${{ steps.tally.outputs.provider }}-${{ steps.tally.outputs.model }}
+          ref: chore/verify-${{ needs.evaluate.outputs.provider }}-${{ needs.evaluate.outputs.model_slug }}
           pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
           base-ref: main
-          pr-title: "chore(models): verify ${{ steps.tally.outputs.provider }}/${{ steps.tally.outputs.model }}"
+          pr-title: "chore(models): verify ${{ needs.evaluate.outputs.provider }}/${{ needs.evaluate.outputs.model }}"
 
       - name: Comment outcome on issue
-        if: steps.tally.outputs.should_promote == 'true'
         uses: actions/github-script@v9
+        env:
+          ISSUE_NUMBER: ${{ needs.evaluate.outputs.issue_number }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+          VERIFIERS: ${{ needs.evaluate.outputs.verifiers }}
+          BYPASS_USER: ${{ needs.evaluate.outputs.bypass_user }}
+          CHANGED: ${{ steps.promote.outputs.changed }}
         with:
           script: |
-            const issueNumber = Number('${{ steps.tally.outputs.issue_number }}');
-            const prNumber = '${{ steps.create-pr.outputs.pull-request-number }}';
-            const verifiers = '${{ steps.tally.outputs.verifiers }}';
-            const bypass = '${{ steps.tally.outputs.bypass_user }}';
-            const changed = '${{ steps.promote.outputs.changed }}' === 'true';
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const prNumber = process.env.PR_NUMBER;
+            const verifiers = process.env.VERIFIERS;
+            const bypass = process.env.BYPASS_USER;
+            const changed = process.env.CHANGED === 'true';
 
             const body = changed && prNumber
               ? `✅ Verification threshold reached.\n\n- Verifiers: \`${verifiers}\`\n- Bypass: \`${bypass || '—'}\`\n\nOpened PR #${prNumber} promoting this model to \`Verified = true\`.`

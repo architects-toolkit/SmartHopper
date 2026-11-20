@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Batch model coverage** — `SupportsBatch`/`BatchPricing` now seeded from official provider batch rate tables across all batch-capable models: Anthropic (all 14 active models at the documented 50%-off token rates), OpenAI (25 models at Batch API rates), Gemini (12 models) and MistralAI (10 models — including `mistral-large-4-0` and its `mistral-large`/`mistral-large-latest`/`mistral-large-4`/`mistral-large-4.0` aliases plus the codestral/mistral embed endpoints). Every batch-capable seed declares its `<model>:batch` alias. Tool-invocation entries (e.g. `tool:web_search`) stay at full price where the discount covers token usage only.
 - `AIMetrics.IsBatch` — new nullable flag serialized as `batch` in the metrics JSON, stamped on every batch-decoded metric through the shared `StampBatchMetrics` path; `WithCombined` keeps it only when both sides share it, so a mixed batch/sync aggregate keeps no tier claim. Absent/`false` means non-batch (including metrics serialized before the flag existed).
 
+### Security
+
+- `model-verification.yml` no longer interpolates the issue-supplied provider/model into a `run:` block: the promote step now receives them via environment variables, the tally step only accepts `[A-Za-z0-9._:/-]` characters for both values, and the workflow is split into a read-mostly `evaluate` job and a least-privilege `promote` job. This closes a script-injection path where a crafted model name could execute PowerShell with the write-scoped `GITHUB_TOKEN`.
+
 ### Changed
 
 - Live log echo to Rhino's command line now defaults to the **Error** level (was Info).
