@@ -108,7 +108,7 @@ jobs:
             // Parse Provider / Model (dropdown rendered as plain text under "### Provider / Model").
             // Both values must stay in a strict allowlist charset: they are passed to a
             // PowerShell script and used to build the PR branch name downstream.
-            const providerModelMatch = body.match(/###\s*Provider \/ Model\s*\r?\n\s*([A-Za-z0-9_\-]+)\s*\/\s*([A-Za-z0-9._:\/-]+)\s*$/m);
+            const providerModelMatch = body.match(/###\s*Provider \/ Model\s*\r?\n\s*([A-Za-z0-9_\-]+)\s*\/\s*([A-Za-z0-9._:\/~\-]+)\s*$/m);
             const versionMatch = body.match(/###\s*SmartHopper Version\s*\r?\n\s*([^\r\n]+?)\s*$/m);
             if (!providerModelMatch) {
               core.warning('Could not parse provider and model from issue body.');
@@ -117,7 +117,7 @@ jobs:
             }
             const provider = providerModelMatch[1].trim();
             const model = providerModelMatch[2].trim();
-            const SAFE_VALUE = /^[A-Za-z0-9._:\/-]+$/;
+            const SAFE_VALUE = /^[A-Za-z0-9._:\/~\-]+$/;
             if (!SAFE_VALUE.test(provider) || !SAFE_VALUE.test(model)) {
               core.warning('Parsed provider/model contains unsupported characters; refusing to promote.');
               core.setOutput('should_promote', 'false');
