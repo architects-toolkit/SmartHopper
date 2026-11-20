@@ -58,7 +58,7 @@ Get your API key from [DeepSeek Platform](https://platform.deepseek.com/):
 - **API Key**: Your DeepSeek API key (required)
 - **Model**: Select from available DeepSeek models (default resolved from registry)
 - **Enable Streaming**: Allow streaming responses (default: enabled)
-- **Max Tokens**: Maximum output tokens (default: 2000, range: 1–100000)
+- **Max Tokens**: Maximum output tokens (default: 2000, range: 0–400000 — 0 means unlimited)
 - **Temperature**: Controls randomness (default: 0.5)
 
 ### JSON Schema Support

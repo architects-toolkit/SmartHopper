@@ -360,9 +360,14 @@ namespace SmartHopper.Providers.MistralAI
             {
                 ["model"] = request.Model,
                 ["messages"] = convertedMessages,
-                ["max_tokens"] = maxTokens,
                 ["temperature"] = temperature,
             };
+
+            // 0 means unlimited: omit the cap and let the API run to the model limit
+            if (maxTokens > 0)
+            {
+                requestBody["max_tokens"] = maxTokens;
+            }
 
             // Apply optional parameters from extras only
             if (p?.Extras != null)

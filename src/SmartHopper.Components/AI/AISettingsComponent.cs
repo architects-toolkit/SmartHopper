@@ -115,7 +115,7 @@ namespace SmartHopper.Components.AI
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Model", "M", "Model name to use for the request. Leave empty to use the provider's default model.", GH_ParamAccess.item, string.Empty);
-            pManager.AddIntegerParameter("Max Tokens", "Tok", "Maximum number of tokens the model may generate. Leave disconnected to use the provider's default limit.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Max Tokens", "Tok", "Maximum number of tokens the model may generate. Set to 0 for unlimited. Leave disconnected to use the provider's default limit.", GH_ParamAccess.item);
             pManager.AddNumberParameter("Temperature", "T", "Sampling temperature controlling randomness (lower = more deterministic, higher = more creative). Leave disconnected to use the provider's default.", GH_ParamAccess.item);
             pManager.AddBooleanParameter("Batch", "B", "When true, queues all AI calls from a single component run into one asynchronous batch request (lower cost on providers that support batching).", GH_ParamAccess.item, false);
             pManager.AddIntegerParameter("Timeout", "Tout", "Request timeout in seconds. Leave disconnected to use the global timeout from SmartHopper settings.", GH_ParamAccess.item);
@@ -192,7 +192,7 @@ namespace SmartHopper.Components.AI
                 }
 
                 int maxTokens = 0;
-                if (DA.GetData("Max Tokens", ref maxTokens) && maxTokens > 0)
+                if (DA.GetData("Max Tokens", ref maxTokens) && maxTokens >= 0)
                 {
                     builder.WithMaxTokens(maxTokens);
                 }

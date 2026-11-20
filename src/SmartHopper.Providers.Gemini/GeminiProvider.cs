@@ -469,9 +469,11 @@ namespace SmartHopper.Providers.Gemini
 
             var generationConfig = new JObject();
 
-            if (request.Parameters?.MaxTokens > 0)
+            // 0 means unlimited: omit the cap and let the API run to the model limit
+            int maxTokens = request.Parameters?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
+            if (maxTokens > 0)
             {
-                generationConfig["maxOutputTokens"] = request.Parameters.MaxTokens;
+                generationConfig["maxOutputTokens"] = maxTokens;
             }
 
             var temperature = request.Parameters?.Temperature;

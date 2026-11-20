@@ -57,7 +57,7 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.Anthropic
             ProviderSdkHost.ProviderRegistry = this.previousRegistry;
         }
 
-        private static AIRequestCall BuildRequest(string model, IReadOnlyDictionary<string, JToken> extras = null)
+        private static AIRequestCall BuildRequest(string model, IReadOnlyDictionary<string, JToken> extras = null, int? maxTokens = null)
         {
             var body = AIBodyBuilder.Create()
                 .Add(new AIInteractionText { Agent = AIAgent.User, Content = "Hello." })
@@ -69,7 +69,7 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.Anthropic
                 Model = model,
                 Body = body,
                 Capability = AICapability.Text2Text,
-                Parameters = new AIRequestParameters { Extras = extras },
+                Parameters = new AIRequestParameters { Extras = extras, MaxTokens = maxTokens },
             };
         }
 
@@ -373,6 +373,21 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.Anthropic
             Assert.Equal("sig-xyz", blocks[0]?["signature"]?.ToString());
             Assert.Equal("redacted_thinking", blocks[1]?["type"]?.ToString());
             Assert.Equal("text", blocks[2]?["type"]?.ToString());
+        }
+
+        /// <summary>
+        /// Anthropic's API requires max_tokens, so a request-level MaxTokens of 0
+        /// (unlimited elsewhere) degrades to the configured provider setting
+        /// instead of emitting a literal 0.
+        /// </summary>
+        [Fact]
+        public void Encode_RequestMaxTokensZero_FallsBackToConfiguredSetting()
+        {
+            RefreshSettings();
+
+            var requestObj = JObject.Parse(AnthropicProvider.Instance.Encode(BuildRequest("claude-sonnet-4-6", maxTokens: 0)));
+
+            Assert.Equal(1024, requestObj["max_tokens"]?.Value<int>());
         }
     }
 }

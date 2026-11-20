@@ -80,11 +80,11 @@ namespace SmartHopper.Providers.MistralAI
                     Type = typeof(int),
                     DefaultValue = 2000,
                     DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate",
+                    Description = "Maximum number of tokens to generate. Set to 0 for unlimited.",
                     ControlParams = new NumericSettingDescriptorControl
                     {
                         UseSlider = false,
-                        Min = 1,
+                        Min = 0,
                         Max = 100000,
                         Step = 1,
                     },
@@ -144,7 +144,7 @@ namespace SmartHopper.Providers.MistralAI
                 // Skip model validation since any value is valid
             }
 
-            if (!this.ValidateMaxTokens(settings, showErrorDialogs, "Max tokens must be a positive number."))
+            if (!this.ValidateMaxTokens(settings, showErrorDialogs, "Max tokens must be 0 or greater."))
             {
                 return false;
             }

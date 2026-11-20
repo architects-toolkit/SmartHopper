@@ -195,9 +195,14 @@ namespace SmartHopper.Providers.LocalAI
             {
                 ["model"] = request.Model,
                 ["messages"] = convertedMessages,
-                ["max_tokens"] = maxTokens,
                 ["temperature"] = temperature,
             };
+
+            // 0 means unlimited: omit the cap and let the API run to the model limit
+            if (maxTokens > 0)
+            {
+                requestBody["max_tokens"] = maxTokens;
+            }
 
             // Typed request parameters take precedence, then extras (same precedence
             // chain as the other OpenAI-compatible providers).

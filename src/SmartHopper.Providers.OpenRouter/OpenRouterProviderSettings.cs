@@ -80,11 +80,11 @@ namespace SmartHopper.Providers.OpenRouter
                     Type = typeof(int),
                     DefaultValue = 2000,
                     DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate",
+                    Description = "Maximum number of tokens to generate. Set to 0 for unlimited.",
                     ControlParams = new NumericSettingDescriptorControl
                     {
                         UseSlider = false,
-                        Min = 1,
+                        Min = 0,
                         Max = 100000,
                         Step = 1,
                     },

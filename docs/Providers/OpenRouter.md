@@ -59,7 +59,7 @@ Get your API key from [OpenRouter](https://openrouter.ai/):
 | **API Key** | Your OpenRouter API key (required) | â€” |
 | **Model** | Select from available models (resolved from registry) | Default from registry |
 | **Enable Streaming** | Allow streaming responses | Enabled |
-| **Max Tokens** | Maximum output tokens | 2000 (range: 1â€“100000) |
+| **Max Tokens** | Maximum output tokens | 2000 (range: 0â€“100000, 0 = unlimited) |
 | **Temperature** | Controls randomness | 0.5 (range: 0.0â€“2.0) |
 | **Allow Fallbacks** | Allow fallback to compatible models if preferred is unavailable | true |
 | **Sort Strategy** | Provider selection sort â€” `price`, `throughput`, or `latency` | price |

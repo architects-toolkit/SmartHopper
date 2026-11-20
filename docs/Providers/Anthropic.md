@@ -60,7 +60,7 @@ Get your API key from [Anthropic Console](https://console.anthropic.com/):
 - **API Key**: Your Anthropic API key (required)
 - **Model**: Select from available Claude models (default resolved from registry)
 - **Enable Streaming**: Allow streaming responses (default: enabled)
-- **Max Tokens**: Maximum output tokens (default: 2000, range: 1–100000)
+- **Max Tokens**: Maximum output tokens (default: 2000, range: 1–100000 — the API requires a value, so 0 is not allowed)
 - **Temperature**: Controls randomness (0.0–2.0, default: 0.5)
 
 ### JSON Schema Support

@@ -384,10 +384,15 @@ namespace SmartHopper.Providers.DeepSeek
             {
                 ["model"] = request.Model,
                 ["messages"] = convertedMessages,
-                ["max_tokens"] = maxTokens,
                 ["temperature"] = temperature,
                 ["top_p"] = topP,
             };
+
+            // 0 means unlimited: omit the cap and let the API run to the model limit
+            if (maxTokens > 0)
+            {
+                requestBody["max_tokens"] = maxTokens;
+            }
 
             // Add thinking/reasoning controls for models that support thinking mode
             bool isThinkingModel = request.Model?.Contains("v4", StringComparison.OrdinalIgnoreCase) == true

@@ -105,14 +105,17 @@ namespace SmartHopper.ProviderSdk.AIProviders
         }
 
         /// <summary>
-        /// Validates that the "MaxTokens" setting, if present, is a positive integer.
-        /// Unparseable or non-positive values are reported as errors.
+        /// Validates that the "MaxTokens" setting, if present, is a non-negative integer.
+        /// Zero means unlimited (the provider omits the token cap). Unparseable or negative
+        /// values are reported as errors. Providers whose API requires the cap (Anthropic)
+        /// pass <paramref name="allowZero"/> as <see langword="false"/>.
         /// </summary>
         /// <param name="settings">The settings to validate.</param>
         /// <param name="reportError">If true, reports a validation error when invalid.</param>
-        /// <param name="errorMessage">The error message to report.</param>
+        /// <param name="errorMessage">The error message to report. Defaults to a message matching <paramref name="allowZero"/>.</param>
+        /// <param name="allowZero">If true, 0 is accepted as unlimited; if false, a positive value is required.</param>
         /// <returns>True if the setting is absent or valid; false if it is present and invalid.</returns>
-        protected bool ValidateMaxTokens(Dictionary<string, object> settings, bool reportError, string errorMessage = "Max Tokens must be greater than 0.")
+        protected bool ValidateMaxTokens(Dictionary<string, object> settings, bool reportError, string errorMessage = null, bool allowZero = true)
         {
             if (settings == null)
             {
@@ -121,11 +124,11 @@ namespace SmartHopper.ProviderSdk.AIProviders
 
             if (settings.TryGetValue("MaxTokens", out var maxTokensObj) && maxTokensObj != null)
             {
-                if (!int.TryParse(maxTokensObj.ToString(), out var maxTokens) || maxTokens <= 0)
+                if (!int.TryParse(maxTokensObj.ToString(), out var maxTokens) || maxTokens < 0 || (maxTokens == 0 && !allowZero))
                 {
                     if (reportError)
                     {
-                        this.ReportSettingsValidationError(errorMessage);
+                        this.ReportSettingsValidationError(errorMessage ?? (allowZero ? "Max Tokens must be 0 or greater." : "Max Tokens must be greater than 0."));
                     }
 
                     return false;

@@ -61,7 +61,7 @@ Get your API key from [OpenAI Platform](https://platform.openai.com/):
 - **API Key**: Your OpenAI API key (required)
 - **Model**: Select from available OpenAI models (default resolved from registry)
 - **Enable Streaming**: Allow streaming responses (default: enabled)
-- **Max Tokens**: Maximum output tokens (default: 2000, range: 1–100000)
+- **Max Tokens**: Maximum output tokens (default: 2000, range: 0–100000 — 0 means unlimited)
 - **Temperature**: Controls randomness (0.0–2.0, default: 0.5)
 
 ### JSON Schema Support

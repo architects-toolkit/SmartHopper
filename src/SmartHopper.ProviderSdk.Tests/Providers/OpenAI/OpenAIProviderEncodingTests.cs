@@ -84,12 +84,12 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.OpenAI
                 ["top_logprobs"] = new JValue(3),
             };
 
-        private static void RefreshSettings()
+        private static void RefreshSettings(int maxTokens = 1024)
         {
             OpenAIProvider.Instance.RefreshCachedSettings(new Dictionary<string, object>
             {
                 { "ApiKey", "test-key" },
-                { "MaxTokens", 1024 },
+                { "MaxTokens", maxTokens },
                 { "Temperature", 0.7 },
                 { "ReasoningEffort", "medium" },
             });
@@ -238,6 +238,39 @@ namespace SmartHopper.ProviderSdk.Tests.Providers.OpenAI
             Assert.Equal(0.5, requestObj["frequency_penalty"]?.Value<double>());
             Assert.Equal(true, requestObj["logprobs"]?.Value<bool>());
             Assert.Equal(3, requestObj["top_logprobs"]?.Value<int>());
+        }
+
+        /// <summary>
+        /// A MaxTokens setting of 0 means unlimited: Chat Completions omits the cap
+        /// entirely (neither max_tokens nor max_completion_tokens is sent).
+        /// </summary>
+        [Theory]
+        [InlineData("gpt-4o")]
+        [InlineData("o3")]
+        public void Encode_ChatCompletions_MaxTokensZero_OmitsTokenCap(string model)
+        {
+            RefreshSettings(maxTokens: 0);
+
+            var request = BuildRequest(model, "/chat/completions", null);
+            var requestObj = JObject.Parse(OpenAIProvider.Instance.Encode(request));
+
+            Assert.Null(requestObj["max_tokens"]);
+            Assert.Null(requestObj["max_completion_tokens"]);
+        }
+
+        /// <summary>
+        /// A MaxTokens setting of 0 means unlimited on the Responses API too:
+        /// max_output_tokens is omitted.
+        /// </summary>
+        [Fact]
+        public void Encode_ResponsesApi_MaxTokensZero_OmitsMaxOutputTokens()
+        {
+            RefreshSettings(maxTokens: 0);
+
+            var request = BuildRequest("gpt-4o", "/responses", null);
+            var requestObj = JObject.Parse(OpenAIProvider.Instance.Encode(request));
+
+            Assert.Null(requestObj["max_output_tokens"]);
         }
     }
 }

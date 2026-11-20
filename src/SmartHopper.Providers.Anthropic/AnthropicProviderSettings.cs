@@ -76,7 +76,7 @@ namespace SmartHopper.Providers.Anthropic
                     Type = typeof(int),
                     DefaultValue = 2000,
                     DisplayName = "Max Tokens",
-                    Description = "Maximum number of tokens to generate",
+                    Description = "Maximum number of tokens to generate. Required by the API — 0 is not allowed.",
                     ControlParams = new NumericSettingDescriptorControl
                     {
                         UseSlider = false,
@@ -138,7 +138,7 @@ namespace SmartHopper.Providers.Anthropic
                 model = modelObj.ToString();
             }
 
-            if (!this.ValidateMaxTokens(settings, showErrorDialogs))
+            if (!this.ValidateMaxTokens(settings, showErrorDialogs, allowZero: false))
             {
                 return false;
             }

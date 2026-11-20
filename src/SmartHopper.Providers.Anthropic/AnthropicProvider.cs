@@ -503,7 +503,14 @@ namespace SmartHopper.Providers.Anthropic
 
             var p = request.Parameters;
 
-            int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
+            // Anthropic requires max_tokens — a 0 (unlimited) request falls back to the
+            // configured setting; the guard keeps unvalidated injected settings sane.
+            int maxTokens = p?.MaxTokens > 0 ? p.MaxTokens.Value : this.GetSetting<int>("MaxTokens");
+            if (maxTokens <= 0)
+            {
+                maxTokens = 2000;
+            }
+
             double temperature = p?.Temperature ?? this.GetSetting<double>("Temperature");
             if (double.IsNaN(temperature) || temperature <= 0) temperature = 0.5;
 

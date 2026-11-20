@@ -751,11 +751,19 @@ namespace SmartHopper.Providers.OpenAI
             if (isReasoningFamily)
             {
                 requestBody["reasoning_effort"] = reasoningEffort;
-                requestBody["max_completion_tokens"] = maxTokens;
+                if (maxTokens > 0)
+                {
+                    requestBody["max_completion_tokens"] = maxTokens;
+                }
             }
             else
             {
-                requestBody["max_tokens"] = maxTokens;
+                // 0 means unlimited: omit the cap and let the API run to the model limit
+                if (maxTokens > 0)
+                {
+                    requestBody["max_tokens"] = maxTokens;
+                }
+
                 requestBody["temperature"] = temperature;
             }
 
@@ -872,8 +880,13 @@ namespace SmartHopper.Providers.OpenAI
             {
                 ["model"] = request.Model,
                 ["input"] = input,
-                ["max_output_tokens"] = maxTokens,
             };
+
+            // 0 means unlimited: omit the cap and let the API run to the model limit
+            if (maxTokens > 0)
+            {
+                requestBody["max_output_tokens"] = maxTokens;
+            }
 
             // Reasoning configuration is only supported by o-series and GPT-5 models on the Responses API.
             // Sending "reasoning" to other models (e.g. gpt-4o-mini) produces an unsupported_parameter error.

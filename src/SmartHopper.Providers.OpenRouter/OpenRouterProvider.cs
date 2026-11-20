@@ -227,10 +227,15 @@ namespace SmartHopper.Providers.OpenRouter
             {
                 ["model"] = request.Model,
                 ["messages"] = messages,
-                ["max_tokens"] = maxTokens,
                 ["temperature"] = temperature,
                 ["provider"] = providerPrefs,
             };
+
+            // 0 means unlimited: omit the cap and let the API run to the model limit
+            if (maxTokens > 0)
+            {
+                body["max_tokens"] = maxTokens;
+            }
 
             // Unified reasoning control across heterogeneous backends:
             //   reasoning_effort      -> reasoning.effort (low|medium|high)
