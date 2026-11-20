@@ -40,7 +40,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: "gh_document_open",
-                description: "Open a Grasshopper document (.gh or .ghx) from an absolute file path and make it the active document. If the file is already open, it is activated instead of opened twice." + GhDocumentTools.McpDisconnectNote,
+                description: "Open a Grasshopper document (.gh or .ghx) from an absolute file path and make it the active document. If the file is already open, it is activated instead of opened twice. Opening a file that is not already open asks the user for approval first, because the file's script components run code on this machine when its solution starts." + GhDocumentTools.McpDisconnectNote,
                 category: "Canvas.Documents",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -51,10 +51,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""filePath""]
                 }",
                 execute: OpenAsync,
-                mutatesCanvas: false,
+                mutatesCanvas: true,
                 tags: new[] { "document", "open", "file" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""alreadyOpen"": { ""type"": ""boolean"" }, ""document"": { ""type"": ""object"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: false, openWorldHint: true),
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""opened"": { ""type"": ""boolean"" }, ""alreadyOpen"": { ""type"": ""boolean"" }, ""document"": { ""type"": ""object"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: false, destructiveHint: true, openWorldHint: true),
                 surfaces: GhDocumentTools.InteractiveSurfaces,
                 activityLabel: "opening a document",
                 resultLabel: "opened a document");
@@ -62,19 +62,43 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
         private static Task<AIReturn> OpenAsync(AIToolCall toolCall)
         {
-            return GhDocumentTools.Run(toolCall, args =>
+            return GhDocumentTools.RunAsync(toolCall, async args =>
             {
                 if (!GrasshopperFilePath.TryNormalize(args["filePath"]?.ToString(), mustExist: true, out var fullPath, out var error))
                 {
                     throw new InvalidOperationException(error);
                 }
 
-                GhDocumentTools.ThrowIfDisconnectsMcp(toolCall, args, GhDocumentAccess.FindByPath(fullPath));
+                var existing = GhDocumentAccess.FindByPath(fullPath);
+                GhDocumentTools.ThrowIfDisconnectsMcp(toolCall, args, existing);
+
+                if (existing == null)
+                {
+                    // Opening a file that is not already open runs its solution —
+                    // including any script components — so it needs explicit consent.
+                    var decision = await OpenDocumentConsent.RequestAsync(
+                        fullPath,
+                        toolCall.InvocationContext,
+                        toolCall.CancellationToken).ConfigureAwait(false);
+                    if (!decision.IsApproved)
+                    {
+                        return new JObject
+                        {
+                            ["opened"] = false,
+                            ["alreadyOpen"] = false,
+                            ["status"] = decision.Status.ToString(),
+                            ["reason"] = decision.Reason,
+                            ["document"] = null,
+                        };
+                    }
+                }
+
                 var doc = GhDocumentAccess.Open(fullPath, out var alreadyOpen)
                     ?? throw new InvalidOperationException($"Could not open '{fullPath}'. The file may be invalid or no Grasshopper canvas is available.");
 
                 return new JObject
                 {
+                    ["opened"] = true,
                     ["alreadyOpen"] = alreadyOpen,
                     ["document"] = GhDocumentAccess.Describe(doc, doc),
                 };

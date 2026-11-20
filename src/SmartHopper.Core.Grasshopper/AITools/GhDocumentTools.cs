@@ -86,6 +86,34 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
+        /// Executes an asynchronous <paramref name="action"/> and wraps the JSON result or the error in an AIReturn.
+        /// </summary>
+        /// <param name="toolCall">The tool call.</param>
+        /// <param name="action">Builds the tool result from the call arguments.</param>
+        /// <returns>The tool result.</returns>
+        public static async Task<AIReturn> RunAsync(AIToolCall toolCall, Func<JObject, Task<JObject>> action)
+        {
+            var output = new AIReturn { Request = toolCall };
+
+            try
+            {
+                toolCall.SkipMetricsValidation = true;
+                var args = toolCall.GetToolCall().GetArgumentsOrEmpty();
+                var result = await action(args).ConfigureAwait(false);
+                var body = AIBodyBuilder.Create()
+                    .AddToolResult(result)
+                    .Build();
+                output.CreateSuccess(body, toolCall);
+            }
+            catch (Exception ex)
+            {
+                output.CreateError(ex is InvalidOperationException ? ex.Message : $"Error: {ex.Message}");
+            }
+
+            return output;
+        }
+
+        /// <summary>
         /// Finds an open document by <paramref name="documentId"/> or throws a model-facing error.
         /// </summary>
         /// <param name="documentId">The document id.</param>
