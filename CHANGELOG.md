@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- `model-verification.yml` no longer interpolates the issue-supplied provider/model into a `run:` block: the promote step now receives them via environment variables, the tally step only accepts `[A-Za-z0-9._:/-]` characters for both values, and the workflow is split into a read-mostly `evaluate` job and a least-privilege `promote` job. This closes a script-injection path where a crafted model name could execute PowerShell with the write-scoped `GITHUB_TOKEN`.
+
 ### Changed
 
 - Live log echo to Rhino's command line now defaults to the **Error** level (was Info).
