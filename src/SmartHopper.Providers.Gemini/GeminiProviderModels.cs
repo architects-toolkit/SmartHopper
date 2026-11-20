@@ -609,23 +609,6 @@ namespace SmartHopper.Providers.Gemini
                     Rank = 9915,
                     ContextLimit = 262144,
                     Created = new DateTime(2026, 4, 2),
-                    Pricing = new AIModelPricing
-                    {
-                        Entries =
-                        {
-                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000002m),
-                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000004m),
-                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
-                        },
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Entries =
-                        {
-                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000039m),
-                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000097m),
-                        },
-                    },
                     Aliases = new List<string> { "gemma-4-31b-it:batch" },
                 },
 

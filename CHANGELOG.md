@@ -14,12 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Batch model coverage** — `SupportsBatch`/`BatchPricing` now seeded from official provider batch rate tables across all batch-capable models: Anthropic (all 14 active models at the documented 50%-off token rates), OpenAI (25 models at Batch API rates), Gemini (12 models) and MistralAI (10 models — including `mistral-large-4-0` and its `mistral-large`/`mistral-large-latest`/`mistral-large-4`/`mistral-large-4.0` aliases plus the codestral/mistral embed endpoints). Every batch-capable seed declares its `<model>:batch` alias. Tool-invocation entries (e.g. `tool:web_search`) stay at full price where the discount covers token usage only.
+- `AIMetrics.IsBatch` — new nullable flag serialized as `batch` in the metrics JSON, stamped on every batch-decoded metric through the shared `StampBatchMetrics` path; `WithCombined` keeps it only when both sides share it, so a mixed batch/sync aggregate keeps no tier claim. Absent/`false` means non-batch (including metrics serialized before the flag existed).
+
 ### Changed
 
 - Live log echo to Rhino's command line now defaults to the **Error** level (was Info).
 - Provider integrity check now defaults to **Hard** mode (was Soft) — blocks altered and unknown providers while remaining permissive when hash servers are offline.
 - Mistral provider `reasoning_effort` is now normalized per model instead of globally to `none`/`high`: Mistral Large 4 accepts `low`, `medium` and `high` (a legacy `none` is mapped to `low`, which Mistral documents as the migration path since `none` is rejected with HTTP 400); Z.ai GLM 5.3 accepts `low`, `high` and `max`; other reasoning-capable Mistral models keep `none`/`high`. The parameter is also omitted on registered models that do not support reasoning.
 - The provider **Max Tokens** setting now accepts `0` to mean *unlimited* — the numeric field's minimum is 0 and its description explains the value. When unlimited, providers omit the token cap from the request body (`max_tokens`/`max_completion_tokens`/`max_output_tokens`/`maxOutputTokens`) so the API can generate up to the model limit. Anthropic remains ≥1 because its Messages API requires `max_tokens`; a request-level `0` there degrades to the configured setting instead of emitting a literal `0`. The same convention applies per-request: wiring `0` into the **AI Settings** component's `Max Tokens` input now requests unlimited (previously treated as "use provider default"; leaving the input disconnected still does). Gemini's provider setting is also wired into request encoding for the first time — it previously read only the per-request parameter, so a configured value was ignored.
+- Cost estimation now strictly separates pricing tiers: `AICostCalculator` prices batch-flagged metrics (`AIMetrics.IsBatch`) exclusively off `AIModelCapabilities.BatchPricing` and every other call exclusively off `Pricing` — the two tiers never mix, and a batch call on a model without published batch rates yields an empty estimate instead of silently billing regular prices. Previously `BatchPricing` was parsed but never consumed, so every batch call was estimated at standard rates (~2× the real discounted rate on Anthropic/OpenAI/Gemini/Mistral batch APIs).
 
 ### Fixed
 
@@ -28,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Batch item errors whose `response.body` arrives as a JSON-encoded string (Mistral's error output, e.g. `{"object":"error","message":…}`) now surface the provider's actual error message instead of a bare `HTTP NNN`; non-JSON string bodies are surfaced as their raw text. Fixed in the shared `AIBatchResultParser` and in the MistralAI and OpenAI batch parsers.
 - The MistralAI seed table now resolves `mistral-large` and `mistral-large-latest` to `mistral-large-4-0` instead of `mistral-large-2512`, matching the rolling aliases' current upstream target (Mistral Large 4); the 2512 snapshot keeps `mistral-large-veteran-2512` and `mistral-large-2512:batch`.
 - `SmartHopper.Providers.Test` no longer leaks into generated docs: the DEV.md provider-table and model-verification-template generators now skip the test-harness project explicitly, and both CI trigger path filters exclude `src/SmartHopper.Providers.Test/**` so test-only pushes no longer run the doc-regeneration workflows.
+- Seed pricing corrected against official rate tables: `mistral-large-4-0` moved to the current Mistral rates ($0.70 input / $0.07 cached / $2.10 output per M tokens, batch at the documented 50% — the seed carried a stale intermediate list price), `gpt-5-codex` standard pricing corrected to $1.25/$10/$0.125 (it carried the batch rate as its regular price), `gemma-4-31b-it` pricing removed entirely (free of charge on the Gemini API — the values were OpenRouter-imported), `mistral-medium-2604` gained its `cache_read` rate, and `codestral-embed`/`mistral-embed-2312`/`zai-glm-5-3`/`zai-glm-5-3-flash` gained their missing regular pricing.
+- Fabricated batch metadata removed where no official batch API exists: the deprecated DeepSeek entries (`deepseek-v4-flash-vision-exp`, `deepseek-v4.1-flash` — DeepSeek offers off-peak discounts, not a batch API) and `gpt-3.5-turbo-16k` (no Batch API variant; the distinct legacy SKU is not covered by `gpt-3.5-turbo`'s batch eligibility).
 
 ## [2.0.0-alpha.1] - 2026-11-17
 

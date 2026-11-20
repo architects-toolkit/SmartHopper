@@ -71,7 +71,7 @@ _Note: This documentation was written by AI on its own. It may contain some mist
   `bool?` (nullable). When `true`, the model can be used with the provider's batch API for discounted, asynchronous multi-item processing. When `false` or `null`, batch requests are blocked with a runtime diagnostic.
 
 - **BatchPricing**
-  Optional `AIModelPricing` with discounted entries used when the model is executed through a batch provider. Same entries-first shape as `Pricing`.
+  Optional `AIModelPricing` with discounted entries used when the model is executed through a batch provider. Same entries-first shape as `Pricing`. `AICostCalculator` selects it exclusively when `AIMetrics.IsBatch` is set (all other calls read `Pricing`); the two tiers never mix — batch metrics on a model without `BatchPricing` estimate empty rather than billing regular rates. Tool-invocation entries (e.g. `tool:web_search`) stay at full price when the provider's batch discount covers token usage only.
 
 - **Pricing**
   `AIModelPricing`: a `Currency` (ISO-4217), an optional `Discount` factor, and an `Entries` list of `AIPriceEntry` (`kind` + `unit` + per-unit `Amount`). Kind vocabulary is shared with `AIMetrics.Quantities` (`text_input`, `cache_read`, `audio_input`, `tool:web_search`, …); units are explicit (`token`, `second`, `minute`, `character`, `item`, `invocation`, …). Flat init-settable accessors (`TextInput`, `CacheRead`, `WebSearch`, …) append token/invocation-priced entries for terse seed code; ambiguous modalities should declare entries explicitly with the real billed unit.

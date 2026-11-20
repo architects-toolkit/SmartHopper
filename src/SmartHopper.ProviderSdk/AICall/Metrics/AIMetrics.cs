@@ -93,6 +93,17 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
         public string ExecutionId { get; init; }
 
         /// <summary>
+        /// Whether the call ran through the provider's asynchronous batch API.
+        /// <see cref="AICostCalculator"/> prices batch metrics exclusively from
+        /// <see cref="AIModelCapabilities.BatchPricing"/> and everything else
+        /// from <see cref="AIModelCapabilities.Pricing"/> — the two are never
+        /// mixed. Null/absent means non-batch (or unknown, for metrics
+        /// serialized before the flag existed) — treated as regular pricing.
+        /// </summary>
+        [JsonProperty("batch", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? IsBatch { get; init; }
+
+        /// <summary>
         /// Gets or sets the provider used for the AI call.
         /// </summary>
         public string Provider { get; init; }
@@ -160,6 +171,7 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
             this.CompletionTime = original.CompletionTime;
             this.CompletedAt = original.CompletedAt;
             this.ExecutionId = original.ExecutionId;
+            this.IsBatch = original.IsBatch;
             this.Provider = original.Provider;
             this.Model = original.Model;
             this._quantities = original._quantities != null
@@ -479,6 +491,10 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
                 CompletionTime = this.CompletionTime + other.CompletionTime,
                 CompletedAt = MaxCompletedAt(this.CompletedAt, other.CompletedAt),
                 ExecutionId = null,
+
+                // Combined entries keep the batch flag only when both sides
+                // agree — a mixed batch/sync sum has no single pricing tier.
+                IsBatch = this.IsBatch == other.IsBatch ? this.IsBatch : null,
                 LastEffectiveTotalTokens = otherLast > 0 ? otherLast : this.LastEffectiveTotalTokens,
                 DataCount = dataCount,
                 IterationsCount = iterationsCount,

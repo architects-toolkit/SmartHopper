@@ -63,6 +63,7 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json | AICapability.Image2Text,
                     SupportsStreaming = true,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 10000,
                     ContextLimit = 1048576,
@@ -76,7 +77,16 @@ namespace SmartHopper.Providers.MistralAI
                             new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000007m),
                         },
                     },
-                    Aliases = new List<string> { "mistral-large", "mistral-large-latest", "mistral-large-4", "mistral-large-4.0" },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000035m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000105m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000035m),
+                        },
+                    },
+                    Aliases = new List<string> { "mistral-large", "mistral-large-latest", "mistral-large-4", "mistral-large-4.0", "mistral-large-4-0:batch" },
                 },
 
 
@@ -123,6 +133,7 @@ namespace SmartHopper.Providers.MistralAI
                     Model = "mistral-medium-2604",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9990,
                     ContextLimit = 262144,
@@ -133,9 +144,19 @@ namespace SmartHopper.Providers.MistralAI
                         {
                             new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
                             new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
                         },
                     },
-                    Aliases = new List<string> { "mistral-medium-3-5-0", "mistral-medium", "mistral-medium-3-5", "mistral-medium-3.5", "mistral-medium-3", "mistral-vibe-cli-latest", "mistral-vibe-cli-with-tools", "magistral-medium-latest", "mistral-medium-latest" },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000375m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                        },
+                    },
+                    Aliases = new List<string> { "mistral-medium-3-5-0", "mistral-medium", "mistral-medium-3-5", "mistral-medium-3.5", "mistral-medium-3", "mistral-vibe-cli-latest", "mistral-vibe-cli-with-tools", "magistral-medium-latest", "mistral-medium-latest", "mistral-medium-2604:batch" },
                 },
 
 
@@ -148,6 +169,7 @@ namespace SmartHopper.Providers.MistralAI
                     Model = "ministral-3b-2512",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = false,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9985,
                     ContextLimit = 131072,
@@ -161,7 +183,16 @@ namespace SmartHopper.Providers.MistralAI
                             new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
                         },
                     },
-                    Aliases = new List<string> { "ministral-3b-latest" },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000005m),
+                        },
+                    },
+                    Aliases = new List<string> { "ministral-3b-latest", "ministral-3b-2512:batch" },
                 },
 
                 new AIModelCapabilities
@@ -202,6 +233,7 @@ namespace SmartHopper.Providers.MistralAI
                     Model = "ministral-14b-2512",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = false,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9975,
                     ContextLimit = 262144,
@@ -215,7 +247,16 @@ namespace SmartHopper.Providers.MistralAI
                             new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
                         },
                     },
-                    Aliases = new List<string> { "ministral-14b-latest" },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                        },
+                    },
+                    Aliases = new List<string> { "ministral-14b-latest", "ministral-14b-2512:batch" },
                 },
 
                 new AIModelCapabilities
@@ -297,9 +338,26 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.EmbedOutput,
                     Default = AICapability.EmbedOutput,
                     SupportsStreaming = false,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9960,
-                    Aliases = new List<string> { "codestral-embed" },
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000075m),
+                        },
+                    },
+                    Aliases = new List<string> { "codestral-embed", "codestral-embed-2505:batch" },
                 },
 
                 new AIModelCapabilities
@@ -318,9 +376,10 @@ namespace SmartHopper.Providers.MistralAI
                     Model = "labs-leanstral-1-5-1",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9950,
-                    Aliases = new List<string> { "labs-leanstral-1-5" },
+                    Aliases = new List<string> { "labs-leanstral-1-5", "labs-leanstral-1-5-1:batch" },
                 },
 
                 new AIModelCapabilities
@@ -330,9 +389,26 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.EmbedOutput,
                     Default = AICapability.EmbedOutput,
                     SupportsStreaming = false,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9945,
-                    Aliases = new List<string> { "mistral-embed" },
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000001m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000005m),
+                        },
+                    },
+                    Aliases = new List<string> { "mistral-embed", "mistral-embed-2312:batch" },
                 },
 
                 new AIModelCapabilities
@@ -376,9 +452,10 @@ namespace SmartHopper.Providers.MistralAI
                     Model = "zai-glm-5-2",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9925,
-                    Aliases = new List<string> { "glm-5-2" },
+                    Aliases = new List<string> { "glm-5-2", "zai-glm-5-2:batch" },
                 },
 
                 new AIModelCapabilities
@@ -387,9 +464,28 @@ namespace SmartHopper.Providers.MistralAI
                     Model = "zai-glm-5-3",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9920,
-                    Aliases = new List<string> { "zai-glm-5", "zai-glm-latest" },
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000014m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000044m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000014m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000007m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000022m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000007m),
+                        },
+                    },
+                    Aliases = new List<string> { "zai-glm-5", "zai-glm-latest", "zai-glm-5-3:batch" },
                 },
 
                 new AIModelCapabilities
@@ -398,8 +494,28 @@ namespace SmartHopper.Providers.MistralAI
                     Model = "zai-glm-5-3-flash",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9915,
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000003m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000025m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000015m),
+                        },
+                    },
+                    Aliases = new List<string> { "zai-glm-5-3-flash:batch" },
                 },
 
 

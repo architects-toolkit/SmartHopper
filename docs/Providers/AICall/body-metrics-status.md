@@ -48,13 +48,14 @@ This page documents the core data types that carry conversation state, performan
 ### AIMetrics
 
 - File: `AIMetrics.cs`
-- Fields: `Provider`, `Model`, `CompletionTime`, `FinishReason`, `Quantities`, `EstimatedCosts`, `ReportedCosts`
+- Fields: `Provider`, `Model`, `IsBatch` (`batch` in JSON), `CompletionTime`, `FinishReason`, `Quantities`, `EstimatedCosts`, `ReportedCosts`
 - `Quantities` is the measured-usage dictionary (`"<kind>/<measured-unit>" → value`, vocabulary in `AIQuantityKey`): `text_input/token`, `cache_read/token`, `audio_input/second`, `tool:web_search/invocation`, `estimated_text_input/token`, … Decoders record what the provider reported, un-normalized; conversion to billed units happens in `AICostCalculator`. Convenience accessors (`InputTokens`, `OutputTokens`, `EstimatedInputTokens`, …) read the token keys.
-- `EstimatedCosts` (currency → amount) is computed lazily by `AICostCalculator`: it joins each `AIPriceEntry` (`kind` + explicit `unit` + per-unit `Amount`) against matching quantities, converts measured units (second ↔ minute), applies `AIModelPricing.Discount`, and accumulates per `Currency` — estimates never mix currencies. Non-convertible kind/unit pairs contribute `0`; estimated-token quantities backstop text billing when the provider reports none.
+- `IsBatch` marks metrics decoded from a batch result — `StampBatchMetrics` stamps it on every batch decode path. Serialized as `batch: true` only when set; absent means non-batch (or pre-flag legacy data).
+- `EstimatedCosts` (currency → amount) is computed lazily by `AICostCalculator`: it joins each `AIPriceEntry` (`kind` + explicit `unit` + per-unit `Amount`) against matching quantities, converts measured units (second ↔ minute), applies `AIModelPricing.Discount`, and accumulates per `Currency` — estimates never mix currencies. Pricing tier is strict: `IsBatch == true` reads only `AIModelCapabilities.BatchPricing`, everything else only `Pricing` — never mixed, no fallback (a batch call on a model without batch rates estimates empty). Non-convertible kind/unit pairs contribute `0`; estimated-token quantities backstop text billing when the provider reports none.
 - `ReportedCosts` (currency → amount) carries provider-billed ground truth (e.g. OpenRouter `usage.cost`), kept distinct from estimates.
 - `AIModelPricing` is entries-first (`smarthopper-models/2`): a `Currency`, optional `Discount`, and `Entries` list; flat token-priced kinds also have init-settable accessors (`TextInput`, `CacheRead`, `WebSearch`, …) that append entries.
 - Validation: non-empty `Provider`, `Model`, `FinishReason`; non-negative counters and time
-- `WithCombined(other)` merges providers/models/reason, sums quantities per key, and sums estimated/reported costs per currency
+- `WithCombined(other)` merges providers/models/reason, sums quantities per key, and sums estimated/reported costs per currency; `IsBatch` is kept only when both sides agree (a mixed batch/sync aggregate has no single pricing tier).
 
 ### AICallStatus
 

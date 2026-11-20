@@ -71,6 +71,13 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
                 obj["execution_id"] = metrics.ExecutionId;
             }
 
+            // Batch entries are priced off batch_pricing — the flag must
+            // round-trip so restored metrics keep estimating correctly.
+            if (metrics.IsBatch == true)
+            {
+                obj["batch"] = true;
+            }
+
             if (!string.IsNullOrEmpty(metrics.Role))
             {
                 obj["role"] = metrics.Role;
@@ -130,6 +137,7 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
                     CompletionTime = obj["completion_time"]?.Value<double>() ?? 0.0,
                     CompletedAt = completedAt,
                     ExecutionId = obj["execution_id"]?.ToString(),
+                    IsBatch = obj["batch"]?.Value<bool>() == true ? true : (bool?)null,
                     DataCount = obj["data_count"]?.Value<int>(),
                     IterationsCount = obj["iterations_count"]?.Value<int>(),
                     Role = obj["role"]?.ToString(),

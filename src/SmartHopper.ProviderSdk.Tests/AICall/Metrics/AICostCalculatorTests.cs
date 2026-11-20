@@ -272,13 +272,111 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
             Assert.Equal(expected, cost["USD"]);
         }
 
-        private static void RegisterPricing(string provider, string model, AIModelPricing pricing)
+#if NET7_WINDOWS
+        [Fact(DisplayName = "Calculate_BatchMetrics_UsesBatchPricing [Windows]")]
+#else
+        [Fact(DisplayName = "Calculate_BatchMetrics_UsesBatchPricing [Core]")]
+#endif
+        public void Calculate_BatchMetrics_UsesBatchPricing()
+        {
+            ProviderSdkTestHelper.ResetCapabilityRegistry();
+            RegisterPricing("mistralai", "mistral-large-4", new AIModelPricing
+            {
+                TextInput = 0.0000007m,
+                TextOutput = 0.0000021m,
+            },
+            new AIModelPricing
+            {
+                TextInput = 0.00000035m,
+                TextOutput = 0.00000105m,
+            });
+
+            var metrics = new AIMetrics
+            {
+                Provider = "mistralai",
+                Model = "mistral-large-4",
+                IsBatch = true,
+                InputTokensPrompt = 1000,
+                OutputTokensGeneration = 500,
+            };
+
+            var cost = AICostCalculator.Calculate(metrics);
+
+            var expected = (1000m * 0.00000035m) + (500m * 0.00000105m);
+            Assert.Equal(expected, cost["USD"]);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "Calculate_NonBatchMetrics_UsesRegularPricing [Windows]")]
+#else
+        [Fact(DisplayName = "Calculate_NonBatchMetrics_UsesRegularPricing [Core]")]
+#endif
+        public void Calculate_NonBatchMetrics_UsesRegularPricing()
+        {
+            ProviderSdkTestHelper.ResetCapabilityRegistry();
+            RegisterPricing("mistralai", "mistral-large-4", new AIModelPricing
+            {
+                TextInput = 0.0000007m,
+                TextOutput = 0.0000021m,
+            },
+            new AIModelPricing
+            {
+                TextInput = 0.00000035m,
+                TextOutput = 0.00000105m,
+            });
+
+            var nullFlag = new AIMetrics
+            {
+                Provider = "mistralai",
+                Model = "mistral-large-4",
+                InputTokensPrompt = 1000,
+                OutputTokensGeneration = 500,
+            };
+            var falseFlag = nullFlag with { IsBatch = false };
+
+            var expected = (1000m * 0.0000007m) + (500m * 0.0000021m);
+            Assert.Equal(expected, AICostCalculator.Calculate(nullFlag)["USD"]);
+            Assert.Equal(expected, AICostCalculator.Calculate(falseFlag)["USD"]);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "Calculate_BatchMetrics_WithoutBatchPricing_ReturnsEmpty [Windows]")]
+#else
+        [Fact(DisplayName = "Calculate_BatchMetrics_WithoutBatchPricing_ReturnsEmpty [Core]")]
+#endif
+        public void Calculate_BatchMetrics_WithoutBatchPricing_ReturnsEmpty()
+        {
+            ProviderSdkTestHelper.ResetCapabilityRegistry();
+            RegisterPricing("openai", "no-batch-model", new AIModelPricing
+            {
+                TextInput = 0.000001m,
+                TextOutput = 0.000002m,
+            });
+
+            var metrics = new AIMetrics
+            {
+                Provider = "openai",
+                Model = "no-batch-model",
+                IsBatch = true,
+                InputTokensPrompt = 1000,
+                OutputTokensGeneration = 500,
+            };
+
+            // Strict separation: a batch call must never fall back to regular
+            // pricing — the estimate stays empty instead of billing full price.
+            var cost = AICostCalculator.Calculate(metrics);
+
+            Assert.Empty(cost);
+        }
+
+        private static void RegisterPricing(string provider, string model, AIModelPricing pricing, AIModelPricing batchPricing = null)
         {
             AIModelCapabilityRegistry.Instance.SetCapabilities(new AIModelCapabilities
             {
                 Provider = provider,
                 Model = model,
                 Pricing = pricing,
+                BatchPricing = batchPricing,
             });
         }
     }

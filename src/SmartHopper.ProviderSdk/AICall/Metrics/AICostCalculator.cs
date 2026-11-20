@@ -28,7 +28,10 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
     /// <see cref="AIMetrics.Quantities"/> sharing its kind, converts the
     /// measured unit to the billed unit, applies the pricing discount, and
     /// accumulates the total under the pricing's currency — estimates never
-    /// mix currencies. Provider-billed amounts are not this class's business:
+    /// mix currencies. Batch executions (<see cref="AIMetrics.IsBatch"/>) price
+    /// exclusively off <see cref="AIModelCapabilities.BatchPricing"/>; all other
+    /// calls off <see cref="AIModelCapabilities.Pricing"/>. Provider-billed
+    /// amounts are not this class's business:
     /// they live in <see cref="AIMetrics.ReportedCosts"/>.
     /// </summary>
     public static class AICostCalculator
@@ -63,7 +66,14 @@ namespace SmartHopper.ProviderSdk.AICall.Metrics
             }
 
             var capabilities = AIModelCapabilityRegistry.Instance?.GetCapabilities(metrics.Provider, metrics.Model);
-            var pricing = capabilities?.Pricing;
+
+            // Strict tier selection: batch calls price exclusively off
+            // BatchPricing, everything else off Pricing — never mixed. A
+            // batch call on a model without published batch rates estimates
+            // empty rather than being billed at regular prices.
+            var pricing = metrics.IsBatch == true
+                ? capabilities?.BatchPricing
+                : capabilities?.Pricing;
             if (pricing?.Entries == null || pricing.Entries.Count == 0)
             {
                 return costs;

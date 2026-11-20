@@ -161,5 +161,29 @@ namespace SmartHopper.ProviderSdk.Tests.AICall.Metrics
             Assert.Null(AIMetricsJson.FromJson(new JValue("not-json")));
             Assert.Null(AIMetricsJson.ToJson(null));
         }
+
+        [Fact(DisplayName = "batch flag emitted only for batch metrics and round-trips")]
+        public void BatchFlag_RoundTrip()
+        {
+            var batch = AIMetricsJson.ToJson(SampleMetrics() with { IsBatch = true });
+            Assert.True(batch["batch"]!.Value<bool>());
+            Assert.True(AIMetricsJson.FromJson(batch)!.IsBatch);
+
+            var sync = AIMetricsJson.ToJson(SampleMetrics());
+            Assert.Null(sync["batch"]);
+            Assert.Null(AIMetricsJson.FromJson(sync)!.IsBatch);
+        }
+
+        [Fact(DisplayName = "WithCombined keeps batch flag only when both sides agree")]
+        public void WithCombined_BatchFlag()
+        {
+            var batch = new AIMetrics { IsBatch = true };
+            var sync = new AIMetrics();
+
+            Assert.True(batch.WithCombined(batch).IsBatch);
+            Assert.Null(batch.WithCombined(sync).IsBatch);
+            Assert.Null(sync.WithCombined(batch).IsBatch);
+            Assert.Null(sync.WithCombined(sync).IsBatch);
+        }
     }
 }

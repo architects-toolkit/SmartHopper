@@ -1585,6 +1585,10 @@ namespace SmartHopper.Core.ComponentBase
             {
                 Provider = providerName,
                 Model = model,
+
+                // Batch-decoded usage is always priced off batch_pricing —
+                // never the regular tier — by AICostCalculator.
+                IsBatch = true,
                 IterationsCount = metrics.IterationsCount ?? 1,
 
                 // One AI call = one processing unit — mirrors the sync path
