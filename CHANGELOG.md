@@ -24,6 +24,7 @@ Many thanks to the following contributors to this release:
 
 - **Batch model coverage** — `SupportsBatch`/`BatchPricing` now seeded from official provider batch rate tables across all batch-capable models: Anthropic (all 14 active models at the documented 50%-off token rates), OpenAI (25 models at Batch API rates), Gemini (12 models) and MistralAI (10 models — including `mistral-large-4-0` and its `mistral-large`/`mistral-large-latest`/`mistral-large-4`/`mistral-large-4.0` aliases plus the codestral/mistral embed endpoints). Every batch-capable seed declares its `<model>:batch` alias. Tool-invocation entries (e.g. `tool:web_search`) stay at full price where the discount covers token usage only.
 - `AIMetrics.IsBatch` — new nullable flag serialized as `batch` in the metrics JSON, stamped on every batch-decoded metric through the shared `StampBatchMetrics` path; `WithCombined` keeps it only when both sides share it, so a mixed batch/sync aggregate keeps no tier claim. Absent/`false` means non-batch (including metrics serialized before the flag existed).
+- Design plan for a unified local-file access consent gate mirroring external-source retrieval approval (`docs/plans/261121-local-file-access-consent.md`).
 
 ### Security
 
