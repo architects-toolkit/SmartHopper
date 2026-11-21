@@ -326,25 +326,27 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             else
             {
-                // Relative names stay inside the export sandbox.
+                // Relative names stay inside the export sandbox. Both sides are
+                // canonicalized so a linked subfolder inside the sandbox resolves to
+                // its real target before the containment check.
                 var root = LocalPath.ScreenshotsDirectory;
-                var combined = Path.GetFullPath(Path.Combine(root, trimmed));
-                if (!LocalPath.IsUnder(root, combined) || string.Equals(combined, root, StringComparison.OrdinalIgnoreCase))
+                if (!LocalPath.TryCanonicalize(Path.GetFullPath(Path.Combine(root, trimmed)), out var resolved, out var error)
+                    || !LocalPath.TryCanonicalize(root, out var resolvedRoot, out _))
+                {
+                    throw new InvalidOperationException(error);
+                }
+
+                if (!LocalPath.IsUnder(resolvedRoot, resolved) || string.Equals(resolved, resolvedRoot, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new InvalidOperationException("Relative savePath values must stay inside the Screenshots folder.");
                 }
 
-                if (!string.Equals(Path.GetExtension(combined), ".png", StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(Path.GetExtension(resolved), ".png", StringComparison.OrdinalIgnoreCase))
                 {
                     throw new InvalidOperationException("savePath must point to a .png file.");
                 }
 
-                if (File.Exists(combined))
-                {
-                    throw new InvalidOperationException($"'{combined}' already exists; exports never overwrite.");
-                }
-
-                fullPath = combined;
+                fullPath = resolved;
             }
 
             var directory = Path.GetDirectoryName(fullPath);
@@ -353,7 +355,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Directory.CreateDirectory(directory);
             }
 
-            File.WriteAllBytes(fullPath, Convert.FromBase64String(capture.ImageBase64));
+            // CreateNew is atomic: it fails when the name already exists — including a
+            // dangling link — so a prepared file can never be overwritten or followed.
+            try
+            {
+                using var stream = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write);
+                var bytes = Convert.FromBase64String(capture.ImageBase64);
+                stream.Write(bytes, 0, bytes.Length);
+            }
+            catch (IOException)
+            {
+                throw new InvalidOperationException($"'{fullPath}' already exists; exports never overwrite.");
+            }
+
             return fullPath;
         }
 
