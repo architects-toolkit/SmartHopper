@@ -25,6 +25,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.FileSystem;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
@@ -54,7 +55,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 },
                 ""savePath"": {
                     ""type"": ""string"",
-                    ""description"": ""Optional absolute file path that also receives the PNG. Parent directories are created and existing files are overwritten.""
+                    ""description"": ""Optional file path that also receives the PNG. Relative names are written inside the SmartHopper Screenshots folder and never overwrite. Absolute paths require user approval and must end in .png.""
                 }
             }
         }";
@@ -94,7 +95,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 },
                 ""savePath"": {
                     ""type"": ""string"",
-                    ""description"": ""Optional absolute file path that also receives the PNG. Parent directories are created and existing files are overwritten.""
+                    ""description"": ""Optional file path that also receives the PNG. Relative names are written inside the SmartHopper Screenshots folder and never overwrite. Absolute paths require user approval and must end in .png.""
                 }
             }
         }";
@@ -155,7 +156,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 },
                 ""savePath"": {
                     ""type"": ""string"",
-                    ""description"": ""Optional absolute file path that also receives the PNG. Parent directories are created and existing files are overwritten.""
+                    ""description"": ""Optional file path that also receives the PNG. Relative names are written inside the SmartHopper Screenshots folder and never overwrite. Absolute paths require user approval and must end in .png.""
                 }
             }
         }";
@@ -291,10 +292,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
-        /// Writes the captured PNG to <paramref name="savePath"/> when provided, creating
-        /// parent directories and overwriting existing files. Returns the normalized
-        /// absolute path that was written, or <see langword="null"/> when no savePath
-        /// was given.
+        /// Writes the captured PNG to <paramref name="savePath"/> when provided. Relative
+        /// names land in the screenshot export directory under SmartHopper's app data and
+        /// never overwrite; absolute paths need a .png extension and explicit approval
+        /// through the local-file consent gate. Returns the path that was written, or
+        /// <see langword="null"/> when no savePath was given.
         /// </summary>
         private static string? SavePng(ImageCaptureResult capture, string? savePath)
         {
@@ -303,7 +305,48 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 return null;
             }
 
-            var fullPath = Path.GetFullPath(savePath.Trim());
+            var trimmed = savePath.Trim();
+            string fullPath;
+            if (Path.IsPathRooted(trimmed))
+            {
+                if (!LocalPath.TryCanonicalize(trimmed, out var canonical, out var error))
+                {
+                    throw new InvalidOperationException(error);
+                }
+
+                if (!string.Equals(Path.GetExtension(canonical), ".png", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("savePath must point to a .png file.");
+                }
+
+                // Blocking wait is safe here except on the Rhino UI thread, where an
+                // unanswered prompt would deadlock — RequireBlocking refuses instead.
+                LocalFileAccess.RequireBlocking(canonical, LocalFileCapability.Write, "screenshots");
+                fullPath = canonical;
+            }
+            else
+            {
+                // Relative names stay inside the export sandbox.
+                var root = LocalPath.ScreenshotsDirectory;
+                var combined = Path.GetFullPath(Path.Combine(root, trimmed));
+                if (!LocalPath.IsUnder(root, combined) || string.Equals(combined, root, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("Relative savePath values must stay inside the Screenshots folder.");
+                }
+
+                if (!string.Equals(Path.GetExtension(combined), ".png", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("savePath must point to a .png file.");
+                }
+
+                if (File.Exists(combined))
+                {
+                    throw new InvalidOperationException($"'{combined}' already exists; exports never overwrite.");
+                }
+
+                fullPath = combined;
+            }
+
             var directory = Path.GetDirectoryName(fullPath);
             if (!string.IsNullOrEmpty(directory))
             {

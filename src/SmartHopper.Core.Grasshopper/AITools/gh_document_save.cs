@@ -24,6 +24,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.FileSystem;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -72,7 +73,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
         private Task<AIReturn> GhDocumentSaveToolAsync(AIToolCall toolCall)
         {
-            return GhDocumentTools.Run(toolCall, args =>
+            return GhDocumentTools.RunAsync(toolCall, async args =>
             {
                 var documentId = args["documentId"]?.ToString();
                 var doc = string.IsNullOrWhiteSpace(documentId)
@@ -96,6 +97,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
 
                     filePath = fullPath;
+
+                    // Saving to a new location or over an unrelated file writes a
+                    // model-chosen path — explicit approval required. Saving a
+                    // document back to its own path is the in-place save.
+                    var ownPath = doc.FilePath;
+                    var isOwnPath = !string.IsNullOrWhiteSpace(ownPath)
+                        && LocalPath.TryCanonicalize(ownPath, out var ownCanonical, out _)
+                        && string.Equals(ownCanonical, filePath, LocalPath.Comparer == StringComparer.OrdinalIgnoreCase
+                            ? StringComparison.OrdinalIgnoreCase
+                            : StringComparison.Ordinal);
+                    if (!isOwnPath)
+                    {
+                        await LocalFileAccess.RequireAsync(
+                            filePath, LocalFileCapability.Write, this.toolName, toolCall.CancellationToken)
+                            .ConfigureAwait(false);
+                    }
+
                     var directory = Path.GetDirectoryName(filePath);
                     if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
                     {
