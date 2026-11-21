@@ -1,45 +1,69 @@
 # Local file access security
 
-## Ownership And Scope
+User approval layer for every model-supplied filesystem path, mirroring the external-source retrieval consent (`ExternalSourceAccess`).
 
-- `SmartHopper.Infrastructure.FileSystem` owns local-path permissions: `LocalPath` canonicalization and sensitivity tiers, `LocalFileAllowlist` persistence, `LocalFileAccess` approval, `LocalFilePrompt` interactive consent.
-- Every AI tool path argument is canonicalized (`GetFullPath`, root required, reparse-point targets resolved when the file exists) and checked before the file is touched.
-- The gate covers tool-level access: `file2md` (Read), `img2text` local `imageUrl` (Read), `gh_put` `.ghjson` path arguments (Read), `gh_batch_import_results` (Read per entry), `gh_document_save` (Write on an explicit target), `gh_document_open` (Execute on a file that is not already open — activating an open document needs no consent), `*_screenshot` `savePath` (Write on absolute paths), and `rhino_read_3dm` (Read).
-- Internal files SmartHopper produces itself are pre-authorized and never prompt: the screenshot export directory and `%TEMP%/smarthopper-*` pipeline files (e.g. chat PDF attachments).
-- Files the user opens or writes through the Grasshopper/Rhino UI itself are not gated; the boundary is model-supplied paths, not user-driven IO.
+---
 
-## Tiers
+## Metadata
 
-- **Denied** — refused outright, never prompts: `.ssh`, `.aws`, `.azure`, `.kube`, `.gnupg` segments anywhere; browser credential stores (Chrome, Edge, Brave, Chromium, Firefox, Opera profile trees); SmartHopper's own configuration directory except the Screenshots export folder; the `SmartHopper.json` settings file; `Windows`, `Program Files` and `CommonProgramFiles` on Windows; `/etc`, `/usr`, `/bin`, `/sbin`, `/boot`, `/root`, `/proc`, `/sys`, `/private/etc`, `/System` elsewhere.
-- **Pre-authorized** — allowed silently: `Screenshots` (Read/Write) and `smarthopper*` files under the temp directory (Read/Write).
-- **Gated** — everything else asks through the consent prompt.
+| Property | Value |
+| --- | --- |
+| **Source Code** | `src/SmartHopper.Infrastructure/FileSystem/`, `src/SmartHopper.Infrastructure/Dialogs/LocalFilePrompt.cs` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-11-21 |
+| **Documentation Maintainer** | Devin AI |
 
-## Approval Contract
+_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
 
-`LocalFileAccess.RequireAsync` asks the interactive host before a path is touched. No presenter, dismissal, denial, cancellation or invalid input fails closed. Canvas mutation approval and the MCP mutation-bypass setting do not apply to file access.
+---
 
-The consent prompt applies its own deadline (120 s): an unanswered prompt resolves to `NoResponse` — a refusal for that invocation, never a grant. Prompts serialize on a global lock; within one logical invocation (`BeginScope`, opened per tool call by `AIToolManager`), a decision for a path+capability pair is recorded in the scope's grant map, so nested touches share it — including denials, which fail fast without re-prompting. `GrantForCurrentScope` lets trusted internal flows (files the user attached themselves) cover the rest of the scope without prompting.
+## Why Read This?
 
-- Allow once: grants the exact path and capability for one logical tool invocation, including nested helpers.
+Read this if you want to understand which file paths AI tools may touch, how the consent prompt and persisted file/folder grants work, and which locations are refused outright.
+
+You should also read this if you are:
+
+- adding or changing an AI tool that accepts a path argument
+- debugging why a tool call was refused with `UnauthorizedAccessException`
+- changing the local-file permissions storage or the Settings > Security allowlist
+- reviewing how synchronous tool code avoids deadlocking on the Rhino UI thread
+
+## End-User Guide
+
+When an AI tool wants to read, write or open a local file, a prompt asks whether to allow it once, always allow that file, always allow that folder, or deny. Write requests flag when they would overwrite an existing file; open requests warn that running a document may execute embedded scripts.
+
+- Allow once: grants the exact path for one logical tool invocation, including nested helpers.
 - Always allow this file: persists an exact-path grant.
-- Always allow this folder: persists a directory-subtree grant (separator-boundary matching, case-aware per OS).
-- Deny: the tool sees an `UnauthorizedAccessException` refusal.
-- Write prompts flag overwrites; Execute prompts warn that opening the document may run embedded scripts.
+- Always allow this folder: persists a directory-subtree grant.
+- Deny: the tool call is refused.
 
-Grants are capability-specific: a Read grant does not cover Write or Execute.
+Approvals are per capability — a Read grant does not cover Write or Open. Grants live in `%APPDATA%/Grasshopper/SmartHopper/local-file-permissions.json` and are managed in Settings > Security > "Local file permissions", which mirrors the external-sources allowlist: `RWE file|folder path` rows, per-row removal, and a pending-entry row. Manual additions are validated, canonicalized and rejected when the location is protected. Manual edits take effect on Save; prompt-based Always decisions persist immediately.
 
-## Storage And Settings
+Some locations are always refused and never prompt: credential and key directories (`.ssh`, `.aws`, `.azure`, `.kube`, `.gnupg`), browser profile trees, SmartHopper's own configuration (except the Screenshots export folder), the `SmartHopper.json` settings file, and OS system folders. SmartHopper's own pipeline files — the Screenshots export folder and `%TEMP%/smarthopper-*` — are pre-authorized and never prompt.
 
-The allowlist is a dedicated user-owned file:
+## Developer Reference
 
-`%APPDATA%/Grasshopper/SmartHopper/local-file-permissions.json`
+`SmartHopper.Infrastructure.FileSystem` exposes the gate:
 
-It stores `{ scope, path, capabilities, grantedUtc }` entries — canonical paths only, never credentials or wildcards. Atomic replacement and a cross-process write lease preserve concurrent updates; lookups re-read grants so revocation is not hidden by a cache; malformed files fail closed.
+- `LocalPath.TryCanonicalize(path, out canonical, out error)` — rooted paths only, `GetFullPath`, reparse-point resolution when the file exists, separator-boundary `IsUnder`, case-aware `Comparer` per OS.
+- `LocalPath.IsDenied(canonical)` / `IsPreAuthorized(canonical, capability)` — the hard-deny and silent-allow tiers.
+- `LocalFileAccess.RequireAsync(path, capability, toolName, ct)` — canonicalizes, checks tiers and grants, serializes the prompt on a global lock, persists Always decisions, throws `UnauthorizedAccessException` on denial, no presenter or timeout (`NoResponse`).
+- `LocalFileAccess.RequireBlocking(path, capability, toolName)` — for synchronous call sites; refuses on the Rhino UI thread (a prompt can only render there, so waiting would deadlock) and blocks safely on background threads.
+- `LocalFileAccess.BeginScope()` — opened per tool call by `AIToolManager`; one-call decisions (and denials) are shared across nested touches of the same path+capability.
+- `LocalFileAccess.GrantForCurrentScope(path, capability)` — pre-grants trusted flows (e.g. files the user attached) without prompting.
+- `LocalFileAllowlist` — `GetGrants`/`IsGranted`/`Allow`/`Revoke`/`RevokeAll` over the persisted file; re-reads on each lookup so revocation is immediate.
+- `LocalFileCapability` — `Read`, `Write`, `Execute` flags; grants are capability-specific.
 
-Settings > Security > "Local file permissions" mirrors the external-sources list: editable `RWE file|folder path` rows with "−" removal and a pending-entry row; manual additions are validated, canonicalized and rejected when the location is in the denied tier. Removals and manual additions take effect on Save; prompt-based Always decisions persist immediately.
+Gated tools today: `file2md` (Read), `img2text` local `imageUrl` (Read), `gh_put` `.ghjson` arguments (Read), `gh_batch_import_results` (Read per entry), `gh_document_save` (Write on an explicit target), `gh_document_open` (Execute on a file not already open — activating an open document needs no consent), `*_screenshot` `savePath` (Write on absolute paths; relative names stay in the Screenshots folder and never overwrite), `rhino_read_3dm` (Read).
 
-## Tool Contract
+Tools must call the gate before touching a model-supplied path and let `UnauthorizedAccessException` propagate as an explicit refusal. `McpServerOptions.BypassMutationsApproval` does not bypass file access. Files the user opens or writes through the Grasshopper/Rhino UI itself are not gated; the boundary is model-supplied paths, not user-driven IO.
 
-Tools must call `RequireAsync` before touching a model-supplied path and let `UnauthorizedAccessException` propagate as an explicit refusal. Synchronous call sites (image loading, GhJSON string resolution, PNG export) block on the gate but first refuse on the Rhino UI thread when a prompt would be needed — a prompt can only render on that thread, so waiting there would deadlock.
+## Architecture & Design
+
+The decision order inside `RequireAsync` is: canonicalize → reject invalid capability → denied tier → pre-authorized roots → persisted allowlist → scope grants → serialized prompt. The prompt applies its own 120 s deadline; an unanswered prompt resolves to `NoResponse`, a refusal for that invocation, and is remembered in the scope's grant map so it fails fast without re-prompting.
+
+The allowlist file stores `{ scope, path, capabilities, grantedUtc }` entries — canonical paths only, never credentials or wildcards. Atomic replacement and a cross-process write lease preserve concurrent updates; malformed or unreadable permission files fail closed.
+
+`LocalFilePrompt` renders the consent dialog on the Rhino UI thread and reports `IsAwaitingConsent`/`AwaitingConsentChanged` so the canvas consent badge can repaint, shared with the external-source prompt.
 
 Network-free Infrastructure tests cover canonicalization, the denied tier, pre-authorized roots, file/folder grant persistence and revocation, subtree matching, scope-limited decisions, capability isolation and the no-presenter fail-closed path. Desktop consent behavior additionally needs Rhino validation.
