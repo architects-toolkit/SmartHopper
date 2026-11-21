@@ -239,9 +239,10 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
         {
             var exportDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
 
-            var resolved = ScreenshotExportUtilities.ResolveExportPath("facade.png", exportDir);
+            var (fullPath, relativePath) = ScreenshotExportUtilities.ResolveExportPath("facade.png", exportDir);
 
-            Assert.Equal(Path.Combine(exportDir, "facade.png"), resolved);
+            Assert.Equal(Path.Combine(Path.GetFullPath(exportDir), "facade.png"), fullPath);
+            Assert.Equal("facade.png", relativePath);
         }
 
         [Fact]
@@ -249,9 +250,10 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
         {
             var exportDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
 
-            var resolved = ScreenshotExportUtilities.ResolveExportPath(Path.Combine("renders", "facade.png"), exportDir);
+            var (fullPath, relativePath) = ScreenshotExportUtilities.ResolveExportPath(Path.Combine("renders", "facade.png"), exportDir);
 
-            Assert.Equal(Path.Combine(exportDir, "renders", "facade.png"), resolved);
+            Assert.Equal(Path.Combine(Path.GetFullPath(exportDir), "renders", "facade.png"), fullPath);
+            Assert.Equal("renders/facade.png", relativePath);
         }
 
         [Theory]
@@ -281,9 +283,10 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
 
                 var written = ScreenshotExportUtilities.SavePng(png, "shot.png", exportDir);
 
-                Assert.True(File.Exists(written));
-                Assert.Equal(png, File.ReadAllBytes(written));
-                Assert.StartsWith(Path.GetFullPath(exportDir), written);
+                var absolute = Path.Combine(Path.GetFullPath(exportDir), "shot.png");
+                Assert.Equal("shot.png", written);
+                Assert.True(File.Exists(absolute));
+                Assert.Equal(png, File.ReadAllBytes(absolute));
             }
             finally
             {
@@ -307,12 +310,51 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
                 Assert.Throws<InvalidOperationException>(
                     () => ScreenshotExportUtilities.SavePng(new byte[] { 9 }, "shot.png", exportDir));
                 Assert.Equal(new byte[] { 1, 2, 3 }, File.ReadAllBytes(existing));
+                Assert.Equal(1, Directory.GetFiles(exportDir).Length);
             }
             finally
             {
                 if (Directory.Exists(exportDir))
                 {
                     Directory.Delete(exportDir, recursive: true);
+                }
+            }
+        }
+
+        [Fact]
+        public void SavePng_RejectsPathThroughLinkedDirectory()
+        {
+            var exportDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            var outsideDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(exportDir);
+                Directory.CreateDirectory(outsideDir);
+                var link = Path.Combine(exportDir, "link");
+                try
+                {
+                    Directory.CreateSymbolicLink(link, outsideDir);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+                {
+                    // Environment does not permit creating links (e.g. CI without privileges).
+                    return;
+                }
+
+                Assert.Throws<InvalidOperationException>(
+                    () => ScreenshotExportUtilities.SavePng(new byte[] { 9 }, Path.Combine("link", "shot.png"), exportDir));
+                Assert.False(File.Exists(Path.Combine(outsideDir, "shot.png")));
+            }
+            finally
+            {
+                if (Directory.Exists(exportDir))
+                {
+                    Directory.Delete(exportDir, recursive: true);
+                }
+
+                if (Directory.Exists(outsideDir))
+                {
+                    Directory.Delete(outsideDir, recursive: true);
                 }
             }
         }

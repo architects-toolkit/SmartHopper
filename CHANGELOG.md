@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- Screenshot tools (`canvas_screenshot`, `viewport_screenshot`, `canvas_hi-res_screenshot`) can no longer write a PNG to an arbitrary model-supplied path. The `savePath` argument is now a file name or relative subfolder path sandboxed to the SmartHopper Screenshots export folder (`%AppData%\Grasshopper\SmartHopper\Screenshots`), must end in `.png`, and never overwrites an existing file — closing an arbitrary-file-write path reachable through prompt injection in the read-only tool surface.
+- security(aitools): sandbox screenshot `savePath` writes to the SmartHopper Screenshots export folder (`%AppData%\Grasshopper\SmartHopper\Screenshots`). `canvas_screenshot`, `viewport_screenshot` and `canvas_hi-res_screenshot` can no longer write a PNG to an arbitrary model-supplied path: `savePath` is now a file name or relative subfolder path inside that folder, must end in `.png`, never crosses directory links, and never overwrites an existing file — closing an arbitrary-file-write path reachable through prompt injection in the read-only tool surface. The reported `savedTo` is now relative to the export folder instead of an absolute profile path.
 
 ## [2.0.0-alpha.1] - 2026-11-17
 

@@ -30,7 +30,7 @@ Captures the current Grasshopper canvas viewport with `GH_Canvas.GetCanvasScreen
 | --- | --- | --- | --- |
 | `maxWidth` | integer | `1920` | Maximum output width, from 1 to 4096 pixels. |
 | `maxHeight` | integer | `1080` | Maximum output height, from 1 to 4096 pixels. |
-| `savePath` | string | none | Optional file name or relative subfolder path (e.g. `facade.png` or `renders/facade.png`) for a PNG copy. Writes are sandboxed to the SmartHopper Screenshots export folder `%AppData%\Grasshopper\SmartHopper\Screenshots`; the name must end in `.png` and existing files are never overwritten. The normalized path is reported as `savedTo`. |
+| `savePath` | string | none | Optional file name or relative subfolder path (e.g. `facade.png` or `renders/facade.png`) for a PNG copy. Writes are sandboxed to the SmartHopper Screenshots export folder `%AppData%\Grasshopper\SmartHopper\Screenshots`; the name must end in `.png`, and existing files are never overwritten. The path relative to the export folder is reported as `savedTo`. |
 
 ### `viewport_screenshot`
 
@@ -59,7 +59,7 @@ Renders an arbitrary region of the Grasshopper canvas at a chosen scale using `G
 
 Its results declare `"imageAudience": "display"` — the image renders in WebChat and as an MCP `image` block but is never sent to the model, keeping publish-quality captures out of the token budget.
 
-Both tools preserve aspect ratio and do not upscale captures smaller than the requested bounds. Results contain `imageBase64`, `mimeType`, `width`, and `height`; viewport results also contain the resolved `viewName`, and both report `savedTo` when `savePath` is provided. Over MCP, the dispatcher emits the capture as a native `image` content block plus a `text` block with the remaining metadata — ordinary JSON tool results stay text-only.
+Both tools preserve aspect ratio and do not upscale captures smaller than the requested bounds. Results contain `imageBase64`, `mimeType`, `width`, and `height`; viewport results also contain the resolved `viewName`, and both report `savedTo` (the path relative to the export folder) when `savePath` is provided. Over MCP, the dispatcher emits the capture as a native `image` content block plus a `text` block with the remaining metadata — ordinary JSON tool results stay text-only.
 
 ### Image audience and session handling
 

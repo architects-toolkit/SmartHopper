@@ -65,7 +65,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ""imageAudience"": { ""type"": ""string"", ""const"": ""model"", ""description"": ""Declares the image is intended for model vision; the session extracts it into a model-visible image part."" },
                 ""width"": { ""type"": ""integer"" },
                 ""height"": { ""type"": ""integer"" },
-                ""savedTo"": { ""type"": ""string"", ""description"": ""Absolute path the PNG was written to, when savePath was provided."" }
+                ""savedTo"": { ""type"": ""string"", ""description"": ""Path of the written PNG relative to the SmartHopper Screenshots export folder, when savePath was provided."" }
             },
             ""required"": [""imageBase64"", ""mimeType"", ""width"", ""height""]
         }";
@@ -106,7 +106,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ""width"": { ""type"": ""integer"" },
                 ""height"": { ""type"": ""integer"" },
                 ""viewName"": { ""type"": ""string"" },
-                ""savedTo"": { ""type"": ""string"", ""description"": ""Absolute path the PNG was written to, when savePath was provided."" }
+                ""savedTo"": { ""type"": ""string"", ""description"": ""Path of the written PNG relative to the SmartHopper Screenshots export folder, when savePath was provided."" }
             },
             ""required"": [""imageBase64"", ""mimeType"", ""width"", ""height"", ""viewName""]
         }";
@@ -166,7 +166,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ""imageAudience"": { ""type"": ""string"", ""const"": ""display"", ""description"": ""Declares the image is display-only; it is rendered in WebChat but never sent to the model."" },
                 ""width"": { ""type"": ""integer"" },
                 ""height"": { ""type"": ""integer"" },
-                ""savedTo"": { ""type"": ""string"", ""description"": ""Absolute path the PNG was written to, when savePath was provided."" }
+                ""savedTo"": { ""type"": ""string"", ""description"": ""Path of the written PNG relative to the SmartHopper Screenshots export folder, when savePath was provided."" }
             },
             ""required"": [""imageBase64"", ""mimeType"", ""width"", ""height""]
         }";

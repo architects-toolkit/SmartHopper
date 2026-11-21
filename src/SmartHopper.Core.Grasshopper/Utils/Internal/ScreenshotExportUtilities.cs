@@ -26,7 +26,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
     /// export folder so AI tools can never write outside it. Because screenshot
     /// tools run without the consent flow used by mutating tools, all writes are
     /// sandboxed: the target must stay under <see cref="DefaultExportDirectory"/>,
-    /// must use a .png extension, and existing files are never overwritten.
+    /// must use a .png extension, must not cross directory links, and existing
+    /// files are never overwritten.
     /// </summary>
     public static class ScreenshotExportUtilities
     {
@@ -47,8 +48,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
         /// </summary>
         /// <param name="savePath">File name or relative path requested by the caller.</param>
         /// <param name="exportDirectory">Sandbox root the result must stay inside.</param>
-        /// <returns>The normalized absolute path inside the export directory.</returns>
-        public static string ResolveExportPath(string savePath, string exportDirectory)
+        /// <returns>The normalized absolute path and its form relative to the export directory.</returns>
+        public static (string FullPath, string RelativePath) ResolveExportPath(string savePath, string exportDirectory)
         {
             if (string.IsNullOrWhiteSpace(savePath))
             {
@@ -68,10 +69,10 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                 + Path.DirectorySeparatorChar;
             var fullPath = Path.GetFullPath(Path.Combine(rootWithSeparator, trimmed));
 
-            var comparison = IsCaseInsensitiveFileSystem()
-                ? StringComparison.OrdinalIgnoreCase
-                : StringComparison.Ordinal;
-            if (!fullPath.StartsWith(rootWithSeparator, comparison))
+            // Ordinal on purpose: a '..' traversal that re-enters a case-variant
+            // sibling (e.g. 'Screenshots' vs 'screenshots') must still be rejected
+            // on case-sensitive volumes, where it would be a different directory.
+            if (!fullPath.StartsWith(rootWithSeparator, StringComparison.Ordinal))
             {
                 throw new ArgumentException(
                     $"savePath '{savePath}' resolves outside the screenshot export folder '{rootFull}'.",
@@ -101,13 +102,14 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                     nameof(savePath));
             }
 
-            return fullPath;
+            return (fullPath, relative.Replace(Path.DirectorySeparatorChar, '/'));
         }
 
         /// <summary>
         /// Writes PNG bytes to the path resolved from <paramref name="savePath"/>,
         /// creating missing directories inside the export folder and refusing to
-        /// overwrite an existing file. Returns the absolute path written.
+        /// overwrite an existing file or to cross directory links below the export
+        /// root. Returns the written path relative to the export directory.
         /// </summary>
         /// <param name="pngBytes">Encoded PNG payload.</param>
         /// <param name="savePath">File name or relative path requested by the caller.</param>
@@ -116,19 +118,23 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
         {
             ArgumentNullException.ThrowIfNull(pngBytes);
 
-            var fullPath = ResolveExportPath(savePath, exportDirectory);
+            var (fullPath, relativePath) = ResolveExportPath(savePath, exportDirectory);
+            EnsureNoLinkedDirectories(fullPath, exportDirectory);
+
             var directory = Path.GetDirectoryName(fullPath);
             if (!string.IsNullOrEmpty(directory))
             {
                 Directory.CreateDirectory(directory);
             }
 
+            // Write to a sibling temp file, then move it into place: a failed or
+            // partial write never leaves a truncated PNG at the target, which
+            // would also block a same-name retry since existing files are kept.
+            var tempPath = fullPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try
             {
-                // FileMode.CreateNew fails when the file exists, so model-supplied
-                // paths can never overwrite user files.
-                using var stream = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-                stream.Write(pngBytes, 0, pngBytes.Length);
+                File.WriteAllBytes(tempPath, pngBytes);
+                File.Move(tempPath, fullPath, overwrite: false);
             }
             catch (IOException ex) when (File.Exists(fullPath))
             {
@@ -136,14 +142,28 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                     $"Refusing to overwrite existing file '{fullPath}'. Choose a different savePath.",
                     ex);
             }
+            finally
+            {
+                try
+                {
+                    if (File.Exists(tempPath))
+                    {
+                        File.Delete(tempPath);
+                    }
+                }
+                catch
+                {
+                    // Best effort cleanup; the temp name is unique per call.
+                }
+            }
 
-            return fullPath;
+            return relativePath;
         }
 
         /// <summary>
         /// Writes the captured PNG to <paramref name="savePath"/> inside the default
-        /// export folder when provided. Returns the absolute path written, or
-        /// <see langword="null"/> when no savePath was given.
+        /// export folder when provided. Returns the written path relative to the
+        /// export folder, or <see langword="null"/> when no savePath was given.
         /// </summary>
         public static string? SavePng(ImageCaptureResult capture, string? savePath)
         {
@@ -156,9 +176,32 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
             return SavePng(bytes, savePath, DefaultExportDirectory);
         }
 
-        private static bool IsCaseInsensitiveFileSystem()
+        /// <summary>
+        /// Rejects <paramref name="fullPath"/> when any existing directory between
+        /// the export root and the file is a reparse point (junction/symlink), so
+        /// a link inside the export folder cannot redirect a write outside it.
+        /// </summary>
+        private static void EnsureNoLinkedDirectories(string fullPath, string exportDirectory)
         {
-            return OperatingSystem.IsWindows() || OperatingSystem.IsMacOS();
+            var rootFull = Path.GetFullPath(exportDirectory);
+            var relative = Path.GetRelativePath(rootFull, fullPath);
+            var segments = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            var current = rootFull;
+            for (int i = 0; i < segments.Length - 1; i++)
+            {
+                current = Path.Combine(current, segments[i]);
+                if (!Directory.Exists(current))
+                {
+                    return;
+                }
+
+                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                {
+                    throw new InvalidOperationException(
+                        $"savePath crosses the linked directory '{current}'; writes through directory links are not allowed.");
+                }
+            }
         }
     }
 }
