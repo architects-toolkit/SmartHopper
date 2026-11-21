@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Design plan for a unified local-file access consent gate mirroring external-source retrieval approval (`docs/plans/261121-local-file-access-consent.md`).
+
 ### Changed
 
 - Live log echo to Rhino's command line now defaults to the **Error** level (was Info).
