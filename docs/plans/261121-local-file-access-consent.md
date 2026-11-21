@@ -125,7 +125,8 @@ networking, so a sibling to `Networking`, not a child). Types:
 ### Pre-authorized roots (implicit, not persisted)
 
 - `%APPDATA%/Grasshopper/SmartHopper/Screenshots` (Write) — keeps #967's
-  export sandbox working without prompts.
+  export sandbox working without prompts; relative `savePath` values resolve
+  inside it, absolute paths take the consent gate instead.
 - SmartHopper temp files (`%TEMP%/smarthopper-*`) — attachments and internal
   pipelines.
 - A document's own current `FilePath` for `gh_document_save` with no
@@ -158,7 +159,7 @@ networking, so a sibling to `Networking`, not a child). Types:
 | `_rhino_read_3dm`, `_rhino_get_geometry_3dm` | Read | gate before enabling the tools |
 | `gh_document_save` | Write | explicit `filePath` argument; in-place save is pre-authorized. Replaces #968's review-overlay route with the shared prompt (which carries the overwrite flag) |
 | `gh_document_open` | Execute | new file only — activating an already-open document needs no consent. Prompt warns scripts may run. Replaces #966's bespoke proposal |
-| `screenshots` `savePath` | Write | **decision needed** — see Q3 |
+| `screenshots` `savePath` | Write | relative names resolve inside the export sandbox silently (keeps #967); absolute paths go through the Write gate |
 | `gh_document_list` | — | optional: keep paths (model needs them to address docs); document as accepted recon surface |
 | Audio Viewer Play | Execute-adjacent | separate small fix: require a supported audio extension, reject UNC — not part of the gate (user click, not a tool call) |
 
@@ -167,8 +168,8 @@ networking, so a sibling to `Networking`, not a child). Types:
 1. **Grant granularity:** file + folder (decided).
 2. **Denied tier:** hard deny — no prompt, no grant path; the chat cannot
    retrieve or write sensitive/system locations at all (decided).
-3. **Screenshots:** *pending* — hard sandbox (keep #967 as is) vs sandbox
-   default for relative names + Write-consent gate for absolute paths.
+3. **Screenshots:** sandbox default for relative names + Write-consent
+   gate for absolute paths (decided).
 4. **`gh_document_save` in place:** no prompt when saving to the document's
    own path (decided).
 5. **In-flight PRs:** rework #966/#968 onto the gate (decided).
