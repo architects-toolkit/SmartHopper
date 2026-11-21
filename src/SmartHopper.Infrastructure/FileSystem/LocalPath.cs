@@ -45,15 +45,25 @@ namespace SmartHopper.Infrastructure.FileSystem
             ".ssh", ".aws", ".azure", ".kube", ".gnupg",
         };
 
-        /// <summary>Browser profile trees that hold credential stores.</summary>
+        /// <summary>Browser profile trees that hold credential stores, per platform layout.</summary>
         private static readonly string[] DeniedCredentialTrees =
         {
-            "google/chrome/user data",
-            "microsoft/edge/user data",
-            "bravesoftware/brave-browser/user data",
+            "google/chrome",
+            ".config/google-chrome",
+            "microsoft/edge",
+            "application support/microsoft edge",
+            ".config/microsoft-edge",
+            "bravesoftware",
+            ".config/brave-browser",
             "chromium/user data",
-            "mozilla/firefox/profiles",
+            "application support/chromium",
+            ".config/chromium",
+            "mozilla/firefox",
+            ".mozilla/firefox",
+            "application support/firefox",
             "opera software/opera",
+            "com.operasoftware.opera",
+            ".config/opera",
         };
 
         /// <summary>Operating system roots that never allow tool access.</summary>
@@ -119,11 +129,27 @@ namespace SmartHopper.Infrastructure.FileSystem
                 canonical = Path.GetFullPath(path);
             }
 
+            // Extended-length device prefixes (\\?\, \\?\UNC\) preserve the same file
+            // under a different spelling; normalize them so denied checks cannot be
+            // evaded by an alternate prefix.
+            if (canonical.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+            {
+                canonical = @"\" + canonical.Substring(8);
+            }
+            else if (canonical.StartsWith(@"\\?\", StringComparison.Ordinal))
+            {
+                canonical = canonical.Substring(4);
+            }
+
             if (canonical.Length >= 2 && canonical[1] == ':' && char.IsLower(canonical[0]))
             {
                 // GetFullPath preserves the drive-letter casing the caller supplied.
                 canonical = char.ToUpperInvariant(canonical[0]) + canonical.Substring(1);
             }
+
+            // Ancestor links (junctions/symlinks) must resolve too: a folder grant on a
+            // directory containing a link would otherwise cover the link's target tree.
+            canonical = ResolveLinkedDirectories(canonical);
 
             try
             {
@@ -144,6 +170,38 @@ namespace SmartHopper.Infrastructure.FileSystem
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Rewrites <paramref name="path"/> so every existing ancestor directory is the
+        /// physical target of any reparse point in the chain.
+        /// </summary>
+        private static string ResolveLinkedDirectories(string path, int depth = 0)
+        {
+            var parent = Path.GetDirectoryName(path);
+            if (depth > 64 || string.IsNullOrEmpty(parent))
+            {
+                return path;
+            }
+
+            var candidate = Path.Combine(ResolveLinkedDirectories(parent, depth + 1), Path.GetFileName(path));
+            try
+            {
+                if (Directory.Exists(candidate))
+                {
+                    var target = Directory.ResolveLinkTarget(candidate, returnFinalTarget: true);
+                    if (target != null)
+                    {
+                        return ResolveLinkedDirectories(target.FullName, depth + 1);
+                    }
+                }
+            }
+            catch (IOException)
+            {
+                // Leave unresolvable reparse points on the canonical spelling.
+            }
+
+            return candidate;
         }
 
         /// <summary>Checks whether <paramref name="path"/> is <paramref name="root"/> or a descendant.</summary>
@@ -246,8 +304,14 @@ namespace SmartHopper.Infrastructure.FileSystem
                 return false;
             }
 
-            if ((capability & (LocalFileCapability.Read | LocalFileCapability.Write)) != 0
-                && IsUnder(ScreenshotsDirectory, canonicalPath))
+            // Pre-authorization only ever covers reading and writing SmartHopper's own
+            // files — never opening or running them.
+            if ((capability & (LocalFileCapability.Read | LocalFileCapability.Write)) == 0)
+            {
+                return false;
+            }
+
+            if (IsUnder(ScreenshotsDirectory, canonicalPath))
             {
                 return true;
             }
