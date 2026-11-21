@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Continue with ChatGPT** sign-in for the OpenAI provider through OpenAI's open-source token-sharing flow: provider settings expose a Connect button that runs a browser PKCE flow through a local loopback listener, validates OpenAI ID tokens, and stores the grant encrypted in the provider settings store. Either credential alone configures the provider; when both exist the ChatGPT token is used first on eligible `/responses` and `/models` calls with a single API-key fallback on HTTP 401/403. Backed by request-scoped credential selection in the Provider SDK and new status/link settings controls.
+
 ### Changed
 
 - Live log echo to Rhino's command line now defaults to the **Error** level (was Info).
