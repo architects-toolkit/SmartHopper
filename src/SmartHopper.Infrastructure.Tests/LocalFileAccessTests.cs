@@ -222,6 +222,74 @@ namespace SmartHopper.Infrastructure.Tests
             await LocalFileAccess.RequireAsync(temp, LocalFileCapability.Read, "test", this.store, null, default);
         }
 
+        /// <summary>Pre-authorization never covers Execute: opening a sandbox or temp file still prompts.</summary>
+        [Fact]
+        public async Task PreAuthorized_NeverCoversExecute()
+        {
+            var screenshots = Path.Combine(LocalPath.ScreenshotsDirectory, "canvas.png");
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                LocalFileAccess.RequireAsync(screenshots, LocalFileCapability.Execute, "test", this.store, null, default));
+
+            var temp = Path.Combine(Path.GetTempPath(), "smarthopper-runme.bat");
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                LocalFileAccess.RequireAsync(temp, LocalFileCapability.Execute, "test", this.store, null, default));
+        }
+
+        /// <summary>Browser credential stores are denied on every platform's profile layout.</summary>
+        [Fact]
+        public async Task DeniedTier_CoversAllBrowserLayouts()
+        {
+            var prompted = false;
+            Task<LocalFileAccessDecision> Prompt(LocalFileAccessRequest _, CancellationToken __)
+            {
+                prompted = true;
+                return Decide(LocalFileAccessDecision.AlwaysAllow);
+            }
+
+            var layouts = new[]
+            {
+                // Windows: %LOCALAPPDATA%\Google\Chrome\User Data\Default\
+                Path.Combine(this.directory, "Google", "Chrome", "User Data", "Default", "Login Data"),
+                // macOS: ~/Library/Application Support/Google/Chrome/Default/
+                Path.Combine(this.directory, "Library", "Application Support", "Google", "Chrome", "Default", "Login Data"),
+                // Linux: ~/.mozilla/firefox/<profile>/
+                Path.Combine(this.directory, ".mozilla", "firefox", "abc.default", "logins.json"),
+                // macOS: ~/Library/Application Support/Firefox/Profiles/
+                Path.Combine(this.directory, "Library", "Application Support", "Firefox", "Profiles", "abc.default", "logins.json"),
+            };
+
+            foreach (var path in layouts)
+            {
+                await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                    LocalFileAccess.RequireAsync(path, LocalFileCapability.Read, "test", this.store, Prompt, default));
+            }
+
+            Assert.False(prompted);
+        }
+
+        /// <summary>Extended-length device prefixes cannot spell around the denied tier.</summary>
+        [Fact]
+        public async Task DeniedTier_DevicePrefixCannotEvade()
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            var prompted = false;
+            Task<LocalFileAccessDecision> Prompt(LocalFileAccessRequest _, CancellationToken __)
+            {
+                prompted = true;
+                return Decide(LocalFileAccessDecision.AlwaysAllow);
+            }
+
+            var windir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            var escaped = @"\\?\" + Path.Combine(windir, "system.ini");
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                LocalFileAccess.RequireAsync(escaped, LocalFileCapability.Read, "test", this.store, Prompt, default));
+            Assert.False(prompted);
+        }
+
         /// <summary>Trusted internal flows can grant a path for the rest of the scope.</summary>
         [Fact]
         public async Task GrantForCurrentScope_CoversLaterRequire()
