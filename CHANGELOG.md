@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- `gh_document_save` now requires user approval before writing: every save is staged through the canvas change review with the target path and overwrite flag shown, closing a prompt-injection path that could silently overwrite any `.gh`/`.ghx` file on disk. Nothing — including missing parent directories — is created until the user approves. The tool is also restricted to interactive surfaces (Chat, Direct, MCP), matching the other document tools.
+- fix(security): `gh_document_save` now requires user approval before writing — every save is staged through the canvas change review with the target path and overwrite flag shown, closing a prompt-injection path that could silently overwrite any `.gh`/`.ghx` file on disk. Nothing — including missing parent directories — is created until the user approves. The tool is also restricted to interactive surfaces (Chat, Direct, MCP), matching the other document tools.
 
 ## [2.0.0-alpha.1] - 2026-11-17
 
