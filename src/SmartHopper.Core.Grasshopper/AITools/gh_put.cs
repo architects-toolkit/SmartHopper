@@ -32,8 +32,10 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.FileSystem;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
 using SmartHopper.ProviderSdk.Diagnostics;
@@ -584,9 +586,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             var extension = Path.GetExtension(path);
                             if (string.Equals(extension, ".ghjson", StringComparison.OrdinalIgnoreCase))
                             {
-                                return File.ReadAllText(path);
+                                // Model-supplied local reads require approval.
+                                if (LocalPath.TryCanonicalize(path, out var canonical, out _))
+                                {
+                                    LocalFileAccess.RequireBlocking(canonical, LocalFileCapability.Read, "gh_put");
+                                    return File.ReadAllText(canonical);
+                                }
                             }
                         }
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                        throw;
                     }
                     catch
                     {

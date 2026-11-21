@@ -24,6 +24,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.FileSystem;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Requests;
@@ -119,7 +120,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 builder.AddImageInputFromBase64(imageBase64, mimeType);
             }
-            else if (TryReadLocalImage(imageUrl, out string localBase64, out string localMimeType))
+            else if (TryReadLocalImage(imageUrl, this.toolName, out string localBase64, out string localMimeType))
             {
                 builder.AddImageInputFromBase64(localBase64, localMimeType);
             }
@@ -136,10 +137,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// as base64 so vision models that cannot fetch <c>file://</c> URIs still receive the image.
         /// </summary>
         /// <param name="imageUrl">The raw imageUrl argument.</param>
+        /// <param name="toolName">The calling tool, surfaced in the consent prompt.</param>
         /// <param name="base64Data">The base64-encoded file content when resolved.</param>
         /// <param name="mimeType">The MIME type inferred from the file extension when resolved.</param>
         /// <returns>True when the argument was a readable local file path.</returns>
-        private static bool TryReadLocalImage(string imageUrl, out string base64Data, out string mimeType)
+        private static bool TryReadLocalImage(string imageUrl, string toolName, out string base64Data, out string mimeType)
         {
             base64Data = null;
             mimeType = null;
@@ -159,12 +161,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
             // Normalize file:// URIs back to local paths.
             var path = uri != null && uri.IsFile ? uri.LocalPath : imageUrl;
 
-            if (!File.Exists(path))
+            if (!File.Exists(path) || !LocalPath.TryCanonicalize(path, out var canonical, out _))
             {
                 return false;
             }
 
-            base64Data = Convert.ToBase64String(File.ReadAllBytes(path));
+            // Blocking wait is safe here except on the Rhino UI thread, where an
+            // unanswered prompt would deadlock — RequireBlocking refuses instead.
+            LocalFileAccess.RequireBlocking(canonical, LocalFileCapability.Read, toolName);
+
+            base64Data = Convert.ToBase64String(File.ReadAllBytes(canonical));
             mimeType = GetImageMimeType(path);
             return true;
         }
