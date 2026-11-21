@@ -234,6 +234,89 @@ namespace SmartHopper.Core.Grasshopper.Tests.AITools
             Assert.Contains("Unknown scope", result.ErrorMessage, StringComparison.Ordinal);
         }
 
+        [Fact]
+        public void ResolveExportPath_AcceptsFileNameInsideExportDirectory()
+        {
+            var exportDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+
+            var resolved = ScreenshotExportUtilities.ResolveExportPath("facade.png", exportDir);
+
+            Assert.Equal(Path.Combine(exportDir, "facade.png"), resolved);
+        }
+
+        [Fact]
+        public void ResolveExportPath_AcceptsSubfolderInsideExportDirectory()
+        {
+            var exportDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+
+            var resolved = ScreenshotExportUtilities.ResolveExportPath(Path.Combine("renders", "facade.png"), exportDir);
+
+            Assert.Equal(Path.Combine(exportDir, "renders", "facade.png"), resolved);
+        }
+
+        [Theory]
+        [InlineData("../../x.gh")]
+        [InlineData("..")]
+        [InlineData("../outside.png")]
+        [InlineData("C:/Windows/x.png")]
+        [InlineData("C:\\Windows\\x.png")]
+        [InlineData("definitely-not-png.gh")]
+        [InlineData("image.jpeg")]
+        [InlineData("name.")]
+        [InlineData("con:tains-colon.png")]
+        public void ResolveExportPath_RejectsPathsOutsideSandboxOrWithoutPngExtension(string savePath)
+        {
+            var exportDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+
+            Assert.Throws<ArgumentException>(() => ScreenshotExportUtilities.ResolveExportPath(savePath, exportDir));
+        }
+
+        [Fact]
+        public void SavePng_WritesBytesInsideExportDirectory()
+        {
+            var exportDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            try
+            {
+                var png = new byte[] { 137, 80, 78, 71 };
+
+                var written = ScreenshotExportUtilities.SavePng(png, "shot.png", exportDir);
+
+                Assert.True(File.Exists(written));
+                Assert.Equal(png, File.ReadAllBytes(written));
+                Assert.StartsWith(Path.GetFullPath(exportDir), written);
+            }
+            finally
+            {
+                if (Directory.Exists(exportDir))
+                {
+                    Directory.Delete(exportDir, recursive: true);
+                }
+            }
+        }
+
+        [Fact]
+        public void SavePng_RefusesToOverwriteExistingFile()
+        {
+            var exportDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(exportDir);
+                var existing = Path.Combine(exportDir, "shot.png");
+                File.WriteAllBytes(existing, new byte[] { 1, 2, 3 });
+
+                Assert.Throws<InvalidOperationException>(
+                    () => ScreenshotExportUtilities.SavePng(new byte[] { 9 }, "shot.png", exportDir));
+                Assert.Equal(new byte[] { 1, 2, 3 }, File.ReadAllBytes(existing));
+            }
+            finally
+            {
+                if (Directory.Exists(exportDir))
+                {
+                    Directory.Delete(exportDir, recursive: true);
+                }
+            }
+        }
+
         private static IReadOnlyDictionary<string, AITool> BuildTools(
             ICanvasCaptureService canvasService,
             IViewportCaptureService viewportService,

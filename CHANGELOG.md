@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The MistralAI seed table now resolves `mistral-large` and `mistral-large-latest` to `mistral-large-4-0` instead of `mistral-large-2512`, matching the rolling aliases' current upstream target (Mistral Large 4); the 2512 snapshot keeps `mistral-large-veteran-2512` and `mistral-large-2512:batch`.
 - `SmartHopper.Providers.Test` no longer leaks into generated docs: the DEV.md provider-table and model-verification-template generators now skip the test-harness project explicitly, and both CI trigger path filters exclude `src/SmartHopper.Providers.Test/**` so test-only pushes no longer run the doc-regeneration workflows.
 
+### Security
+
+- Screenshot tools (`canvas_screenshot`, `viewport_screenshot`, `canvas_hi-res_screenshot`) can no longer write a PNG to an arbitrary model-supplied path. The `savePath` argument is now a file name or relative subfolder path sandboxed to the SmartHopper Screenshots export folder (`%AppData%\Grasshopper\SmartHopper\Screenshots`), must end in `.png`, and never overwrites an existing file — closing an arbitrary-file-write path reachable through prompt injection in the read-only tool surface.
+
 ## [2.0.0-alpha.1] - 2026-11-17
 
 Many thanks to the following contributors to this release:

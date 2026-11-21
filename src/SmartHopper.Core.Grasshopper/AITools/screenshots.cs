@@ -19,7 +19,6 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.IO;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
@@ -54,7 +53,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 },
                 ""savePath"": {
                     ""type"": ""string"",
-                    ""description"": ""Optional absolute file path that also receives the PNG. Parent directories are created and existing files are overwritten.""
+                    ""description"": ""Optional file name or relative subfolder path for a PNG copy, e.g. 'facade.png'. Writes are sandboxed to the SmartHopper Screenshots export folder (%AppData%\\Grasshopper\\SmartHopper\\Screenshots); the name must end in .png and existing files are never overwritten.""
                 }
             }
         }";
@@ -94,7 +93,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 },
                 ""savePath"": {
                     ""type"": ""string"",
-                    ""description"": ""Optional absolute file path that also receives the PNG. Parent directories are created and existing files are overwritten.""
+                    ""description"": ""Optional file name or relative subfolder path for a PNG copy, e.g. 'facade.png'. Writes are sandboxed to the SmartHopper Screenshots export folder (%AppData%\\Grasshopper\\SmartHopper\\Screenshots); the name must end in .png and existing files are never overwritten.""
                 }
             }
         }";
@@ -155,7 +154,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 },
                 ""savePath"": {
                     ""type"": ""string"",
-                    ""description"": ""Optional absolute file path that also receives the PNG. Parent directories are created and existing files are overwritten.""
+                    ""description"": ""Optional file name or relative subfolder path for a PNG copy, e.g. 'facade.png'. Writes are sandboxed to the SmartHopper Screenshots export folder (%AppData%\\Grasshopper\\SmartHopper\\Screenshots); the name must end in .png and existing files are never overwritten.""
                 }
             }
         }";
@@ -279,7 +278,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 result["viewName"] = capture.ViewName ?? string.Empty;
             }
 
-            var savedTo = SavePng(capture, savePath);
+            var savedTo = ScreenshotExportUtilities.SavePng(capture, savePath);
             if (savedTo != null)
             {
                 result["savedTo"] = savedTo;
@@ -288,30 +287,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return AIBodyBuilder.Create()
                 .AddToolResult(result, toolInfo.Id, toolInfo.Name)
                 .Build();
-        }
-
-        /// <summary>
-        /// Writes the captured PNG to <paramref name="savePath"/> when provided, creating
-        /// parent directories and overwriting existing files. Returns the normalized
-        /// absolute path that was written, or <see langword="null"/> when no savePath
-        /// was given.
-        /// </summary>
-        private static string? SavePng(ImageCaptureResult capture, string? savePath)
-        {
-            if (string.IsNullOrWhiteSpace(savePath))
-            {
-                return null;
-            }
-
-            var fullPath = Path.GetFullPath(savePath.Trim());
-            var directory = Path.GetDirectoryName(fullPath);
-            if (!string.IsNullOrEmpty(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            File.WriteAllBytes(fullPath, Convert.FromBase64String(capture.ImageBase64));
-            return fullPath;
         }
 
         private async Task<AIReturn> CaptureCanvasAsync(AIToolCall toolCall)

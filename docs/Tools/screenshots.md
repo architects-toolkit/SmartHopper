@@ -30,7 +30,7 @@ Captures the current Grasshopper canvas viewport with `GH_Canvas.GetCanvasScreen
 | --- | --- | --- | --- |
 | `maxWidth` | integer | `1920` | Maximum output width, from 1 to 4096 pixels. |
 | `maxHeight` | integer | `1080` | Maximum output height, from 1 to 4096 pixels. |
-| `savePath` | string | none | Optional absolute file path that also receives the PNG. Parent directories are created and existing files overwritten; the normalized path is reported as `savedTo`. |
+| `savePath` | string | none | Optional file name or relative subfolder path (e.g. `facade.png` or `renders/facade.png`) for a PNG copy. Writes are sandboxed to the SmartHopper Screenshots export folder `%AppData%\Grasshopper\SmartHopper\Screenshots`; the name must end in `.png` and existing files are never overwritten. The normalized path is reported as `savedTo`. |
 
 ### `viewport_screenshot`
 
@@ -41,7 +41,7 @@ Captures the active Rhino viewport, or the first viewport matching `viewName`, w
 | `viewName` | string | active view | Optional viewport name, matched case-insensitively. |
 | `width` | integer | `1024` | Maximum output width, from 1 to 4096 pixels. |
 | `height` | integer | `1024` | Maximum output height, from 1 to 4096 pixels. |
-| `savePath` | string | none | Optional absolute file path that also receives the PNG. Parent directories are created and existing files overwritten; the normalized path is reported as `savedTo`. |
+| `savePath` | string | none | Optional file name or relative subfolder path for a PNG copy inside the SmartHopper Screenshots export folder (same rules as `canvas_screenshot`). |
 
 ### `canvas_hi-res_screenshot`
 
@@ -55,7 +55,7 @@ Renders an arbitrary region of the Grasshopper canvas at a chosen scale using `G
 | `padding` | number | `20` | Canvas-unit margin around the resolved region. |
 | `scale` | number | `2.0` | Render zoom; `1.0` matches on-screen detail, higher sharpens for print (max 32). |
 | `background` | string | `transparent` | `transparent`, `white`, `canvas`, or `#RRGGBB`/`#AARRGGBB`. |
-| `savePath` | string | none | Same convention as the other capture tools. |
+| `savePath` | string | none | Same convention as the other capture tools: a file name or relative subfolder path inside the sandboxed SmartHopper Screenshots export folder. |
 
 Its results declare `"imageAudience": "display"` — the image renders in WebChat and as an MCP `image` block but is never sent to the model, keeping publish-quality captures out of the token budget.
 
