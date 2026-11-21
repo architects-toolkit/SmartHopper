@@ -14,8 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Unified local-file access consent (`SmartHopper.Infrastructure.FileSystem`): model-supplied paths now pass a `LocalFileAccess` gate before tools read, write or open them, mirroring the external-source retrieval approval. The prompt offers Allow once / Always allow this file / Always allow this folder / Deny; grants persist per capability in `%APPDATA%/Grasshopper/SmartHopper/local-file-permissions.json` and are managed in Settings > Security > "Local file permissions". Protected locations (credential stores, browser profiles, SmartHopper's own configuration, system folders) are refused outright.
+
+### Security
+
+- `file2md`, `img2text` (local `imageUrl`), `gh_put` (`.ghjson` path arguments), `gh_batch_import_results`, `gh_document_save` (explicit target), `gh_document_open` (files not already open, gated as Execute since scripts may run) and `rhino_read_3dm` now require user approval before touching local files.
+
 ### Changed
 
+- Screenshot tools' `savePath` now writes relative names inside the `Screenshots` export folder without overwriting; absolute paths require Write approval and must end in `.png`.
 - Live log echo to Rhino's command line now defaults to the **Error** level (was Info).
 - Provider integrity check now defaults to **Hard** mode (was Soft) — blocks altered and unknown providers while remaining permissive when hash servers are offline.
 - Mistral provider `reasoning_effort` is now normalized per model instead of globally to `none`/`high`: Mistral Large 4 accepts `low`, `medium` and `high` (a legacy `none` is mapped to `low`, which Mistral documents as the migration path since `none` is rejected with HTTP 400); Z.ai GLM 5.3 accepts `low`, `high` and `max`; other reasoning-capable Mistral models keep `none`/`high`. The parameter is also omitted on registered models that do not support reasoning.

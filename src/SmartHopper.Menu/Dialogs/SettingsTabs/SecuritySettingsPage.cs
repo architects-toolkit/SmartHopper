@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
+using SmartHopper.Infrastructure.FileSystem;
 using SmartHopper.Infrastructure.Networking;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.ProviderSdk.AICall.Core;
@@ -31,13 +32,17 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
     internal sealed class SecuritySettingsPage : Panel
     {
         private const string AddOriginPlaceholder = "https://nextcloud.example.com:443";
+        private const string AddFileGrantPlaceholder = "RW folder C:\\Projects";
 
         private readonly HashSet<string> initialOrigins;
         private readonly StackLayout originRows;
+        private readonly HashSet<string> initialFileGrants;
+        private readonly StackLayout fileRows;
         private readonly NumericStepper httpTimeout;
         private readonly NumericStepper downloadLimit;
         private readonly HashSet<TextBox> removing = new HashSet<TextBox>();
         private TextBox pendingOrigin;
+        private TextBox pendingFileGrant;
 
         /// <summary>Initializes the page with the provider trust/integrity controls.</summary>
         internal SecuritySettingsPage(Control providerSecurity)
@@ -51,6 +56,17 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             this.pendingOrigin = this.CreatePendingOriginBox();
             this.originRows.Items.Add(this.pendingOrigin);
+
+            this.initialFileGrants = new HashSet<string>(
+                LocalFileAllowlist.Current.GetGrants().Select(GrantKey), LocalPath.Comparer);
+            this.fileRows = new StackLayout { Orientation = Orientation.Vertical, Spacing = 4 };
+            foreach (var key in this.initialFileGrants.OrderBy(value => value, LocalPath.Comparer))
+            {
+                this.fileRows.Items.Add(this.CreateFileGrantRow(key));
+            }
+
+            this.pendingFileGrant = this.CreatePendingFileGrantBox();
+            this.fileRows.Items.Add(this.pendingFileGrant);
 
             var layout = new DynamicLayout { Spacing = new Size(10, 10), Padding = 10 };
 
@@ -106,6 +122,18 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 "Approval permits retrieval; it does not grant separate permission to send private data to an AI service. " +
                 "Configured AI-provider connections and sign-in traffic are managed separately."));
 
+            // Approved local files and folders, same editing model as the origins above.
+            layout.Add(new Panel { Height = 15 });
+            layout.Add(new Label { Text = "Local file permissions", Font = new Font(SystemFont.Bold, 12) });
+            layout.Add(new Panel { Height = 5 });
+            layout.Add(SettingsText.DescriptionLabel(
+                "Unapproved paths ask before the assistant reads, writes or opens them. Only Always allow decisions are saved here. " +
+                "Each row is '<capabilities> <file|folder> <path>' — R reads, W writes, E opens runnable documents. " +
+                "Protected locations (credentials, system folders, SmartHopper settings) can never be approved."));
+            layout.Add(this.fileRows);
+            layout.Add(SettingsText.DescriptionLabel(
+                "Removing a permission takes effect after Save. Allow-once approvals are not listed."));
+
             // Trailing spacer absorbs the DynamicLayout's vertical stretch so the
             // origins list is not expanded (same pattern as the other pages).
             layout.Add(null);
@@ -134,6 +162,27 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             if (revoked.Length != 0)
             {
                 ExternalSourceAllowlist.Current.Revoke(revoked);
+            }
+
+            var retainedGrants = this.fileRows.Items
+                .Select(item => (item.Control as StackLayout)?.Items.FirstOrDefault()?.Control as TextBox ?? item.Control as TextBox)
+                .Where(box => box != null && !ReferenceEquals(box, this.pendingFileGrant))
+                .Select(box => box.Tag as string ?? box.Text?.Trim())
+                .Where(key => !string.IsNullOrWhiteSpace(key))
+                .ToHashSet(LocalPath.Comparer);
+
+            // Revoke before allowing: editing a row's capabilities changes its key, so
+            // the old key must be removed before the edited one is re-added — adding
+            // first would let the revoke wipe the edit.
+            var revokedGrants = this.initialFileGrants.Where(key => !retainedGrants.Contains(key)).ToArray();
+            if (revokedGrants.Length != 0)
+            {
+                LocalFileAllowlist.Current.Revoke(revokedGrants.Select(ParseGrantKey));
+            }
+
+            foreach (var key in retainedGrants.Where(key => !this.initialFileGrants.Contains(key)))
+            {
+                LocalFileAllowlist.Current.Allow(ParseGrantKey(key));
             }
         }
 
@@ -268,5 +317,213 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 this.originRows.Items.Add(this.pendingOrigin);
             }
         }
+
+        /// <summary>Stable row key: capabilities letter set, scope word and canonical path.</summary>
+        private static string GrantKey(LocalFileGrant grant) =>
+            CapabilityLetters(grant.Capabilities) + " "
+                + (grant.Scope == LocalFileGrantScope.Directory ? "folder" : "file") + " "
+                + grant.Path;
+
+        private static LocalFileGrant ParseGrantKey(string key)
+        {
+            var firstSpace = key.IndexOf(' ');
+            var secondSpace = key.IndexOf(' ', firstSpace + 1);
+            var grant = new LocalFileGrant
+            {
+                Capabilities = ParseCapabilities(key.Substring(0, firstSpace)),
+                Scope = key.Substring(firstSpace + 1, secondSpace - firstSpace - 1) == "folder"
+                    ? LocalFileGrantScope.Directory
+                    : LocalFileGrantScope.File,
+                Path = key.Substring(secondSpace + 1).Trim(),
+                GrantedUtc = DateTimeOffset.UtcNow,
+            };
+            return grant;
+        }
+
+        private static string CapabilityLetters(LocalFileCapability capabilities)
+        {
+            var letters = string.Empty;
+            if ((capabilities & LocalFileCapability.Read) != 0)
+            {
+                letters += "R";
+            }
+
+            if ((capabilities & LocalFileCapability.Write) != 0)
+            {
+                letters += "W";
+            }
+
+            if ((capabilities & LocalFileCapability.Execute) != 0)
+            {
+                letters += "E";
+            }
+
+            return letters;
+        }
+
+        private static LocalFileCapability ParseCapabilities(string letters)
+        {
+            var capabilities = LocalFileCapability.None;
+            foreach (var letter in letters.ToUpperInvariant())
+            {
+                capabilities |= letter switch
+                {
+                    'R' => LocalFileCapability.Read,
+                    'W' => LocalFileCapability.Write,
+                    'E' => LocalFileCapability.Execute,
+                    _ => throw new ArgumentException(),
+                };
+            }
+
+            if (capabilities == LocalFileCapability.None)
+            {
+                throw new ArgumentException();
+            }
+
+            return capabilities;
+        }
+
+        /// <summary>Builds a committed file-permission row mirroring the origin rows.</summary>
+        private Control CreateFileGrantRow(string key)
+        {
+            var box = new TextBox { Text = key, Width = 520, Tag = key };
+            var remove = new Button { Text = "−", Width = 28, ToolTip = "Remove this permission" };
+
+            remove.MouseDown += (_, _) => this.removing.Add(box);
+            remove.Click += (_, _) =>
+            {
+                this.removing.Remove(box);
+                var item = this.fileRows.Items.FirstOrDefault(i =>
+                    (i.Control as StackLayout)?.Items.FirstOrDefault()?.Control == box);
+                if (item != null)
+                {
+                    this.fileRows.Items.Remove(item);
+                }
+            };
+
+            box.KeyDown += (_, e) =>
+            {
+                if (e.Key == Keys.Enter)
+                {
+                    this.CommitFileGrant(box, isPending: false);
+                    e.Handled = true;
+                }
+            };
+            box.LostFocus += (_, _) => this.CommitFileGrant(box, isPending: false);
+
+            var row = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                VerticalContentAlignment = VerticalAlignment.Center,
+            };
+            row.Items.Add(box);
+            row.Items.Add(remove);
+            return row;
+        }
+
+        /// <summary>Creates the trailing empty field that promotes into a committed row on entry.</summary>
+        private TextBox CreatePendingFileGrantBox()
+        {
+            var box = new TextBox { PlaceholderText = AddFileGrantPlaceholder, Width = 520 };
+            box.KeyDown += (_, e) =>
+            {
+                if (e.Key == Keys.Enter)
+                {
+                    this.CommitFileGrant(box, isPending: true);
+                    e.Handled = true;
+                }
+            };
+            box.LostFocus += (_, _) => this.CommitFileGrant(box, isPending: true);
+            return box;
+        }
+
+        /// <summary>
+        /// Validates a typed grant row of the form 'RWE file|folder path', canonicalizes the
+        /// path and rejects denied-tier locations the consent prompt would refuse anyway.
+        /// </summary>
+        private void CommitFileGrant(TextBox box, bool isPending)
+        {
+            if (this.removing.Contains(box))
+            {
+                return;
+            }
+
+            var text = box.Text?.Trim() ?? string.Empty;
+            if (text.Length == 0)
+            {
+                if (!isPending)
+                {
+                    var item = this.fileRows.Items.FirstOrDefault(i =>
+                        (i.Control as StackLayout)?.Items.FirstOrDefault()?.Control == box);
+                    if (item != null)
+                    {
+                        this.fileRows.Items.Remove(item);
+                    }
+                }
+
+                return;
+            }
+
+            string key;
+            try
+            {
+                var firstSpace = text.IndexOf(' ');
+                var secondSpace = firstSpace < 0 ? -1 : text.IndexOf(' ', firstSpace + 1);
+                if (firstSpace < 0 || secondSpace < 0)
+                {
+                    throw new ArgumentException();
+                }
+
+                var capabilities = ParseCapabilities(text.Substring(0, firstSpace));
+                var scopeWord = text.Substring(firstSpace + 1, secondSpace - firstSpace - 1).ToLowerInvariant();
+                if (scopeWord != "file" && scopeWord != "folder")
+                {
+                    throw new ArgumentException();
+                }
+
+                if (!LocalPath.TryCanonicalize(text.Substring(secondSpace + 1), out var canonical, out _)
+                    || LocalPath.IsDenied(canonical))
+                {
+                    throw new ArgumentException();
+                }
+
+                key = CapabilityLetters(capabilities) + " " + scopeWord + " " + canonical;
+            }
+            catch (ArgumentException)
+            {
+                MessageBox.Show(this,
+                    "Enter '<capabilities> <file|folder> <absolute path>' using R, W and E letters. " +
+                    "Protected locations cannot be approved.",
+                    "Invalid file permission");
+                box.Text = box.Tag as string ?? string.Empty;
+                return;
+            }
+
+            var duplicate = this.fileRows.Items
+                .Select(item => (item.Control as StackLayout)?.Items.FirstOrDefault()?.Control as TextBox ?? item.Control as TextBox)
+                .Any(other => other != null && !ReferenceEquals(other, box) && !ReferenceEquals(other, this.pendingFileGrant)
+                    && string.Equals(other.Tag as string ?? other.Text?.Trim(), key, Comparison()));
+            if (duplicate)
+            {
+                box.Text = box.Tag as string ?? string.Empty;
+                return;
+            }
+
+            box.Text = key;
+            box.Tag = key;
+            if (isPending)
+            {
+                this.fileRows.Items.RemoveAt(this.fileRows.Items.Count - 1);
+                this.fileRows.Items.Add(this.CreateFileGrantRow(key));
+                this.pendingFileGrant = this.CreatePendingFileGrantBox();
+                this.fileRows.Items.Add(this.pendingFileGrant);
+            }
+        }
+
+        private static StringComparison Comparison() =>
+            LocalPath.Comparer == StringComparer.OrdinalIgnoreCase
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
     }
 }

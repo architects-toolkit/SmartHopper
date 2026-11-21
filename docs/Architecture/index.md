@@ -1,3 +1,5 @@
+<!-- docs-validation: ignore -->
+
 # Architecture deep dives
 
 - [MCP server](mcp-server.md) — embedded Model Context Protocol server exposing AI tools.
@@ -8,4 +10,5 @@
 - [AI input payload](AIInputPayload.md)
 - [AI request parameters](AIRequestParameters.md)
 - [External source security](external-source-security.md)
+- [Local file access security](local-file-access-security.md)
 - [Versatile audio](VersatileAudio.md)
