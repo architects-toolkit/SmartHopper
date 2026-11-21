@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The MistralAI seed table now resolves `mistral-large` and `mistral-large-latest` to `mistral-large-4-0` instead of `mistral-large-2512`, matching the rolling aliases' current upstream target (Mistral Large 4); the 2512 snapshot keeps `mistral-large-veteran-2512` and `mistral-large-2512:batch`.
 - `SmartHopper.Providers.Test` no longer leaks into generated docs: the DEV.md provider-table and model-verification-template generators now skip the test-harness project explicitly, and both CI trigger path filters exclude `src/SmartHopper.Providers.Test/**` so test-only pushes no longer run the doc-regeneration workflows.
 
+### Security
+
+- `gh_document_save` now requires user approval before writing: every save is staged through the canvas change review with the target path and overwrite flag shown, closing a prompt-injection path that could silently overwrite any `.gh`/`.ghx` file on disk. Nothing — including missing parent directories — is created until the user approves. The tool is also restricted to interactive surfaces (Chat, Direct, MCP), matching the other document tools.
+
 ## [2.0.0-alpha.1] - 2026-11-17
 
 Many thanks to the following contributors to this release:

@@ -52,6 +52,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
         /// <summary>A group will be removed.</summary>
         GroupRemoved,
+
+        /// <summary>A document will be written to disk.</summary>
+        DocumentSaved,
     }
 
     /// <summary>

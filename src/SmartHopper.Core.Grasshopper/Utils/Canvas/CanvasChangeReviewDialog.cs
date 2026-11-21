@@ -55,7 +55,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
             var title = new Label
             {
-                Text = "Review AI canvas changes",
+                Text = session.Title,
                 Font = new Font(SystemFont.Bold, 16),
                 VerticalAlignment = VerticalAlignment.Center,
             };
@@ -435,6 +435,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 CanvasChangeKind.GroupAdded => "GROUP +",
                 CanvasChangeKind.GroupModified => "GROUP",
                 CanvasChangeKind.GroupRemoved => "GROUP −",
+                CanvasChangeKind.DocumentSaved => "SAVE",
                 _ => "CHANGE",
             };
         }
@@ -447,6 +448,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 CanvasChangeKind.ComponentModified => Color.FromArgb(191, 135, 0),
                 CanvasChangeKind.ComponentRemoved => Color.FromArgb(207, 34, 46),
                 CanvasChangeKind.ConnectionAdded or CanvasChangeKind.ConnectionRemoved => Color.FromArgb(9, 105, 218),
+                CanvasChangeKind.DocumentSaved => Color.FromArgb(191, 135, 0),
                 _ => Color.FromArgb(130, 80, 223),
             };
         }

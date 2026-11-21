@@ -244,6 +244,36 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         }
 
         /// <summary>
+        /// Creates a review session for writing a document to disk. The single item
+        /// carries the target path and whether the write overwrites an existing file,
+        /// so the user sees exactly which file the tool will touch before approving.
+        /// </summary>
+        /// <param name="source">Tool that produced the proposal.</param>
+        /// <param name="documentName">Display name of the document being saved.</param>
+        /// <param name="targetPath">Absolute path the document will be written to.</param>
+        /// <param name="willOverwrite">Whether a file already exists at <paramref name="targetPath"/>.</param>
+        /// <returns>A session with one selectable save item.</returns>
+        public static CanvasChangeReviewSession CreateDocumentSaveSession(
+            string source,
+            string documentName,
+            string targetPath,
+            bool willOverwrite)
+        {
+            var item = new CanvasChangeReviewItem(
+                $"save:{targetPath}",
+                CanvasChangeKind.DocumentSaved,
+                string.IsNullOrWhiteSpace(documentName) ? "Document" : documentName,
+                willOverwrite
+                    ? $"Write to {targetPath} — overwrites the existing file"
+                    : $"Write to {targetPath} — creates a new file");
+            return new CanvasChangeReviewSession(
+                "Review AI document save",
+                source,
+                new GhJsonDocument(),
+                new[] { item });
+        }
+
+        /// <summary>
         /// Gets accepted component instance GUIDs from a review session.
         /// </summary>
         /// <param name="session">Reviewed session.</param>

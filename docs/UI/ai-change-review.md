@@ -181,6 +181,7 @@ The shared review flow currently gates:
 - `gh_move` target positions
 - `gh_tidy_up`/`gh_tidy_up_selected` layout moves
 - `gh_group` and `gh_group_selected` group creation
+- `gh_document_save` document writes (`CanvasChangeKind.DocumentSaved`): the review item carries the target path and overwrite flag instead of a canvas diff, so nothing is painted on the canvas for it.
 
 Runtime actions such as button clicks and script execution are not represented as structural diffs. They retain their existing execution semantics.
 

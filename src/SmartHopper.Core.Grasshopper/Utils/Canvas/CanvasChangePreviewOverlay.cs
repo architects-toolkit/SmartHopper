@@ -711,6 +711,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 CanvasChangeKind.ComponentRemoved => RemovedColor,
                 CanvasChangeKind.ConnectionAdded => WireColor,
                 CanvasChangeKind.ConnectionRemoved => RemovedColor,
+                CanvasChangeKind.DocumentSaved => ModifiedColor,
                 _ => GroupColor,
             };
         }

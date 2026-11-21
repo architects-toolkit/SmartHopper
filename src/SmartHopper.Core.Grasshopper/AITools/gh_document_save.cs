@@ -46,7 +46,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Save a Grasshopper document. Defaults to the active document; pass documentId (from gh_document_list) to save another open document. If no filePath is provided, the document is saved to its existing location. Provide an absolute .gh or .ghx file path to save a copy or an unsaved document.",
+                description: "Save a Grasshopper document. Defaults to the active document; pass documentId (from gh_document_list) to save another open document. If no filePath is provided, the document is saved to its existing location. Provide an absolute .gh or .ghx file path to save a copy or an unsaved document. The user reviews and approves the target path before anything is written.",
                 category: "Canvas.Documents",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -66,13 +66,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags: new[] { "document", "save", "file" },
                 outputSchema: @"{ ""type"": ""object"", ""properties"": { ""filePath"": { ""type"": [""string"", ""null""] }, ""saved"": { ""type"": ""boolean"" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: false, destructiveHint: true, openWorldHint: true),
+                surfaces: GhDocumentTools.InteractiveSurfaces,
                 activityLabel: "saving the document",
                 resultLabel: "saved the document");
         }
 
         private Task<AIReturn> GhDocumentSaveToolAsync(AIToolCall toolCall)
         {
-            return GhDocumentTools.Run(toolCall, args =>
+            return GhDocumentTools.RunAsync(toolCall, async args =>
             {
                 var documentId = args["documentId"]?.ToString();
                 var doc = string.IsNullOrWhiteSpace(documentId)
@@ -88,25 +89,55 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     filePath = null;
                 }
+                else if (!GrasshopperFilePath.TryNormalize(filePath, mustExist: false, out var fullPath, out var pathError))
+                {
+                    throw new InvalidOperationException(pathError);
+                }
                 else
                 {
-                    if (!GrasshopperFilePath.TryNormalize(filePath, mustExist: false, out var fullPath, out var pathError))
-                    {
-                        throw new InvalidOperationException(pathError);
-                    }
-
                     filePath = fullPath;
-                    var directory = Path.GetDirectoryName(filePath);
-                    if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
-                    {
-                        Directory.CreateDirectory(directory);
-                    }
                 }
 
-                var savedPath = CanvasAccess.SaveDocument(doc, filePath);
-                if (string.IsNullOrWhiteSpace(savedPath))
+                var targetPath = filePath ?? doc.FilePath;
+                if (string.IsNullOrWhiteSpace(targetPath))
                 {
                     throw new InvalidOperationException("Could not save the document. Unsaved documents need a filePath.");
+                }
+
+                // Writing to a model-supplied path can overwrite any .gh/.ghx file the
+                // user can write, so the save goes through the same consent review as
+                // every other mutating tool. The review item names the target path and
+                // flags whether an existing file will be overwritten.
+                var review = CanvasChangeReviewService.CreateDocumentSaveSession(
+                    this.toolName,
+                    GhDocumentAccess.GetDisplayName(doc),
+                    targetPath,
+                    willOverwrite: File.Exists(targetPath));
+                var approved = await CanvasChangeReviewService.ReviewAsync(
+                    review,
+                    toolCall.InvocationContext,
+                    toolCall.CancellationToken).ConfigureAwait(false);
+                if (!approved || review.AcceptedCount == 0)
+                {
+                    return new JObject
+                    {
+                        ["saved"] = false,
+                        ["filePath"] = null,
+                        ["documentId"] = doc.DocumentID.ToString("D"),
+                        ["message"] = "The user rejected the save.",
+                    };
+                }
+
+                var directory = Path.GetDirectoryName(targetPath);
+                if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                var savedPath = CanvasAccess.SaveDocument(doc, targetPath);
+                if (string.IsNullOrWhiteSpace(savedPath))
+                {
+                    throw new InvalidOperationException("Could not save the document.");
                 }
 
                 return new JObject
