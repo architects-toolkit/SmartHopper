@@ -170,15 +170,19 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 .Select(box => box.Tag as string ?? box.Text?.Trim())
                 .Where(key => !string.IsNullOrWhiteSpace(key))
                 .ToHashSet(LocalPath.Comparer);
-            foreach (var key in retainedGrants.Where(key => !this.initialFileGrants.Contains(key)))
-            {
-                LocalFileAllowlist.Current.Allow(ParseGrantKey(key));
-            }
 
+            // Revoke before allowing: editing a row's capabilities changes its key, so
+            // the old key must be removed before the edited one is re-added — adding
+            // first would let the revoke wipe the edit.
             var revokedGrants = this.initialFileGrants.Where(key => !retainedGrants.Contains(key)).ToArray();
             if (revokedGrants.Length != 0)
             {
                 LocalFileAllowlist.Current.Revoke(revokedGrants.Select(ParseGrantKey));
+            }
+
+            foreach (var key in retainedGrants.Where(key => !this.initialFileGrants.Contains(key)))
+            {
+                LocalFileAllowlist.Current.Allow(ParseGrantKey(key));
             }
         }
 
