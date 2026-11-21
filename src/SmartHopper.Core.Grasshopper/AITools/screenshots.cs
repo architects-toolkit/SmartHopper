@@ -295,8 +295,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Writes the captured PNG to <paramref name="savePath"/> when provided. Relative
         /// names land in the screenshot export directory under SmartHopper's app data and
         /// never overwrite; absolute paths need a .png extension and explicit approval
-        /// through the local-file consent gate. Returns the path that was written, or
-        /// <see langword="null"/> when no savePath was given.
+        /// through the local-file consent gate, which warns the user before overwriting.
+        /// Returns the path that was written, or <see langword="null"/> when no savePath
+        /// was given.
         /// </summary>
         private static string? SavePng(ImageCaptureResult capture, string? savePath)
         {
@@ -306,6 +307,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
 
             var trimmed = savePath.Trim();
+            var mode = FileMode.CreateNew;
             string fullPath;
             if (Path.IsPathRooted(trimmed))
             {
@@ -322,6 +324,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Blocking wait is safe here except on the Rhino UI thread, where an
                 // unanswered prompt would deadlock — RequireBlocking refuses instead.
                 LocalFileAccess.RequireBlocking(canonical, LocalFileCapability.Write, "screenshots");
+                mode = FileMode.Create;
                 fullPath = canonical;
             }
             else
@@ -355,15 +358,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Directory.CreateDirectory(directory);
             }
 
-            // CreateNew is atomic: it fails when the name already exists — including a
-            // dangling link — so a prepared file can never be overwritten or followed.
+            // CreateNew is atomic for sandbox exports: it fails when the name already
+            // exists — including a dangling link — so a prepared file is never followed.
+            // Consent-approved absolute paths may overwrite, as the prompt states.
             try
             {
-                using var stream = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write);
+                using var stream = new FileStream(fullPath, mode, FileAccess.Write);
                 var bytes = Convert.FromBase64String(capture.ImageBase64);
                 stream.Write(bytes, 0, bytes.Length);
             }
-            catch (IOException)
+            catch (IOException) when (mode == FileMode.CreateNew)
             {
                 throw new InvalidOperationException($"'{fullPath}' already exists; exports never overwrite.");
             }
