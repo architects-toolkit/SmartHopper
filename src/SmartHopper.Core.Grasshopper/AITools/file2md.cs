@@ -32,6 +32,7 @@ using SmartHopper.DocumentProcessing;
 using SmartHopper.Infrastructure.AICall.Fallback;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.FileSystem;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 using SmartHopper.ProviderSdk.AICall.Core.Returns;
@@ -262,6 +263,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     Region = region,
                     CancellationToken = toolCall.CancellationToken,
                 };
+
+                // Local file reads require explicit approval; remote URLs are
+                // governed by the external-source gate inside the converters.
+                if (!Uri.TryCreate(filePath, UriKind.Absolute, out var fileUri)
+                    || (fileUri.Scheme != Uri.UriSchemeHttp && fileUri.Scheme != Uri.UriSchemeHttps))
+                {
+                    await LocalFileAccess.RequireAsync(
+                        filePath, LocalFileCapability.Read, this.toolName, toolCall.CancellationToken)
+                        .ConfigureAwait(false);
+                }
 
                 // Convert the file
                 var converterRegistry = GetRegistry();

@@ -29,6 +29,7 @@ using Grasshopper;
 using Grasshopper.GUI.Canvas;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.ComponentBase.State;
+using SmartHopper.Infrastructure.FileSystem;
 using SmartHopper.Infrastructure.Networking;
 using SmartHopper.ProviderSdk.Logging;
 
@@ -94,7 +95,8 @@ namespace SmartHopper.Core.UI
 
         private static void OnCanvasPostPaintOverlay(GH_Canvas canvas)
         {
-            if (canvas?.Document == null || canvas.Graphics == null || !ExternalSourceAccess.IsAwaitingConsent)
+            if (canvas?.Document == null || canvas.Graphics == null
+                || (!ExternalSourceAccess.IsAwaitingConsent && !LocalFileAccess.IsAwaitingConsent))
             {
                 return;
             }

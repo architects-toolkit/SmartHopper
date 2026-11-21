@@ -26,6 +26,7 @@ using SmartHopper.Core.UI;
 using SmartHopper.Core.UI.Chat;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Dialogs;
+using SmartHopper.Infrastructure.FileSystem;
 using SmartHopper.Infrastructure.Networking;
 using SmartHopper.ProviderSdk.Hosting;
 
@@ -67,6 +68,9 @@ namespace SmartHopper.Components
             ProviderSdkHost.ConnectionPrompt = new ProviderConnectionPrompt();
             ExternalSourceAccess.PromptAsync = ExternalSourcePrompt.ShowAsync;
             ExternalSourceAccess.AwaitingConsentChanged += (_, __) =>
+                RhinoApp.InvokeOnUiThread(() => Instances.ActiveCanvas?.Invalidate());
+            LocalFileAccess.PromptAsync = LocalFilePrompt.ShowAsync;
+            LocalFileAccess.AwaitingConsentChanged += (_, __) =>
                 RhinoApp.InvokeOnUiThread(() => Instances.ActiveCanvas?.Invalidate());
             ConsentBadgeOverlay.EnsureInitialized();
             ExternalDataHttpClient.ResponseLimitBytes = () =>

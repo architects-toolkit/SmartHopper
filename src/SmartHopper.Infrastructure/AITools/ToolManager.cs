@@ -25,6 +25,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.FileSystem;
 using SmartHopper.Infrastructure.Networking;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Core.Interactions;
@@ -165,6 +166,7 @@ namespace SmartHopper.Infrastructure.AITools
             }
 
             using var sourceAccessScope = ExternalSourceAccess.BeginScope();
+            using var fileAccessScope = LocalFileAccess.BeginScope();
 
             // Ensure tools are discovered
             DiscoverTools();
