@@ -55,6 +55,9 @@ namespace SmartHopper.Infrastructure.Tests
         private static Task<LocalFileAccessDecision> Decide(LocalFileAccessDecision decision) =>
             Task.FromResult(decision);
 
+        private static string Canonical(string path) =>
+            LocalPath.TryCanonicalize(path, out var canonical, out _) ? canonical : path;
+
         private string Target(string name = "document.gh")
         {
             var path = Path.Combine(this.directory, name);
@@ -71,9 +74,9 @@ namespace SmartHopper.Infrastructure.Tests
                 (_, _) => Decide(LocalFileAccessDecision.AlwaysAllow), default);
 
             var reopened = new LocalFileAllowlist(Path.Combine(this.directory, "permissions.json"));
-            Assert.True(reopened.IsGranted(path, LocalFileCapability.Read));
-            Assert.False(reopened.IsGranted(path, LocalFileCapability.Write));
-            Assert.False(reopened.IsGranted(this.Target("other.gh"), LocalFileCapability.Read));
+            Assert.True(reopened.IsGranted(Canonical(path), LocalFileCapability.Read));
+            Assert.False(reopened.IsGranted(Canonical(path), LocalFileCapability.Write));
+            Assert.False(reopened.IsGranted(Canonical(this.Target("other.gh")), LocalFileCapability.Read));
 
             reopened.Revoke(reopened.GetGrants());
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
@@ -96,14 +99,14 @@ namespace SmartHopper.Infrastructure.Tests
             // The grant lands on the file's parent directory and covers deeper paths.
             var grant = this.store.GetGrants().Single();
             Assert.Equal(LocalFileGrantScope.Directory, grant.Scope);
-            Assert.True(this.store.IsGranted(file, LocalFileCapability.Write));
+            Assert.True(this.store.IsGranted(Canonical(file), LocalFileCapability.Write));
             var deeper = Path.Combine(nested, "deeper", "another.gh");
-            Assert.True(this.store.IsGranted(deeper, LocalFileCapability.Write));
+            Assert.True(this.store.IsGranted(Canonical(deeper), LocalFileCapability.Write));
 
             // A sibling directory whose name only shares the prefix is not covered.
             var sibling = Path.Combine(this.directory, "workspace-sibling", "other.gh");
-            Assert.False(this.store.IsGranted(sibling, LocalFileCapability.Write));
-            Assert.False(this.store.IsGranted(file, LocalFileCapability.Read));
+            Assert.False(this.store.IsGranted(Canonical(sibling), LocalFileCapability.Write));
+            Assert.False(this.store.IsGranted(Canonical(file), LocalFileCapability.Read));
         }
 
         /// <summary>One-call grants do not persist and are shared by nested scopes.</summary>
@@ -316,7 +319,7 @@ namespace SmartHopper.Infrastructure.Tests
             var saved = File.ReadAllText(Path.Combine(this.directory, "permissions.json"));
             Assert.Contains("\"File\"", saved);
             Assert.Contains("\"Write\"", saved);
-            Assert.Contains(path.Replace("\\", "\\\\"), saved);
+            Assert.Contains(Canonical(path).Replace("\\", "\\\\"), saved);
         }
     }
 }
