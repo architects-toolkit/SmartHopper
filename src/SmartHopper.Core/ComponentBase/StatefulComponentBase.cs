@@ -735,7 +735,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Called when the component transitions into <see cref="ComponentState.Processing"/>.
         /// Runs after async-state reset and progress reset; override to seed
-        /// processing-specific UI or telemetry.
+        /// processing-specific UI or instrumentation.
         /// </summary>
         protected virtual void OnEnteringProcessing()
         {
