@@ -130,7 +130,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
             // Write to a sibling temp file, then move it into place: a failed or
             // partial write never leaves a truncated PNG at the target, which
             // would also block a same-name retry since existing files are kept.
-            var tempPath = fullPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            // The temp name is independent of the (possibly near-limit) target name.
+            var tempPath = Path.Combine(directory!, "." + Guid.NewGuid().ToString("N") + ".tmp");
             try
             {
                 File.WriteAllBytes(tempPath, pngBytes);
