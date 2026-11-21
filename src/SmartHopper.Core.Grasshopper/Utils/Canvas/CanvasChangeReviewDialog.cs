@@ -414,7 +414,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         {
             var blocked = this.session.Items.Count(item =>
                 item.IsAccepted && !this.session.IsEffectivelyAccepted(item));
-            var text = $"{this.session.AcceptedCount} of {this.session.Items.Count} changes selected. Applied changes are recorded in Grasshopper's undo history.";
+            var text = this.session.Items.All(item => item.Kind == CanvasChangeKind.DocumentSaved)
+                ? $"{this.session.AcceptedCount} of {this.session.Items.Count} changes selected. Saving writes the file to disk and cannot be undone with Ctrl+Z."
+                : $"{this.session.AcceptedCount} of {this.session.Items.Count} changes selected. Applied changes are recorded in Grasshopper's undo history.";
             if (blocked > 0)
             {
                 text += $" {blocked} selected change(s) will not apply because their required changes are unchecked.";
