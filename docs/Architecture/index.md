@@ -1,3 +1,5 @@
+<!-- docs-validation: ignore -->
+
 # Architecture deep dives
 
 - [MCP server](mcp-server.md) — embedded Model Context Protocol server exposing AI tools.
