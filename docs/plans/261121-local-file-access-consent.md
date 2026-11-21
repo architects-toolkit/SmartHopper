@@ -112,15 +112,15 @@ networking, so a sibling to `Networking`, not a child). Types:
   *contents are sent to your AI provider* (Read), *overwrites the existing
   file / creates directories* (Write), *the file can run scripts on this
   machine* (Execute). Buttons: **Allow once**, **Always allow this file**,
-  **Always allow this folder** (hidden for sensitive paths), **Deny**.
+  **Always allow this folder**, **Deny**. Denied-tier paths never reach the
+  prompt — the gate refuses first.
 
 ### Sensitivity tiers
 
 | Tier | Examples | Behaviour |
 |------|----------|-----------|
 | Normal | project dirs, Downloads, Documents | full decision set incl. folder grants |
-| Sensitive | `.ssh`, `.aws`, `.azure`, `.kube`, `.gnupg`, browser credential stores, SmartHopper's own config dir (permission stores) | prompts show an extra warning; `AlwaysAllow*` options hidden — per-call only |
-| System | `Windows\`, `Program Files*`, `/usr`, `/etc` | Write/Execute prompt shows strongest warning, never persists; consider hard-deny for Write |
+| Denied | `.ssh`, `.aws`, `.azure`, `.kube`, `.gnupg`, browser credential stores, SmartHopper's own config dir (permission stores), `Windows\`, `Program Files*`, `/usr`, `/etc` | **hard deny, never prompts** — the chat cannot retrieve or write these paths at all; the gate refuses before any dialog |
 
 ### Pre-authorized roots (implicit, not persisted)
 
@@ -162,20 +162,16 @@ networking, so a sibling to `Networking`, not a child). Types:
 | `gh_document_list` | — | optional: keep paths (model needs them to address docs); document as accepted recon surface |
 | Audio Viewer Play | Execute-adjacent | separate small fix: require a supported audio extension, reject UNC — not part of the gate (user click, not a tool call) |
 
-## 5. Open decisions
+## 5. Decisions
 
-1. **Grant granularity:** file + folder (recommended — mirrors origin breadth)
-   vs file-only grants.
-2. **Sensitive/system tiers:** prompt-without-persist (recommended) vs hard
-   deny for writes outside the user profile.
-3. **Screenshots:** keep the hard sandbox of #967 (no consent escape — least
-   surface), or sandbox as default + absolute paths allowed via Write consent
-   (more flexible, matches the unified model). Recommended: sandbox for
-   relative names, consent gate for absolute paths.
+1. **Grant granularity:** file + folder (decided).
+2. **Denied tier:** hard deny — no prompt, no grant path; the chat cannot
+   retrieve or write sensitive/system locations at all (decided).
+3. **Screenshots:** *pending* — hard sandbox (keep #967 as is) vs sandbox
+   default for relative names + Write-consent gate for absolute paths.
 4. **`gh_document_save` in place:** no prompt when saving to the document's
-   own path (recommended) vs prompt on every save.
-5. **In-flight PRs:** rework #966/#968 onto the gate (recommended — one
-   mechanism) vs land them as interim fixes and refactor after.
+   own path (decided).
+5. **In-flight PRs:** rework #966/#968 onto the gate (decided).
 
 ## 6. Rollout (one PR per batch, independent → `main`)
 
