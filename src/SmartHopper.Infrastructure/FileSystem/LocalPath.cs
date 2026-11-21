@@ -134,7 +134,7 @@ namespace SmartHopper.Infrastructure.FileSystem
             // evaded by an alternate prefix.
             if (canonical.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
             {
-                canonical = @"\" + canonical.Substring(8);
+                canonical = @"\\" + canonical.Substring(8);
             }
             else if (canonical.StartsWith(@"\\?\", StringComparison.Ordinal))
             {
@@ -230,6 +230,13 @@ namespace SmartHopper.Infrastructure.FileSystem
         }
 
         /// <summary>
+        /// Canonicalizes a comparison root the same way candidate paths are, so
+        /// protected locations reached through linked ancestors still match.
+        /// </summary>
+        private static string CanonicalRoot(string path)
+            => TryCanonicalize(path, out var canonical, out _) ? canonical : path;
+
+        /// <summary>
         /// Denied-tier paths are refused outright: credential stores, browser profiles,
         /// SmartHopper's own configuration and system locations never reach the prompt.
         /// </summary>
@@ -258,12 +265,13 @@ namespace SmartHopper.Infrastructure.FileSystem
                 return true;
             }
 
-            if (IsUnder(SmartHopperDataDirectory, canonicalPath) && !IsUnder(ScreenshotsDirectory, canonicalPath))
+            if (IsUnder(CanonicalRoot(SmartHopperDataDirectory), canonicalPath)
+                && !IsUnder(CanonicalRoot(ScreenshotsDirectory), canonicalPath))
             {
                 return true;
             }
 
-            if (string.Equals(canonicalPath, SmartHopperSettingsFile, Comparison))
+            if (string.Equals(canonicalPath, CanonicalRoot(SmartHopperSettingsFile), Comparison))
             {
                 return true;
             }
@@ -276,16 +284,16 @@ namespace SmartHopper.Infrastructure.FileSystem
                 var programW6432 = Environment.GetEnvironmentVariable("ProgramW6432");
                 var commonProgramFiles = Environment.GetFolderPath(Environment.SpecialFolder.CommonProgramFiles);
 
-                if (IsUnder(windows, canonicalPath)
-                    || IsUnder(programFiles, canonicalPath)
-                    || IsUnder(programFilesX86, canonicalPath)
-                    || IsUnder(commonProgramFiles, canonicalPath)
-                    || (!string.IsNullOrEmpty(programW6432) && IsUnder(programW6432, canonicalPath)))
+                if (IsUnder(CanonicalRoot(windows), canonicalPath)
+                    || IsUnder(CanonicalRoot(programFiles), canonicalPath)
+                    || IsUnder(CanonicalRoot(programFilesX86), canonicalPath)
+                    || IsUnder(CanonicalRoot(commonProgramFiles), canonicalPath)
+                    || (!string.IsNullOrEmpty(programW6432) && IsUnder(CanonicalRoot(programW6432), canonicalPath)))
                 {
                     return true;
                 }
             }
-            else if (UnixDeniedRoots.Any(root => IsUnder(root, canonicalPath)))
+            else if (UnixDeniedRoots.Any(root => IsUnder(CanonicalRoot(root), canonicalPath)))
             {
                 return true;
             }
@@ -311,14 +319,14 @@ namespace SmartHopper.Infrastructure.FileSystem
                 return false;
             }
 
-            if (IsUnder(ScreenshotsDirectory, canonicalPath))
+            if (IsUnder(CanonicalRoot(ScreenshotsDirectory), canonicalPath))
             {
                 return true;
             }
 
             // Internal pipeline files (e.g. PDF attachments converted for the chat) live
             // under %TEMP% with a smarthopper prefix.
-            var temp = Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var temp = CanonicalRoot(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             if (IsUnder(temp, canonicalPath)
                 && Path.GetFileName(canonicalPath).StartsWith("smarthopper", StringComparison.OrdinalIgnoreCase))
             {
