@@ -309,6 +309,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
             var trimmed = savePath.Trim();
             var mode = FileMode.CreateNew;
             string fullPath;
+
+            // Re-validates the still-open destination before any bytes are written:
+            // sandbox exports must still resolve inside Screenshots, and a consented
+            // absolute path must still resolve to exactly the approved file.
+            Func<string, bool> destinationCheck;
             if (Path.IsPathRooted(trimmed))
             {
                 if (!LocalPath.TryCanonicalize(trimmed, out var canonical, out var error))
@@ -324,8 +329,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Blocking wait is safe here except on the Rhino UI thread, where an
                 // unanswered prompt would deadlock — RequireBlocking refuses instead.
                 LocalFileAccess.RequireBlocking(canonical, LocalFileCapability.Write, "screenshots");
-                mode = FileMode.Create;
+                mode = FileMode.OpenOrCreate;
                 fullPath = canonical;
+                var approved = canonical;
+                destinationCheck = path =>
+                    LocalPath.TryCanonicalize(path, out var check, out _)
+                    && LocalPath.Comparer.Equals(check, approved);
             }
             else
             {
@@ -349,6 +358,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     throw new InvalidOperationException("savePath must point to a .png file.");
                 }
 
+                var sandbox = resolvedRoot;
+                destinationCheck = path =>
+                    LocalPath.TryCanonicalize(path, out var check, out _)
+                    && LocalPath.IsUnder(sandbox, check);
                 fullPath = resolved;
             }
 
@@ -358,21 +371,53 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Directory.CreateDirectory(directory);
             }
 
-            // CreateNew is atomic for sandbox exports: it fails when the name already
-            // exists — including a dangling link — so a prepared file is never followed.
-            // Consent-approved absolute paths may overwrite, as the prompt states.
+            // Open without truncating first: a link planted while consent was pending
+            // must not be followed. The destination spelling is re-canonicalized with
+            // the handle open — once verified, writes are pinned to that file.
+            FileStream? stream = null;
             try
             {
-                using var stream = new FileStream(fullPath, mode, FileAccess.Write);
+                try
+                {
+                    stream = mode == FileMode.CreateNew
+                        ? new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None)
+                        : new FileStream(fullPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                }
+                catch (IOException) when (mode == FileMode.CreateNew)
+                {
+                    throw new InvalidOperationException($"'{fullPath}' already exists; exports never overwrite.");
+                }
+
+                if (!destinationCheck(fullPath))
+                {
+                    stream.Dispose();
+                    stream = null;
+                    try
+                    {
+                        File.Delete(fullPath);
+                    }
+                    catch (IOException)
+                    {
+                        // Best effort: the check failure itself is the error that matters.
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                        // Best effort: the check failure itself is the error that matters.
+                    }
+
+                    throw new InvalidOperationException(
+                        $"The destination '{fullPath}' changed while it was being prepared; export aborted.");
+                }
+
+                stream.SetLength(0);
                 var bytes = Convert.FromBase64String(capture.ImageBase64);
                 stream.Write(bytes, 0, bytes.Length);
+                return fullPath;
             }
-            catch (IOException) when (mode == FileMode.CreateNew)
+            finally
             {
-                throw new InvalidOperationException($"'{fullPath}' already exists; exports never overwrite.");
+                stream?.Dispose();
             }
-
-            return fullPath;
         }
 
         private async Task<AIReturn> CaptureCanvasAsync(AIToolCall toolCall)
