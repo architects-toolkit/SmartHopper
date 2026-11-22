@@ -379,9 +379,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 try
                 {
+                    // Write-only access: exports never read the destination back, and
+                    // requiring read rights would reject legitimately write-only targets.
                     stream = mode == FileMode.CreateNew
                         ? new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None)
-                        : new FileStream(fullPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                        : new FileStream(fullPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
                 }
                 catch (IOException) when (mode == FileMode.CreateNew)
                 {
@@ -392,19 +394,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     stream.Dispose();
                     stream = null;
-                    try
-                    {
-                        File.Delete(fullPath);
-                    }
-                    catch (IOException)
-                    {
-                        // Best effort: the check failure itself is the error that matters.
-                    }
-                    catch (UnauthorizedAccessException)
-                    {
-                        // Best effort: the check failure itself is the error that matters.
-                    }
 
+                    // No by-path cleanup: the check failed because the path stopped
+                    // resolving to the approved file, so deleting by spelling could
+                    // remove an unrelated unapproved file swapped in behind it. A
+                    // created-but-rejected zero-byte leftover is harmless.
                     throw new InvalidOperationException(
                         $"The destination '{fullPath}' changed while it was being prepared; export aborted.");
                 }
