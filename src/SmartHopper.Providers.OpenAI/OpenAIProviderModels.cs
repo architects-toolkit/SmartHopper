@@ -169,6 +169,7 @@ namespace SmartHopper.Providers.OpenAI
                     Model = "gpt-6.2-sol",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9985,
                     ContextLimit = 1050000,
@@ -184,6 +185,18 @@ namespace SmartHopper.Providers.OpenAI
                             new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
                         },
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.00000125m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "gpt-6.2-sol:batch" },
                 },
 
                 new AIModelCapabilities
@@ -228,6 +241,7 @@ namespace SmartHopper.Providers.OpenAI
                     Model = "gpt-6.2-astra",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9975,
                     ContextLimit = 1050000,
@@ -243,6 +257,18 @@ namespace SmartHopper.Providers.OpenAI
                             new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
                         },
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000005m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.01m),
+                        },
+                    },
+                    Aliases = new List<string> { "gpt-6.2-astra:batch" },
                 },
 
                 new AIModelCapabilities
@@ -1321,11 +1347,22 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
+                    Model = "gpt-live-1.1",
+                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9750,
+                    DiscouragedForTools = new List<string> { "*" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
                     Model = "gpt-live-transcribe",
                     Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9750,
+                    Rank = 9745,
                     ContextLimit = 16000,
                     DiscouragedForTools = new List<string> { "*" },
                 },
@@ -1337,7 +1374,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9745,
+                    Rank = 9740,
                     ContextLimit = 16000,
                 },
 
@@ -1348,7 +1385,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9740,
+                    Rank = 9735,
                     Aliases = new List<string> { "omni-moderation-latest", "omni-moderation" },
                     DiscouragedForTools = new List<string> { "*" },
                 },
@@ -1361,7 +1398,7 @@ namespace SmartHopper.Providers.OpenAI
                     Default = AICapability.EmbedOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9735,
+                    Rank = 9730,
                 },
 
                 new AIModelCapabilities
@@ -1372,7 +1409,7 @@ namespace SmartHopper.Providers.OpenAI
                     Default = AICapability.EmbedOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9730,
+                    Rank = 9725,
                 },
 
                 new AIModelCapabilities
@@ -1382,7 +1419,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9725,
+                    Rank = 9720,
                     ContextLimit = 2000,
                 },
 
@@ -1393,7 +1430,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9720,
+                    Rank = 9715,
                     ContextLimit = 2000,
                     Aliases = new List<string> { "tts-1.1106", "tts-1-1106-latest", "tts-1.1106-latest" },
                 },
@@ -1405,7 +1442,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9715,
+                    Rank = 9710,
                     ContextLimit = 2000,
                 },
 
@@ -1416,7 +1453,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9710,
+                    Rank = 9705,
                     ContextLimit = 2000,
                 },
 
@@ -1427,7 +1464,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9705,
+                    Rank = 9700,
                 },
 
 
@@ -1564,34 +1601,12 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-4o-2024-11-20",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -25,
-                    ContextLimit = 128000,
-                    Created = new DateTime(2024, 11, 20),
-                    Pricing = new AIModelPricing
-                    {
-                        Entries =
-                        {
-                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
-                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
-                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000125m),
-                        },
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "dall-e-3",
                     Capabilities = AICapability.TextInput | AICapability.ImageOutput,
                     SupportsStreaming = false,
                     Verified = true,
                     Deprecated = true,
-                    Rank = -30,
+                    Rank = -25,
                 },
 
                 new AIModelCapabilities
@@ -1602,7 +1617,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -35,
+                    Rank = -30,
                     ContextLimit = 16385,
                     Created = new DateTime(2023, 8, 28),
                     Pricing = new AIModelPricing
@@ -1611,6 +1626,28 @@ namespace SmartHopper.Providers.OpenAI
                         {
                             new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
                             new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000004m),
+                        },
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-2024-11-20",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -35,
+                    ContextLimit = 128000,
+                    Created = new DateTime(2024, 11, 20),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000025m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00001m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000125m),
                         },
                     },
                 },
