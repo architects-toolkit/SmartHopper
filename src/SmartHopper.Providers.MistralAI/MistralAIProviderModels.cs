@@ -373,18 +373,6 @@ namespace SmartHopper.Providers.MistralAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "labs-leanstral-1-5-1",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9950,
-                    Aliases = new List<string> { "labs-leanstral-1-5", "labs-leanstral-1-5-1:batch" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "mistral-embed-2312",
                     Capabilities = AICapability.TextInput | AICapability.EmbedOutput,
                     Default = AICapability.EmbedOutput,
@@ -582,12 +570,24 @@ namespace SmartHopper.Providers.MistralAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "labs-leanstral-2603",
+                    Model = "labs-leanstral-1-5-1",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
                     Rank = -20,
+                    Aliases = new List<string> { "labs-leanstral-1-5" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "labs-leanstral-2603",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -25,
                     ContextLimit = 256000,
                 },
 
@@ -599,7 +599,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -25,
+                    Rank = -30,
                     ContextLimit = 40000,
                     Aliases = new List<string> { "magistral-medium-latest" },
                 },
