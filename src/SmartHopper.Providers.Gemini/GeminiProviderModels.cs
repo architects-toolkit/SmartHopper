@@ -268,10 +268,53 @@ namespace SmartHopper.Providers.Gemini
                 new AIModelCapabilities
                 {
                     Provider = providerName,
+                    Model = "gemini-4-neon",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.SpeechInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9970,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 11, 18),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000003m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000015m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.0000015m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000075m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
+                    },
+                    Aliases = new List<string> { "gemini-4-neon:batch" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
                     Model = "gemini-nano-banana-2.1",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     Verified = false,
-                    Rank = 9970,
+                    Rank = 9965,
                     ContextLimit = 65536,
                     Created = new DateTime(2026, 10, 6),
                     Pricing = new AIModelPricing
@@ -297,7 +340,7 @@ namespace SmartHopper.Providers.Gemini
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.SpeechInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9965,
+                    Rank = 9960,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 7, 21),
                     Pricing = new AIModelPricing
@@ -340,7 +383,7 @@ namespace SmartHopper.Providers.Gemini
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.SpeechInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9960,
+                    Rank = 9955,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 8, 13),
                     Pricing = new AIModelPricing
@@ -384,7 +427,7 @@ namespace SmartHopper.Providers.Gemini
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.SpeechInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsBatch = true,
                     Verified = false,
-                    Rank = 9955,
+                    Rank = 9950,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 7, 21),
                     Pricing = new AIModelPricing
@@ -419,49 +462,6 @@ namespace SmartHopper.Providers.Gemini
                         },
                     },
                     Aliases = new List<string> { "gemini-3.6-flash:batch", "gemini-3-6-flash" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
-                    Model = "gemini-3.5-flash",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.SpeechInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9950,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 5, 19),
-                    Pricing = new AIModelPricing
-                    {
-                        Entries =
-                        {
-                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
-                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000009m),
-                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000015m),
-                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000003m),
-                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000003m),
-                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
-                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
-                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000009m),
-                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
-                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.0000015m),
-                        },
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Entries =
-                        {
-                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
-                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000045m),
-                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.00000075m),
-                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000015m),
-                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000015m),
-                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
-                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000045m),
-                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
-                        },
-                    },
-                    Aliases = new List<string> { "gemini-3.5-flash:batch", "gemini-3-5-flash" },
                 },
 
                 new AIModelCapabilities
@@ -592,9 +592,9 @@ namespace SmartHopper.Providers.Gemini
                     {
                         Entries =
                         {
-                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000765m),
-                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000255m),
-                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000425m),
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000000675m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000000225m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000000375m),
                         },
                     },
                 },
@@ -702,10 +702,53 @@ namespace SmartHopper.Providers.Gemini
                 new AIModelCapabilities
                 {
                     Provider = providerName,
+                    Model = "gemini-3.5-flash",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.SpeechInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsBatch = true,
+                    Verified = false,
+                    Rank = 9900,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 5, 19),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000009m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000003m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000003m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.0000000833333333333333m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000009m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.0000015m),
+                        },
+                    },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000075m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000045m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.00000075m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.0000015m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.00000015m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.000000075m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.0000045m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
+                    },
+                    Aliases = new List<string> { "gemini-3.5-flash:batch", "gemini-3-5-flash" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
                     Model = "gemini-3.1-pro-preview-customtools",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.SpeechInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     Verified = false,
-                    Rank = 9900,
+                    Rank = 9895,
                     ContextLimit = 1048576,
                     Created = new DateTime(2026, 2, 25),
                     Pricing = new AIModelPricing
@@ -724,48 +767,6 @@ namespace SmartHopper.Providers.Gemini
                             new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000002m),
                         },
                     },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
-                    Model = "gemini-3.1-pro-preview",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.SpeechInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    SupportsBatch = true,
-                    Verified = false,
-                    Rank = 9895,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2026, 2, 19),
-                    Pricing = new AIModelPricing
-                    {
-                        Entries =
-                        {
-                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
-                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
-                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000002m),
-                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
-                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000002m),
-                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
-                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
-                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000012m),
-                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
-                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000002m),
-                        },
-                    },
-                    BatchPricing = new AIModelPricing
-                    {
-                        Entries =
-                        {
-                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
-                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
-                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000001m),
-                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000001m),
-                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000006m),
-                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
-                        },
-                    },
-                    Aliases = new List<string> { "gemini-3.1-pro-preview:batch", "gemini-3-1-pro-preview" },
                 },
 
                 new AIModelCapabilities
@@ -839,13 +840,14 @@ namespace SmartHopper.Providers.Gemini
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "gemini-3-pro-image-preview",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "gemini-3.1-pro-preview",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.SpeechInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
+                    SupportsBatch = true,
                     Verified = false,
                     Rank = 9880,
-                    ContextLimit = 65536,
-                    Created = new DateTime(2025, 11, 20),
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2026, 2, 19),
                     Pricing = new AIModelPricing
                     {
                         Entries =
@@ -853,7 +855,6 @@ namespace SmartHopper.Providers.Gemini
                             new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
                             new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
                             new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000002m),
-                            new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00012m),
                             new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
                             new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000002m),
                             new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
@@ -863,6 +864,19 @@ namespace SmartHopper.Providers.Gemini
                             new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000002m),
                         },
                     },
+                    BatchPricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000001m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000001m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000006m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                        },
+                    },
+                    Aliases = new List<string> { "gemini-3.1-pro-preview:batch", "gemini-3-1-pro-preview" },
                 },
 
 
@@ -899,6 +913,35 @@ namespace SmartHopper.Providers.Gemini
                     Aliases = new List<string> { "gemini-2-5-flash-image" },
                 },
 
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "gemini-3-pro-image-preview",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.ImageOutput | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9870,
+                    ContextLimit = 65536,
+                    Created = new DateTime(2025, 11, 20),
+                    Pricing = new AIModelPricing
+                    {
+                        Entries =
+                        {
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.000012m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("image_output", AIPriceUnit.Token, 0.00012m),
+                            new AIPriceEntry("audio_input", AIPriceUnit.Token, 0.000002m),
+                            new AIPriceEntry("audio_cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.0000002m),
+                            new AIPriceEntry("cache_write", AIPriceUnit.Token, 0.000000375m),
+                            new AIPriceEntry("internal_reasoning", AIPriceUnit.Token, 0.000012m),
+                            new AIPriceEntry("tool:web_search", AIPriceUnit.Invocation, 0.014m),
+                            new AIPriceEntry("image_input", AIPriceUnit.Item, 0.000002m),
+                        },
+                    },
+                },
+
 
 
                 // Released between May 2025 and August 2025
@@ -911,7 +954,7 @@ namespace SmartHopper.Providers.Gemini
                     SupportsStreaming = true,
                     SupportsBatch = true,
                     Verified = true,
-                    Rank = 9870,
+                    Rank = 9865,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 6, 17),
                     Pricing = new AIModelPricing
@@ -953,7 +996,7 @@ namespace SmartHopper.Providers.Gemini
                     Model = "gemini-2.5-pro-preview",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.SpeechInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     Verified = false,
-                    Rank = 9865,
+                    Rank = 9860,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 6, 5),
                     Pricing = new AIModelPricing
@@ -984,15 +1027,16 @@ namespace SmartHopper.Providers.Gemini
                     Model = "gemma-3-4b-it",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput,
                     Verified = false,
-                    Rank = 9860,
+                    Rank = 9855,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 3, 13),
                     Pricing = new AIModelPricing
                     {
                         Entries =
                         {
-                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000005m),
-                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.0000001m),
+                            new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000004m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000005m),
+                            new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000002m),
                         },
                     },
                 },
@@ -1003,7 +1047,7 @@ namespace SmartHopper.Providers.Gemini
                     Model = "gemma-3-12b-it",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     Verified = false,
-                    Rank = 9855,
+                    Rank = 9850,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 3, 13),
                     Pricing = new AIModelPricing
@@ -1022,7 +1066,7 @@ namespace SmartHopper.Providers.Gemini
                     Model = "gemma-3-27b-it",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     Verified = false,
-                    Rank = 9850,
+                    Rank = 9845,
                     ContextLimit = 131072,
                     Created = new DateTime(2025, 3, 12),
                     Pricing = new AIModelPricing
@@ -1030,7 +1074,7 @@ namespace SmartHopper.Providers.Gemini
                         Entries =
                         {
                             new AIPriceEntry("text_input", AIPriceUnit.Token, 0.00000008m),
-                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000035m),
+                            new AIPriceEntry("text_output", AIPriceUnit.Token, 0.00000045m),
                             new AIPriceEntry("cache_read", AIPriceUnit.Token, 0.00000004m),
                         },
                     },
@@ -1046,7 +1090,7 @@ namespace SmartHopper.Providers.Gemini
                     Model = "gemma-2-27b-it",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
                     Verified = false,
-                    Rank = 9845,
+                    Rank = 9840,
                     ContextLimit = 8192,
                     Created = new DateTime(2024, 7, 13),
                     Pricing = new AIModelPricing
