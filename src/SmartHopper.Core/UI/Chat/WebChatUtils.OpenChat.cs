@@ -17,7 +17,9 @@
  */
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
+using Rhino;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Settings;
@@ -86,7 +88,7 @@ namespace SmartHopper.Core.UI.Chat
                 if (provider == null)
                 {
                     DebugLog("[WebChatUtils] No AI provider available");
-                    StyledMessageDialog.ShowError("No available AI provider was found. Please check the SmartHopper settings to ensure that at least one AI provider is both configured and enabled.", "SmartHopper Assistant");
+                    ReportAssistantNoProvider(providerManager);
                     return;
                 }
 
@@ -122,6 +124,38 @@ namespace SmartHopper.Core.UI.Chat
             catch (Exception ex)
             {
                 Logger.Exception(typeof(WebChatUtils).FullName, ex, $"[WebChatUtils] Error opening assistant chat dialog: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Surfaces why no provider could be resolved: providers blocked by the
+        /// integrity check get an actionable path to Settings (Security tab);
+        /// other causes get the generic configuration error. The styled dialogs
+        /// self-marshal to Rhino's UI thread, and the settings deep-link is posted
+        /// so the whole path is safe from this background task.
+        /// </summary>
+        /// <param name="providerManager">The provider manager holding the last integrity findings.</param>
+        private static void ReportAssistantNoProvider(ProviderManager providerManager)
+        {
+            var findings = providerManager.LastIntegrityFindings;
+            var blocked = findings?.Count(f => f.Severity == ProviderIntegrityIssueSeverity.Error) ?? 0;
+
+            if (blocked > 0 && SettingsLauncher.IsAvailable)
+            {
+                var openSettings = StyledMessageDialog.ShowConfirmation(
+                    $"No usable AI provider was found — {blocked} provider{(blocked == 1 ? " is" : "s are")} blocked by the integrity check ({SmartHopperSettings.Instance?.ProviderIntegrityCheckMode} mode). " +
+                    "Blocked providers are not loaded for your security. Open SmartHopper Settings on the Security tab to review trust and integrity options?",
+                    "SmartHopper Assistant");
+                if (openSettings)
+                {
+                    RhinoApp.InvokeOnUiThread(() => SettingsLauncher.Open(SettingsLauncher.SecurityTab));
+                }
+            }
+            else
+            {
+                StyledMessageDialog.ShowError(
+                    "No available AI provider was found. Please check the SmartHopper settings to ensure that at least one AI provider is both configured and enabled.",
+                    "SmartHopper Assistant");
             }
         }
     }

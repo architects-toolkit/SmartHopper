@@ -22,7 +22,6 @@ using System.Linq;
 using System.Reflection;
 using Eto.Drawing;
 using Eto.Forms;
-using Rhino;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Settings;
@@ -34,6 +33,25 @@ using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Menu.Dialogs
 {
+    /// <summary>
+    /// Identifies which tab <see cref="SettingsDialog"/> shows when opened, so
+    /// callers can deep-link users to a specific settings area.
+    /// </summary>
+    internal enum SettingsTab
+    {
+        /// <summary>General settings (default).</summary>
+        General,
+
+        /// <summary>Canvas Assistant configuration.</summary>
+        CanvasAssistant,
+
+        /// <summary>Provider trust and integrity-check controls.</summary>
+        Security,
+
+        /// <summary>Telemetry and log sink configuration.</summary>
+        Developer,
+    }
+
     /// <summary>
     /// Tabbed dialog to configure SmartHopper settings including general settings, provider management, assistant configuration, and provider-specific settings
     /// </summary>
@@ -65,7 +83,8 @@ namespace SmartHopper.Menu.Dialogs
         /// <summary>
         /// Initializes a new instance of the SettingsDialog with tabbed interface.
         /// </summary>
-        public SettingsDialog()
+        /// <param name="initialTab">The tab to select on open.</param>
+        public SettingsDialog(SettingsTab initialTab = SettingsTab.General)
         {
             // Set window icon from embedded resource
             using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
@@ -87,15 +106,14 @@ namespace SmartHopper.Menu.Dialogs
                 (int)((Screen.PrimaryScreen.Bounds.Width - this.Size.Width) / 2),
                 (int)((Screen.PrimaryScreen.Bounds.Height - this.Size.Height) / 2));
 
-            // Load settings and synchronously discover providers on Rhino's UI thread
+            // Load settings; providers come from the state already discovered at
+            // startup. Discovery is intentionally NOT triggered here: a refresh
+            // inside the constructor can surface modal integrity/trust dialogs
+            // before this dialog is ever shown, leaving Settings unreachable —
+            // the very place needed to relax integrity mode. Mid-session rescans
+            // use the explicit SmartHopper > Refresh Providers menu item.
             this._settings = SmartHopperSettings.Instance;
-            IAIProvider[] providers = null;
-            RhinoApp.InvokeOnUiThread(() =>
-            {
-                Infrastructure.AIProviders.ProviderManager.Instance.RefreshProviders();
-                providers = Infrastructure.AIProviders.ProviderManager.Instance.GetProviders(includeUntrusted: true).ToArray();
-            });
-            this._providers = providers;
+            this._providers = ProviderManager.Instance.GetProviders(includeUntrusted: true).ToArray();
 
             // Initialize settings models from global settings
             this._generalSettings = new GeneralSettings
@@ -147,44 +165,58 @@ namespace SmartHopper.Menu.Dialogs
             this._providersPage.LoadSettings(this._trustedProvidersSettings, this._providerIntegrityCheckMode);
             this._assistantPage.LoadSettings(this._assistantSettings);
 
-            this.CreateTabLayout();
+            this.CreateTabLayout(initialTab);
         }
 
         /// <summary>
-        /// Creates the tabbed layout with all settings pages
+        /// Creates the tabbed layout with all settings pages.
         /// </summary>
-        private void CreateTabLayout()
+        /// <param name="initialTab">The tab to select on open.</param>
+        private void CreateTabLayout(SettingsTab initialTab)
         {
             var tabControl = new TabControl();
 
             // Add General tab
-            tabControl.Pages.Add(new TabPage
+            var generalTab = new TabPage
             {
                 Text = "General",
                 Content = this._generalPage,
-            });
+            };
+            tabControl.Pages.Add(generalTab);
 
             // Add SmartHopper Assistant tab
-            tabControl.Pages.Add(new TabPage
+            var assistantTab = new TabPage
             {
                 Text = "Canvas Assistant",
                 Content = this._assistantPage,
-            });
+            };
+            tabControl.Pages.Add(assistantTab);
 
             // Provider configuration is launched from the tile grid on the General
             // tab; trust/network/origin controls all live on the Security tab.
-            tabControl.Pages.Add(new TabPage
+            var securityTab = new TabPage
             {
                 Text = "Security",
                 Content = this._securityPage,
-            });
+            };
+            tabControl.Pages.Add(securityTab);
 
             // Log sinks live on the Developer tab.
-            tabControl.Pages.Add(new TabPage
+            var developerTab = new TabPage
             {
                 Text = "Developer",
                 Content = this._generalPage.DeveloperContent,
-            });
+            };
+            tabControl.Pages.Add(developerTab);
+
+            var selectedTab = initialTab switch
+            {
+                SettingsTab.CanvasAssistant => assistantTab,
+                SettingsTab.Security => securityTab,
+                SettingsTab.Developer => developerTab,
+                _ => generalTab,
+            };
+            tabControl.SelectedIndex = tabControl.Pages.IndexOf(selectedTab);
 
             // Create buttons
             var saveButton = new Button { Text = "Save" };
