@@ -16,7 +16,7 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-namespace SmartHopper.Infrastructure.Tests
+namespace SmartHopper.Infrastructure.Tests.AIProviders
 {
     using SmartHopper.Infrastructure.AIProviders;
     using SmartHopper.ProviderSdk.Hosting;
