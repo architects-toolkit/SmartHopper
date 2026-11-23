@@ -138,7 +138,8 @@ namespace SmartHopper.Core.UI.Chat
         private static void ReportAssistantNoProvider(ProviderManager providerManager)
         {
             var findings = providerManager.LastIntegrityFindings;
-            var blocked = findings?.Count(f => f.Severity == ProviderIntegrityIssueSeverity.Error) ?? 0;
+            var blocked = (findings?.Count(f => f.Severity == ProviderIntegrityIssueSeverity.Error) ?? 0)
+                + providerManager.CountDeniedByIntegrityMode();
 
             if (blocked > 0 && SettingsLauncher.IsAvailable)
             {
