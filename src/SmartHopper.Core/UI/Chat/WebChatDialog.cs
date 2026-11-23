@@ -1015,7 +1015,7 @@ namespace SmartHopper.Core.UI.Chat
                     // Reflect status in web UI
                     try
                     {
-                        this.ExecuteScript($"setStatus({JsonConvert.SerializeObject(this._pendingStatusAfter ?? "Ready")}); setProcessing(false);");
+                        this.PushTurnSettledUiState(this._pendingStatusAfter ?? "Ready");
                     }
                     catch
                     {
@@ -1259,7 +1259,7 @@ namespace SmartHopper.Core.UI.Chat
                     try
                     {
                         this.ReplayFullHistoryToWebView();
-                        this.ExecuteScript("setStatus('Ready'); setProcessing(false);");
+                        this.PushTurnSettledUiState("Ready");
                         this._initialHistoryReplayTcs.TrySetResult(true);
                     }
                     catch (Exception rex)
@@ -1419,7 +1419,7 @@ namespace SmartHopper.Core.UI.Chat
                 try
                 {
                     this.AddSystemMessage($"Error: {ex.Message}", "error");
-                    this.RunWhenWebViewReady(() => this.ExecuteScript("setStatus('Error'); setProcessing(false);"));
+                    this.PushTurnSettledUiState("Error");
                     this.BuildAndEmitSnapshot();
                 }
                 catch (Exception rex)
@@ -1459,12 +1459,11 @@ namespace SmartHopper.Core.UI.Chat
                 var runningSubagents = this._subagentHost?.RunningCount ?? 0;
                 if (runningSubagents > 0)
                 {
-                    this.RunWhenWebViewReady(() => this.ExecuteScript(
-                        $"setStatus({JsonConvert.SerializeObject($"{runningSubagents} subagent(s) working — the chat resumes when they report back")}); setProcessing(false);"));
+                    this.PushTurnSettledUiState($"{runningSubagents} subagent(s) working — the chat resumes when they report back");
                 }
                 else
                 {
-                    this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(false);"));
+                    this.PushTurnSettledUiState(null);
                 }
 
                 // Fire-and-forget: suggested prompt chips render when the special turn resolves.
@@ -1720,7 +1719,7 @@ namespace SmartHopper.Core.UI.Chat
             // For fidelity, history is fully replayed elsewhere. Keep this method minimal to maintain compatibility.
             try
             {
-                this.RunWhenWebViewReady(() => this.ExecuteScript("setStatus('Ready'); setProcessing(false);"));
+                this.PushTurnSettledUiState("Ready");
 
                 try
                 {
@@ -1807,14 +1806,17 @@ namespace SmartHopper.Core.UI.Chat
                         case "send":
                             {
                                 var text = query.TryGetValue("text", out var txt) ? txt : string.Empty;
-                                DebugLog($"[WebChatDialog] Handling send event, text length: {text.Length}");
+                                var sendNow = query.TryGetValue("now", out var nv)
+                                    && (string.Equals(nv, "1", StringComparison.Ordinal)
+                                        || string.Equals(nv, "true", StringComparison.OrdinalIgnoreCase));
+                                DebugLog($"[WebChatDialog] Handling send event, text length: {text.Length}, now: {sendNow}");
 
                                 // Defer to next UI tick to avoid executing scripts during navigation event
                                 Application.Instance?.AsyncInvoke(() =>
                                 {
                                     try
                                     {
-                                        this.SendMessage(text);
+                                        this.SendMessage(text, sendNow);
                                     }
                                     catch (Exception ex)
                                     {
@@ -2726,11 +2728,14 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Handles a user message submitted from the WebView.
         /// </summary>
-        private void SendMessage(string text)
+        /// <param name="text">The message text.</param>
+        /// <param name="sendNow">When true (Ctrl/Cmd+Enter), the message jumps the outgoing
+        /// queue and is sent immediately — a live turn is interrupted so it submits next.</param>
+        private void SendMessage(string text, bool sendNow = false)
         {
             try
             {
-                DebugLog($"[WebChatDialog] SendMessage called with text length: {text?.Length ?? 0}");
+                DebugLog($"[WebChatDialog] SendMessage called with text length: {text?.Length ?? 0}, sendNow: {sendNow}");
                 if (Volatile.Read(ref this._attachmentsPreparing) != 0)
                 {
                     this.AddSystemMessage("Please wait for attachment preparation to finish, or cancel it before sending.", "warning");
@@ -2745,6 +2750,7 @@ namespace SmartHopper.Core.UI.Chat
                 }
 
                 var enqueued = false;
+                var jumped = false;
                 lock (this._messageQueueGate)
                 {
                     // While a turn owns the session (or a send is already staged for
@@ -2753,13 +2759,25 @@ namespace SmartHopper.Core.UI.Chat
                     // the turn settles.
                     if (this.IsSendQueueEngaged)
                     {
-                        this._messageQueue.Add(new QueuedChatMessage
+                        var entry = new QueuedChatMessage
                         {
                             Text = trimmed,
                             Attachments = this._pendingAttachments.Count > 0
                                 ? new List<PendingAttachment>(this._pendingAttachments)
                                 : null,
-                        });
+                        };
+                        if (sendNow)
+                        {
+                            // "Send now" jumps the queue: it lands at the head so it
+                            // is the next turn — the live turn is interrupted below.
+                            this._messageQueue.Insert(0, entry);
+                            jumped = true;
+                        }
+                        else
+                        {
+                            this._messageQueue.Add(entry);
+                        }
+
                         this._pendingAttachments.Clear();
                         enqueued = true;
                     }
@@ -2779,13 +2797,21 @@ namespace SmartHopper.Core.UI.Chat
 
                 if (enqueued)
                 {
-                    DebugLog("[WebChatDialog] SendMessage: turn busy, message queued");
+                    DebugLog($"[WebChatDialog] SendMessage: turn busy, message {(jumped ? "jumped to queue head" : "queued")}");
                     this.PushQueueToView();
 
-                    // Covers the settle race: a turn that ended between the engaged
-                    // check and the enqueue leaves nothing behind to promote the
-                    // message, so try immediately.
-                    this.TryPromoteQueuedMessage();
+                    if (jumped)
+                    {
+                        this.PromoteQueueHeadNow();
+                    }
+                    else
+                    {
+                        // Covers the settle race: a turn that ended between the engaged
+                        // check and the enqueue leaves nothing behind to promote the
+                        // message, so try immediately.
+                        this.TryPromoteQueuedMessage();
+                    }
+
                     return;
                 }
 
@@ -2896,18 +2922,103 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
+        /// Sends the head of the outgoing queue now: when a turn owns the session it
+        /// is interrupted via <see cref="CancelChat"/> — the canceled turn's
+        /// <see cref="ProcessAIInteraction"/> finally promotes the head on settle,
+        /// exactly like a natural turn end. When nothing is in flight the head
+        /// promotes immediately through <see cref="TryPromoteQueuedMessage"/>.
+        /// </summary>
+        private void PromoteQueueHeadNow()
+        {
+            if (Volatile.Read(ref this._turnInFlight) == 1)
+            {
+                this.CancelChat();
+                return;
+            }
+
+            this.TryPromoteQueuedMessage();
+        }
+
+        /// <summary>
+        /// Pushes the "a turn just ended" UI state through the DOM queue, deciding at
+        /// drain time whether the chat is really idle. Turn-end emissions (observer
+        /// <c>OnFinal</c>/<c>OnError</c>, the turn finally, a mid-turn notification)
+        /// can drain after a queued send already staged the next turn — a literal
+        /// <c>setProcessing(false)</c> there would flip the composer back to Send and
+        /// hide Stop while the new turn is live. Re-checking engagement when the
+        /// queued action runs makes every writer emit the current truth instead.
+        /// </summary>
+        /// <param name="statusWhenIdle">
+        /// Status text applied only when nothing owns the session at drain time;
+        /// null emits no status change.
+        /// </param>
+        internal void PushTurnSettledUiState(string? statusWhenIdle)
+        {
+            this.RunWhenWebViewReady(() =>
+            {
+                if (this._dialogClosed)
+                {
+                    return;
+                }
+
+                string script;
+                lock (this._messageQueueGate)
+                {
+                    if (this.IsSendQueueEngaged)
+                    {
+                        script = "setProcessing(true);";
+                    }
+                    else
+                    {
+                        var status = statusWhenIdle != null
+                            ? $"setStatus({JsonConvert.SerializeObject(statusWhenIdle)}); "
+                            : string.Empty;
+                        script = $"{status}setProcessing(false);";
+                    }
+                }
+
+                this.ExecuteScript(script);
+            });
+        }
+
+        /// <summary>
         /// Applies a queue-panel action reported through
         /// <c>sh://event?type=queue&amp;action=…&amp;id=…</c>: <c>remove</c> drops
-        /// the entry, <c>edit</c> replaces its text (<paramref name="text"/>), and
-        /// <c>submit-now</c> moves it to the head of the queue so it submits next.
-        /// Ids that do not match a queued user send are routed to the subagent
-        /// host's pending-instruction lists.
+        /// the entry, <c>edit</c> replaces its text (<paramref name="text"/>),
+        /// <c>submit-now</c> moves it to the head and sends it now (interrupting a
+        /// live turn), and <c>send-next</c> sends the queue head now — fired by
+        /// Enter on an empty composer, which carries no row id. Ids that do not
+        /// match a queued user send are routed to the subagent host's
+        /// pending-instruction lists.
         /// </summary>
         private void HandleQueueAction(string action, string id, string? text)
         {
             try
             {
-                if (this._dialogClosed || string.IsNullOrWhiteSpace(id))
+                if (this._dialogClosed)
+                {
+                    return;
+                }
+
+                if (string.Equals(action, "send-next", StringComparison.Ordinal))
+                {
+                    // Only user-typed sends promote — worker pending instructions
+                    // keep their own delivery flow.
+                    var hasUserQueued = false;
+                    lock (this._messageQueueGate)
+                    {
+                        hasUserQueued = this._messageQueue.Count > 0;
+                    }
+
+                    if (hasUserQueued)
+                    {
+                        this.PromoteQueueHeadNow();
+                    }
+
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(id))
                 {
                     return;
                 }
@@ -2964,11 +3075,12 @@ namespace SmartHopper.Core.UI.Chat
 
                 // The panel re-renders either way (it is host-owned state, and the
                 // host may also have changed it through PendingChanged); submit-now
-                // additionally promotes immediately when no turn owns the session.
+                // additionally sends the new head now — interrupting a live turn
+                // so the message submits next instead of waiting for settle.
                 this.PushQueueToView();
                 if (handled && string.Equals(action, "submit-now", StringComparison.Ordinal))
                 {
-                    this.TryPromoteQueuedMessage();
+                    this.PromoteQueueHeadNow();
                 }
             }
             catch (Exception ex)

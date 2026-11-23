@@ -95,6 +95,9 @@ const _els = {
     spinner: null,     // <span id="spinner"> injected into .cui-status
 };
 let _anonSeq = 0;
+// Count of user-owned entries in the last setQueue push (agent pending items
+// excluded) — drives the Enter-on-empty-composer "send queue head" shortcut.
+let _queuedUserCount = 0;
 
 function lruSet(key, value) {
     if (!key) return;
@@ -1765,12 +1768,16 @@ function setProcessing(on) {
  * @param {Array<object>} items
  */
 function setQueue(items) {
+    const list = Array.isArray(items) ? items : [];
+    // Only user sends answer the composer shortcuts; worker pending items keep
+    // their own delivery flow.
+    _queuedUserCount = list.filter(it => !(it && it.meta && it.meta.agent)).length;
     if (!_view) {
         console.warn('[JS] setQueue: chat view not ready');
         return;
     }
     try {
-        _view.setQueue(Array.isArray(items) ? items : []);
+        _view.setQueue(list);
     } catch (err) {
         console.error('[JS] setQueue error:', err);
     }
@@ -2996,7 +3003,24 @@ function buildFallbackShell(rootEl) {
     sendBtn.addEventListener('click', doSend);
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.isComposing || e.keyCode === 229) return;
             e.preventDefault();
+            const text = (input.value || '').trim();
+            if ((e.ctrlKey || e.metaKey) && text) {
+                // Jump the queue: send now even while other sends are queued.
+                try { setProcessing(true); } catch {}
+                try { clearSuggestedPrompts(); } catch {}
+                emitShEvent(`sh://event?type=send&text=${encodeURIComponent(text)}&now=1`);
+                input.value = '';
+                return;
+            }
+            if (!text) {
+                // Enter on an empty composer sends the queue head now.
+                if (_queuedUserCount > 0) {
+                    emitShEvent('sh://event?type=queue&action=send-next');
+                }
+                return;
+            }
             doSend();
         }
     });
@@ -3133,6 +3157,40 @@ function initChatUiShell() {
             emitShEvent('sh://event?type=extend_autonomy');
         });
     }
+
+    // Composer queue shortcuts. Capture phase on document so the listener runs
+    // before the toolkit's own bubble-phase Enter -> submit wiring:
+    //  - Enter on an empty composer: ask the host to send the queue head now.
+    //  - Ctrl/Cmd+Enter with text: jump the queue — send now (now=1), which the
+    //    host honors by interrupting the live turn so this message submits next.
+    // Plain Enter with text falls through to the toolkit's submit (queued send
+    // while processing, direct send when idle).
+    document.addEventListener('keydown', (e) => {
+        try {
+            if (!_els.input || e.target !== _els.input) return;
+            if (e.key !== 'Enter' || e.shiftKey) return;
+            if (e.isComposing || e.keyCode === 229) return; // never hijack IME Enter
+            const text = (_els.input.value || '').trim();
+            if (e.ctrlKey || e.metaKey) {
+                if (!text) return; // let the toolkit no-op it
+                e.preventDefault();
+                e.stopPropagation();
+                try { setProcessing(true); } catch {}
+                try { clearSuggestedPrompts(); } catch {}
+                emitShEvent(`sh://event?type=send&text=${encodeURIComponent(text)}&now=1`);
+                _els.input.value = '';
+                _els.input.dispatchEvent(new Event('input', { bubbles: true })); // autosize/send-state refresh
+                return;
+            }
+            if (!text && _queuedUserCount > 0) {
+                e.preventDefault();
+                e.stopPropagation(); // toolkit submit would emit a no-op empty send
+                emitShEvent('sh://event?type=queue&action=send-next');
+            }
+        } catch (err) {
+            console.warn('[JS] composer queue shortcut error:', err);
+        }
+    }, true);
 }
 
 // Full WebView UI wiring
