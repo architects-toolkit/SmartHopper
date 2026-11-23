@@ -36,11 +36,23 @@ namespace SmartHopper.Menu.Items
             // project reference to SmartHopper.Menu. Registration is idempotent.
             SettingsLauncher.RegisterOpenSettings(tab =>
             {
-                var initialTab = string.Equals(tab, SettingsLauncher.SecurityTab, StringComparison.OrdinalIgnoreCase)
-                    ? SettingsTab.Security
-                    : SettingsTab.General;
-                var dialog = new SettingsDialog(initialTab);
-                dialog.ShowModalInFront(Rhino.UI.RhinoEtoApp.MainWindow);
+                try
+                {
+                    var initialTab = string.Equals(tab, SettingsLauncher.SecurityTab, StringComparison.OrdinalIgnoreCase)
+                        ? SettingsTab.Security
+                        : SettingsTab.General;
+                    var dialog = new SettingsDialog(initialTab);
+                    dialog.ShowModalInFront(Rhino.UI.RhinoEtoApp.MainWindow);
+                }
+                catch (Exception ex)
+                {
+                    // Construction or display failures must surface: the click path
+                    // runs inside message-loop dispatch where an escaping exception
+                    // would be swallowed silently.
+                    StyledMessageDialog.ShowError(
+                        $"SmartHopper Settings failed to open: {ex.Message}",
+                        "SmartHopper Settings");
+                }
             });
 
             var item = new System.Windows.Forms.ToolStripMenuItem("Settings");
