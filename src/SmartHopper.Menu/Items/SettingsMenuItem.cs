@@ -16,6 +16,7 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using System.Windows.Forms;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Menu.Dialogs;
@@ -30,12 +31,20 @@ namespace SmartHopper.Menu.Items
         /// <returns>A ToolStripMenuItem configured to show the settings dialog</returns>
         public static ToolStripMenuItem Create()
         {
-            var item = new System.Windows.Forms.ToolStripMenuItem("Settings");
-            item.Click += (sender, e) =>
+            // Register the opener so Infrastructure UI (integrity report, assistant
+            // no-provider errors) can deep-link into Settings without a backwards
+            // project reference to SmartHopper.Menu. Registration is idempotent.
+            SettingsLauncher.RegisterOpenSettings(tab =>
             {
-                var dialog = new SettingsDialog();
+                var initialTab = string.Equals(tab, SettingsLauncher.SecurityTab, StringComparison.OrdinalIgnoreCase)
+                    ? SettingsTab.Security
+                    : SettingsTab.General;
+                var dialog = new SettingsDialog(initialTab);
                 dialog.ShowModalInFront(Rhino.UI.RhinoEtoApp.MainWindow);
-            };
+            });
+
+            var item = new System.Windows.Forms.ToolStripMenuItem("Settings");
+            item.Click += (sender, e) => SettingsLauncher.Open();
             return item;
         }
     }

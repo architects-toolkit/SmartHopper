@@ -57,6 +57,11 @@ _Note: This documentation was written by AI on its own. It may contain some mist
 - Registration & initialization
   - Duplicate provider ids: Official > Community > everything else. Tampered/Invalid never win.
   - `InitializeProviderAsync()` is wrapped in a 30-second per-provider timeout so a hanging provider can't block discovery.
+- Integrity findings & report lifecycle
+  - Per-load findings (`ProviderIntegrityIssue`) are kept on `LastIntegrityFindings` so non-modal surfaces (e.g. the canvas assistant's no-provider error) can explain blocked state without re-verifying.
+  - `ReportIntegrityIssuesAsync` shows one unified report per findings set. `ProviderIntegrityReportGate` fingerprints the set (`file|severity|status`, order-insensitive): an unchanged set is not re-shown on every refresh, a changed set reports again, a clean scan re-arms the gate.
+  - Discovery runs at startup and on the explicit `SmartHopper → Refresh Providers` menu item only. `SettingsDialog` never triggers discovery — a modal report during dialog construction deadlocked Settings, the very place needed to relax integrity mode.
+  - The report offers an **Open Settings** button deep-linking to the Security tab via `SettingsLauncher`, an Infrastructure-owned opener callback registered by SmartHopper.Menu so Infrastructure never references the Menu project.
 - Accessors
   - `GetProviders(includeUntrusted=false)`
   - `GetProvider(name)` (handles "Default" indirection)

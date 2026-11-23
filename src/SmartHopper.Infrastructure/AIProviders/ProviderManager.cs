@@ -60,6 +60,8 @@ namespace SmartHopper.Infrastructure.AIProviders
         private readonly ConcurrentDictionary<string, bool> _officialProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers classified as official
         private readonly ConcurrentDictionary<string, bool> _unsignedProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers loaded without a strong-name signature
         private bool _trustRecordsDirty; // Set when ProviderTrustRecords was written without an immediate Save()
+        private volatile ProviderIntegrityIssue[]? _lastIntegrityFindings; // Latest integrity findings snapshot, for non-modal surfaces
+        private readonly ProviderIntegrityReportGate _integrityReportGate = new ProviderIntegrityReportGate();
 
         private ProviderManager()
         {
@@ -190,8 +192,13 @@ namespace SmartHopper.Infrastructure.AIProviders
                     this._trustRecordsDirty = false;
                 }
 
-                // One unified report for every integrity finding raised while loading.
-                if (integrityIssues.Count > 0)
+                // Findings stay on the manager so non-modal surfaces (settings
+                // banner, assistant no-provider error) can explain blocked state.
+                this._lastIntegrityFindings = integrityIssues.Count > 0 ? integrityIssues.ToArray() : null;
+
+                // One unified report per findings set — an unchanged set is not
+                // re-shown on every refresh, a clean scan re-arms the gate.
+                if (this._integrityReportGate.ShouldReport(integrityIssues))
                 {
                     await ReportIntegrityIssuesAsync(integrityIssues).ConfigureAwait(false);
                 }
@@ -906,6 +913,14 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// This flag is set to true after RefreshProvidersAsync completes, regardless of provider count.
         /// </summary>
         public bool IsInfrastructureReady => this._refreshCompleted;
+
+        /// <summary>
+        /// Gets the provider integrity findings collected during the last discovery
+        /// pass, or <see langword="null"/> when the last scan was clean. Lets
+        /// non-modal surfaces (settings pages, provider-resolution failures)
+        /// explain blocked providers without re-running verification.
+        /// </summary>
+        internal IReadOnlyList<ProviderIntegrityIssue>? LastIntegrityFindings => this._lastIntegrityFindings;
 
         /// <summary>
         /// Gets a provider by name.
