@@ -251,9 +251,8 @@ namespace SmartHopper.Infrastructure.Dialogs
                 effects.Add($"{warned} loaded with a warning");
             }
 
-            var settingsHint = SettingsLauncher.IsAvailable
-                ? " Use Open Settings to review trust and integrity options directly."
-                : string.Empty;
+            var settingsHint =
+                " Use Open Settings to review trust and integrity options directly.";
             var subheading =
                 $"{string.Join("; ", effects)}. Review each provider below — re-download affected files from official SmartHopper sources, then manage them in SmartHopper → Settings → Security.{settingsHint}";
 
@@ -284,18 +283,15 @@ namespace SmartHopper.Infrastructure.Dialogs
                 HorizontalContentAlignment = HorizontalAlignment.Right,
             };
 
-            if (SettingsLauncher.IsAvailable)
+            var openSettingsButton = new Button { Text = "Open Settings", MinimumSize = new Size(110, 30) };
+            openSettingsButton.Click += (s, e) =>
             {
-                var openSettingsButton = new Button { Text = "Open Settings", MinimumSize = new Size(110, 30) };
-                openSettingsButton.Click += (s, e) =>
-                {
-                    // Close this modal first, then open Settings on the Security tab
-                    // once the modal stack has unwound.
-                    this.Close();
-                    Application.Instance.AsyncInvoke(() => SettingsLauncher.Open(SettingsLauncher.SecurityTab));
-                };
-                buttonPanel.Items.Add(openSettingsButton);
-            }
+                // Close this modal first, then open Settings on the Security tab
+                // once the modal stack has unwound.
+                this.Close();
+                Application.Instance.AsyncInvoke(() => SettingsLauncher.Open(SettingsLauncher.SecurityTab));
+            };
+            buttonPanel.Items.Add(openSettingsButton);
 
             buttonPanel.Items.Add(okButton);
 

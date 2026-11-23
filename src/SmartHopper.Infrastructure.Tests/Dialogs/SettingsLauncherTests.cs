@@ -18,25 +18,33 @@
 
 namespace SmartHopper.Infrastructure.Tests
 {
+    using System;
     using SmartHopper.Infrastructure.Dialogs;
     using Xunit;
 
     /// <summary>
     /// Covers the settings deep-link indirection: registration toggles
-    /// availability and <see cref="SettingsLauncher.Open"/> dispatches the tab
-    /// selector to the registered opener. Each test resets the static callback
-    /// for isolation.
+    /// availability, <see cref="SettingsLauncher.Open"/> dispatches the tab
+    /// selector to the registered opener, requests made before registration
+    /// pend and flush on register, and opener failures never propagate into
+    /// message-loop dispatch. Each test resets the static callback for
+    /// isolation.
     /// </summary>
     public class SettingsLauncherTests
     {
-        [Fact(DisplayName = "Open_WithoutRegistration_IsNoOp")]
-        public void Open_WithoutRegistration_IsNoOp()
+        [Fact(DisplayName = "Open_WithoutRegistration_DoesNotThrow")]
+        public void Open_WithoutRegistration_DoesNotThrow()
         {
             SettingsLauncher.ResetForTests();
 
             Assert.False(SettingsLauncher.IsAvailable);
-            SettingsLauncher.Open();
-            SettingsLauncher.Open(SettingsLauncher.SecurityTab);
+            var exception = Record.Exception(() =>
+            {
+                SettingsLauncher.Open();
+                SettingsLauncher.Open(SettingsLauncher.SecurityTab);
+            });
+
+            Assert.Null(exception);
         }
 
         [Fact(DisplayName = "Open_AfterRegistration_InvokesCallbackWithTab")]
@@ -82,6 +90,52 @@ namespace SmartHopper.Infrastructure.Tests
 
             Assert.False(firstCalled);
             Assert.True(secondCalled);
+        }
+
+        [Fact(DisplayName = "Open_BeforeRegistration_PendsAndFlushesOnRegister")]
+        public void Open_BeforeRegistration_PendsAndFlushesOnRegister()
+        {
+            SettingsLauncher.ResetForTests();
+
+            SettingsLauncher.Open(SettingsLauncher.SecurityTab);
+            Assert.False(SettingsLauncher.IsAvailable);
+
+            string? received = null;
+            SettingsLauncher.RegisterOpenSettings(tab => received = tab);
+
+            Assert.Equal(SettingsLauncher.SecurityTab, received);
+        }
+
+        [Fact(DisplayName = "Open_PendingRequests_LastRequestWins")]
+        public void Open_PendingRequests_LastRequestWins()
+        {
+            SettingsLauncher.ResetForTests();
+
+            SettingsLauncher.Open();
+            SettingsLauncher.Open(SettingsLauncher.SecurityTab);
+
+            var calls = 0;
+            string? received = null;
+            SettingsLauncher.RegisterOpenSettings(tab =>
+            {
+                calls++;
+                received = tab;
+            });
+
+            Assert.Equal(1, calls);
+            Assert.Equal(SettingsLauncher.SecurityTab, received);
+        }
+
+        [Fact(DisplayName = "Open_WhenOpenerThrows_DoesNotPropagate")]
+        public void Open_WhenOpenerThrows_DoesNotPropagate()
+        {
+            SettingsLauncher.ResetForTests();
+
+            SettingsLauncher.RegisterOpenSettings(_ => throw new InvalidOperationException("boom"));
+
+            var exception = Record.Exception(() => SettingsLauncher.Open());
+
+            Assert.Null(exception);
         }
     }
 }

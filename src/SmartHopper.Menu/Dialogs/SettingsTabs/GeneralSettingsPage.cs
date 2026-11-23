@@ -127,7 +127,13 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // only produces failures later, so the entry point is removed entirely.
             var trustedProviders = this._providers.Where(IsProviderTrusted).ToArray();
             layout.Add(CreateProviderGrid(trustedProviders, configureProvider));
-            if (trustedProviders.Length < this._providers.Length)
+            if (trustedProviders.Length == 0)
+            {
+                layout.Add(new Panel { Height = 5 });
+                layout.Add(SettingsText.DescriptionLabel(
+                    "No AI providers are currently available. If providers were blocked by the integrity check, review them on the Security tab."));
+            }
+            else if (trustedProviders.Length < this._providers.Length)
             {
                 layout.Add(new Panel { Height = 5 });
                 layout.Add(SettingsText.DescriptionLabel(
@@ -372,7 +378,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 }
 
                 var rows = (this.tiles.Length + columns - 1) / columns;
-                this.Height = (rows * TileHeight) + ((rows - 1) * TileSpacing);
+                this.Height = Math.Max(0, (rows * TileHeight) + ((rows - 1) * TileSpacing));
             }
         }
 
