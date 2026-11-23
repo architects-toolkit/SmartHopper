@@ -1146,7 +1146,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-live-1.1",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9750,
