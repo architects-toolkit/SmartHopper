@@ -869,27 +869,30 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <summary>
         /// Gets all providers, optionally including untrusted ones.
         /// </summary>
-        /// <param name="includeUntrusted">If true, includes untrusted providers. If false (default), only returns trusted providers.</param>
+        /// <param name="includeUntrusted">If true, bypasses the explicit consent/trust filter only — providers denied by the current integrity mode are still excluded. If false (default), only returns providers usable right now: consent-trusted and not denied by the current mode.</param>
         /// <returns>A collection of providers based on trust filter.</returns>
         public IEnumerable<IAIProvider> GetProviders(bool includeUntrusted = false)
         {
-            if (includeUntrusted)
-            {
-                // Return all providers regardless of trust status
-                return this._providers.Values;
-            }
-
-            // Return only trusted providers (existing behavior)
             var settings = SmartHopperSettings.Instance;
+            var effectiveMode = settings.EffectiveProviderIntegrityCheckMode;
             return this._providers.Values.Where(provider =>
             {
-                // Get assembly name for trust checking
+                // Get assembly name for trust and integrity checking
                 if (this._providerAssemblies.TryGetValue(provider.Name, out var assembly))
                 {
                     var asmName = assembly.GetName().Name;
 
+                    // Integrity-mode denial is live policy and applies to every
+                    // enumeration: includeUntrusted bypasses explicit consent only.
+                    if (this.IsDeniedByIntegrityMode(asmName, effectiveMode))
+                    {
+                        return false;
+                    }
+
                     // If provider is explicitly untrusted, exclude it
-                    if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
+                    if (!includeUntrusted &&
+                        settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) &&
+                        !isAllowed)
                     {
                         return false;
                     }
@@ -923,6 +926,47 @@ namespace SmartHopper.Infrastructure.AIProviders
         internal IReadOnlyList<ProviderIntegrityIssue>? LastIntegrityFindings => this._lastIntegrityFindings;
 
         /// <summary>
+        /// Evaluates whether a registered provider's discovery-time verification
+        /// outcome denies it under <paramref name="mode"/>. Enforcement mirrors the
+        /// per-call consent check: the mode is live policy, not only a load filter,
+        /// so raising it denies already-registered providers without a rescan.
+        /// </summary>
+        private bool IsDeniedByIntegrityMode(string asmName, ProviderIntegrityCheckMode mode)
+        {
+            return ProviderIntegrityPolicy.IsDenied(
+                mode,
+                mismatched: this._mismatchedProviders.ContainsKey(asmName),
+                hashUnavailable: this._unavailableProviders.ContainsKey(asmName),
+                manifestUnknown: this._unknownProviders.ContainsKey(asmName));
+        }
+
+        /// <summary>
+        /// Counts registered providers denied by the current effective integrity
+        /// mode. Lets error surfaces explain mode-change blocking even when the
+        /// last discovery pass itself recorded no blocking findings.
+        /// </summary>
+        internal int CountDeniedByIntegrityMode()
+        {
+            var mode = SmartHopperSettings.Instance.EffectiveProviderIntegrityCheckMode;
+            if (mode == ProviderIntegrityCheckMode.Soft)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            foreach (var provider in this._providers.Values)
+            {
+                if (this._providerAssemblies.TryGetValue(provider.Name, out var assembly) &&
+                    this.IsDeniedByIntegrityMode(assembly.GetName().Name, mode))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        /// <summary>
         /// Gets a provider by name.
         /// </summary>
         /// <param name="providerName">Name of the provider to get.</param>
@@ -952,8 +996,9 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                 if (string.IsNullOrEmpty(defaultProviderName))
                 {
-                    // No default set, return first available provider
-                    return this._providers.Values.FirstOrDefault();
+                    // No default set, return first provider usable under the
+                    // current consent and integrity-mode policy
+                    return this.GetProviders().FirstOrDefault();
                 }
 
                 providerName = defaultProviderName;
@@ -972,6 +1017,16 @@ namespace SmartHopper.Infrastructure.AIProviders
                     if (settings.TrustedProviders.TryGetValue(asmName, out var isAllowed) && !isAllowed)
                     {
                         Logger.For<ProviderManager>().Warning($"Provider '{provider.Name}' is no longer trusted, returning null.");
+                        return null;
+                    }
+
+                    // The verification outcome was recorded at discovery; enforce it
+                    // against the CURRENT mode so raising the mode mid-session
+                    // (e.g. Soft→Hard) denies already-registered providers
+                    // immediately instead of only at the next rescan.
+                    if (this.IsDeniedByIntegrityMode(asmName, settings.EffectiveProviderIntegrityCheckMode))
+                    {
+                        Logger.For<ProviderManager>().Warning($"Provider '{provider.Name}' is denied by the active integrity check mode, returning null.");
                         return null;
                     }
                 }
@@ -1143,13 +1198,14 @@ namespace SmartHopper.Infrastructure.AIProviders
         public string GetDefaultAIProvider()
         {
             var settings = SmartHopperSettings.Instance;
-            if (!string.IsNullOrWhiteSpace(settings.DefaultAIProvider) && this._providers.ContainsKey(settings.DefaultAIProvider))
+            var usable = this.GetProviders().ToList();
+            if (!string.IsNullOrWhiteSpace(settings.DefaultAIProvider) && usable.Any(p => p.Name == settings.DefaultAIProvider))
             {
                 return settings.DefaultAIProvider;
             }
 
-            // Fallback to first provider if default not set or invalid
-            return this._providers.Keys.FirstOrDefault() ?? string.Empty;
+            // Fallback to first usable provider if default not set or invalid
+            return usable.FirstOrDefault()?.Name ?? string.Empty;
         }
 
         /// <summary>
