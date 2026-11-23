@@ -836,7 +836,7 @@ namespace SmartHopper.Core.UI.Chat
                     this._dialog.ResponseReceived?.Invoke(this._dialog, lastReturn);
 
                     // Turn is complete and stable - exit processing state and ready for next user message
-                    this._dialog.ExecuteScript("setStatus('Ready'); setProcessing(false);");
+                    this._dialog.PushTurnSettledUiState("Ready");
                 });
             }
 
@@ -881,7 +881,7 @@ namespace SmartHopper.Core.UI.Chat
 
                         // After rendering the error, update status and stop processing (removes loader via JS helper)
                         var status = isCancel ? "Cancelled" : "Error";
-                        this._dialog.ExecuteScript($"setStatus('{status}'); setProcessing(false);");
+                        this._dialog.PushTurnSettledUiState(status);
                     }
                     catch (Exception uiEx)
                     {

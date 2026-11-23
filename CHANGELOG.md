@@ -39,6 +39,8 @@ Many thanks to the following contributors to this release:
 
 ### Fixed
 
+- Chat outgoing-message queue controls now work while a turn is processing: the queue row's "Send now" button promotes the message to the head and sends it immediately (interrupting the live turn, which resumes with it on settle), Enter on an empty composer sends the queue head, and Ctrl/Cmd+Enter with text jumps the queue and sends now via a `now=1` send event.
+- Chat processing UI state no longer collapses mid-turn: queue sends, autonomy-limit extension and turn-settled notifications previously raced a stale `setProcessing(false)` that flipped the composer back to Send and hid Stop while a turn was still live. Turn-end pushes are now drain-time-evaluated (`PushTurnSettledUiState`), emitting the current engaged/idle truth instead of the state captured when the event fired.
 - **File To Markdown** and **File To AI Input** no longer collapse every `file2md` tool failure into a generic "returned no result" warning — the tool's diagnostic messages (e.g. a file locked by another process) are surfaced on the component with their own severity, matching the AI File To Markdown behavior.
 - Batch progress label on AI components now reads `Batch N/M...` (parentheses removed).
 - Batch item errors whose `response.body` arrives as a JSON-encoded string (Mistral's error output, e.g. `{"object":"error","message":…}`) now surface the provider's actual error message instead of a bare `HTTP NNN`; non-JSON string bodies are surfaced as their raw text. Fixed in the shared `AIBatchResultParser` and in the MistralAI and OpenAI batch parsers.

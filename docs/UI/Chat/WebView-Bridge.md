@@ -35,12 +35,12 @@ The WebView ↔ Host Bridge is the communication backbone of SmartHopper's Chat 
 
 The WebView sends actions to the host by navigating to custom URL schemes (navigation is intercepted and canceled by the host):
 
-- `sh://event?type=send&text=...`
+- `sh://event?type=send&text=...` (`&now=1` jumps the queue and sends immediately)
 - `sh://event?type=attach`
 - `sh://event?type=detach&id=...`
 - `sh://event?type=clear`
 - `sh://event?type=cancel`
-- `sh://event?type=queue&action=remove|edit|submit-now&id=...` (`edit` also carries `&text=...`)
+- `sh://event?type=queue&action=remove|edit|submit-now&id=...` (`edit` also carries `&text=...`; `action=send-next` carries no `id` — fired by Enter on an empty composer)
 - `sh://event?type=consent&id=...&decision=approve|reject`
 - `sh://event?type=canvas_pointer&id=...`
 - `sh://event?type=ghjson_place&id=...`
@@ -67,15 +67,17 @@ The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
 ### Event types and lifecycle
 
 - **send**
-  - JS → host: `sh://event?type=send&text=...`
+  - JS → host: `sh://event?type=send&text=...` — plus `&now=1` when the composer shortcut (Ctrl/Cmd+Enter) requests a jump-the-queue send.
   - Host appends user bubble immediately, then schedules `ProcessAIInteraction()` on a background task.
   - Observer updates status/spinner and replaces the temporary loading bubble with streamed or final content.
   - While a turn owns the session (or another send is already staged), `SendMessage` enqueues the message into the per-chat FIFO (`_messageQueue`) instead — nothing is dropped. Queued entries keep any staged image attachments. When the turn settles, `ProcessAIInteraction`'s `finally` promotes the head via `TryPromoteQueuedMessage()`, which stages it through the exact same `_pendingUserMessage`/`_attachmentsForNextSend` one-shot path — an idle send is byte-identical to the pre-queue behavior.
+  - `now=1` sends insert at the queue head instead of the tail and then route through `PromoteQueueHeadNow()`: if a turn is in flight it is cancelled (`CancelChat`, same token as the Stop button) so its `finally` promotes the new head on settle; if idle, the head promotes immediately.
   - The queue panel mirrors host state via `setQueue(items)`; it renders queued user sends plus agent-injected entries (per-worker `send_to_subagent` pending instructions) merged by enqueue time. `meta.agent`/`meta.author` become a muted byline on the row.
 - **queue**
-  - JS → host: `sh://event?type=queue&action=remove|edit|submit-now&id=...` (`edit` carries `&text=...` too), emitted by the toolkit queue-panel row actions (`transport.removeQueued`/`editQueued`/`sendQueuedNow`).
-  - Host `HandleQueueAction` applies the action: `remove` drops the entry, `edit` replaces its text, `submit-now` moves it to the head of the queue so it submits next (and promotes immediately when no turn is running). Ids that do not match a queued user send are routed to `ISubagentHost.TryApplyPendingAction`, which mutates the matching worker's pending-instruction list (`Remove`/`Edit`/`Promote`).
+  - JS → host: `sh://event?type=queue&action=remove|edit|submit-now&id=...` (`edit` carries `&text=...` too), emitted by the toolkit queue-panel row actions (`transport.removeQueued`/`editQueued`/`sendQueuedNow`). Enter on an empty composer emits `action=send-next` (no `id`) — the bridge tracks the user-owned queue count in `_queuedUserCount` from each `setQueue` push.
+  - Host `HandleQueueAction` applies the action: `remove` drops the entry, `edit` replaces its text, `submit-now` moves it to the head and calls `PromoteQueueHeadNow()` so it sends now (interrupting a live turn), and `send-next` calls `PromoteQueueHeadNow()` for the current head when user-typed sends are queued. Ids that do not match a queued user send are routed to `ISubagentHost.TryApplyPendingAction`, which mutates the matching worker's pending-instruction list (`Remove`/`Edit`/`Promote`); `send-next` never promotes worker pending items.
   - The panel re-renders on every mutation (`PushQueueToView`) — host owns the queue; JS never mutates it locally.
+  - Turn-settled UI pushes (`OnFinal`/`OnError`, the turn `finally`, restored state) go through `PushTurnSettledUiState(status)`, which decides engaged-vs-idle at DOM-queue drain time — so a queued send promoted between the event and the drain keeps the `Queue`/`Stop` composer state instead of racing a stale `setProcessing(false)`.
 - **clear**
   - JS → host: `sh://event?type=clear`
   - Host cancels any run and clears transcript in place (`clearMessages()`), emits reset snapshot.
@@ -112,9 +114,13 @@ The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
 ### Testing checklist
 
 - Enter-to-send works; Shift+Enter inserts newline.
+- With a queued message and an empty composer, Enter sends the queue head now (`send-next`).
+- Ctrl/Cmd+Enter with text jumps the queue and sends now (`now=1`), even while other sends are queued.
+- The queue row's "Send now" button interrupts the live turn and sends that message next.
 - `send`, `clear`, `cancel` all execute when buttons are clicked or shortcuts are used.
 - Clipboard copy creates a toast and the data is in the OS clipboard.
 - While a run is in progress, spinner is visible and the composer stays editable (queue type-ahead): the send button relabels to "Queue" and sends enqueue into the panel instead of being rejected.
+- Queueing a send or extending autonomy limits while a run is in progress keeps the `Queue`/`Stop` composer state — the button does not flip back to Send mid-turn.
 - Streaming updates incrementally replace the loading bubble; fallback to non-streaming displays final answer.
 
 ---
