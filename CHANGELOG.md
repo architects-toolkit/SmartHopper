@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Many thanks to the following contributors to this release:
+
+- [marc-romu](https://github.com/marc-romu)
+
+----
+
 ### Added
 
 - **Batch model coverage** — `SupportsBatch`/`BatchPricing` now seeded from official provider batch rate tables across all batch-capable models: Anthropic (all 14 active models at the documented 50%-off token rates), OpenAI (25 models at Batch API rates), Gemini (12 models) and MistralAI (10 models — including `mistral-large-4-0` and its `mistral-large`/`mistral-large-latest`/`mistral-large-4`/`mistral-large-4.0` aliases plus the codestral/mistral embed endpoints). Every batch-capable seed declares its `<model>:batch` alias. Tool-invocation entries (e.g. `tool:web_search`) stay at full price where the discount covers token usage only.
