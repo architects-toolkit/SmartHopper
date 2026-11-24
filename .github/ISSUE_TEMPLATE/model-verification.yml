@@ -81,11 +81,11 @@ body:
         - Gemini / gemini-4-hydrogen
         - Gemini / gemini-4-carbon
         - Gemini / gemini-4-argon
+        - Gemini / gemini-4-neon
         - Gemini / gemini-nano-banana-2.1
         - Gemini / gemini-3.5-flash-lite
         - Gemini / gemini-3.7-flash
         - Gemini / gemini-3.6-flash
-        - Gemini / gemini-3.5-flash
         - Gemini / gemini-3.1-flash-lite-image
         - Gemini / gemini-3.1-flash-image
         - Gemini / gemini-3-pro-image
@@ -95,12 +95,13 @@ body:
         - Gemini / gemma-4-31b-it
         - Gemini / gemini-3.1-flash-lite
         - Gemini / gemini-3.1-flash-lite-preview
+        - Gemini / gemini-3.5-flash
         - Gemini / gemini-3.1-pro-preview-customtools
-        - Gemini / gemini-3.1-pro-preview
         - Gemini / gemini-3.1-flash-image-preview
         - Gemini / gemini-3-flash-preview
-        - Gemini / gemini-3-pro-image-preview
+        - Gemini / gemini-3.1-pro-preview
         - Gemini / gemini-2.5-flash-image
+        - Gemini / gemini-3-pro-image-preview
         - Gemini / gemini-2.5-flash
         - Gemini / gemini-2.5-pro-preview
         - Gemini / gemma-3-4b-it
@@ -117,7 +118,6 @@ body:
         - MistralAI / codestral-2508
         - MistralAI / codestral-embed-2505
         - MistralAI / deepseek-v4-1-flash-1017
-        - MistralAI / labs-leanstral-1-5-1
         - MistralAI / mistral-embed-2312
         - MistralAI / voxtral-mini-transcribe-3-0
         - MistralAI / voxtral-mini-tts-3-0
@@ -175,6 +175,7 @@ body:
         - OpenAI / gpt-image-2.6-flare
         - OpenAI / gpt-image-2.6-sunburst
         - OpenAI / gpt-live-1
+        - OpenAI / gpt-live-1.1
         - OpenAI / gpt-live-transcribe
         - OpenAI / gpt-transcribe
         - OpenAI / omni-moderation-2024-09-26
@@ -191,7 +192,6 @@ body:
         - OpenRouter / nvidia/switchyard
         - OpenRouter / inclusionai/ling-3.2-flash:free
         - OpenRouter / baidu/ernie-5.5-flash-preview:free
-        - OpenRouter / thinkingmachines/inkling-2-small:free
         - OpenRouter / liquid/lfm-3-1.7b:free
         - OpenRouter / particle-ai/particle-1:free
         - OpenRouter / recursive/flint-v1.0:free
@@ -201,28 +201,26 @@ body:
         - OpenRouter / ~z-ai/glm-flash-latest
         - OpenRouter / nex-agi/nex-n2.5-mini
         - OpenRouter / prism-ml/ternary-bonsai-2-9b
-        - OpenRouter / inclusionai/ling-3.1-flash
         - OpenRouter / tencent/hy4-flash
         - OpenRouter / inference-net/schematron-v2-turbo
         - OpenRouter / ibm-granite/granite-4.2-8b
-        - OpenRouter / tencent/hy-mt2-1.8b
+        - OpenRouter / inclusionai/ling-3.1-flash
         - OpenRouter / inclusionai/ling-3.0-flash-vl
+        - OpenRouter / deepseek/deepseek-v4.1-flash
         - OpenRouter / liquid/lfm-3-1.7b
         - OpenRouter / upstage/solar-mini4
         - OpenRouter / inference-net/schematron-v2-small
         - OpenRouter / nex-agi/nex-n2.5-pro
         - OpenRouter / xiaomi/mimo-v2.6-flash
-        - OpenRouter / tencent/hy-mt2-30b-a3b
-        - OpenRouter / tencent/hy-mt2-7b
+        - OpenRouter / thinkingmachines/inkling-2-mini
         - OpenRouter / ricursiveai/ripple-65b-preview
-        - OpenRouter / minimax/minimax-m3.1-flash
         - OpenRouter / nex-agi/nex-n2.6
+        - OpenRouter / nvidia/nemotron-3.5-super-vl
         - OpenRouter / qwen/qwen3.8-omni-flash
         - OpenRouter / qwen/qwen3.8-flash
         - OpenRouter / meta/muse-ember
         - OpenRouter / particle-ai/particle-1
         - OpenRouter / deepseek/deepseek-v4.1-flash-1017
-        - OpenRouter / nvidia/nemotron-3.5-super-vl
         - OpenRouter / anthropic/claude-haiku-5.5
         - OpenRouter / openai/gpt-6-luna-pro
         - OpenRouter / openai/gpt-6-luna
@@ -230,26 +228,24 @@ body:
         - OpenRouter / ~deepseek/deepseek-flash-latest
         - OpenRouter / ~openai/gpt-luna-latest
         - OpenRouter / z-ai/glm-5.3-flash
+        - OpenRouter / minimax/minimax-m3.1-flash
         - OpenRouter / liquid/lfm-2.5-24b-a2b
         - OpenRouter / kt/midm-k-3.0-pro
         - OpenRouter / xiaomi/mimo-v2.6-pro
         - OpenRouter / thinkingmachines/inkling-2-small
         - OpenRouter / reflection/beam-1.0-501b-a23b
         - OpenRouter / motif-technologies/motif-3
-        - OpenRouter / deepseek/deepseek-v4.1-flash
         - OpenRouter / z-ai/glm-5.3-flashx-legal
         - OpenRouter / z-ai/glm-5.3-flashx
         - OpenRouter / tencent/hy4
-        - OpenRouter / deepseek/deepseek-v4-flash-vision-exp
         - OpenRouter / aion-labs/aion-3.5-mini
-        - OpenRouter / ~z-ai/glm-latest
-        - OpenRouter / z-ai/glm-5.3
         - OpenRouter / perceptron/perceptron-mk1.5
         - OpenRouter / cohere/command-a-plus
+        - OpenRouter / radixark/daisyrose-27b
         - OpenRouter / mistralai/mistral-large-4-0
-        - OpenRouter / tencent/hy4-preview
         - OpenRouter / moondream/moondream3-preview
         - OpenRouter / moondream/moondream3.1-9b-a2b
+        - OpenRouter / tencent/hy4-preview
         - OpenRouter / stepfun/step-5-preview
         - OpenRouter / elorian/glimpse
         - OpenRouter / unbiased/pareto-26.10
@@ -263,6 +259,7 @@ body:
         - OpenRouter / ~openai/gpt-terra-latest
         - OpenRouter / google/gemini-3.8-flash
         - OpenRouter / z-ai/glm-5.3-prime
+        - OpenRouter / mistralai/pixtral-large-2502
         - OpenRouter / aion-labs/aion-3.5
         - OpenRouter / x-ai/grok-4.7
         - OpenRouter / sakana/fugu-max
@@ -288,6 +285,7 @@ body:
         - OpenRouter / fireworks/ember-1
         - OpenRouter / meta/muse-wonder
         - OpenRouter / anthropic/claude-opus-5.5
+        - OpenRouter / google/gemini-4-neon
         - OpenRouter / sakana/fugu-ultra-v2
         - OpenRouter / google/gemini-nano-banana-2.1
         - OpenRouter / openai/gpt-6.2-astra-pro
@@ -300,37 +298,40 @@ body:
         - OpenRouter / openrouter/auto-beta
         - OpenRouter / openrouter/fusion
         - OpenRouter / nvidia/nemotron-3.5-lightning:free
-        - OpenRouter / cohere/north-mini-code:free
         - OpenRouter / nvidia/nemotron-3-ultra-550b-a55b:free
         - OpenRouter / inclusionai/ling-3.0-tiny
         - OpenRouter / inclusionai/ling-3.0-flash
         - OpenRouter / qwen/qwen3.7-flash
-        - OpenRouter / deepseek/deepseek-v4-flash-0731
+        - OpenRouter / ~deepseek/deepseek-v4-flash-latest
+        - OpenRouter / tencent/hy-mt2-1.8b
         - OpenRouter / nvidia/nemotron-3.5-lightning
         - OpenRouter / nvidia/nemotron-3.5-content-safety
-        - OpenRouter / ~deepseek/deepseek-v4-flash-latest
+        - OpenRouter / tencent/hy-mt2-30b-a3b
+        - OpenRouter / tencent/hy-mt2-7b
+        - OpenRouter / deepseek/deepseek-v4-flash-0731
         - OpenRouter / tencent/hy3
         - OpenRouter / upstage/solar-pro4
+        - OpenRouter / deepseek/deepseek-v4-flash-vision-exp
+        - OpenRouter / minimax/minimax-m3
         - OpenRouter / stepfun/step-3.7-flash
         - OpenRouter / thinkingmachines/inkling-small
-        - OpenRouter / meituan/longcat-2.0
         - OpenRouter / openai/gpt-5.6-luna-pro
         - OpenRouter / openai/gpt-5.6-luna
-        - OpenRouter / minimax/minimax-m3
         - OpenRouter / qwen/qwen3.7-plus
+        - OpenRouter / ~z-ai/glm-latest
+        - OpenRouter / z-ai/glm-5.3
         - OpenRouter / aion-labs/aion-3.0-mini
-        - OpenRouter / meta/muse-glimmer-30b
         - OpenRouter / qwen/qwen3.8-27b
-        - OpenRouter / x-ai/grok-build-0.1
+        - OpenRouter / meta/muse-glimmer-30b
         - OpenRouter / nvidia/nemotron-3-ultra-550b-a55b
+        - OpenRouter / z-ai/glm-5.2
         - OpenRouter / bytedance-seed/seed-2-1-turbo
-        - OpenRouter / google/gemini-3.5-flash-lite
         - OpenRouter / moonshotai/kimi-k2.7-code
+        - OpenRouter / google/gemini-3.5-flash-lite
+        - OpenRouter / deepseek/deepseek-v4-pro-0813
         - OpenRouter / thinkingmachines/inkling
         - OpenRouter / meta/muse-spark-1.2
         - OpenRouter / meta/muse-spark-1.1
-        - OpenRouter / qwen/qwen3.7-max
-        - OpenRouter / deepseek/deepseek-v4-pro-0813
         - OpenRouter / google/gemini-3.7-flash
         - OpenRouter / google/gemini-3.6-flash
         - OpenRouter / qwen/qwen3.8-2.4t-a95b
@@ -338,11 +339,9 @@ body:
         - OpenRouter / x-ai/grok-4.5
         - OpenRouter / ~x-ai/grok-latest
         - OpenRouter / aion-labs/aion-3.0
-        - OpenRouter / z-ai/glm-5.2
         - OpenRouter / anthropic/claude-sonnet-5
         - OpenRouter / openai/gpt-5.6-terra-pro
         - OpenRouter / openai/gpt-5.6-terra
-        - OpenRouter / google/gemini-3.5-flash
         - OpenRouter / moonshotai/kimi-k3
         - OpenRouter / openai/gpt-5.6-sol-pro
         - OpenRouter / openai/gpt-5.6-sol
@@ -368,9 +367,7 @@ body:
         - OpenRouter / nvidia/nemotron-3-super-120b-a12b
         - OpenRouter / bytedance-seed/seed-2.0-mini
         - OpenRouter / ~anthropic/claude-haiku-latest
-        - OpenRouter / tencent/hy3-preview
         - OpenRouter / mistralai/mistral-small-2603
-        - OpenRouter / minimax/minimax-m2.7
         - OpenRouter / qwen/qwen3.6-35b-a3b
         - OpenRouter / qwen/qwen3.5-35b-a3b
         - OpenRouter / qwen/qwen3.6-flash
@@ -379,6 +376,7 @@ body:
         - OpenRouter / deepseek/deepseek-v4-pro
         - OpenRouter / aion-labs/aion-2.0
         - OpenRouter / qwen/qwen3.5-plus-20260420
+        - OpenRouter / minimax/minimax-m2.7
         - OpenRouter / qwen/qwen3.6-plus
         - OpenRouter / bytedance-seed/seed-2.0-lite
         - OpenRouter / qwen/qwen3.5-122b-a10b
@@ -391,16 +389,17 @@ body:
         - OpenRouter / qwen/qwen3.6-27b
         - OpenRouter / moonshotai/kimi-k2.6
         - OpenRouter / z-ai/glm-5-turbo
+        - OpenRouter / qwen/qwen3.7-max
         - OpenRouter / ~openai/gpt-mini-latest
         - OpenRouter / openai/gpt-5.4-mini
         - OpenRouter / ~anthropic/claude-sonnet-latest
         - OpenRouter / ~google/gemini-flash-latest
         - OpenRouter / ~moonshotai/kimi-latest
+        - OpenRouter / google/gemini-3.5-flash
         - OpenRouter / ~google/gemini-pro-latest
         - OpenRouter / openai/gpt-5.3-codex
         - OpenRouter / openai/gpt-5.4
         - OpenRouter / google/gemini-3.1-pro-preview-customtools
-        - OpenRouter / google/gemini-3.1-pro-preview
         - OpenRouter / ~anthropic/claude-opus-latest
         - OpenRouter / anthropic/claude-opus-4.7
         - OpenRouter / openai/gpt-chat-latest
@@ -432,15 +431,14 @@ body:
         - OpenRouter / openai/gpt-5.2-codex
         - OpenRouter / openai/gpt-5.2
         - OpenRouter / anthropic/claude-sonnet-4.6
+        - OpenRouter / google/gemini-3.1-pro-preview
         - OpenRouter / anthropic/claude-opus-4.6
         - OpenRouter / anthropic/claude-opus-4.5
         - OpenRouter / openai/gpt-audio
-        - OpenRouter / google/gemini-3-pro-image-preview
         - OpenRouter / openai/gpt-5.2-pro
         - OpenRouter / openai/gpt-oss-safeguard-20b
         - OpenRouter / thedrummer/cydonia-24b-v4.1
         - OpenRouter / qwen/qwen3-vl-30b-a3b-instruct
-        - OpenRouter / deepseek/deepseek-chat-v3.1
         - OpenRouter / qwen/qwen3-coder-flash
         - OpenRouter / qwen/qwen3-next-80b-a3b-instruct
         - OpenRouter / relace/relace-apply-3
@@ -455,21 +453,23 @@ body:
         - OpenRouter / perplexity/sonar-pro-search
         - OpenRouter / anthropic/claude-sonnet-4.5
         - OpenRouter / mistralai/voxtral-small-24b-2507
-        - OpenRouter / openai/gpt-oss-20b
+        - OpenRouter / google/gemini-3-pro-image-preview
         - OpenRouter / bytedance/ui-tars-1.5-7b
         - OpenRouter / mistralai/mistral-small-3.2-24b-instruct
+        - OpenRouter / qwen/qwen3-coder-30b-a3b-instruct
+        - OpenRouter / openai/gpt-oss-20b
         - OpenRouter / qwen/qwen3-30b-a3b-instruct-2507
         - OpenRouter / openai/gpt-oss-120b
-        - OpenRouter / qwen/qwen3-coder-30b-a3b-instruct
         - OpenRouter / qwen/qwen3-235b-a22b-2507
         - OpenRouter / z-ai/glm-4.5-air
         - OpenRouter / mistralai/codestral-2508
         - OpenRouter / cognitivecomputations/dolphin-mistral-24b-venice-edition
+        - OpenRouter / deepseek/deepseek-chat-v3.1
         - OpenRouter / qwen/qwen3-coder
         - OpenRouter / morph/morph-v3-fast
         - OpenRouter / morph/morph-v3-large
-        - OpenRouter / deepseek/deepseek-r1-0528
         - OpenRouter / mistralai/mistral-medium-3.1
+        - OpenRouter / deepseek/deepseek-r1-0528
         - OpenRouter / moonshotai/kimi-k2
         - OpenRouter / google/gemini-2.5-pro-preview
         - OpenRouter / anthropic/claude-opus-4.1
@@ -480,8 +480,8 @@ body:
         - OpenRouter / qwen/qwen3-14b
         - OpenRouter / qwen/qwen3-32b
         - OpenRouter / meta-llama/llama-4-scout
-        - OpenRouter / google/gemma-3-27b-it
         - OpenRouter / openai/gpt-4.1-nano
+        - OpenRouter / google/gemma-3-27b-it
         - OpenRouter / qwen/qwen3-30b-a3b
         - OpenRouter / mistralai/mistral-small-3.1-24b-instruct
         - OpenRouter / thedrummer/skyfall-36b-v2
@@ -507,16 +507,14 @@ body:
         - OpenRouter / deepseek/deepseek-chat
         - OpenRouter / aion-labs/aion-rp-llama-3.1-8b
         - OpenRouter / amazon/nova-pro-v1
-        - OpenRouter / mistralai/mistral-large-2407
-        - OpenRouter / openai/gpt-4o-2024-11-20
         - OpenRouter / mistralai/mistral-nemo
         - OpenRouter / meta-llama/llama-3.1-8b-instruct
         - OpenRouter / sao10k/l3-lunaris-8b
-        - OpenRouter / gryphe/mythomax-l2-13b
         - OpenRouter / thedrummer/unslopnemo-12b
         - OpenRouter / qwen/qwen-2.5-72b-instruct
         - OpenRouter / mancer/weaver
         - OpenRouter / undi95/remm-slerp-l2-13b
+        - OpenRouter / gryphe/mythomax-l2-13b
         - OpenRouter / cohere/command-r-08-2024
         - OpenRouter / openai/gpt-4o-mini
         - OpenRouter / openai/gpt-4o-mini-2024-07-18
@@ -527,8 +525,10 @@ body:
         - OpenRouter / openai/gpt-3.5-turbo-0613
         - OpenRouter / openai/gpt-3.5-turbo-16k
         - OpenRouter / anthracite-org/magnum-v4-72b
+        - OpenRouter / mistralai/mistral-large-2407
         - OpenRouter / mistralai/mixtral-8x22b-instruct
         - OpenRouter / mistralai/mistral-large
+        - OpenRouter / openai/gpt-4o-2024-11-20
         - OpenRouter / cohere/command-r-plus-08-2024
         - OpenRouter / openai/gpt-4o-2024-08-06
         - OpenRouter / openai/gpt-4o
