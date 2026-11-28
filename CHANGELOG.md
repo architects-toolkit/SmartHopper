@@ -90,6 +90,7 @@ Many thanks to the following contributors to this release:
 ### Security
 - security(ci): `model-verification.yml` no longer interpolates the issue-supplied provider/model into a `run:` block — the promote step now receives them via environment variables, the tally step only accepts `[A-Za-z0-9._:/~-]` characters for both values, and the workflow is split into a read-mostly `evaluate` job and a least-privilege `promote` job. This closes a script-injection path where a crafted model name could execute PowerShell with the write-scoped `GITHUB_TOKEN`.
 - `file2md`, `img2text` (local `imageUrl`), `gh_put` (`.ghjson` path arguments), `gh_batch_import_results`, `gh_document_save` (explicit target), `gh_document_open` (files not already open, gated as Execute since scripts may run) and `rhino_read_3dm` now require user approval before touching local files.
+- **Continue with ChatGPT** sign-in for the OpenAI provider through OpenAI's open-source token-sharing flow: provider settings expose a Connect button that runs a browser PKCE flow through a local loopback listener, validates OpenAI ID tokens, and stores the grant encrypted in the provider settings store. Either credential alone configures the provider; when both exist the ChatGPT token is used first on eligible `/responses` and `/models` calls with a single API-key fallback on HTTP 401/403. Backed by request-scoped credential selection in the Provider SDK and new status/link settings controls.
 
 ### Changed
 

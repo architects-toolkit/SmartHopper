@@ -923,9 +923,6 @@ namespace SmartHopper.Providers.OpenAI
                     requestBody["max_output_tokens"] = maxTokens;
                 }
             }
-            {
-                requestBody["max_output_tokens"] = maxTokens;
-            }
 
             // Reasoning configuration is only supported by o-series and GPT-5 models on the Responses API.
             // Sending "reasoning" to other models (e.g. gpt-4o-mini) produces an unsupported_parameter error.
@@ -944,7 +941,7 @@ namespace SmartHopper.Providers.OpenAI
             // Apply optional parameters from extras. The reasoning family rejects the
             // sampling parameters (temperature/top_p/penalties) with HTTP 400, so caller
             // extras are dropped for those models just like the main path omits them.
-            // (skipped on the ChatGPT sign-in route, which rejects these fields)
+            // The ChatGPT sign-in route also rejects these fields.
             if (p?.Extras != null && !useChatGptCredential)
             {
                 if (!isReasoningFamily && p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
